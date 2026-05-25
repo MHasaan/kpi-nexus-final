@@ -101,6 +101,26 @@ export class AuthService {
           },
         });
 
+        // Seed a default org-structure axis + type so the OrgUnitsModule
+        // can start creating units immediately. Admins can rename/extend
+        // these via the org-structure UI later.
+        const defaultDimension = await tx.orgUnitDimension.create({
+          data: {
+            organizationId: organization.id,
+            name: 'Departments',
+            isDefault: true,
+          },
+        });
+        await tx.orgUnitType.create({
+          data: {
+            organizationId: organization.id,
+            dimensionId: defaultDimension.id,
+            name: 'Department',
+            namePlural: 'Departments',
+            allowNesting: true,
+          },
+        });
+
         return { organization, adminUser, adminRole };
       });
 

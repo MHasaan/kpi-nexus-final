@@ -6,6 +6,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
+import { OrgUnitsModule } from './org-units/org-units.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PasswordModule } from './password/password.module.js';
 import { PositionsModule } from './positions/positions.module.js';
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module.js';
     AuthModule,
     MfaModule,
     OrganizationsModule,
+    OrgUnitsModule,
     PasswordModule,
     RolesModule,
     PositionsModule,

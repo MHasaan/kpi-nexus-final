@@ -5,7 +5,7 @@ python-dotenv==1.0.1
 httpx==0.28.1
 
 # ML stack (used in P5; pinned now so docker build doesn't surprise us later)
-numpy==1.26.4
+numpy==2.4.6
 pandas==2.2.3
 scikit-learn==1.5.2
 statsmodels==0.14.4

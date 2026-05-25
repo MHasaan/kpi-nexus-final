@@ -737,10 +737,12 @@ model KPI {
   createdById       String?
   createdBy         User?             @relation("KpiCreatedBy", fields: [createdById], references: [id])
 
-  versions           KPIVersion[]
-  orgUnitAssignments KPIAssignmentOrgUnit[]
-  userAssignments    KPIAssignmentUser[]
-  kpidataPoints      KPIDataPoint[]
+  versions             KPIVersion[]
+  orgUnitAssignments   KPIAssignmentOrgUnit[]
+  userAssignments      KPIAssignmentUser[]
+  dataPoints           KPIDataPoint[]
+  cascadeAsParentEdges KPICascade[]           @relation("CascadeParent")
+  cascadeAsChildEdges  KPICascade[]           @relation("CascadeChild")
 
   @@unique([organizationId, name])
   @@index([organizationId, status, deletedAt])
@@ -857,4 +859,49 @@ model KPIDataPoint {
   @@index([organizationId, kpiId, periodStart])
   @@index([organizationId, orgUnitId, periodStart])
   @@index([organizationId, userId, periodStart])
+}
+
+// ============================================================================
+// P2.4 — KPICascade (parent-child rollups)
+// ============================================================================
+
+enum RollupMethod {
+  SUM
+  AVG
+  WEIGHTED_AVG
+  MIN
+  MAX
+  CUSTOM_FORMULA
+}
+
+// Parent KPI rolled up from N children. Each row is one parent-child edge
+// with an optional `weight` (used by WEIGHTED_AVG).
+//
+// The cascade is unique per (parentKpiId, childKpiId) — a child can
+// contribute to multiple parents but each contribution is recorded once.
+// `level` is informational for diamond-shaped cascades (BFS depth from
+// the topmost root); it isn't enforced as a hierarchy constraint.
+//
+// `customFormula` is only used when method = CUSTOM_FORMULA. The formula
+// is evaluated by the P2.3 evaluator with child KPI names as identifiers
+// and their aggregated values as bindings.
+model KPICascade {
+  id              String       @id @default(cuid())
+  organizationId  String
+  parentKpiId     String
+  parentKpi       KPI          @relation("CascadeParent", fields: [parentKpiId], references: [id], onDelete: Cascade)
+  childKpiId      String
+  childKpi        KPI          @relation("CascadeChild", fields: [childKpiId], references: [id], onDelete: Cascade)
+  method          RollupMethod @default(SUM)
+  weight          Float        @default(1.0)
+  level           Int          @default(0)
+  customFormula   String?
+  // When the rollup last recomputed for this edge. Read-only audit metadata.
+  lastComputedAt  DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([parentKpiId, childKpiId])
+  @@index([organizationId])
+  @@index([childKpiId])
 }

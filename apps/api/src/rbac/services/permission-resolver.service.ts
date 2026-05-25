@@ -20,7 +20,8 @@ interface ResolvedPermissions {
  *   2. ResourcePermission       — resource-specific, checked via
  *                                 hasResourcePermission() not in this union
  *   3. Role direct permissions  ✓ implemented
- *   4. Inherited role           ⏳ TODO — needs RoleInheritance BFS
+ *   4. Inherited role           ✓ implemented (BFS up RoleInheritance edges,
+ *                                 cycle-safe; admin ancestor short-circuits)
  *   5. PermissionDelegation     ✓ implemented (explicit permissions only;
  *                                 "inherit ALL of grantor's" deferred)
  *   6. Owner-override           — resource-specific via @OwnerOverride decorator,
@@ -66,6 +67,41 @@ export class PermissionResolverService {
         isAdmin = role.isAdmin;
         for (const p of role.permissions as PermissionKey[]) {
           permissions.add(p);
+        }
+
+        // Step 4 — inherited role permissions via BFS up RoleInheritance.
+        // Cycle-safe via visited set; an admin ancestor flips isAdmin true
+        // and short-circuits the rest of the BFS.
+        if (!isAdmin) {
+          const visited = new Set<string>([roleId]);
+          const queue: string[] = [roleId];
+          bfs: while (queue.length > 0) {
+            const current = queue.shift();
+            if (!current) break;
+            const edges = await this.prisma.roleInheritance.findMany({
+              where: {
+                organizationId,
+                childRoleId: current,
+                inheritsPermissions: true,
+              },
+              select: {
+                parentRoleId: true,
+                parentRole: { select: { isAdmin: true, permissions: true } },
+              },
+            });
+            for (const edge of edges) {
+              if (visited.has(edge.parentRoleId)) continue;
+              visited.add(edge.parentRoleId);
+              if (edge.parentRole.isAdmin) {
+                isAdmin = true;
+                break bfs;
+              }
+              for (const p of edge.parentRole.permissions as PermissionKey[]) {
+                permissions.add(p);
+              }
+              queue.push(edge.parentRoleId);
+            }
+          }
         }
       }
     }

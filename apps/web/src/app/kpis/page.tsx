@@ -12,11 +12,15 @@ import {
   getAccessToken,
   listKpiDataPoints,
   listKpis,
+  listOrgUnits,
+  listUsers,
   recordOrgWideDataPoint,
   type DataPoint,
   type KpiScope,
   type KpiSummary,
   type KpiType,
+  type OrgUnitSummary,
+  type UserSummary,
 } from '../../lib/api-client';
 import {
   pluralize,
@@ -36,6 +40,8 @@ function KpisPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
   const [kpis, setKpis] = useState<KpiSummary[] | null>(null);
+  const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[] | null>(null);
+  const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Create-KPI form state
@@ -44,6 +50,8 @@ function KpisPageInner() {
   const [newType, setNewType] = useState<KpiType>('NUMBER');
   const [newUnit, setNewUnit] = useState('');
   const [newTarget, setNewTarget] = useState('');
+  const [newOrgUnitIds, setNewOrgUnitIds] = useState<string[]>([]);
+  const [newUserIds, setNewUserIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -73,7 +81,10 @@ function KpisPageInner() {
   async function refresh() {
     setLoadError(null);
     try {
-      setKpis(await listKpis());
+      const [k, u, units] = await Promise.all([listKpis(), listUsers(), listOrgUnits()]);
+      setKpis(k);
+      setUsers(u);
+      setOrgUnits(units);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -96,10 +107,14 @@ function KpisPageInner() {
         type: newType,
         unit: newUnit.trim() || undefined,
         targetValue: target,
+        orgUnitIds: newScope === 'PER_UNIT' ? newOrgUnitIds : undefined,
+        userIds: newScope === 'PER_USER' ? newUserIds : undefined,
       });
       setNewName('');
       setNewUnit('');
       setNewTarget('');
+      setNewOrgUnitIds([]);
+      setNewUserIds([]);
       await refresh();
     } catch (err) {
       setCreateError(
@@ -107,6 +122,18 @@ function KpisPageInner() {
       );
     } finally {
       setCreating(false);
+    }
+  }
+
+  function toggleSelection(
+    set: string[],
+    setter: (next: string[]) => void,
+    id: string,
+  ) {
+    if (set.includes(id)) {
+      setter(set.filter((x) => x !== id));
+    } else {
+      setter([...set, id]);
     }
   }
 
@@ -268,8 +295,9 @@ function KpisPageInner() {
             Create a {terminology.kpiLabel}
           </h2>
           <p className="mt-1 text-sm text-content-muted">
-            ORG_WIDE only here — PER_UNIT and PER_USER require assignment
-            management, which lands in P2.6.
+            ORG_WIDE: one value per period for the whole organization.
+            PER_UNIT: one value per selected {pluralize(terminology.groupLabel.toLowerCase())}.
+            PER_USER: each selected {terminology.memberLabel.toLowerCase()} tracks their own.
           </p>
           <form
             onSubmit={handleCreate}
@@ -297,7 +325,8 @@ function KpisPageInner() {
                 className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
               >
                 <option value="ORG_WIDE">ORG_WIDE</option>
-                {/* PER_UNIT/PER_USER need assignment management (P2.6) */}
+                <option value="PER_UNIT">PER_UNIT</option>
+                <option value="PER_USER">PER_USER</option>
               </select>
             </label>
             <label className="block">
@@ -351,6 +380,91 @@ function KpisPageInner() {
               {creating ? 'Creating…' : 'Create'}
             </button>
           </form>
+          {newScope === 'PER_UNIT' && (
+            <div className="mt-4" data-testid="kpi-orgunit-picker">
+              <span className="text-sm font-medium text-content-default">
+                Assigned {pluralize(terminology.groupLabel.toLowerCase())}
+              </span>
+              <p className="text-xs text-content-muted">
+                Each selected unit will track its own value for this KPI.
+              </p>
+              {orgUnits === null && (
+                <p className="mt-2 text-sm text-content-muted">Loading…</p>
+              )}
+              {orgUnits && orgUnits.length === 0 && (
+                <p
+                  className="mt-2 text-sm text-content-muted"
+                  data-testid="kpi-no-orgunits"
+                >
+                  Create at least one {terminology.groupLabel.toLowerCase()} on{' '}
+                  <Link href="/org-units" className="underline">
+                    /org-units
+                  </Link>{' '}
+                  first.
+                </p>
+              )}
+              {orgUnits && orgUnits.length > 0 && (
+                <ul className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                  {orgUnits.map((u) => (
+                    <li key={u.id}>
+                      <label className="flex items-center gap-2 rounded border border-border bg-surface-bg px-2 py-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newOrgUnitIds.includes(u.id)}
+                          onChange={() =>
+                            toggleSelection(newOrgUnitIds, setNewOrgUnitIds, u.id)
+                          }
+                          data-testid={`orgunit-checkbox-${u.name}`}
+                          disabled={creating}
+                          className="rounded border-border text-accent-primary focus:ring-accent-primary"
+                        />
+                        <span>{u.name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {newScope === 'PER_USER' && (
+            <div className="mt-4" data-testid="kpi-user-picker">
+              <span className="text-sm font-medium text-content-default">
+                Assigned {pluralize(terminology.memberLabel.toLowerCase())}
+              </span>
+              <p className="text-xs text-content-muted">
+                Each selected {terminology.memberLabel.toLowerCase()} will
+                record their own values via /user-kpis/my-kpis.
+              </p>
+              {users && users.length === 0 && (
+                <p className="mt-2 text-sm text-content-muted">
+                  No {pluralize(terminology.memberLabel.toLowerCase())} yet.
+                </p>
+              )}
+              {users && users.length > 0 && (
+                <ul className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                  {users.map((u) => (
+                    <li key={u.id}>
+                      <label className="flex items-center gap-2 rounded border border-border bg-surface-bg px-2 py-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newUserIds.includes(u.id)}
+                          onChange={() =>
+                            toggleSelection(newUserIds, setNewUserIds, u.id)
+                          }
+                          data-testid={`user-checkbox-${u.email}`}
+                          disabled={creating}
+                          className="rounded border-border text-accent-primary focus:ring-accent-primary"
+                        />
+                        <span>{u.email}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {createError && (
             <p
               role="alert"
@@ -401,6 +515,30 @@ function KpisPageInner() {
                       {kpi.targetValue !== null && (
                         <p className="mt-0.5 text-xs text-content-muted">
                           Target: {kpi.targetValue}
+                        </p>
+                      )}
+                      {kpi.scope === 'PER_UNIT' && kpi.orgUnitAssignments.length > 0 && (
+                        <p
+                          className="mt-0.5 text-xs text-content-muted"
+                          data-testid={`kpi-assignment-count-${kpi.name}`}
+                        >
+                          {kpi.orgUnitAssignments.length} unit
+                          {kpi.orgUnitAssignments.length === 1 ? '' : 's'} assigned
+                        </p>
+                      )}
+                      {kpi.scope === 'PER_USER' && kpi.userAssignments.length > 0 && (
+                        <p
+                          className="mt-0.5 text-xs text-content-muted"
+                          data-testid={`kpi-assignment-count-${kpi.name}`}
+                        >
+                          {kpi.userAssignments.length}{' '}
+                          {pluralize(terminology.memberLabel.toLowerCase()).slice(
+                            0,
+                            kpi.userAssignments.length === 1
+                              ? terminology.memberLabel.length
+                              : undefined,
+                          )}{' '}
+                          assigned
                         </p>
                       )}
                     </div>

@@ -139,4 +139,83 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     await page.goto('/kpis');
     await expect(page).toHaveURL(/\/login$/);
   });
+
+  test('PER_UNIT KPI: scope change reveals org-unit picker, selecting one creates an assigned KPI', async ({
+    page,
+  }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    const reg = await registerAndSeed(page, stamp);
+    // Need at least one org-unit. Create via the api so the page sees it
+    // when it loads.
+    const apiCtx = await request.newContext({ baseURL: API_URL });
+    const unitName = `Engineering ${stamp}`;
+    const unitRes = await apiCtx.post('/org-units', {
+      headers: { authorization: `Bearer ${reg.accessToken}` },
+      data: { name: unitName },
+    });
+    expect(unitRes.status()).toBe(201);
+
+    await page.goto('/kpis');
+    // PER_UNIT picker is hidden by default
+    await expect(page.getByTestId('kpi-orgunit-picker')).toHaveCount(0);
+
+    await page.getByTestId('kpi-scope-select').selectOption('PER_UNIT');
+    await expect(page.getByTestId('kpi-orgunit-picker')).toBeVisible();
+
+    const kpiName = `Velocity ${stamp}`;
+    await page.getByTestId('kpi-name-input').fill(kpiName);
+    await page.getByTestId(`orgunit-checkbox-${unitName}`).check();
+    await page.getByTestId('kpi-submit-button').click();
+
+    const row = page.getByTestId(`kpi-row-${kpiName}`);
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId('kpi-scope-badge')).toHaveText('PER_UNIT');
+    await expect(
+      page.getByTestId(`kpi-assignment-count-${kpiName}`),
+    ).toContainText('1 unit');
+  });
+
+  test('PER_USER KPI: scope change reveals user picker, selecting self creates an assigned KPI', async ({
+    page,
+  }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    const reg = await registerAndSeed(page, stamp);
+    const adminEmail = `admin-${stamp}@kpis.test.local`;
+
+    await page.goto('/kpis');
+    await expect(page.getByTestId('kpi-user-picker')).toHaveCount(0);
+
+    await page.getByTestId('kpi-scope-select').selectOption('PER_USER');
+    await expect(page.getByTestId('kpi-user-picker')).toBeVisible();
+
+    const kpiName = `Sales Calls ${stamp}`;
+    await page.getByTestId('kpi-name-input').fill(kpiName);
+    await page.getByTestId(`user-checkbox-${adminEmail}`).check();
+    await page.getByTestId('kpi-submit-button').click();
+
+    const row = page.getByTestId(`kpi-row-${kpiName}`);
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId('kpi-scope-badge')).toHaveText('PER_USER');
+    await expect(
+      page.getByTestId(`kpi-assignment-count-${kpiName}`),
+    ).toContainText('1');
+  });
+
+  test('PER_UNIT without any unit selected → api 400 surfaces inline', async ({
+    page,
+  }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+    const stamp = suffix();
+    await registerAndSeed(page, stamp);
+
+    await page.goto('/kpis');
+    await page.getByTestId('kpi-scope-select').selectOption('PER_UNIT');
+    await page.getByTestId('kpi-name-input').fill(`Bad ${stamp}`);
+    await page.getByTestId('kpi-submit-button').click();
+    await expect(page.getByTestId('kpi-error')).toBeVisible();
+  });
 });

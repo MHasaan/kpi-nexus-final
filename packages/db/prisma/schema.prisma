@@ -1,8 +1,13 @@
 // KPI Nexus database schema.
 //
-// P0: extensions only. Models land in P1+ as each module is implemented.
-// See docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md (§3, §6) for the
-// tenancy + scope model that informs every model added later.
+// P1: Identity + Tenancy + RBAC + Org Structure + Audit/Billing/Governance.
+// All P1 models below are landed as a single consolidated migration
+// (`p1_identity_tenancy_rbac`) — the spec's separate 001..004 migrations
+// are merged because this is the first schema migration and the prod
+// system has no users yet.
+//
+// See docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md (§3, §5)
+// and docs/superpowers/plans/P1-identity-tenancy-rbac.md.
 
 generator client {
   provider        = "prisma-client-js"
@@ -13,4 +18,592 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   extensions = [timescaledb, pgvector(map: "vector")]
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+  PURGED
+}
+
+enum OrgSizeTier {
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum DataResidency {
+  US
+  EU
+  APAC
+  OTHER
+}
+
+enum UserStatus {
+  INVITED
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+  DELETED
+  PURGED
+}
+
+enum LoginAttemptStatus {
+  SUCCESS
+  INVALID_CREDENTIALS
+  USER_NOT_FOUND
+  USER_INACTIVE
+  MFA_REQUIRED
+  MFA_FAILED
+}
+
+enum PositionTrack {
+  IC
+  MANAGEMENT
+  EXECUTIVE
+}
+
+enum ResourceSubjectType {
+  user
+  role
+}
+
+enum OrgUnitStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum OrgUnitMemberRole {
+  MEMBER
+  MANAGER
+  LEAD
+  DEPUTY
+}
+
+enum OrgUnitLeaveReason {
+  TRANSFERRED
+  PROMOTED
+  LEFT_ORG
+  STRUCTURE_CHANGE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  IMPORT
+  EXPORT
+  IMPERSONATE_START
+  IMPERSONATE_END
+  APPROVE
+  REJECT
+}
+
+// ============================================================================
+// Identity + Tenancy
+// ============================================================================
+
+model Organization {
+  id                  String        @id @default(cuid())
+  name                String
+  slug                String        @unique
+  tenantStatus        TenantStatus  @default(TRIAL)
+  sizeTier            OrgSizeTier?
+  industry            String?
+  type                String?
+  // Branding
+  logoUrl             String?
+  faviconUrl          String?
+  primaryColor        String?
+  secondaryColor      String?
+  // Locale + fiscal
+  timezone            String        @default("UTC")
+  currency            String        @default("USD")
+  locale              String        @default("en-US")
+  supportedTimezones  String[]
+  supportedCurrencies String[]
+  supportedLocales    String[]
+  dateFormat          String        @default("YYYY-MM-DD")
+  numberFormat        String        @default("en-US")
+  weekStartsOn        Int           @default(0)
+  fiscalCalendar      Json?
+  // Terminology — 8 customizable labels surfaced in UI
+  roleLabel           String        @default("Role")
+  groupLabel          String        @default("Team")
+  memberLabel         String        @default("Member")
+  kpiLabel            String        @default("KPI")
+  dashboardLabel      String        @default("Dashboard")
+  scorecardLabel      String        @default("Scorecard")
+  objectiveLabel      String        @default("Objective")
+  taskLabel           String        @default("Task")
+  // Compliance
+  dataResidency       DataResidency @default(US)
+  complianceProfile   String[]
+  // Per-org user custom field schema
+  userCustomFieldDefs Json?
+  // Per-org password policy override
+  passwordPolicy      Json?
+  // Billing
+  planKey             String        @default("ENTERPRISE")
+  planStartedAt       DateTime?
+  planExpiresAt       DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  users                 User[]
+  customDomains         CustomDomain[]
+  roleDefinitions       RoleDefinition[]
+  roleInheritances      RoleInheritance[]
+  positions             Position[]
+  permissionDelegations PermissionDelegation[]
+  resourcePermissions   ResourcePermission[]
+  orgUnitDimensions     OrgUnitDimension[]
+  orgUnitTypes          OrgUnitType[]
+  orgUnits              OrgUnit[]
+  orgUnitMembers        OrgUnitMember[]
+  auditLogs             AuditLog[]
+  tenantQuotas          TenantQuota[]
+  featureFlags          FeatureFlag[]
+  costMetrics           CostMetric[]
+  retentionPolicies     RetentionPolicy[]
+
+  @@index([tenantStatus])
+}
+
+model CustomDomain {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain            String       @unique
+  txtChallengeKey   String
+  txtChallengeValue String
+  verifiedAt        DateTime?
+  lastCheckedAt     DateTime?
+  lastCheckError    String?
+  createdAt         DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model User {
+  id                    String          @id @default(cuid())
+  organizationId        String
+  organization          Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email                 String
+  emailVerifiedAt       DateTime?
+  fullName              String
+  passwordHash          String?
+  status                UserStatus      @default(ACTIVE)
+  // Optional profile fields
+  avatarUrl             String?
+  phone                 String?
+  secondaryEmail        String?
+  language              String?
+  timezone              String?
+  customFields          Json?
+  // RBAC + org structure linkage
+  roleId                String?
+  role                  RoleDefinition? @relation(fields: [roleId], references: [id])
+  managerId             String?
+  manager               User?           @relation("UserManager", fields: [managerId], references: [id])
+  directReports         User[]          @relation("UserManager")
+  positionId            String?
+  position              Position?       @relation(fields: [positionId], references: [id])
+  // MFA
+  mfaEnabled            Boolean         @default(false)
+  mfaSecret             String?
+  mfaPendingSecret      String?
+  mfaRecoveryHashes     String[]
+  // Onboarding + preferences
+  onboardingCompletedAt DateTime?
+  notificationSettings  Json?
+  // Lifecycle
+  isActive              Boolean         @default(true)
+  invitedAt             DateTime?
+  invitedById           String?
+  invitedBy             User?           @relation("UserInvitedBy", fields: [invitedById], references: [id])
+  invitedUsers          User[]          @relation("UserInvitedBy")
+  archivedAt            DateTime?
+  archivedById          String?
+  archivedBy            User?           @relation("UserArchivedBy", fields: [archivedById], references: [id])
+  archivedUsers         User[]          @relation("UserArchivedBy")
+  purgedAt              DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  refreshTokens      RefreshToken[]
+  platformAdmin      PlatformAdmin?
+  orgUnitMemberships OrgUnitMember[]
+  headedOrgUnits     OrgUnit[]       @relation("OrgUnitHead")
+
+  @@unique([organizationId, email])
+  @@index([organizationId, status])
+  @@index([roleId])
+  @@index([managerId])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hashedToken  String    @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  hashedToken String    @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  hashedToken String    @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model LoginAttempt {
+  id             String             @id @default(cuid())
+  email          String
+  organizationId String?
+  userId         String?
+  status         LoginAttemptStatus
+  reason         String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime           @default(now())
+
+  @@index([email, createdAt])
+  @@index([organizationId, status, createdAt])
+}
+
+model PlatformAdmin {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grantedAt DateTime @default(now())
+  grantedBy String
+}
+
+// ============================================================================
+// RBAC
+// ============================================================================
+
+model RoleDefinition {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  // PermissionKey enum values from packages/contracts/src/permissions.ts
+  permissions      String[]
+  isAdmin          Boolean      @default(false)
+  level            Int          @default(0)
+  color            String?
+  canAccessModules String[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  users       User[]
+  parentEdges RoleInheritance[] @relation("RoleParentEdge")
+  childEdges  RoleInheritance[] @relation("RoleChildEdge")
+
+  @@unique([organizationId, name])
+}
+
+model RoleInheritance {
+  id                  String         @id @default(cuid())
+  organizationId      String
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parentRoleId        String
+  parentRole          RoleDefinition @relation("RoleParentEdge", fields: [parentRoleId], references: [id], onDelete: Cascade)
+  childRoleId         String
+  childRole           RoleDefinition @relation("RoleChildEdge", fields: [childRoleId], references: [id], onDelete: Cascade)
+  inheritsPermissions Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+
+  @@unique([parentRoleId, childRoleId])
+  @@index([childRoleId])
+  @@index([organizationId])
+}
+
+model Position {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  level          Int            @default(0)
+  track          PositionTrack?
+  payGrade       String?
+  description    String?
+  orgUnitId      String?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  users User[]
+
+  @@unique([organizationId, name])
+}
+
+model PermissionDelegation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  grantorUserId  String
+  granteeUserId  String
+  // empty array = inherit ALL of grantor's permissions during the window
+  permissions    String[]
+  reason         String?
+  validFrom      DateTime
+  validTo        DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([granteeUserId, validFrom, validTo])
+}
+
+model ResourcePermission {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subjectType    ResourceSubjectType
+  subjectId      String
+  action         String
+  resourceType   String
+  resourceId     String
+  grantedById    String
+  expiresAt      DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@unique([organizationId, subjectType, subjectId, action, resourceType, resourceId])
+  @@index([subjectType, subjectId])
+}
+
+// ============================================================================
+// Org Structure
+// ============================================================================
+
+model OrgUnitDimension {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  orgUnitTypes OrgUnitType[]
+
+  @@unique([organizationId, name])
+}
+
+model OrgUnitType {
+  id                   String            @id @default(cuid())
+  organizationId       String
+  organization         Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dimensionId          String?
+  dimension            OrgUnitDimension? @relation(fields: [dimensionId], references: [id])
+  name                 String
+  namePlural           String
+  icon                 String?
+  color                String?
+  allowNesting         Boolean           @default(true)
+  maxDepth             Int?
+  allowedParentTypeIds String[]
+  sortOrder            Int               @default(0)
+  createdAt            DateTime          @default(now())
+
+  orgUnits OrgUnit[]
+
+  @@unique([organizationId, name])
+}
+
+model OrgUnit {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orgUnitTypeId      String
+  orgUnitType        OrgUnitType   @relation(fields: [orgUnitTypeId], references: [id])
+  parentUnitId       String?
+  parentUnit         OrgUnit?      @relation("OrgUnitParent", fields: [parentUnitId], references: [id])
+  children           OrgUnit[]     @relation("OrgUnitParent")
+  name               String
+  code               String?
+  description        String?
+  headUserId         String?
+  headUser           User?         @relation("OrgUnitHead", fields: [headUserId], references: [id])
+  status             OrgUnitStatus @default(ACTIVE)
+  visibilityInherits Boolean       @default(true)
+  effectiveFrom      DateTime?
+  effectiveTo        DateTime?
+  metadata           Json?
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  members     OrgUnitMember[]
+  nameHistory OrgUnitNameHistory[]
+
+  @@index([organizationId, status])
+  @@index([parentUnitId])
+}
+
+model OrgUnitMember {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orgUnitId      String
+  orgUnit        OrgUnit             @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberRole     OrgUnitMemberRole   @default(MEMBER)
+  joinedAt       DateTime            @default(now())
+  leftAt         DateTime?
+  leaveReason    OrgUnitLeaveReason?
+
+  @@unique([orgUnitId, userId])
+  @@index([orgUnitId, leftAt])
+  @@index([userId])
+}
+
+model OrgUnitNameHistory {
+  id           String   @id @default(cuid())
+  orgUnitId    String
+  orgUnit      OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  previousName String
+  changedById  String
+  changedAt    DateTime @default(now())
+
+  @@index([orgUnitId, changedAt])
+}
+
+// ============================================================================
+// Audit + Billing + Governance
+// ============================================================================
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  // nullable for platform-admin cross-tenant ops
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  action         AuditAction
+  entityType     String?
+  entityId       String?
+  changes        Json?
+  userId         String?
+  userEmail      String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  redactedKeys   String[]
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  // FREE | PRO | ENTERPRISE
+  key             String   @unique
+  displayName     String
+  monthlyPriceUsd Float    @default(0)
+  annualPriceUsd  Float    @default(0)
+  features        String[]
+  quotas          Json
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+model TenantQuota {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  // 0 means unlimited
+  limit          Int
+  current        Int          @default(0)
+  periodStart    DateTime
+  periodEnd      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+}
+
+model FeatureFlag {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  enabled        Boolean      @default(false)
+  rolloutPercent Int?
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, key])
+}
+
+model CostMetric {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // UTC day start
+  day             DateTime
+  kpiCount        Int          @default(0)
+  dataPointsToday Int          @default(0)
+  alertsToday     Int          @default(0)
+  aiInputTokens   Int          @default(0)
+  aiOutputTokens  Int          @default(0)
+  aiCostUsd       Float        @default(0)
+  apiRequests     Int          @default(0)
+  storageBytes    BigInt       @default(0)
+  createdAt       DateTime     @default(now())
+
+  @@unique([organizationId, day])
+}
+
+model RetentionPolicy {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType     String
+  days           Int
+  isActive       Boolean      @default(true)
+  lastRunAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, entityType])
 }

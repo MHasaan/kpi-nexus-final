@@ -11,6 +11,7 @@ import {
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { ZodTypeAny, infer as ZInfer } from 'zod';
 
+import { OwnerOverride } from '../rbac/decorators/owner-override.decorator.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { InviteUserDtoSchema } from './dto/invite-user.dto.js';
 import { UsersService, type InviteResult, type PublicUser } from './users.service.js';
@@ -39,6 +40,7 @@ export class UsersController {
 
   @Get(':id')
   @RequirePermissions(PermissionKey.USERS_VIEW)
+  @OwnerOverride('id')
   getById(@Param('id') id: string): Promise<PublicUser> {
     return this.users.getById(id);
   }

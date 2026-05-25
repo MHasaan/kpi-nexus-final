@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 
+import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
+import { PositionsModule } from './positions/positions.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
 import { RolesModule } from './roles/roles.module.js';
@@ -35,8 +37,10 @@ import { UsersModule } from './users/users.module.js';
     PrismaModule,
     TenancyModule,
     RbacModule,
+    AuditModule,
     AuthModule,
     RolesModule,
+    PositionsModule,
     UsersModule,
     HealthModule,
   ],

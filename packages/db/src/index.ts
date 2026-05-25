@@ -58,3 +58,20 @@ if (process.env.NODE_ENV !== 'production') {
 
 export { PrismaClient } from '@prisma/client';
 export type { Prisma } from '@prisma/client';
+
+// Re-export the generated Prisma enums so consuming apps don't need a
+// direct `@prisma/client` dep (it's a transitive of this package). Add to
+// this list as new enums land in the schema.
+export {
+  TenantStatus,
+  OrgSizeTier,
+  DataResidency,
+  UserStatus,
+  LoginAttemptStatus,
+  PositionTrack,
+  ResourceSubjectType,
+  OrgUnitStatus,
+  OrgUnitMemberRole,
+  OrgUnitLeaveReason,
+  AuditAction,
+} from '@prisma/client';

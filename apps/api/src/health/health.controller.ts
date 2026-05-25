@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 
-import { type DbHealthService } from './db-health.service.js';
-import { type RedisHealthService } from './redis-health.service.js';
+import { Public } from '../rbac/decorators/public.decorator.js';
+import { DbHealthService } from './db-health.service.js';
+import { RedisHealthService } from './redis-health.service.js';
 
 export interface HealthResponse {
   db: 'ok' | 'down';
@@ -9,6 +10,7 @@ export interface HealthResponse {
 }
 
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(
     private readonly db: DbHealthService,

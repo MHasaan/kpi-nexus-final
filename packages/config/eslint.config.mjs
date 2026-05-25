@@ -23,10 +23,12 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      '@typescript-eslint/consistent-type-imports': [
-        'warn',
-        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
-      ],
+      // Disabled — autofix converts NestJS DI-injected classes to `type`
+      // imports, which strips the runtime reference NestJS needs for
+      // `design:paramtypes` metadata. The rule's benefit (slightly smaller
+      // emit) is not worth the DI footgun. Re-enable selectively per
+      // package if/when a static-only consumer wants it.
+      '@typescript-eslint/consistent-type-imports': 'off',
       'sort-imports': ['warn', { ignoreDeclarationSort: true }],
     },
   },

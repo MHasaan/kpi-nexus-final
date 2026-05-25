@@ -3,10 +3,12 @@ import {
   type ExecutionContext,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { PermissionKey } from '@kpi-nexus/contracts';
 
+import type { RequestContext } from '../../tenancy/request-context.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import {
   REQUIRE_ANY_PERMISSION_KEY,
@@ -40,7 +42,20 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const resolved = await this.resolver.resolveForCurrentPrincipal();
+    // NestJS guards run BEFORE interceptors, so we can't rely on
+    // RequestContextStore yet — read req.user directly (populated by
+    // JwtAuthGuard a step earlier in the chain).
+    const request = context.switchToHttp().getRequest<{ user?: RequestContext }>();
+    const principal = request.user;
+    if (!principal) {
+      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
+    }
+
+    const resolved = await this.resolver.resolveForUser(
+      principal.organizationId,
+      principal.userId,
+      principal.roleId,
+    );
     if (resolved.isAdmin) {
       return true;
     }

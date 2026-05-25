@@ -167,6 +167,69 @@ export async function deleteRole(id: string): Promise<void> {
   return api(`/roles/${id}`, { method: 'DELETE' });
 }
 
+// =============================================================================
+// Organizations + terminology
+// =============================================================================
+
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  slug: string;
+  industry: string | null;
+  timezone: string;
+  currency: string;
+  locale: string;
+  weekStartsOn: number;
+  // Terminology
+  roleLabel: string;
+  groupLabel: string;
+  memberLabel: string;
+  kpiLabel: string;
+  dashboardLabel: string;
+  scorecardLabel: string;
+  objectiveLabel: string;
+  taskLabel: string;
+}
+
+export interface Terminology {
+  roleLabel: string;
+  groupLabel: string;
+  memberLabel: string;
+  kpiLabel: string;
+  dashboardLabel: string;
+  scorecardLabel: string;
+  objectiveLabel: string;
+  taskLabel: string;
+}
+
+export const DEFAULT_TERMINOLOGY: Terminology = {
+  roleLabel: 'Role',
+  groupLabel: 'Team',
+  memberLabel: 'Member',
+  kpiLabel: 'KPI',
+  dashboardLabel: 'Dashboard',
+  scorecardLabel: 'Scorecard',
+  objectiveLabel: 'Objective',
+  taskLabel: 'Task',
+};
+
+export async function getMyOrganization(): Promise<OrganizationSettings> {
+  return api('/organizations/me');
+}
+
+export async function getTerminology(): Promise<Terminology> {
+  return api('/organizations/me/terminology');
+}
+
+export async function updateMyOrganization(
+  patch: Partial<OrganizationSettings>,
+): Promise<OrganizationSettings> {
+  return api('/organizations/me', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function logoutRequest(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (refreshToken) {

@@ -13,8 +13,22 @@ import {
   listRoles,
   type RoleSummary,
 } from '../../lib/api-client';
+import {
+  pluralize,
+  TerminologyProvider,
+  useTerminology,
+} from '../../lib/terminology-context';
 
 export default function RolesPage() {
+  return (
+    <TerminologyProvider>
+      <RolesPageInner />
+    </TerminologyProvider>
+  );
+}
+
+function RolesPageInner() {
+  const { terminology } = useTerminology();
   const router = useRouter();
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -101,8 +115,18 @@ export default function RolesPage() {
               <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
                 Dashboard
               </Link>
-              <Link href="/roles" className="font-medium text-accent-primary">
-                Roles
+              <Link
+                href="/roles"
+                className="font-medium text-accent-primary"
+                data-testid="nav-roles"
+              >
+                {pluralize(terminology.roleLabel)}
+              </Link>
+              <Link
+                href="/settings/organization"
+                className="text-content-muted hover:text-content-strong"
+              >
+                Settings
               </Link>
             </nav>
           </div>
@@ -111,10 +135,16 @@ export default function RolesPage() {
 
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-content-strong">Roles</h1>
+          <h1
+            className="text-2xl font-semibold text-content-strong"
+            data-testid="roles-heading"
+          >
+            {pluralize(terminology.roleLabel)}
+          </h1>
           <p className="mt-1 text-sm text-content-muted">
             Manage who can do what. Admin bypasses all permission checks; other
-            roles get exactly the permissions listed.
+            {' '}{pluralize(terminology.roleLabel.toLowerCase())} get exactly the
+            permissions listed.
           </p>
         </div>
 

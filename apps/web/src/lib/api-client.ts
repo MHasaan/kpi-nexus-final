@@ -315,6 +315,71 @@ export async function deletePosition(id: string): Promise<void> {
 }
 
 // =============================================================================
+// Org units
+// =============================================================================
+
+export type OrgUnitStatus = 'PLANNED' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+export type OrgUnitMemberRole = 'MEMBER' | 'MANAGER' | 'LEAD' | 'DEPUTY';
+
+export interface OrgUnitSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  orgUnitTypeId: string;
+  parentUnitId: string | null;
+  headUserId: string | null;
+  status: OrgUnitStatus;
+  visibilityInherits: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrgUnitMember {
+  id: string;
+  orgUnitId: string;
+  userId: string;
+  memberRole: OrgUnitMemberRole;
+  joinedAt: string;
+  leftAt: string | null;
+}
+
+export async function listOrgUnits(): Promise<OrgUnitSummary[]> {
+  return api('/org-units');
+}
+
+export async function createOrgUnit(body: {
+  name: string;
+  parentUnitId?: string;
+  description?: string;
+}): Promise<OrgUnitSummary> {
+  return api('/org-units', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteOrgUnit(id: string): Promise<void> {
+  return api(`/org-units/${id}`, { method: 'DELETE' });
+}
+
+export async function listOrgUnitMembers(unitId: string): Promise<OrgUnitMember[]> {
+  return api(`/org-units/${unitId}/members`);
+}
+
+export async function addOrgUnitMember(
+  unitId: string,
+  body: { userId: string; memberRole?: OrgUnitMemberRole },
+): Promise<OrgUnitMember> {
+  return api(`/org-units/${unitId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function removeOrgUnitMember(unitId: string, userId: string): Promise<void> {
+  return api(`/org-units/${unitId}/members/${userId}`, { method: 'DELETE' });
+}
+
+// =============================================================================
 // MFA
 // =============================================================================
 

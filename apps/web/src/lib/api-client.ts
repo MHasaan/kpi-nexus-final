@@ -535,6 +535,28 @@ export async function listKpiDataPoints(kpiId: string): Promise<DataPoint[]> {
   return api(`/kpis/${kpiId}/data`);
 }
 
+export interface DashboardSummaryRow {
+  kpiId: string;
+  name: string;
+  scope: KpiScope;
+  unit: string | null;
+  targetValue: number | null;
+  latestValue: number | null;
+  latestRecordedAt: string | null;
+  aggregatedValue: number | null;
+  pointCount: number;
+}
+
+export async function getDashboardSummary(
+  opts: { from?: string; to?: string } = {},
+): Promise<DashboardSummaryRow[]> {
+  const search = new URLSearchParams();
+  if (opts.from) search.set('from', opts.from);
+  if (opts.to) search.set('to', opts.to);
+  const qs = search.toString();
+  return api(`/kpis/dashboard-summary${qs ? `?${qs}` : ''}`);
+}
+
 // =============================================================================
 // Audit log
 // =============================================================================

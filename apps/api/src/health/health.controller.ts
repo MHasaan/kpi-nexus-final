@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 
-import { DbHealthService } from './db-health.service.js';
-import { RedisHealthService } from './redis-health.service.js';
+import { type DbHealthService } from './db-health.service.js';
+import { type RedisHealthService } from './redis-health.service.js';
 
 export interface HealthResponse {
   db: 'ok' | 'down';

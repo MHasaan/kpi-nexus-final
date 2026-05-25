@@ -313,6 +313,54 @@ export async function deletePosition(id: string): Promise<void> {
 }
 
 // =============================================================================
+// Audit log
+// =============================================================================
+
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'IMPERSONATE'
+  | 'EXPORT'
+  | 'INVITE'
+  | 'PERMISSION_CHANGE'
+  | 'CONFIG_CHANGE'
+  | 'BILLING_EVENT'
+  | 'SYSTEM_EVENT';
+
+export interface AuditEntry {
+  id: string;
+  action: AuditAction;
+  entityType: string | null;
+  entityId: string | null;
+  changes: unknown;
+  userId: string | null;
+  userEmail: string | null;
+  metadata: unknown;
+  redactedKeys: string[];
+  createdAt: string;
+}
+
+export interface AuditListParams {
+  entityType?: string;
+  entityId?: string;
+  userId?: string;
+  action?: AuditAction;
+  limit?: number;
+}
+
+export async function listAudit(params: AuditListParams = {}): Promise<AuditEntry[]> {
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') search.set(k, String(v));
+  }
+  const qs = search.toString();
+  return api(`/audit${qs ? `?${qs}` : ''}`);
+}
+
+// =============================================================================
 // Session
 // =============================================================================
 

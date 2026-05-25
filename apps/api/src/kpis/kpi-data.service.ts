@@ -48,6 +48,37 @@ export type PublicDataPoint = Prisma.KPIDataPointGetPayload<{
  * for surfacing the original-app bug class where users could record into
  * mismatched scopes.
  */
+/** Aggregate a list of data-point values using the KPI's aggregation method. */
+function aggregate(values: number[], method: string): number | null {
+  if (values.length === 0) return null;
+  switch (method) {
+    case 'SUM':
+    case 'COUNT':
+    case 'COUNT_DISTINCT':
+      return values.reduce((a, b) => a + b, 0);
+    case 'AVG':
+    case 'MEDIAN':
+      if (method === 'MEDIAN') {
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0
+          ? (sorted[mid - 1]! + sorted[mid]!) / 2
+          : sorted[mid]!;
+      }
+      return values.reduce((a, b) => a + b, 0) / values.length;
+    case 'MIN':
+      return Math.min(...values);
+    case 'MAX':
+      return Math.max(...values);
+    case 'LAST':
+      return values[0] ?? null; // values arrive sorted by recordedAt DESC
+    case 'FIRST':
+      return values[values.length - 1] ?? null;
+    default:
+      return values[0] ?? null;
+  }
+}
+
 @Injectable()
 export class KpiDataService {
   constructor(
@@ -176,6 +207,146 @@ export class KpiDataService {
       recordedById: ctx.userId,
       dto,
     });
+  }
+
+  /**
+   * GET /kpis/dashboard-summary — one row per visible KPI with the most-recent
+   * value in the window and an aggregated value over the window (using the
+   * KPI's own aggregationMethod). Designed for the P3 dashboard.
+   *
+   * One query per KPI to pull data points. For large KPI counts this is
+   * acceptable in dev (single-digit ms each on the hypertable). When the
+   * dashboard moves to streamed widgets in P3 we'll switch to a single
+   * grouped aggregate query.
+   */
+  async dashboardSummary(opts: { from?: Date; to?: Date } = {}): Promise<
+    Array<{
+      kpiId: string;
+      name: string;
+      scope: 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
+      unit: string | null;
+      targetValue: number | null;
+      latestValue: number | null;
+      latestRecordedAt: Date | null;
+      aggregatedValue: number | null;
+      pointCount: number;
+    }>
+  > {
+    const ctx = RequestContextStore.require();
+    const visibility = await this.buildVisibilityContext();
+    const visibleKpis = await this.prisma.kPI.findMany({
+      where: { organizationId: ctx.organizationId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        scope: true,
+        unit: true,
+        targetValue: true,
+        aggregationMethod: true,
+      },
+    });
+
+    // Apply the same visibility logic the list endpoint uses
+    const filtered = await this.filterByVisibility(visibleKpis, visibility);
+
+    // For each visible KPI, pull data points in the window (or last 1000
+    // if no window given) and compute latest + aggregated.
+    const result = await Promise.all(
+      filtered.map(async (kpi) => {
+        const where: Prisma.KPIDataPointWhereInput = {
+          organizationId: ctx.organizationId,
+          kpiId: kpi.id,
+        };
+        if (opts.from) where.periodStart = { gte: opts.from };
+        if (opts.to) where.periodEnd = { lte: opts.to };
+        // Apply scope-specific visibility on data points themselves
+        if (!visibility.isAdmin) {
+          if (kpi.scope === 'PER_USER') {
+            where.userId = {
+              in: [visibility.userId, ...visibility.directReportIds],
+            };
+          } else if (kpi.scope === 'PER_UNIT') {
+            const units = [
+              ...visibility.managedOrgUnitIds,
+              ...visibility.memberOrgUnitIds,
+            ];
+            where.orgUnitId = units.length > 0 ? { in: units } : { in: [] };
+          }
+        }
+
+        const points = await this.prisma.kPIDataPoint.findMany({
+          where,
+          select: { value: true, recordedAt: true, periodStart: true },
+          orderBy: [{ recordedAt: 'desc' }],
+          take: 1000,
+        });
+        return {
+          kpiId: kpi.id,
+          name: kpi.name,
+          scope: kpi.scope,
+          unit: kpi.unit,
+          targetValue: kpi.targetValue,
+          latestValue: points[0]?.value ?? null,
+          latestRecordedAt: points[0]?.recordedAt ?? null,
+          aggregatedValue: aggregate(points.map((p) => p.value), kpi.aggregationMethod),
+          pointCount: points.length,
+        };
+      }),
+    );
+    return result;
+  }
+
+  private async filterByVisibility<
+    T extends { id: string; scope: 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER' },
+  >(
+    kpis: T[],
+    visibility: Awaited<ReturnType<KpiDataService['buildVisibilityContext']>>,
+  ): Promise<T[]> {
+    if (visibility.isAdmin) return kpis;
+
+    // For PER_UNIT/PER_USER, check that the KPI has at least one assignment
+    // within the user's allowed scope. ORG_WIDE is always visible.
+    const candidatePerUnit = kpis.filter((k) => k.scope === 'PER_UNIT').map((k) => k.id);
+    const candidatePerUser = kpis.filter((k) => k.scope === 'PER_USER').map((k) => k.id);
+
+    const allowedUnits = new Set([
+      ...visibility.managedOrgUnitIds,
+      ...visibility.memberOrgUnitIds,
+    ]);
+    const allowedUsers = new Set([
+      visibility.userId,
+      ...visibility.directReportIds,
+    ]);
+
+    const perUnitVisible = new Set<string>();
+    if (candidatePerUnit.length > 0 && allowedUnits.size > 0) {
+      const rows = await this.prisma.kPIAssignmentOrgUnit.findMany({
+        where: {
+          kpiId: { in: candidatePerUnit },
+          orgUnitId: { in: Array.from(allowedUnits) },
+        },
+        select: { kpiId: true },
+      });
+      for (const r of rows) perUnitVisible.add(r.kpiId);
+    }
+    const perUserVisible = new Set<string>();
+    if (candidatePerUser.length > 0) {
+      const rows = await this.prisma.kPIAssignmentUser.findMany({
+        where: {
+          kpiId: { in: candidatePerUser },
+          userId: { in: Array.from(allowedUsers) },
+        },
+        select: { kpiId: true },
+      });
+      for (const r of rows) perUserVisible.add(r.kpiId);
+    }
+
+    return kpis.filter(
+      (k) =>
+        k.scope === 'ORG_WIDE' ||
+        (k.scope === 'PER_UNIT' && perUnitVisible.has(k.id)) ||
+        (k.scope === 'PER_USER' && perUserVisible.has(k.id)),
+    );
   }
 
   /** GET /kpis/:id/data — visibility-filtered. */

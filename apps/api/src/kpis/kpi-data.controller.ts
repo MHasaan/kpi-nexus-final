@@ -93,4 +93,17 @@ export class KpiDataController {
       limit: limit ? Number.parseInt(limit, 10) : undefined,
     });
   }
+
+  /**
+   * GET /kpis/dashboard-summary — one row per visible KPI with the latest
+   * value + aggregated value over the window. Visibility-filtered.
+   */
+  @Get('kpis/dashboard-summary')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  dashboardSummary(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.data.dashboardSummary({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
+  }
 }

@@ -111,3 +111,40 @@ CREATE POLICY tenant_isolation ON "AuditLog"
     "organizationId" = current_setting('app.current_org', true)
     OR "organizationId" IS NULL
   );
+
+-- ============================================================================
+-- Non-owner application role (kpi_app)
+-- ----------------------------------------------------------------------------
+-- The Postgres role that OWNS the tables (kpi_nexus, created by docker-compose)
+-- bypasses RLS by default — `ENABLE ROW LEVEL SECURITY` only applies to
+-- non-owner sessions. To make RLS enforce against real application traffic we
+-- need a second role that the API connects as in production.
+--
+-- For P1 this role is provisioned and proven correct via the
+-- rls-enforcement.spec.ts integration test (connects as kpi_app, asserts that
+-- queries without `app.current_org` return 0 rows). The runtime API still
+-- connects as kpi_nexus owner today; switching it (DATABASE_URL → kpi_app +
+-- Prisma $extends GUC setter) is a follow-up commit that doesn't affect the
+-- correctness of the policies themselves.
+-- ============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'kpi_app') THEN
+    -- Password is dev-only — production uses a secret-managed credential
+    -- and overrides via the APP_DATABASE_URL env var.
+    CREATE ROLE kpi_app LOGIN PASSWORD 'app_password';
+  END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA public TO kpi_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO kpi_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO kpi_app;
+
+-- Future tables (created by subsequent prisma migrations as the owner) inherit
+-- the same grants automatically.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kpi_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO kpi_app;

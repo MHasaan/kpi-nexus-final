@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
+import { RolesModule } from './roles/roles.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module.js';
     TenancyModule,
     RbacModule,
     AuthModule,
+    RolesModule,
     UsersModule,
     HealthModule,
   ],

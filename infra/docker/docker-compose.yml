@@ -1,0 +1,70 @@
+name: kpi-nexus
+
+services:
+  postgres:
+    image: timescale/timescaledb-ha:pg16-all
+    container_name: kpi-nexus-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kpi_nexus
+      POSTGRES_USER: kpi_nexus
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kpi_nexus -d kpi_nexus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: kpi-nexus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: kpi-nexus-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: kpi-nexus-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: kpi-nexus-jaeger
+    ports:
+      - "16686:16686"  # Web UI
+      - "4318:4318"    # OTLP HTTP
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:

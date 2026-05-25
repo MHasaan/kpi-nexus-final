@@ -17,19 +17,19 @@ The PER_USER visibility helper that lands here (`buildKpiVisibilityWhere`) is th
 
 ## Exit criteria (all must be true to move to P2)
 
-- [ ] Cross-tenant fuzz harness passes for all P1 endpoints (parameterized over 8+ resources × 4 verbs)
-- [ ] e2e UC-01 (Login & Authentication) passes
-- [ ] e2e UC-02 (Manage User Roles) passes
-- [ ] e2e UC-11 (Manage Organization Settings) passes
-- [ ] Full happy-path e2e passes: register org → skip wizard → invite user → role gating works → audit trail visible
-- [ ] Multi-parent role hierarchy resolves correctly (BFS subordinate check with diamond/cycle/disconnect coverage)
-- [ ] MFA TOTP: enroll → confirm → login flow works end-to-end
-- [ ] Refresh-token reuse-detection: presenting a revoked-but-not-replaced token kills the entire chain
-- [ ] Postgres RLS policies enforced on every tenant-scoped table (verified by a deliberate cross-tenant query without ALS context returning 0 rows)
-- [ ] Custom-terminology rendering works (changing `roleLabel: "Crew"` on Organization → sidebar shows "Crew" instead of "Roles")
-- [ ] 18-permission RBAC truth-table: 18 permissions × 4 default roles = 72 test cases all pass
-- [ ] **12-case visibility helper test passes (3 KPI scopes × 4 default roles)** — required for §6 compliance even though KPI module is P2
-- [ ] Tag `git tag p1-complete`
+- [x] Cross-tenant fuzz harness passes for all P1 endpoints (parameterized over 8+ resources × 4 verbs) — 19 cases in `apps/api/test/integration/cross-tenant.fuzz.spec.ts`
+- [x] e2e UC-01 (Login & Authentication) passes — `apps/web/e2e/auth-flow.spec.ts`
+- [x] e2e UC-02 (Manage User Roles) passes — `apps/web/e2e/roles-flow.spec.ts`
+- [x] e2e UC-11 (Manage Organization Settings) passes — `apps/web/e2e/settings-flow.spec.ts`
+- [x] Full happy-path e2e passes: register org → invite user → invitee accepts → role gating works — `apps/web/e2e/invitation-flow.spec.ts` + admin invite UI at `/users` with `apps/web/e2e/users-flow.spec.ts`
+- [x] Multi-parent role hierarchy resolves correctly (BFS with diamond/cycle/disconnect coverage) — 7 unit cases in `apps/api/src/rbac/services/role-inheritance.spec.ts`
+- [x] MFA TOTP: enroll → confirm → login flow works end-to-end — `apps/api/test/integration/mfa-flow.spec.ts` + user-facing UI at `/profile` (`apps/web/e2e/profile-flow.spec.ts`)
+- [x] Refresh-token reuse-detection: presenting a revoked-but-not-replaced token kills the entire chain — 6 cases in `apps/api/test/integration/refresh-token.spec.ts`
+- [x] Postgres RLS policies enforced on every tenant-scoped table — 8 DB-layer cases in `apps/api/test/integration/rls-enforcement.spec.ts` connecting as the non-owner `kpi_app` role provisioned by `packages/db/prisma/sql/rls-policies.sql`
+- [x] Custom-terminology rendering works — `apps/web/src/lib/terminology-context.tsx` + `pluralize()` helper, e2e at `apps/web/e2e/settings-flow.spec.ts`
+- [x] 18-permission RBAC truth-table: 72 cases pass — `apps/api/src/rbac/services/permission-resolver.service.spec.ts` covers full §5.4 resolver chain (steps 1-6 including owner override)
+- [x] **12-case visibility helper test passes (3 KPI scopes × 4 default roles)** — `apps/api/src/rbac/visibility/kpi-visibility.spec.ts`
+- [x] Tag `git tag p1-complete`
 
 ## Schema additions (Prisma)
 

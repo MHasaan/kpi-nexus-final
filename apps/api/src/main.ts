@@ -19,6 +19,19 @@ async function bootstrap(): Promise<void> {
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
 
+  // CORS — allow the web dev server (3000) and any configured origin. In
+  // prod a single allowed origin (custom domain) is set via env.
+  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['authorization', 'content-type'],
+  });
+
   const port = Number(process.env.PORT ?? 4000);
   await app.listen(port, '0.0.0.0');
 

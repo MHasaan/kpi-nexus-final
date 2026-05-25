@@ -91,6 +91,8 @@ export class AuthController {
       fullName: string;
       organizationId: string;
       roleId: string | null;
+      mfaEnabled: boolean;
+      status: string;
     };
   }> {
     const ctx = RequestContextStore.require();
@@ -102,6 +104,8 @@ export class AuthController {
         fullName: true,
         organizationId: true,
         roleId: true,
+        mfaEnabled: true,
+        status: true,
       },
     });
     return { user };

@@ -87,6 +87,8 @@ export interface AuthUser {
   fullName: string;
   organizationId: string;
   roleId: string | null;
+  mfaEnabled?: boolean;
+  status?: string;
 }
 
 export interface AuthOrganization {
@@ -310,6 +312,37 @@ export async function createPosition(body: {
 
 export async function deletePosition(id: string): Promise<void> {
   return api(`/positions/${id}`, { method: 'DELETE' });
+}
+
+// =============================================================================
+// MFA
+// =============================================================================
+
+export interface MfaEnrollResult {
+  secret: string;
+  otpauthUrl: string;
+  recoveryCodes: string[];
+}
+
+export async function enrollMfa(): Promise<MfaEnrollResult> {
+  return api('/mfa/enroll', { method: 'POST', body: JSON.stringify({}) });
+}
+
+export async function confirmMfa(body: {
+  code: string;
+  recoveryCodes: string[];
+}): Promise<void> {
+  return api('/mfa/confirm', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function disableMfa(body: { code: string }): Promise<void> {
+  return api('/mfa/disable', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function whoAmI(): Promise<{
+  user: AuthUser & { mfaEnabled: boolean; status: string };
+}> {
+  return api('/auth/me');
 }
 
 // =============================================================================

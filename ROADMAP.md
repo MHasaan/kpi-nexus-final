@@ -10,7 +10,7 @@ Master index for the 10-phase delivery plan. Each phase is shippable on its own.
 
 | Phase | Goal | Effort | Status | Plan |
 |---|---|---|---|---|
-| P0 | Foundation — repo scaffold + CI + docker-compose + empty apps boot | 2 wk | ⬜ | [P0-foundation.md](./docs/superpowers/plans/P0-foundation.md) |
+| P0 | Foundation — repo scaffold + CI + docker-compose + empty apps boot | 2 wk | ✅ | [P0-foundation.md](./docs/superpowers/plans/P0-foundation.md) |
 | P1 | Identity + Tenancy + 18-permission RBAC + basic onboarding stub | 4 wk | ⬜ | [P1-identity-tenancy-rbac.md](./docs/superpowers/plans/P1-identity-tenancy-rbac.md) |
 | P2 | KPI engine + formulas + cascades + targets + thresholds + TimescaleDB | 5 wk | ⬜ | [P2-kpi-engine.md](./docs/superpowers/plans/P2-kpi-engine.md) |
 | P3 | Visualization + reporting + SSE real-time + public share + embeds | 4 wk | ⬜ | [P3-visualization.md](./docs/superpowers/plans/P3-visualization.md) |

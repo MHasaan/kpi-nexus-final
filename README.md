@@ -6,7 +6,7 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 
 - **6 capability domains**: Tenancy/Identity, Org Modeling, KPI Engine, Visualization/Reporting, Intelligence (AI), Collaboration/Workflow
 - **Scale target**: multiple tenants, 1M+ data points per tenant, sub-100ms dashboard queries via TimescaleDB
-- **Status**: planning phase — design spec and detailed phase plans committed; implementation has not yet started (P0 is next)
+- **Status**: P0 (Foundation) merged to master 2026-05-25. P1 (Identity + RBAC) is next. See [ROADMAP](./ROADMAP.md).
 
 ## Stack (locked)
 
@@ -57,25 +57,85 @@ kpi-nexus-final/
 └── TODOS.md                 Flat checklist across all phases
 ```
 
-## Quick start (after P0 is done)
+## Prerequisites
+
+| Tool | Version | Why |
+|---|---|---|
+| Node.js | 20 LTS (or 22) | Runtime for pnpm + apps |
+| pnpm | 9.x | Workspace package manager (`npm install -g pnpm@9`) |
+| Python | 3.12 | ML sidecar (apps/ml) |
+| Docker Desktop | 24+ | Postgres, Redis, MinIO, Mailhog, Jaeger via compose |
+| git | any recent | Version control |
+
+## Quick start
 
 ```bash
-# Bring up local dev environment
+# 1. Install JS deps + link workspaces
 pnpm install
+
+# 2. Copy env templates
 cp .env.example .env
-pnpm db:setup       # postgres + redis + minio + mailhog up + migrate + seed
-pnpm dev            # web (3000) + api (4000) + worker + ml (8000)
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/ml/.env.example apps/ml/.env
 
-# Run tests
-pnpm test           # unit
-pnpm test:int       # integration (Testcontainers)
-pnpm test:e2e       # Playwright
+# 3. Bring up local infra (Postgres + TimescaleDB + Redis + MinIO + Mailhog + Jaeger)
+pnpm docker:up
 
-# Database utilities
-pnpm db:migrate     # apply migrations
-pnpm db:studio      # Prisma Studio at :5555
-pnpm db:reset       # nuke + reseed
+# 4. Provision database (probes Postgres, runs prisma push, verifies extensions)
+pnpm db:setup
+
+# 5. Boot the JS/TS stack (web :3000, api :4000, worker)
+pnpm dev
+
+# 6. Boot the Python ML sidecar (one-time install + start; separate terminal)
+pnpm ml:install      # pip install -r apps/ml/requirements.txt
+pnpm ml:dev          # uvicorn on :8000
+
+# Healthchecks
+curl http://localhost:4000/health    # {db: "ok", redis: "ok"}
+curl http://localhost:8000/health    # {ok: true}
+open http://localhost:3000           # landing page
 ```
+
+## Useful commands
+
+```bash
+# Static checks (fast — no infra)
+pnpm turbo typecheck lint test build
+
+# E2E (needs web dev server; auto-started by playwright.config.ts)
+pnpm --filter @kpi-nexus/web exec playwright install chromium  # one-time
+pnpm --filter @kpi-nexus/web test:e2e
+
+# Database
+pnpm db:migrate     # apply migrations (after P1 lands models)
+pnpm db:studio      # Prisma Studio at :5555
+pnpm db:reset       # nuke + reseed (destructive)
+
+# Docker lifecycle
+pnpm docker:up      # start the stack
+pnpm docker:down    # stop, keep volumes
+pnpm docker:reset   # stop + delete volumes (destructive)
+pnpm docker:logs    # tail logs
+pnpm docker:ps      # show container status
+```
+
+## Service ports (local dev)
+
+| Service | Port | URL |
+|---|---|---|
+| Web (Next.js) | 3000 | http://localhost:3000 |
+| API (NestJS) | 4000 | http://localhost:4000 |
+| ML (FastAPI) | 8000 | http://localhost:8000 |
+| Postgres | 5432 | `postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus` |
+| Redis | 6379 | `redis://localhost:6379` |
+| MinIO API | 9000 | http://localhost:9000 |
+| MinIO Console | 9001 | http://localhost:9001 (minioadmin / minioadmin) |
+| Mailhog SMTP | 1025 | (smtp) |
+| Mailhog UI | 8025 | http://localhost:8025 |
+| Jaeger UI | 16686 | http://localhost:16686 |
 
 ## Documents you should read
 
@@ -89,11 +149,11 @@ pnpm db:reset       # nuke + reseed
 
 ## Current status
 
-Phase **P0 (Foundation)** is the next thing to execute. See:
-- [ROADMAP §P0](./ROADMAP.md#p0--foundation)
-- [Detailed plan](./docs/superpowers/plans/P0-foundation.md)
+Phase **P0 (Foundation)** code is merged to master. P1 (Identity + Tenancy + RBAC) is next. See:
+- [ROADMAP](./ROADMAP.md)
+- [P1 plan](./docs/superpowers/plans/P1-identity-tenancy-rbac.md)
 
-Nothing in `apps/` or `packages/` yet — those get created during P0.
+Static verification (typecheck + lint + test + build) is green; live-infra acceptance (docker:up, db:setup, /health, e2e) ran end of the P0 session. `git tag p0-complete` was placed when those passed.
 
 ## Context
 

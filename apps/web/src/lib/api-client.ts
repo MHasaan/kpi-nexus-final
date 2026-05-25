@@ -275,6 +275,47 @@ export async function acceptInvitation(body: {
   });
 }
 
+// =============================================================================
+// Positions
+// =============================================================================
+
+export type PositionTrack = 'IC' | 'MANAGEMENT' | 'EXECUTIVE';
+
+export interface PositionSummary {
+  id: string;
+  name: string;
+  level: number;
+  track: PositionTrack | null;
+  payGrade: string | null;
+  description: string | null;
+  orgUnitId: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listPositions(): Promise<PositionSummary[]> {
+  return api('/positions');
+}
+
+export async function createPosition(body: {
+  name: string;
+  level?: number;
+  track?: PositionTrack;
+  payGrade?: string;
+  description?: string;
+}): Promise<PositionSummary> {
+  return api('/positions', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deletePosition(id: string): Promise<void> {
+  return api(`/positions/${id}`, { method: 'DELETE' });
+}
+
+// =============================================================================
+// Session
+// =============================================================================
+
 export async function logoutRequest(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (refreshToken) {

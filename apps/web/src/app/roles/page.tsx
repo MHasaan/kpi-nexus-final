@@ -130,6 +130,13 @@ function RolesPageInner() {
                 {pluralize(terminology.roleLabel)}
               </Link>
               <Link
+                href="/positions"
+                className="text-content-muted hover:text-content-strong"
+                data-testid="nav-positions"
+              >
+                Positions
+              </Link>
+              <Link
                 href="/settings/organization"
                 className="text-content-muted hover:text-content-strong"
               >

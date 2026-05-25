@@ -1,0 +1,4 @@
+# Don't commit ephemeral session logs
+logs/
+tmp/
+now.md

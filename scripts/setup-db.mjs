@@ -123,6 +123,26 @@ async function applySql(client, relPath) {
   log.ok('applied');
 }
 
+async function verifyHypertables(client) {
+  log.step('Verifying TimescaleDB hypertables');
+  const required = ['KPIDataPoint'];
+  // timescaledb_information.hypertables is the canonical view in TS 2.x+
+  const { rows } = await client.query(
+    `SELECT hypertable_name FROM timescaledb_information.hypertables
+     WHERE hypertable_name = ANY($1)`,
+    [required],
+  );
+  const found = new Set(rows.map((r) => r.hypertable_name));
+  for (const ht of required) {
+    if (found.has(ht)) {
+      log.ok(`hypertable '${ht}' present`);
+    } else {
+      log.err(`hypertable '${ht}' NOT present — rls/extensions may have run before hypertables`);
+      throw new Error(`Missing required hypertable: ${ht}`);
+    }
+  }
+}
+
 async function verifyExtensions(client) {
   log.step('Verifying Postgres extensions');
   const required = ['timescaledb', 'vector'];
@@ -173,7 +193,9 @@ async function main() {
     await client.connect();
     await applySql(client, 'packages/db/prisma/sql/extensions.sql');
     await applySql(client, 'packages/db/prisma/sql/rls-policies.sql');
+    await applySql(client, 'packages/db/prisma/sql/hypertables.sql');
     await verifyExtensions(client);
+    await verifyHypertables(client);
   } finally {
     await client.end();
   }

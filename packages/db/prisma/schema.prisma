@@ -180,6 +180,7 @@ model Organization {
   retentionPolicies     RetentionPolicy[]
   kpiCategories         KPICategory[]
   kpis                  KPI[]
+  kpiDataPoints         KPIDataPoint[]
 
   @@index([tenantStatus])
 }
@@ -245,13 +246,15 @@ model User {
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
-  refreshTokens      RefreshToken[]
-  platformAdmin      PlatformAdmin?
-  orgUnitMemberships OrgUnitMember[]
-  headedOrgUnits     OrgUnit[]           @relation("OrgUnitHead")
-  ownedKpis          KPI[]               @relation("KpiOwner")
-  createdKpis        KPI[]               @relation("KpiCreatedBy")
-  kpiAssignments     KPIAssignmentUser[] @relation("UserKpiAssignments")
+  refreshTokens         RefreshToken[]
+  platformAdmin         PlatformAdmin?
+  orgUnitMemberships    OrgUnitMember[]
+  headedOrgUnits        OrgUnit[]           @relation("OrgUnitHead")
+  ownedKpis             KPI[]               @relation("KpiOwner")
+  createdKpis           KPI[]               @relation("KpiCreatedBy")
+  kpiAssignments        KPIAssignmentUser[] @relation("UserKpiAssignments")
+  kpiDataPoints         KPIDataPoint[]      @relation("UserKpiDataPoints")
+  kpiDataPointsRecorded KPIDataPoint[]      @relation("UserKpiDataPointsRecorded")
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
@@ -479,6 +482,7 @@ model OrgUnit {
   members        OrgUnitMember[]
   nameHistory    OrgUnitNameHistory[]
   kpiAssignments KPIAssignmentOrgUnit[]
+  kpiDataPoints  KPIDataPoint[]         @relation("KpiDataPointOrgUnit")
 
   @@index([organizationId, status])
   @@index([parentUnitId])
@@ -736,6 +740,7 @@ model KPI {
   versions           KPIVersion[]
   orgUnitAssignments KPIAssignmentOrgUnit[]
   userAssignments    KPIAssignmentUser[]
+  kpidataPoints      KPIDataPoint[]
 
   @@unique([organizationId, name])
   @@index([organizationId, status, deletedAt])
@@ -786,4 +791,70 @@ model KPIAssignmentUser {
   @@unique([kpiId, userId])
   @@index([organizationId])
   @@index([userId])
+}
+
+// ============================================================================
+// P2.2 — KPIDataPoint (TimescaleDB hypertable)
+// ============================================================================
+
+enum DataPointSourceType {
+  MANUAL
+  INGESTION
+  COMPUTED
+  INTEGRATION
+}
+
+enum DataPointQualityFlag {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Append-only time-series table. The composite primary key is
+// (recordedAt, id) because TimescaleDB requires the time column to be part
+// of any unique/primary constraint on a hypertable.
+//
+// The post-migration SQL in `packages/db/prisma/sql/hypertables.sql`
+// converts the table to a hypertable partitioned on `recordedAt` with
+// 7-day chunk_time_interval.
+//
+// Scope routing — every row carries the KPI's scope and EXACTLY ONE of
+// orgUnitId/userId:
+//   ORG_WIDE → both NULL
+//   PER_UNIT → orgUnitId NOT NULL, userId NULL
+//   PER_USER → userId NOT NULL, orgUnitId NULL
+// This is enforced at the service layer; a Postgres CHECK constraint
+// follows in P2.3.
+model KPIDataPoint {
+  id             String               @default(cuid())
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiId          String
+  kpi            KPI                  @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  // Scope-specific FKs (exactly one is non-null per row)
+  orgUnitId      String?
+  orgUnit        OrgUnit?             @relation("KpiDataPointOrgUnit", fields: [orgUnitId], references: [id])
+  userId         String?
+  user           User?                @relation("UserKpiDataPoints", fields: [userId], references: [id])
+  // Value
+  value          Float
+  unit           String?
+  // Period the value applies to (e.g. May 2026's revenue)
+  periodStart    DateTime
+  periodEnd      DateTime
+  // When the data point was recorded
+  recordedAt     DateTime             @default(now())
+  recordedById   String?
+  recordedBy     User?                @relation("UserKpiDataPointsRecorded", fields: [recordedById], references: [id])
+  // Provenance
+  sourceType     DataPointSourceType  @default(MANUAL)
+  sourceRef      String?
+  qualityFlag    DataPointQualityFlag @default(HIGH)
+  note           String?
+  metadata       Json?
+
+  @@id([recordedAt, id])
+  @@index([organizationId, kpiId, periodStart])
+  @@index([organizationId, orgUnitId, periodStart])
+  @@index([organizationId, userId, periodStart])
 }

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   ConflictException,
   Injectable,
@@ -10,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { verifyTotp } from '../mfa/totp.js';
 import { DEFAULT_ROLES } from './services/default-roles.js';
 import { RefreshTokenService } from './services/refresh-token.service.js';
 import type { JwtPayload } from './jwt.strategy.js';
@@ -132,7 +135,16 @@ export class AuthService {
         });
       }
 
-      const recordAttempt = (status: 'SUCCESS' | 'INVALID_CREDENTIALS' | 'USER_NOT_FOUND' | 'USER_INACTIVE', reason?: string): Promise<unknown> =>
+      const recordAttempt = (
+        status:
+          | 'SUCCESS'
+          | 'INVALID_CREDENTIALS'
+          | 'USER_NOT_FOUND'
+          | 'USER_INACTIVE'
+          | 'MFA_REQUIRED'
+          | 'MFA_FAILED',
+        reason?: string,
+      ): Promise<unknown> =>
         this.prisma.loginAttempt.create({
           data: {
             email: dto.email,
@@ -160,7 +172,25 @@ export class AuthService {
         await recordAttempt('INVALID_CREDENTIALS');
         throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Invalid credentials' });
       }
-      // MFA skipped for P1 initial commit — MfaModule will gate this in a follow-up.
+
+      // MFA gate: if user enrolled, code must be supplied and verify.
+      if (user.mfaEnabled && user.mfaSecret) {
+        if (!dto.mfaCode) {
+          await recordAttempt('MFA_REQUIRED');
+          throw new UnauthorizedException({
+            code: 'MFA_REQUIRED',
+            message: 'MFA code required',
+          });
+        }
+        const mfaOk = await this.verifyMfaForLogin(user.id, dto.mfaCode, user.mfaSecret, user.mfaRecoveryHashes);
+        if (!mfaOk) {
+          await recordAttempt('MFA_FAILED');
+          throw new UnauthorizedException({
+            code: 'UNAUTHENTICATED',
+            message: 'Invalid MFA code',
+          });
+        }
+      }
 
       const isAdmin = user.roleId
         ? Boolean(
@@ -243,5 +273,28 @@ export class AuthService {
       organizationId: user.organizationId,
       roleId: user.roleId,
     };
+  }
+
+  private async verifyMfaForLogin(
+    userId: string,
+    code: string,
+    secret: string,
+    recoveryHashes: string[],
+  ): Promise<boolean> {
+    if (verifyTotp(code, secret)) {
+      return true;
+    }
+    const hashed = createHash('sha256').update(code).digest('hex');
+    if (recoveryHashes.includes(hashed)) {
+      // Consume the used recovery code
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          mfaRecoveryHashes: recoveryHashes.filter((h) => h !== hashed),
+        },
+      });
+      return true;
+    }
+    return false;
   }
 }

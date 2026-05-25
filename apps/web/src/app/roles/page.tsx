@@ -116,6 +116,13 @@ function RolesPageInner() {
                 Dashboard
               </Link>
               <Link
+                href="/users"
+                className="text-content-muted hover:text-content-strong"
+                data-testid="nav-users"
+              >
+                {pluralize(terminology.memberLabel)}
+              </Link>
+              <Link
                 href="/roles"
                 className="font-medium text-accent-primary"
                 data-testid="nav-roles"

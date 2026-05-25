@@ -231,13 +231,28 @@ export async function updateMyOrganization(
 }
 
 // =============================================================================
-// Invitations
+// Users + Invitations
 // =============================================================================
 
+export interface UserSummary {
+  id: string;
+  email: string;
+  fullName: string;
+  status: 'INVITED' | 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED' | 'DELETED';
+  roleId: string | null;
+  managerId: string | null;
+  positionId: string | null;
+  createdAt: string;
+}
+
 export interface InviteResult {
-  user: AuthUser & { status: string };
+  user: UserSummary;
   inviteToken?: string;
   acceptUrl?: string;
+}
+
+export async function listUsers(): Promise<UserSummary[]> {
+  return api('/users');
 }
 
 export async function inviteUser(body: {

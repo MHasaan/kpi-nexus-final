@@ -1,0 +1,148 @@
+/**
+ * Thin fetch wrapper for the api. Reads the access token from localStorage
+ * on every call (so token refresh elsewhere is picked up without state
+ * plumbing). All errors surface as `ApiError` carrying the api's error
+ * envelope when present.
+ */
+
+const TOKEN_KEY = 'kpi-nexus.access-token';
+const REFRESH_KEY = 'kpi-nexus.refresh-token';
+
+export const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | undefined;
+  readonly details: unknown;
+
+  constructor(status: number, message: string, code?: string, details?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(REFRESH_KEY);
+}
+
+export function setTokens(accessToken: string, refreshToken: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(TOKEN_KEY, accessToken);
+  window.localStorage.setItem(REFRESH_KEY, refreshToken);
+}
+
+export function clearTokens(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_KEY);
+}
+
+export async function api<T = unknown>(
+  path: string,
+  init: RequestInit & { auth?: boolean } = {},
+): Promise<T> {
+  const { auth = true, body, ...rest } = init;
+  const headers = new Headers(init.headers);
+  if (body !== undefined && body !== null) {
+    headers.set('content-type', 'application/json');
+  }
+  if (auth) {
+    const token = getAccessToken();
+    if (token) headers.set('authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(`${apiBaseUrl}${path}`, { ...rest, headers, body });
+  if (res.status === 204) {
+    return undefined as T;
+  }
+  const payload: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = (payload ?? {}) as { message?: string; code?: string; details?: unknown };
+    throw new ApiError(
+      res.status,
+      err.message ?? `HTTP ${res.status}`,
+      err.code,
+      err.details,
+    );
+  }
+  return payload as T;
+}
+
+// =============================================================================
+// Auth helpers — wrap the most common endpoints
+// =============================================================================
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName: string;
+  organizationId: string;
+  roleId: string | null;
+}
+
+export interface AuthOrganization {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface AuthPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export async function loginRequest(body: {
+  email: string;
+  password: string;
+  organizationId?: string;
+  mfaCode?: string;
+}): Promise<AuthPair & { user: AuthUser }> {
+  return api('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    auth: false,
+  });
+}
+
+export async function registerRequest(body: {
+  orgName: string;
+  slug: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminFullName: string;
+}): Promise<AuthPair & { user: AuthUser; organization: AuthOrganization }> {
+  return api('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    auth: false,
+  });
+}
+
+export async function meRequest(): Promise<{ user: AuthUser }> {
+  return api('/auth/me');
+}
+
+export async function logoutRequest(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  if (refreshToken) {
+    try {
+      await api('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+    } catch {
+      // best-effort — clear local state regardless
+    }
+  }
+  clearTokens();
+}

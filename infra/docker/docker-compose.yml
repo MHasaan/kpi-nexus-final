@@ -2,7 +2,7 @@ name: kpi-nexus
 
 services:
   postgres:
-    image: timescale/timescaledb-ha:pg16-all
+    image: timescale/timescaledb-ha:pg16
     container_name: kpi-nexus-postgres
     ports:
       - "5432:5432"

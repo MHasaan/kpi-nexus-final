@@ -178,6 +178,8 @@ model Organization {
   featureFlags          FeatureFlag[]
   costMetrics           CostMetric[]
   retentionPolicies     RetentionPolicy[]
+  kpiCategories         KPICategory[]
+  kpis                  KPI[]
 
   @@index([tenantStatus])
 }
@@ -246,7 +248,10 @@ model User {
   refreshTokens      RefreshToken[]
   platformAdmin      PlatformAdmin?
   orgUnitMemberships OrgUnitMember[]
-  headedOrgUnits     OrgUnit[]       @relation("OrgUnitHead")
+  headedOrgUnits     OrgUnit[]           @relation("OrgUnitHead")
+  ownedKpis          KPI[]               @relation("KpiOwner")
+  createdKpis        KPI[]               @relation("KpiCreatedBy")
+  kpiAssignments     KPIAssignmentUser[] @relation("UserKpiAssignments")
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
@@ -471,8 +476,9 @@ model OrgUnit {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  members     OrgUnitMember[]
-  nameHistory OrgUnitNameHistory[]
+  members        OrgUnitMember[]
+  nameHistory    OrgUnitNameHistory[]
+  kpiAssignments KPIAssignmentOrgUnit[]
 
   @@index([organizationId, status])
   @@index([parentUnitId])
@@ -606,4 +612,178 @@ model RetentionPolicy {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, entityType])
+}
+
+// ============================================================================
+// P2 — KPI engine (slice 1: core model + assignments + categories + versions)
+// ============================================================================
+
+enum KPIStatus {
+  DRAFT
+  PROPOSED
+  APPROVED
+  ACTIVE
+  PAUSED
+  DEPRECATED
+  ARCHIVED
+}
+
+enum KPIScope {
+  ORG_WIDE
+  PER_UNIT
+  PER_USER
+}
+
+enum KPIType {
+  NUMBER
+  PERCENTAGE
+  CURRENCY
+  DURATION
+  COUNT
+  RATING
+  BOOLEAN
+}
+
+enum KPIDirection {
+  HIGHER_IS_BETTER
+  LOWER_IS_BETTER
+  TARGET_IS_BEST
+  NEUTRAL
+}
+
+enum KPIFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+  REAL_TIME
+  AD_HOC
+}
+
+enum AggregationMethod {
+  SUM
+  AVG
+  MIN
+  MAX
+  MEDIAN
+  P25
+  P75
+  P90
+  P95
+  P99
+  LAST
+  FIRST
+  COUNT
+  COUNT_DISTINCT
+  STDEV
+}
+
+model KPICategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  color          String?
+  icon           String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  kpis KPI[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model KPI {
+  id                String            @id @default(cuid())
+  organizationId    String
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryId        String?
+  category          KPICategory?      @relation(fields: [categoryId], references: [id])
+  name              String
+  description       String?
+  unit              String?
+  scope             KPIScope          @default(ORG_WIDE)
+  type              KPIType           @default(NUMBER)
+  direction         KPIDirection      @default(HIGHER_IS_BETTER)
+  frequency         KPIFrequency      @default(MONTHLY)
+  aggregationMethod AggregationMethod @default(LAST)
+  status            KPIStatus         @default(DRAFT)
+  // Legacy single-target fields kept for simple cases — KPITarget model
+  // (lands in P2.2) is the authoritative source for tiered/dynamic targets.
+  targetValue       Float?
+  warningThreshold  Float?
+  criticalThreshold Float?
+  allowNegative     Boolean           @default(false)
+  ownerUserId       String?
+  owner             User?             @relation("KpiOwner", fields: [ownerUserId], references: [id])
+  tags              String[]
+  isActive          Boolean           @default(true)
+  isArchived        Boolean           @default(false)
+  // Optimistic concurrency. Bumps on every patch.
+  version           Int               @default(1)
+  // Soft delete — list endpoints filter deletedAt IS NULL.
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdById       String?
+  createdBy         User?             @relation("KpiCreatedBy", fields: [createdById], references: [id])
+
+  versions           KPIVersion[]
+  orgUnitAssignments KPIAssignmentOrgUnit[]
+  userAssignments    KPIAssignmentUser[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, status, deletedAt])
+  @@index([categoryId])
+  @@index([scope])
+}
+
+model KPIVersion {
+  id          String   @id @default(cuid())
+  kpiId       String
+  kpi         KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  version     Int
+  snapshot    Json
+  reason      String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@unique([kpiId, version])
+  @@index([kpiId])
+}
+
+// Assignment of a PER_UNIT KPI to a specific OrgUnit. Used by
+// `buildKpiVisibilityWhere` to filter the list endpoint by orgUnit membership.
+model KPIAssignmentOrgUnit {
+  id             String   @id @default(cuid())
+  organizationId String
+  kpiId          String
+  kpi            KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  orgUnitId      String
+  orgUnit        OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([kpiId, orgUnitId])
+  @@index([organizationId])
+  @@index([orgUnitId])
+}
+
+// Assignment of a PER_USER KPI to a specific user (self-tracked metric).
+model KPIAssignmentUser {
+  id             String   @id @default(cuid())
+  organizationId String
+  kpiId          String
+  kpi            KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation("UserKpiAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([kpiId, userId])
+  @@index([organizationId])
+  @@index([userId])
 }

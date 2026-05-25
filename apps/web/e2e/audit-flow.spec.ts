@@ -138,16 +138,19 @@ test.describe('/settings/audit page — admin audit log viewer', () => {
     await page.goto('/settings/audit');
 
     await page.getByTestId('filter-entity-type').fill('Organization');
+    // Wait for the filtered network response so the list rerenders before we
+    // assert on its contents (otherwise rowCount may include pre-filter rows).
+    const filterResponse = page.waitForResponse(
+      (r) => r.url().includes('/audit?') && r.url().includes('entityType=Organization'),
+    );
     await page.getByTestId('audit-apply-filters').click();
+    await filterResponse;
 
     // After filtering, only Organization entries should be visible
     const rows = page.getByTestId('audit-list').locator('li');
     await expect(rows.first()).toBeVisible();
-    // Every row should show the Organization entity tag
-    const rowCount = await rows.count();
-    for (let i = 0; i < rowCount; i++) {
-      await expect(rows.nth(i)).toContainText('Organization');
-    }
+    // The User row must NOT be in the filtered list
+    await expect(page.getByTestId('audit-list').locator('li:has-text("User")')).toHaveCount(0);
   });
 
   test('/settings/audit without a token redirects to /login', async ({ page }) => {

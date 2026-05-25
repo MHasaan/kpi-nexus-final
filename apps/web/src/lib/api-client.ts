@@ -411,6 +411,131 @@ export async function whoAmI(): Promise<{
 }
 
 // =============================================================================
+// KPIs (P2)
+// =============================================================================
+
+export type KpiScope = 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
+export type KpiType =
+  | 'NUMBER'
+  | 'PERCENTAGE'
+  | 'CURRENCY'
+  | 'DURATION'
+  | 'COUNT'
+  | 'RATING'
+  | 'BOOLEAN';
+export type KpiDirection =
+  | 'HIGHER_IS_BETTER'
+  | 'LOWER_IS_BETTER'
+  | 'TARGET_IS_BEST'
+  | 'NEUTRAL';
+export type KpiFrequency =
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'BIWEEKLY'
+  | 'MONTHLY'
+  | 'QUARTERLY'
+  | 'YEARLY'
+  | 'CUSTOM'
+  | 'REAL_TIME'
+  | 'AD_HOC';
+export type KpiStatus =
+  | 'DRAFT'
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'ACTIVE'
+  | 'PAUSED'
+  | 'DEPRECATED'
+  | 'ARCHIVED';
+
+export interface KpiSummary {
+  id: string;
+  organizationId: string;
+  categoryId: string | null;
+  name: string;
+  description: string | null;
+  unit: string | null;
+  scope: KpiScope;
+  type: KpiType;
+  direction: KpiDirection;
+  frequency: KpiFrequency;
+  aggregationMethod: string;
+  status: KpiStatus;
+  targetValue: number | null;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+  allowNegative: boolean;
+  ownerUserId: string | null;
+  tags: string[];
+  isActive: boolean;
+  isArchived: boolean;
+  version: number;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string | null;
+  orgUnitAssignments: Array<{ id: string; orgUnitId: string; createdAt: string }>;
+  userAssignments: Array<{ id: string; userId: string; createdAt: string }>;
+}
+
+export interface DataPoint {
+  id: string;
+  kpiId: string;
+  orgUnitId: string | null;
+  userId: string | null;
+  value: number;
+  unit: string | null;
+  periodStart: string;
+  periodEnd: string;
+  recordedAt: string;
+  recordedById: string | null;
+  sourceType: string;
+  qualityFlag: string;
+  note: string | null;
+}
+
+export async function listKpis(): Promise<KpiSummary[]> {
+  return api('/kpis');
+}
+
+export async function createKpi(body: {
+  name: string;
+  scope: KpiScope;
+  type?: KpiType;
+  unit?: string;
+  description?: string;
+  frequency?: KpiFrequency;
+  targetValue?: number;
+  orgUnitIds?: string[];
+  userIds?: string[];
+}): Promise<KpiSummary> {
+  return api('/kpis', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteKpi(id: string): Promise<void> {
+  return api(`/kpis/${id}`, { method: 'DELETE' });
+}
+
+export async function recordOrgWideDataPoint(
+  kpiId: string,
+  body: {
+    value: number;
+    periodStart: string;
+    periodEnd: string;
+    unit?: string;
+    note?: string;
+  },
+): Promise<DataPoint> {
+  return api(`/kpis/${kpiId}/data`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listKpiDataPoints(kpiId: string): Promise<DataPoint[]> {
+  return api(`/kpis/${kpiId}/data`);
+}
+
+// =============================================================================
 // Audit log
 // =============================================================================
 

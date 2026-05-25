@@ -236,6 +236,105 @@ export class AuthService {
     });
   }
 
+  /**
+   * Accept an invitation — verifies the EmailVerificationToken, applies the
+   * org's password policy, flips the user to ACTIVE, sets emailVerifiedAt,
+   * consumes the token, and issues a fresh auth pair. Returns the same
+   * shape as login.
+   */
+  async acceptInvitation(args: {
+    token: string;
+    password: string;
+  }): Promise<AuthPair & { user: PublicUser }> {
+    return RequestContextStore.runWithBypass('acceptInvitation', async () => {
+      const hashedToken = createHash('sha256').update(args.token).digest('hex');
+      const record = await this.prisma.emailVerificationToken.findUnique({
+        where: { hashedToken },
+      });
+      if (!record) {
+        throw new UnauthorizedException({
+          code: 'UNAUTHENTICATED',
+          message: 'Invalid or expired invitation token',
+        });
+      }
+      if (record.consumedAt !== null) {
+        throw new UnauthorizedException({
+          code: 'UNAUTHENTICATED',
+          message: 'Invitation already accepted',
+        });
+      }
+      if (record.expiresAt.getTime() < Date.now()) {
+        throw new UnauthorizedException({
+          code: 'UNAUTHENTICATED',
+          message: 'Invitation expired',
+        });
+      }
+
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: { id: record.userId },
+        include: { organization: { select: { passwordPolicy: true } } },
+      });
+      if (user.status === 'ACTIVE' && user.passwordHash !== null) {
+        throw new ConflictException({
+          code: 'CONFLICT',
+          message: 'User is already active',
+        });
+      }
+
+      // Apply per-org password policy
+      const { checkPasswordPolicy, resolvePasswordPolicy } = await import(
+        '../password/password-policy.js'
+      );
+      const policy = resolvePasswordPolicy(user.organization.passwordPolicy);
+      const violations = checkPasswordPolicy(args.password, policy);
+      if (violations.length > 0) {
+        const { BadRequestException } = await import('@nestjs/common');
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'Password does not meet policy',
+          details: { violations },
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(args.password, this.bcryptRounds);
+
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordHash,
+            status: 'ACTIVE',
+            emailVerifiedAt: new Date(),
+          },
+        }),
+        this.prisma.emailVerificationToken.update({
+          where: { id: record.id },
+          data: { consumedAt: new Date() },
+        }),
+      ]);
+
+      const isAdmin = user.roleId
+        ? Boolean(
+            (
+              await this.prisma.roleDefinition.findUnique({
+                where: { id: user.roleId },
+                select: { isAdmin: true },
+              })
+            )?.isAdmin,
+          )
+        : false;
+
+      const pair = await this.issuePair({
+        sub: user.id,
+        org: user.organizationId,
+        rid: user.roleId,
+        adm: isAdmin,
+      });
+
+      return { ...pair, user: this.publicUser(user) };
+    });
+  }
+
   async refresh(refreshToken: string): Promise<AuthPair> {
     const next = await this.refreshTokens.rotate(refreshToken);
     const user = await this.prisma.user.findUniqueOrThrow({

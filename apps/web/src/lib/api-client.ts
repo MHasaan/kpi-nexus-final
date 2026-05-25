@@ -230,6 +230,36 @@ export async function updateMyOrganization(
   });
 }
 
+// =============================================================================
+// Invitations
+// =============================================================================
+
+export interface InviteResult {
+  user: AuthUser & { status: string };
+  inviteToken?: string;
+  acceptUrl?: string;
+}
+
+export async function inviteUser(body: {
+  email: string;
+  fullName: string;
+  roleId?: string;
+  positionId?: string;
+}): Promise<InviteResult> {
+  return api('/users', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function acceptInvitation(body: {
+  token: string;
+  password: string;
+}): Promise<AuthPair & { user: AuthUser }> {
+  return api('/auth/accept-invitation', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    auth: false,
+  });
+}
+
 export async function logoutRequest(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (refreshToken) {

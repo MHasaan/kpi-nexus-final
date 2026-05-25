@@ -4,8 +4,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: process.env.CI ? 2 : 1,
+  // Dev defaults to 4 workers which causes concurrency flake during
+  // register-heavy tests (each creates an org). Cap at 2.
+  workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? 'github' : 'html',
   use: {
     baseURL: 'http://localhost:3000',

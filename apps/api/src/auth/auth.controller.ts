@@ -7,12 +7,13 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
-import type { ZodSchema } from 'zod';
+import type { ZodTypeAny, infer as ZInfer } from 'zod';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from './auth.service.js';
+import { AcceptInvitationDtoSchema } from './dto/accept-invitation.dto.js';
 import {
   type LoginDto,
   LoginDtoSchema,
@@ -24,7 +25,7 @@ import {
   RegisterOrgDtoSchema,
 } from './dto/register-org.dto.js';
 
-const parse = <T>(schema: ZodSchema<T>, body: unknown): T => {
+const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
   if (!result.success) {
     throw new BadRequestException({
@@ -47,7 +48,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   register(@Body() body: unknown) {
-    const dto = parse<RegisterOrgDto>(RegisterOrgDtoSchema, body);
+    const dto = parse(RegisterOrgDtoSchema, body);
     return this.auth.registerOrganization(dto);
   }
 
@@ -55,7 +56,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() body: unknown) {
-    const dto = parse<LoginDto>(LoginDtoSchema, body);
+    const dto = parse(LoginDtoSchema, body);
     return this.auth.login(dto);
   }
 
@@ -63,14 +64,22 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() body: unknown) {
-    const dto = parse<RefreshDto>(RefreshDtoSchema, body);
+    const dto = parse(RefreshDtoSchema, body);
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Public()
+  @Post('accept-invitation')
+  @HttpCode(HttpStatus.OK)
+  acceptInvitation(@Body() body: unknown) {
+    const dto = parse(AcceptInvitationDtoSchema, body);
+    return this.auth.acceptInvitation(dto);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Body() body: unknown): Promise<void> {
-    const dto = parse<RefreshDto>(RefreshDtoSchema, body);
+    const dto = parse(RefreshDtoSchema, body);
     await this.auth.logout(dto.refreshToken);
   }
 

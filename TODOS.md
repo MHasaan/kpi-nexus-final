@@ -9,49 +9,59 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 ## P0 — Foundation (≈2 weeks)
 
 ### Infra
-- [ ] Initialize pnpm + Turborepo monorepo (`apps/{web,api,worker,ml}` + `packages/{contracts,db,ai,formula,ui,config}`)
-- [ ] Wire Turbo pipeline: `build`, `lint`, `typecheck`, `test`, `dev`, `db:generate`, `db:migrate`
-- [ ] `docker-compose.yml` with Postgres 16 + TimescaleDB + pgvector, Redis 7, MinIO, Mailhog, Jaeger
-- [ ] GitHub Actions: `ci.yml` matrix (lint/typecheck/test/build per app), Dependabot, gitleaks, CodeQL
-- [ ] Turbo remote cache via Vercel free tier
-- [ ] `.env.example` files for each app
+- [x] Initialize pnpm + Turborepo monorepo (`apps/{web,api,worker,ml}` + `packages/{contracts,db,ai,formula,ui,config}`)
+- [x] Wire Turbo pipeline: `build`, `lint`, `typecheck`, `test`, `dev`, `db:generate`, `db:migrate`
+- [x] `docker-compose.yml` with Postgres 16 + TimescaleDB + pgvector, Redis 7, MinIO, Mailhog, Jaeger
+- [x] GitHub Actions: `ci.yml` matrix (lint/typecheck/test/build per app), Dependabot, gitleaks, CodeQL
+- [ ] Turbo remote cache via Vercel free tier (deferred — optional, set TURBO_TOKEN + TURBO_TEAM later)
+- [x] `.env.example` files for each app + root
 
 ### Backend
-- [ ] NestJS 11 (Fastify adapter) bootstrap in `apps/api/`
-- [ ] Pino logger + OTel SDK + Sentry SDK wired
-- [ ] `/health` endpoint returning DB + Redis status
-- [ ] Prisma client wired through `packages/db`; empty schema with `timescaledb` + `pgvector` extensions enabled
+- [x] NestJS 11 (Fastify adapter) bootstrap in `apps/api/`
+- [x] Pino logger + OTel SDK + Sentry SDK wired (all init in `src/instrumentation.ts`, no-op when env unset)
+- [x] `/health` endpoint returning DB + Redis status
+- [x] Prisma client wired through `packages/db`; empty schema with `timescaledb` + `pgvector` extensions enabled
 
 ### Worker
-- [ ] NestJS bootstrap in `apps/worker/` (no HTTP layer, shares modules with api)
-- [ ] BullMQ connection setup
-- [ ] Echo test queue + processor (proves wiring)
+- [x] NestJS bootstrap in `apps/worker/` (no HTTP layer — `createApplicationContext`)
+- [x] BullMQ connection setup (`@nestjs/bullmq` + ioredis)
+- [x] Echo test queue + processor (proves wiring)
 
 ### ML
-- [ ] FastAPI skeleton in `apps/ml/`
-- [ ] `/health`, `/echo` endpoints
-- [ ] Dockerfile + requirements.txt (fastapi, uvicorn, scikit-learn placeholder)
+- [x] FastAPI skeleton in `apps/ml/`
+- [x] `/health`, `/health/echo` endpoints
+- [x] Dockerfile + requirements.txt (fastapi 0.115, uvicorn, sklearn, prophet, statsmodels — ready for P5)
 
 ### Frontend
-- [ ] Next.js 15 App Router scaffold in `apps/web/`
-- [ ] Tailwind + shadcn/ui installed; design tokens stub in `packages/ui/`
-- [ ] `next-themes` for dark mode (default light, persisted)
-- [ ] Sentry SDK client + server
-- [ ] Landing page that loads
+- [x] Next.js 15 App Router scaffold in `apps/web/`
+- [x] Tailwind + design tokens (`packages/ui/src/tokens.css` + Tailwind preset)
+- [x] `next-themes` for dark mode (Providers wraps ThemeProvider, default light)
+- [ ] Sentry SDK client + server (deferred — pkg added in spec, wiring lands when SENTRY_DSN is set in P1)
+- [x] Landing page that loads (server component, themed via tokens)
 
 ### Database
-- [ ] `pnpm db:setup` script: probe Postgres → push schema → enable extensions → verify-setup
-- [ ] RLS policy templates in `packages/db/prisma/sql/rls-policies.sql` (empty for now, structure ready)
+- [x] `pnpm db:setup` script: probe Postgres → push schema → enable extensions → verify-setup
+- [x] RLS policy templates in `packages/db/prisma/sql/rls-policies.sql` (empty for now, structure ready)
 
 ### Tests
-- [ ] One unit test per app proving framework wiring
-- [ ] One Playwright smoke test loading landing page
+- [x] One unit test per app proving framework wiring (api 3, worker 2, web 3, contracts 6)
+- [x] One Playwright smoke test loading landing page (`apps/web/e2e/smoke.spec.ts`)
 
-### Exit
-- [ ] All 4 apps boot; `/health` returns 200 for api + ml
-- [ ] Web shows shadcn-themed landing
-- [ ] CI green: all matrix jobs pass
-- [ ] `prisma migrate deploy` works against compose Postgres; TimescaleDB extension verified
+### Static verification (`pnpm turbo typecheck lint test build`)
+- [x] **typecheck**: 11 tasks green
+- [x] **lint**: 9 tasks green
+- [x] **test**: 19 tasks green (14 unit tests + 5 no-test pass-through)
+- [x] **build**: 8 tasks green (web 102KB shared JS, 4 static pages)
+
+### Exit (live infra — run by user after starting Docker Desktop)
+- [ ] `pnpm docker:up` → all 5 containers healthy
+- [ ] `pnpm db:setup` → green checks for postgres reachable + extensions enabled
+- [ ] `pnpm dev` → web on :3000, api on :4000, worker connected, ml on :8000 (`pnpm ml:install && pnpm ml:dev` separately)
+- [ ] `curl :4000/health` returns `{db: "ok", redis: "ok"}`
+- [ ] `curl :8000/health` returns `{ok: true}`
+- [ ] `pnpm --filter @kpi-nexus/web test:e2e` passes
+- [ ] CI green on a push (requires GitHub remote — `git remote add origin <url>`)
+- [ ] When all above pass: `git tag p0-complete`
 
 ---
 

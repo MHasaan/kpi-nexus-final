@@ -1,0 +1,7 @@
+-- Row-Level Security (RLS) policies for tenant isolation.
+--
+-- Layer 3 of the 3-layer defense (ALS context + Prisma filter + Postgres RLS).
+-- Populated in P1 once the Organization model and tenant-scoped tables exist.
+--
+-- See docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md §3 for the
+-- policy template (every tenant-scoped table gets the same shape).

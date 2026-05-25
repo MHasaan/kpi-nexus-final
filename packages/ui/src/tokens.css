@@ -1,0 +1,112 @@
+/*
+ * KPI Nexus design tokens.
+ *
+ * HSL components (h s% l%) so Tailwind's `<alpha-value>` channel works. Token
+ * names are locked per spec §12.3; values are retunable in a Claude Design
+ * session. Status colors are reserved for status only — never communicate
+ * meaning with color alone.
+ */
+
+:root {
+  /* Surfaces (page → cards → hover/pressed) */
+  --surface-bg: 0 0% 100%;
+  --surface-1: 240 6% 97%;
+  --surface-2: 240 6% 95%;
+  --surface-hover: 240 6% 93%;
+  --surface-pressed: 240 6% 90%;
+
+  /* Content (text on surface) — percent in name reflects contrast tier */
+  --content-strong: 240 10% 10%;
+  --content-default: 240 6% 25%;
+  --content-muted: 240 5% 45%;
+  --content-disabled: 240 4% 65%;
+
+  /* Borders */
+  --border-default: 240 6% 88%;
+  --border-strong: 240 6% 75%;
+  --border-divider: 240 6% 92%;
+
+  /* Accents */
+  --accent-primary: 243 75% 59%;
+  --accent-secondary: 262 83% 58%;
+
+  /* Status — semantic only */
+  --status-success: 142 71% 40%;
+  --status-warning: 38 92% 50%;
+  --status-critical: 0 84% 55%;
+  --status-info: 217 91% 55%;
+  --status-neutral: 240 5% 50%;
+
+  /* Chart categorical palette (colorblind-safe, AA contrast on surface-bg) */
+  --chart-1: 207 84% 41%;
+  --chart-2: 32 91% 50%;
+  --chart-3: 121 41% 42%;
+  --chart-4: 4 73% 47%;
+  --chart-5: 256 47% 52%;
+  --chart-6: 19 50% 40%;
+  --chart-7: 326 65% 67%;
+  --chart-8: 0 0% 49%;
+  --chart-9: 51 73% 51%;
+  --chart-10: 184 56% 47%;
+  --chart-11: 243 75% 59%;
+  --chart-12: 173 80% 36%;
+
+  /* Focus ring + radius */
+  --ring: 243 75% 59%;
+  --radius: 0.5rem;
+
+  /* Typography stacks */
+  --font-sans:
+    'Inter', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Geist Mono', 'SF Mono', Consolas, 'Liberation Mono',
+    monospace;
+}
+
+.dark {
+  /* Surfaces */
+  --surface-bg: 240 10% 4%;
+  --surface-1: 240 6% 10%;
+  --surface-2: 240 6% 14%;
+  --surface-hover: 240 6% 18%;
+  --surface-pressed: 240 6% 22%;
+
+  /* Content */
+  --content-strong: 0 0% 98%;
+  --content-default: 0 0% 85%;
+  --content-muted: 0 0% 65%;
+  --content-disabled: 0 0% 45%;
+
+  /* Borders */
+  --border-default: 240 6% 22%;
+  --border-strong: 240 6% 38%;
+  --border-divider: 240 6% 16%;
+
+  /* Accents — lifted lightness for dark surfaces */
+  --accent-primary: 243 75% 70%;
+  --accent-secondary: 262 83% 70%;
+
+  /* Status */
+  --status-success: 142 71% 55%;
+  --status-warning: 38 92% 60%;
+  --status-critical: 0 84% 65%;
+  --status-info: 217 91% 65%;
+  --status-neutral: 240 5% 60%;
+
+  /* Chart palette (lightness lifted ~10% for legibility on dark) */
+  --chart-1: 207 84% 60%;
+  --chart-2: 32 91% 60%;
+  --chart-3: 121 41% 55%;
+  --chart-4: 4 73% 62%;
+  --chart-5: 256 47% 65%;
+  --chart-6: 19 50% 55%;
+  --chart-7: 326 65% 75%;
+  --chart-8: 0 0% 65%;
+  --chart-9: 51 73% 62%;
+  --chart-10: 184 56% 60%;
+  --chart-11: 243 75% 70%;
+  --chart-12: 173 80% 50%;
+
+  --ring: 243 75% 70%;
+}

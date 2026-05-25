@@ -1,0 +1,35 @@
+{
+  "name": "kpi-nexus-final",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:int": "turbo test:int",
+    "test:e2e": "turbo test:e2e",
+    "db:setup": "node scripts/setup-db.mjs",
+    "db:migrate": "pnpm --filter @kpi-nexus/db exec prisma migrate dev",
+    "db:generate": "pnpm --filter @kpi-nexus/db exec prisma generate",
+    "db:studio": "pnpm --filter @kpi-nexus/db exec prisma studio",
+    "db:reset": "pnpm --filter @kpi-nexus/db exec prisma migrate reset --force",
+    "ml:dev": "cd apps/ml && uvicorn app.main:app --reload --port 8000",
+    "ml:test": "cd apps/ml && pytest",
+    "ml:install": "pip install -r apps/ml/requirements.txt",
+    "docker:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "docker:reset": "docker compose -f infra/docker/docker-compose.yml down -v",
+    "docker:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
+    "docker:ps": "docker compose -f infra/docker/docker-compose.yml ps"
+  },
+  "devDependencies": {
+    "pg": "^8.13.0",
+    "turbo": "^2.9.14"
+  }
+}

@@ -1,0 +1,43 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels: [dependencies, javascript]
+    groups:
+      nestjs:
+        patterns: ["@nestjs/*", "nestjs-pino"]
+      next:
+        patterns: ["next", "next-*", "@next/*", "react", "react-*"]
+      opentelemetry:
+        patterns: ["@opentelemetry/*"]
+      prisma:
+        patterns: ["@prisma/*", "prisma"]
+
+  - package-ecosystem: pip
+    directory: /apps/ml
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, python]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, ci]
+
+  - package-ecosystem: docker
+    directory: /apps/ml
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, docker]

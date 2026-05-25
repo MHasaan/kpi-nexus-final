@@ -1,0 +1,16 @@
+// KPI Nexus database schema.
+//
+// P0: extensions only. Models land in P1+ as each module is implemented.
+// See docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md (§3, §6) for the
+// tenancy + scope model that informs every model added later.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [timescaledb, pgvector(map: "vector")]
+}

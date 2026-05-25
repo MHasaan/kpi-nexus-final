@@ -132,6 +132,41 @@ export async function meRequest(): Promise<{ user: AuthUser }> {
   return api('/auth/me');
 }
 
+// =============================================================================
+// Resource helpers
+// =============================================================================
+
+export interface RoleSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: string[];
+  isAdmin: boolean;
+  level: number;
+  color: string | null;
+  canAccessModules: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listRoles(): Promise<RoleSummary[]> {
+  return api('/roles');
+}
+
+export async function createRole(body: {
+  name: string;
+  description?: string;
+  permissions?: string[];
+  level?: number;
+  color?: string;
+}): Promise<RoleSummary> {
+  return api('/roles', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteRole(id: string): Promise<void> {
+  return api(`/roles/${id}`, { method: 'DELETE' });
+}
+
 export async function logoutRequest(): Promise<void> {
   const refreshToken = getRefreshToken();
   if (refreshToken) {

@@ -558,6 +558,125 @@ export async function getDashboardSummary(
 }
 
 // =============================================================================
+// Dashboards (P3)
+// =============================================================================
+
+export type WidgetType =
+  | 'kpi_card'
+  | 'line'
+  | 'bar'
+  | 'pie'
+  | 'gauge'
+  | 'number'
+  | 'list'
+  | 'trend'
+  | 'activity'
+  | 'strategy_map';
+
+export interface WidgetPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface DashboardWidget {
+  id: string;
+  widgetType: WidgetType;
+  title: string | null;
+  config: Record<string, unknown>;
+  position: WidgetPosition;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Dashboard {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  ownerUserId: string | null;
+  ownerRoleId: string | null;
+  isShared: boolean;
+  isDefault: boolean;
+  layout: Record<string, unknown> | null;
+  version: number;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string | null;
+  widgets: DashboardWidget[];
+}
+
+export async function listDashboards(): Promise<Dashboard[]> {
+  return api('/dashboards');
+}
+
+export async function getDashboard(id: string): Promise<Dashboard> {
+  return api(`/dashboards/${id}`);
+}
+
+export async function createDashboard(body: {
+  name: string;
+  description?: string;
+  isShared?: boolean;
+}): Promise<Dashboard> {
+  return api('/dashboards', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateDashboard(
+  id: string,
+  patch: {
+    name?: string;
+    description?: string;
+    isShared?: boolean;
+  },
+  expectedVersion: number,
+): Promise<Dashboard> {
+  return api(`/dashboards/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+    headers: { 'If-Match': `W/"${expectedVersion}"` },
+  });
+}
+
+export async function deleteDashboard(id: string): Promise<void> {
+  return api(`/dashboards/${id}`, { method: 'DELETE' });
+}
+
+export async function setDefaultDashboard(id: string): Promise<Dashboard> {
+  return api(`/dashboards/${id}/set-default`, { method: 'POST' });
+}
+
+export async function addWidget(
+  dashboardId: string,
+  body: {
+    widgetType: WidgetType;
+    title?: string;
+    config: Record<string, unknown>;
+    position: WidgetPosition;
+  },
+): Promise<DashboardWidget> {
+  return api(`/dashboards/${dashboardId}/widgets`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteWidget(
+  dashboardId: string,
+  widgetId: string,
+): Promise<void> {
+  return api(`/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    method: 'DELETE',
+  });
+}
+
+// =============================================================================
 // Audit log
 // =============================================================================
 

@@ -91,6 +91,13 @@ function DashboardPageInner() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/dashboards"
+                className="text-content-muted hover:text-content-strong"
+                data-testid="nav-dashboards"
+              >
+                {pluralize(terminology.dashboardLabel)}
+              </Link>
               <Link href="/kpis" className="text-content-muted hover:text-content-strong">
                 {kpiLabelPlural}
               </Link>

@@ -181,6 +181,8 @@ model Organization {
   kpiCategories         KPICategory[]
   kpis                  KPI[]
   kpiDataPoints         KPIDataPoint[]
+  dashboards            Dashboard[]
+  dashboardWidgets      DashboardWidget[]
 
   @@index([tenantStatus])
 }
@@ -255,6 +257,7 @@ model User {
   kpiAssignments        KPIAssignmentUser[] @relation("UserKpiAssignments")
   kpiDataPoints         KPIDataPoint[]      @relation("UserKpiDataPoints")
   kpiDataPointsRecorded KPIDataPoint[]      @relation("UserKpiDataPointsRecorded")
+  ownedDashboards       Dashboard[]         @relation("DashboardOwner")
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
@@ -904,4 +907,61 @@ model KPICascade {
   @@unique([parentKpiId, childKpiId])
   @@index([organizationId])
   @@index([childKpiId])
+}
+
+// ============================================================================
+// P3.2 — Dashboards + Widgets
+// ============================================================================
+
+// A user- or role-owned collection of widgets. Visibility:
+//   - owner (ownerUserId) always sees it
+//   - if isShared = true, every member of the org sees it
+//   - admin always sees all
+// `version` powers optimistic concurrency via If-Match ETag (W/"<version>").
+// `deletedAt` powers soft delete; list endpoints filter deletedAt IS NULL.
+model Dashboard {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  ownerUserId    String?
+  owner          User?        @relation("DashboardOwner", fields: [ownerUserId], references: [id])
+  ownerRoleId    String?
+  isShared       Boolean      @default(false)
+  isDefault      Boolean      @default(false)
+  layout         Json?
+  version        Int          @default(1)
+  deletedAt      DateTime?
+  deletedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String?
+
+  widgets DashboardWidget[]
+
+  @@index([organizationId, deletedAt])
+  @@index([ownerUserId])
+}
+
+// A single widget on a dashboard. `widgetType` is a string union enforced at
+// the service layer (kpi_card | line | bar | pie | gauge | number | list |
+// trend | activity | strategy_map). `config` holds per-type config
+// (kpiId, color, axes, etc.). `position` is `{x, y, w, h}` on a 12-col grid.
+model DashboardWidget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dashboardId    String
+  dashboard      Dashboard    @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  widgetType     String
+  title          String?
+  config         Json
+  position       Json
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([dashboardId])
+  @@index([organizationId])
 }

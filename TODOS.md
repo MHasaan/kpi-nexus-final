@@ -209,22 +209,22 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 ## P3 — Visualization & Reporting (≈4 weeks)
 
 ### Schema
-- [ ] `Dashboard` (with `version` for optimistic concurrency + `deletedAt`), `DashboardWidget`
+- [x] `Dashboard` (with `version` for optimistic concurrency + `deletedAt`), `DashboardWidget`
 - [ ] `DashboardSnapshot`, `DashboardShareLink` (token + expiry + viewCount + passwordHash? + revokedAt)
 - [ ] `ScheduledReport`, `ReportRun`
 
 ### Backend modules
-- [ ] `DashboardsModule`: CRUD + widget CRUD + share rules + default-dashboard logic + ETag/If-Match concurrency + soft-delete
+- [x] `DashboardsModule`: CRUD + widget CRUD + share rules (owner OR isShared) + default-dashboard logic + ETag/If-Match concurrency + soft-delete (20 unit tests; live-verified)
 - [ ] `DashboardSnapshotsModule`: point-in-time capture + list + delete
 - [ ] `DashboardShareLinksModule`: signed public tokens + expiry + view counter + password + revoke
 - [ ] `RealtimeModule`: SSE endpoint + ioredis pub/sub + org-filtered events + 10+ event types catalog
 - [ ] `ReportsModule`: CSV (Papa), Excel (exceljs), PDF (@react-pdf) generation; scheduled reports BullMQ cron; board-pack composer; embeddable widget HMAC-signed tokens
 
 ### Frontend
-- [ ] `/dashboards` list + create + set-default + delete actions
-- [ ] `/dashboards/new` form
-- [ ] `/dashboards/[id]` detail with widget grid + real-time refresh badge + date-range bar + share/snapshot/export buttons
-- [ ] `/dashboards/[id]/widgets/add` widget type select + KPI picker + config
+- [x] `/dashboards` list + create + set-default + delete actions (Playwright-verified)
+- [x] `/dashboards/new` form
+- [x] `/dashboards/[id]` detail with widget add/list/delete (drag-drop grid + real-time refresh + date-range bar + share/snapshot/export buttons deferred to later P3 subtasks)
+- [x] `/dashboards/[id]/widgets/add` widget type select + KPI ID picker + config (inline on detail page; standalone route deferred)
 - [ ] Drag-drop dashboard builder (react-grid-layout, 12-col, debounced 350ms PATCH)
 - [ ] 10+ widget types (kpi_card, line, bar, pie, gauge, number, list, trend, activity, strategy_map)
 - [ ] `<RealtimeRefresh>` client component subscribing via EventSource + router.refresh debounced 1.5s

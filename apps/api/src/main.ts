@@ -29,7 +29,7 @@ async function bootstrap(): Promise<void> {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['authorization', 'content-type'],
+    allowedHeaders: ['authorization', 'content-type', 'if-match'],
   });
 
   const port = Number(process.env.PORT ?? 4000);

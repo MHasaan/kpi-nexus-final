@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { DashboardsModule } from './dashboards/dashboards.module.js';
 import { HealthModule } from './health/health.module.js';
 import { KpisModule } from './kpis/kpis.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module.js';
     PositionsModule,
     UsersModule,
     KpisModule,
+    DashboardsModule,
     HealthModule,
   ],
 })

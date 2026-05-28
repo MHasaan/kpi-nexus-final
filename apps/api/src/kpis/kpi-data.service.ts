@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
+import { RealtimeService } from '../realtime/realtime.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 
@@ -81,10 +83,13 @@ function aggregate(values: number[], method: string): number | null {
 
 @Injectable()
 export class KpiDataService {
+  private readonly logger = new Logger(KpiDataService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /** POST /kpis/:id/data — ORG_WIDE only. */
@@ -451,6 +456,24 @@ export class KpiDataService {
               : 'ORG_WIDE',
       },
     });
+
+    // Publish realtime event — non-fatal: a Redis hiccup must not fail the write.
+    try {
+      await this.realtime.publish(params.organizationId, {
+        type: 'data_point_added',
+        kpiId: point.kpiId,
+        dataPointId: point.id,
+        value: point.value,
+        recordedAt: point.recordedAt.toISOString(),
+        orgUnitId: point.orgUnitId,
+        userId: point.userId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `KpiDataService: realtime publish failed for dataPoint ${point.id}: ${String(err)}`,
+      );
+    }
+
     return point;
   }
 

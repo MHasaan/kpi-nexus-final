@@ -8,6 +8,7 @@ import { DashboardsModule } from './dashboards/dashboards.module.js';
 import { HealthModule } from './health/health.module.js';
 import { KpisModule } from './kpis/kpis.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 import { OrgUnitsModule } from './org-units/org-units.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
 import { PasswordModule } from './password/password.module.js';
@@ -58,6 +59,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     KpisModule,
     DashboardsModule,
+    RealtimeModule,
     HealthModule,
   ],
 })

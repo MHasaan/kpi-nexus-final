@@ -531,8 +531,15 @@ export async function recordOrgWideDataPoint(
   });
 }
 
-export async function listKpiDataPoints(kpiId: string): Promise<DataPoint[]> {
-  return api(`/kpis/${kpiId}/data`);
+export async function listKpiDataPoints(
+  kpiId: string,
+  opts: { from?: string; to?: string } = {},
+): Promise<DataPoint[]> {
+  const search = new URLSearchParams();
+  if (opts.from) search.set('from', opts.from);
+  if (opts.to) search.set('to', opts.to);
+  const qs = search.toString();
+  return api(`/kpis/${kpiId}/data${qs ? `?${qs}` : ''}`);
 }
 
 export interface DashboardSummaryRow {
@@ -674,6 +681,157 @@ export async function deleteWidget(
   return api(`/dashboards/${dashboardId}/widgets/${widgetId}`, {
     method: 'DELETE',
   });
+}
+
+export async function updateWidgetPosition(
+  dashboardId: string,
+  widgetId: string,
+  position: WidgetPosition,
+): Promise<DashboardWidget> {
+  return api(`/dashboards/${dashboardId}/widgets/${widgetId}/position`, {
+    method: 'POST',
+    body: JSON.stringify(position),
+  });
+}
+
+export async function updateWidget(
+  dashboardId: string,
+  widgetId: string,
+  patch: Partial<Pick<DashboardWidget, 'title' | 'config' | 'position'>>,
+): Promise<DashboardWidget> {
+  return api(`/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+// =============================================================================
+// Snapshots (P3)
+// =============================================================================
+
+export interface DashboardSnapshot {
+  id: string;
+  dashboardId: string;
+  label: string | null;
+  payload: Record<string, unknown>;
+  takenAt: string;
+  takenById: string | null;
+  takenByName?: string | null;
+}
+
+export async function listSnapshots(dashboardId: string): Promise<DashboardSnapshot[]> {
+  return api(`/dashboards/${dashboardId}/snapshots`);
+}
+
+export async function captureSnapshot(
+  dashboardId: string,
+  body: { label?: string } = {},
+): Promise<DashboardSnapshot> {
+  return api(`/dashboards/${dashboardId}/snapshots`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getSnapshot(snapshotId: string): Promise<DashboardSnapshot> {
+  return api(`/snapshots/${snapshotId}`);
+}
+
+export async function deleteSnapshot(snapshotId: string): Promise<void> {
+  return api(`/snapshots/${snapshotId}`, { method: 'DELETE' });
+}
+
+// =============================================================================
+// Real-time SSE stream
+// =============================================================================
+
+export interface RealtimeEvent {
+  type: string;
+  payload: unknown;
+}
+
+/**
+ * Subscribe to the SSE real-time stream. Uses fetch + ReadableStream
+ * instead of EventSource so we can send the Authorization header.
+ *
+ * Returns a cleanup function that aborts the connection.
+ */
+export function subscribeRealtime(
+  filters: { kpiId?: string; dashboardId?: string },
+  onEvent: (evt: RealtimeEvent) => void,
+): () => void {
+  const controller = new AbortController();
+
+  async function connect() {
+    const token = getAccessToken();
+    if (!token) return;
+
+    const qs = new URLSearchParams();
+    if (filters.kpiId) qs.set('kpiId', filters.kpiId);
+    if (filters.dashboardId) qs.set('dashboardId', filters.dashboardId);
+    const url = `${apiBaseUrl}/realtime/stream${qs.toString() ? `?${qs.toString()}` : ''}`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) return;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      // SSE frame state
+      let eventType = 'message';
+      let dataLines: string[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        // Keep the last (potentially incomplete) line in the buffer
+        buf = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (line === '') {
+            // Blank line = end of SSE frame
+            if (dataLines.length > 0) {
+              const dataStr = dataLines.join('\n');
+              try {
+                const payload: unknown = JSON.parse(dataStr);
+                onEvent({ type: eventType, payload });
+              } catch {
+                // non-JSON data — skip
+              }
+              eventType = 'message';
+              dataLines = [];
+            }
+          } else if (line.startsWith(':')) {
+            // SSE heartbeat / comment — ignore
+          } else if (line.startsWith('event:')) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trim());
+          }
+        }
+      }
+    } catch (err) {
+      // AbortError means cleanup — don't reconnect
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // Other errors: attempt reconnect after 3 s
+      if (!controller.signal.aborted) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 3000));
+        if (!controller.signal.aborted) connect();
+      }
+    }
+  }
+
+  void connect();
+  return () => controller.abort();
 }
 
 // =============================================================================

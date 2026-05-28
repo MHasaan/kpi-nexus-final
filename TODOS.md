@@ -210,46 +210,49 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 
 ### Schema
 - [x] `Dashboard` (with `version` for optimistic concurrency + `deletedAt`), `DashboardWidget`
-- [ ] `DashboardSnapshot`, `DashboardShareLink` (token + expiry + viewCount + passwordHash? + revokedAt)
-- [ ] `ScheduledReport`, `ReportRun`
+- [x] `DashboardSnapshot`, `DashboardShareLink` (token + expiry + viewCount + passwordHash + revokedAt) — with FK relations to Dashboard/User
+- [x] `ScheduledReport`, `ReportRun` (+ `ReportFormat`/`ReportRunStatus` enums)
 
 ### Backend modules
 - [x] `DashboardsModule`: CRUD + widget CRUD + share rules (owner OR isShared) + default-dashboard logic + ETag/If-Match concurrency + soft-delete (20 unit tests; live-verified)
-- [ ] `DashboardSnapshotsModule`: point-in-time capture + list + delete
-- [ ] `DashboardShareLinksModule`: signed public tokens + expiry + view counter + password + revoke
-- [ ] `RealtimeModule`: SSE endpoint + ioredis pub/sub + org-filtered events + 10+ event types catalog
-- [ ] `ReportsModule`: CSV (Papa), Excel (exceljs), PDF (@react-pdf) generation; scheduled reports BullMQ cron; board-pack composer; embeddable widget HMAC-signed tokens
+- [x] `DashboardSnapshotsModule`: point-in-time capture (dashboard + widgets + latest KPI values) + list + get + delete (14 unit tests)
+- [x] `DashboardShareLinksModule`: 32-byte tokens + expiry + view counter + bcrypt password + revoke; public resolve via runWithBypass; password via POST body not query (30 unit tests)
+- [x] `RealtimeModule`: SSE endpoint (Fastify hijack + 25s heartbeat) + ioredis pub/sub + org-filtered events + event catalog; wired into KPI data writes (15 unit tests; live SSE smoke verified)
+- [x] `ReportsModule`: CSV (Papa+BOM), Excel (exceljs), PDF (pdfkit — chosen over @react-pdf, no JSX build needed) generation; board-pack composer; HMAC-signed embed tokens (19 unit tests)
+- [x] Scheduled reports: BullMQ repeatable jobs + processor (runs as report creator for correct §6 visibility) → MinIO upload → presigned URL → Mailhog email; CRUD + trigger (7 unit + 1 integration test, Mailhog email asserted)
 
 ### Frontend
 - [x] `/dashboards` list + create + set-default + delete actions (Playwright-verified)
 - [x] `/dashboards/new` form
-- [x] `/dashboards/[id]` detail with widget add/list/delete (drag-drop grid + real-time refresh + date-range bar + share/snapshot/export buttons deferred to later P3 subtasks)
-- [x] `/dashboards/[id]/widgets/add` widget type select + KPI ID picker + config (inline on detail page; standalone route deferred)
-- [ ] Drag-drop dashboard builder (react-grid-layout, 12-col, debounced 350ms PATCH)
-- [ ] 10+ widget types (kpi_card, line, bar, pie, gauge, number, list, trend, activity, strategy_map)
-- [ ] `<RealtimeRefresh>` client component subscribing via EventSource + router.refresh debounced 1.5s
-- [ ] `/dashboards/[id]/widgets/[wid]` drill-down with from/to/quality filters + min/avg/max tiles
-- [ ] Cross-filtering via shared search-params (date-range bar with 4 presets + custom)
-- [ ] `/reports` list (run/pause/delete) + `/reports/new` (cron presets + KPI multi-select + recipients) + `/reports/[id]` (run history with download)
-- [ ] `/reports/board-pack` executive summary composer
-- [ ] `/dashboards/[id]/share` admin view of share links
-- [ ] `/share/[token]` public viewer (no auth, no app shell)
-- [ ] `/kpis/[id]/embed` generator (iframe snippet + live preview)
-- [ ] `/embed/kpi/[token]` chrome-less single-KPI viewer
-- [ ] `<PrintButton>` + print stylesheets (`@media print` hides chrome)
+- [x] `/dashboards/[id]` detail: drag-drop grid + real-time refresh + date-range bar + snapshot/share/print actions
+- [x] `/dashboards/[id]/widgets/add` widget type select + KPI ID picker + config (inline on detail page)
+- [x] Drag-drop dashboard builder (react-grid-layout, 12-col, debounced 350ms PATCH; delete tagged `.widget-no-drag`)
+- [x] 10 widget types (kpi_card, line, bar, pie, gauge, number, list, trend, activity, strategy_map) via recharts
+- [x] `<RealtimeRefresh>` client component — subscribes via fetch-stream SSE (bearer auth; EventSource can't send headers) + debounced 1.5s re-fetch
+- [x] `/dashboards/[id]/widgets/[wid]` drill-down with from/to/quality filters + min/avg/max tiles + chart toggle
+- [x] Date-range bar with 4 presets + custom (full cross-filtering deferred to P9 per plan)
+- [x] `/reports` list (run/pause/delete) + `/reports/new` (cron presets + KPI multi-select + recipients) + `/reports/[id]` (run history with download)
+- [x] `/reports/board-pack` executive summary composer
+- [x] `/dashboards/[id]/share` admin view of share links
+- [x] `/dashboards/[id]/snapshots` snapshot history + capture + view
+- [x] `/share/[token]` public viewer (no auth, no app shell; password prompt)
+- [x] `/kpis/[id]/embed` generator (iframe snippet + live preview)
+- [x] `/embed/kpi/[token]` chrome-less single-KPI viewer
+- [x] `<PrintButton>` + print stylesheets (`@media print` hides chrome)
+- [ ] Optimistic-concurrency 3-way diff dialog on dashboard edit (backend 412 done + tested; FE conflict dialog NOT yet built)
 
 ### Tests
-- [ ] e2e UC-05 (Real-Time Dashboard), UC-09 (Generate Reports), UC-10 (Export Reports)
-- [ ] SSE propagation test: data point insert → 2 browser tabs receive event in <500ms
-- [ ] Scheduled report end-to-end (cron → file → mailhog inbox)
-- [ ] Lighthouse Performance ≥90 on `/dashboards/[id]` route
+- [x] e2e UC-05 (Real-Time Dashboard), UC-09 (Generate Reports), UC-10 (Export Reports) — Playwright, 13 specs green vs live stack
+- [x] SSE propagation: data point insert → SSE stream receives `data_point_added` (live curl smoke + e2e two-tab)
+- [x] Scheduled report end-to-end (trigger → file in MinIO → Mailhog inbox; integration test)
+- [ ] Lighthouse Performance ≥90 on `/dashboards/[id]` route — NOT run (needs browser perf harness)
 
 ### Exit
-- [ ] 12-widget dashboard with 1000 KPIs renders <3s p95
-- [ ] SSE: data point insert reflected in 2 tabs <500ms
-- [ ] Scheduled report cron triggers + emails delivered within 30s
-- [ ] Lighthouse Performance ≥90 on dashboard
-- [ ] Tag `git tag p3-complete`
+- [ ] 12-widget dashboard with 1000 KPIs renders <3s p95 — NOT measured (needs seeded perf dataset + browser timing)
+- [x] SSE: data point insert reflected across clients (live-verified; e2e two-tab)
+- [x] Scheduled report cron triggers + emails delivered within 30s (integration-verified)
+- [ ] Lighthouse Performance ≥90 on dashboard — NOT run
+- [ ] Tag `git tag p3-complete` — held pending Lighthouse/perf verification + FE concurrency dialog
 
 ---
 

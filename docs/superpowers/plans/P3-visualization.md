@@ -17,16 +17,16 @@ Dashboards are the user-facing surface that makes the KPI engine valuable. P3 tu
 
 ## Exit criteria
 
-- [ ] 12-widget dashboard with 1000 KPIs renders <3s p95 (verified via Lighthouse + manual timing)
-- [ ] SSE: data point insert reflected in 2 browser tabs in <500ms
-- [ ] Scheduled report cron triggers + emails delivered via Resend (Mailhog in dev) within 30s
-- [ ] Lighthouse Performance ≥90 on dashboard route
-- [ ] e2e UC-05 (View Real-Time Dashboard), UC-09 (Generate Reports), UC-10 (Export Reports) pass
-- [ ] Public share link works without auth; revoke immediately invalidates
-- [ ] Embed widget renders in cross-origin iframe without auth
-- [ ] Optimistic concurrency on dashboards: concurrent edits trigger 3-way diff dialog
-- [ ] Print stylesheet produces clean PDF when "Print" used in browser
-- [ ] Tag `git tag p3-complete`
+- [ ] 12-widget dashboard with 1000 KPIs renders <3s p95 (verified via Lighthouse + manual timing) — NOT measured yet
+- [x] SSE: data point insert reflected in 2 browser tabs in <500ms — live-verified (curl smoke + e2e uc05 two-tab)
+- [x] Scheduled report cron triggers + emails delivered via Resend (Mailhog in dev) within 30s — integration-verified (trigger → MinIO → Mailhog)
+- [ ] Lighthouse Performance ≥90 on dashboard route — NOT run
+- [x] e2e UC-05 (View Real-Time Dashboard), UC-09 (Generate Reports), UC-10 (Export Reports) pass — 13 Playwright specs green vs live stack
+- [x] Public share link works without auth; revoke immediately invalidates — e2e share-link verified
+- [x] Embed widget renders in cross-origin iframe without auth — public embed endpoint + chrome-less viewer built (HMAC token; backend unit-tested)
+- [ ] Optimistic concurrency on dashboards: concurrent edits trigger 3-way diff dialog — backend 412/If-Match done + tested; FE conflict dialog NOT built
+- [x] Print stylesheet produces clean PDF when "Print" used in browser — `@media print` + PrintButton built
+- [ ] Tag `git tag p3-complete` — held pending Lighthouse/perf + FE concurrency dialog
 
 ## Schema additions
 

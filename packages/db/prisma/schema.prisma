@@ -185,6 +185,8 @@ model Organization {
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
   dashboardShareLinks   DashboardShareLink[]
+  scheduledReports      ScheduledReport[]
+  reportRuns            ReportRun[]
 
   @@index([tenantStatus])
 }
@@ -1012,5 +1014,70 @@ model DashboardShareLink {
   createdBy      User         @relation("DashboardShareLinkCreatedBy", fields: [createdById], references: [id])
 
   @@index([dashboardId, revokedAt])
+  @@index([organizationId])
+}
+
+// ============================================================================
+// P3.6 — Reports (ScheduledReport + ReportRun)
+// ============================================================================
+
+enum ReportRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ReportFormat {
+  CSV
+  EXCEL
+  PDF
+}
+
+// A recurring report configuration. The scheduler (P3.7) reads `cron` + `nextRunAt`
+// to decide when to fire. `kpiIds` is a denormalised list — the generator
+// resolves current KPI data at run time. `recipients` are email addresses.
+model ScheduledReport {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  dashboardId    String?
+  kpiIds         String[]
+  cron           String
+  format         ReportFormat
+  recipients     String[]
+  isActive       Boolean      @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdById    String
+
+  runs ReportRun[]
+
+  @@index([organizationId, isActive])
+}
+
+// A single report generation run — produced either on-demand or by the scheduler.
+// `fileUrl` is set only after SUCCEEDED; `error` is set only after FAILED.
+// Scheduler (P3.7) uses `status = PENDING` rows to pick up work from BullMQ.
+model ReportRun {
+  id                String           @id @default(cuid())
+  organizationId    String
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduledReportId String?
+  scheduledReport   ScheduledReport? @relation(fields: [scheduledReportId], references: [id], onDelete: SetNull)
+  triggeredById     String?
+  status            ReportRunStatus  @default(PENDING)
+  format            ReportFormat
+  fileUrl           String?
+  error             String?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  ranAt             DateTime         @default(now())
+
+  @@index([scheduledReportId, ranAt])
   @@index([organizationId])
 }

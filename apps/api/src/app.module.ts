@@ -20,6 +20,7 @@ import { ResourcePermissionsModule } from './resource-permissions/resource-permi
 import { RolesModule } from './roles/roles.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { UsersModule } from './users/users.module.js';
+import { ReportsModule } from './reports/reports.module.js';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     KpisModule,
     DashboardsModule,
+    ReportsModule,
     RealtimeModule,
     HealthModule,
   ],

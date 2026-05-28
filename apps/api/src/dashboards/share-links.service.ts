@@ -21,6 +21,7 @@ const BCRYPT_ROUNDS = 12;
 // Select constants
 // ────────────────────────────────────────────────────────────────────────────
 
+// passwordHash fetched only to derive hasPassword; never returned — see explicit mapping in list().
 const shareLinkListSelect = {
   id: true,
   token: true,
@@ -54,12 +55,12 @@ const shareLinkCreateSelect = {
   createdById: true,
 } satisfies Prisma.DashboardShareLinkSelect;
 
-// The shape returned by resolve — minimal, no token or passwordHash.
+// The shape returned by resolve — minimal.
+// passwordHash is fetched only for internal bcrypt comparison; it is never included in the returned payload.
 const resolveSelect = {
   id: true,
   dashboardId: true,
   organizationId: true,
-  token: true,
   expiresAt: true,
   viewCount: true,
   passwordHash: true,
@@ -258,14 +259,14 @@ export class ShareLinksService {
       if (link.passwordHash !== null) {
         if (!password) {
           throw new UnauthorizedException({
-            code: 'UNAUTHORIZED',
-            message: 'Password required',
+            code: 'PASSWORD_REQUIRED',
+            message: 'This share link requires a password',
           });
         }
         const passwordOk = await bcrypt.compare(password, link.passwordHash);
         if (!passwordOk) {
           throw new UnauthorizedException({
-            code: 'UNAUTHORIZED',
+            code: 'INVALID_PASSWORD',
             message: 'Invalid password',
           });
         }

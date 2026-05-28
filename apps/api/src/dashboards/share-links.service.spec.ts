@@ -688,4 +688,32 @@ describe('ShareLinksService.resolve', () => {
     const { service } = makeService({ prisma });
     await expect(service.resolve('valid_token')).resolves.toBeDefined();
   });
+
+  test('password-protected link: missing password → 401 with code PASSWORD_REQUIRED', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma, { passwordHash: 'hashed:secret' });
+    const { service } = makeService({ prisma });
+    await expect(service.resolve('valid_token')).rejects.toMatchObject({
+      response: { code: 'PASSWORD_REQUIRED' },
+    });
+  });
+
+  test('password-protected link: wrong password → 401 with code INVALID_PASSWORD', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma, { passwordHash: 'hashed:secret' });
+    const { service } = makeService({ prisma });
+    await expect(service.resolve('valid_token', 'wrongpassword')).rejects.toMatchObject({
+      response: { code: 'INVALID_PASSWORD' },
+    });
+  });
+
+  test('password-protected link: correct password → resolve() result does NOT contain passwordHash or token', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma, { passwordHash: 'hashed:secret', viewCount: 0 });
+    const { service } = makeService({ prisma });
+    const result = await service.resolve('valid_token', 'secret');
+    expect(result).not.toHaveProperty('passwordHash');
+    expect(result).not.toHaveProperty('token');
+    expect(result.dashboard.id).toBe(DASH_ID);
+  });
 });

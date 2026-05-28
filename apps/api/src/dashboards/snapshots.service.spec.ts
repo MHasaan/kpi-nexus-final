@@ -41,6 +41,12 @@ function withCtx<T>(
 // Fake types
 // ---------------------------------------------------------------------------
 
+interface FakeSnapshotTakenBy {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 interface FakeSnapshot {
   id: string;
   organizationId: string;
@@ -48,6 +54,7 @@ interface FakeSnapshot {
   label: string | null;
   payload: unknown;
   takenById: string;
+  takenBy: FakeSnapshotTakenBy;
   takenAt: Date;
 }
 
@@ -76,6 +83,7 @@ class FakePrisma {
         label: data.label ?? null,
         payload: data.payload ?? {},
         takenById: data.takenById!,
+        takenBy: { id: data.takenById!, fullName: 'Test User', email: 'test@example.com' },
         takenAt: new Date(),
       };
       this.snapshotStore.push(row);
@@ -336,6 +344,7 @@ describe('SnapshotService.list', () => {
         label: 'old',
         payload: {},
         takenById: 'u1',
+        takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
         takenAt: new Date(now - 10_000),
       },
       {
@@ -345,6 +354,7 @@ describe('SnapshotService.list', () => {
         label: 'new',
         payload: {},
         takenById: 'u1',
+        takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
         takenAt: new Date(now),
       },
     );
@@ -352,6 +362,8 @@ describe('SnapshotService.list', () => {
     const result = await withCtx({}, () => service.list('dash_1'));
     expect(result[0]!.id).toBe('snap_new');
     expect(result[1]!.id).toBe('snap_old');
+    // takenBy should be resolved, not just the raw FK
+    expect(result[0]!.takenBy).toMatchObject({ id: 'u1', fullName: 'Test User', email: 'test@example.com' });
   });
 
   test('returns 404 when the dashboard is not visible', async () => {
@@ -371,6 +383,7 @@ describe('SnapshotService.list', () => {
       label: null,
       payload: {},
       takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
       takenAt: new Date(),
     });
     const { service } = makeService({ prisma });
@@ -395,6 +408,7 @@ describe('SnapshotService.get', () => {
       label: 'test',
       payload: { capturedAt: '2026-01-01' },
       takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
       takenAt: new Date(),
     });
     const { service } = makeService({ prisma });
@@ -411,6 +425,7 @@ describe('SnapshotService.get', () => {
       label: null,
       payload: {},
       takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
       takenAt: new Date(),
     });
     const { service } = makeService({ prisma });
@@ -441,6 +456,7 @@ describe('SnapshotService.delete', () => {
       label: null,
       payload: {},
       takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
       takenAt: new Date(),
     });
     const { service, audit } = makeService({ prisma });
@@ -462,6 +478,7 @@ describe('SnapshotService.delete', () => {
       label: null,
       payload: {},
       takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
       takenAt: new Date(),
     });
     const { service } = makeService({ prisma });

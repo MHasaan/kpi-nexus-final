@@ -38,6 +38,13 @@ const snapshotListSelect = {
   label: true,
   takenAt: true,
   takenById: true,
+  takenBy: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+    },
+  },
 } satisfies Prisma.DashboardSnapshotSelect;
 
 const snapshotFullSelect = {

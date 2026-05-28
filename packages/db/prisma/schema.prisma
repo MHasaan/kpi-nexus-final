@@ -258,7 +258,8 @@ model User {
   kpiAssignments        KPIAssignmentUser[] @relation("UserKpiAssignments")
   kpiDataPoints         KPIDataPoint[]      @relation("UserKpiDataPoints")
   kpiDataPointsRecorded KPIDataPoint[]      @relation("UserKpiDataPointsRecorded")
-  ownedDashboards       Dashboard[]         @relation("DashboardOwner")
+  ownedDashboards          Dashboard[]         @relation("DashboardOwner")
+  dashboardSnapshotsTaken  DashboardSnapshot[] @relation("DashboardSnapshotTakenBy")
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
@@ -939,7 +940,8 @@ model Dashboard {
   updatedAt      DateTime     @updatedAt
   createdById    String?
 
-  widgets DashboardWidget[]
+  widgets   DashboardWidget[]
+  snapshots DashboardSnapshot[]
 
   @@index([organizationId, deletedAt])
   @@index([ownerUserId])
@@ -975,9 +977,11 @@ model DashboardSnapshot {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   dashboardId    String
+  dashboard      Dashboard    @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
   label          String?
   payload        Json
   takenById      String
+  takenBy        User         @relation("DashboardSnapshotTakenBy", fields: [takenById], references: [id])
   takenAt        DateTime     @default(now())
 
   @@index([dashboardId, takenAt])

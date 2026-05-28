@@ -22,11 +22,13 @@ import {
   parseIfMatch,
 } from './dashboards.service.js';
 import { type PublicSnapshotFull, type PublicSnapshotSummary, SnapshotService } from './snapshots.service.js';
+import { type PublicShareLink, ShareLinksService } from './share-links.service.js';
 import { type PublicWidget, WidgetsService } from './widgets.service.js';
 import {
   AddWidgetDtoSchema,
   CaptureSnapshotDtoSchema,
   CreateDashboardDtoSchema,
+  CreateShareLinkDtoSchema,
   UpdateDashboardDtoSchema,
   UpdateWidgetDtoSchema,
   UpdateWidgetPositionDtoSchema,
@@ -50,6 +52,7 @@ export class DashboardsController {
     private readonly dashboards: DashboardsService,
     private readonly widgets: WidgetsService,
     private readonly snapshots: SnapshotService,
+    private readonly shareLinks: ShareLinksService,
   ) {}
 
   @Get()
@@ -71,6 +74,15 @@ export class DashboardsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteSnapshot(@Param('snapshotId') snapshotId: string): Promise<void> {
     return this.snapshots.delete(snapshotId);
+  }
+
+  // Share links — static-segment routes declared before :id to avoid shadowing.
+
+  @Delete('share/:linkId')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  revokeShareLink(@Param('linkId') linkId: string): Promise<void> {
+    return this.shareLinks.revoke(linkId);
   }
 
   @Get(':id')
@@ -111,6 +123,24 @@ export class DashboardsController {
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
   setDefault(@Param('id') id: string): Promise<PublicDashboard> {
     return this.dashboards.setDefault(id);
+  }
+
+  // Share links (per-dashboard sub-resource) ---------------------------------
+
+  @Get(':id/share')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  listShareLinks(@Param('id') dashboardId: string): Promise<PublicShareLink[]> {
+    return this.shareLinks.list(dashboardId);
+  }
+
+  @Post(':id/share')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.CREATED)
+  createShareLink(
+    @Param('id') dashboardId: string,
+    @Body() body: unknown,
+  ): Promise<PublicShareLink> {
+    return this.shareLinks.create(dashboardId, parse(CreateShareLinkDtoSchema, body));
   }
 
   // Snapshots (per-dashboard sub-resource) -----------------------------------

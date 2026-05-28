@@ -184,6 +184,7 @@ model Organization {
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
+  dashboardShareLinks   DashboardShareLink[]
 
   @@index([tenantStatus])
 }
@@ -258,8 +259,9 @@ model User {
   kpiAssignments        KPIAssignmentUser[] @relation("UserKpiAssignments")
   kpiDataPoints         KPIDataPoint[]      @relation("UserKpiDataPoints")
   kpiDataPointsRecorded KPIDataPoint[]      @relation("UserKpiDataPointsRecorded")
-  ownedDashboards          Dashboard[]         @relation("DashboardOwner")
-  dashboardSnapshotsTaken  DashboardSnapshot[] @relation("DashboardSnapshotTakenBy")
+  ownedDashboards              Dashboard[]           @relation("DashboardOwner")
+  dashboardSnapshotsTaken      DashboardSnapshot[]   @relation("DashboardSnapshotTakenBy")
+  dashboardShareLinksCreated   DashboardShareLink[]  @relation("DashboardShareLinkCreatedBy")
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
@@ -940,8 +942,9 @@ model Dashboard {
   updatedAt      DateTime     @updatedAt
   createdById    String?
 
-  widgets   DashboardWidget[]
-  snapshots DashboardSnapshot[]
+  widgets    DashboardWidget[]
+  snapshots  DashboardSnapshot[]
+  shareLinks DashboardShareLink[]
 
   @@index([organizationId, deletedAt])
   @@index([ownerUserId])
@@ -985,5 +988,29 @@ model DashboardSnapshot {
   takenAt        DateTime     @default(now())
 
   @@index([dashboardId, takenAt])
+  @@index([organizationId])
+}
+
+// A tokenized public share link for a dashboard. Allows unauthenticated
+// read-only access (optionally password-protected) without an account.
+// `token` is globally unique (~43 chars base64url from 32 random bytes).
+// Revocation is soft (revokedAt timestamp) to preserve audit trail.
+model DashboardShareLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dashboardId    String
+  dashboard      Dashboard    @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  token          String       @unique
+  expiresAt      DateTime?
+  viewCount      Int          @default(0)
+  passwordHash   String?
+  lastViewedAt   DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  createdById    String
+  createdBy      User         @relation("DashboardShareLinkCreatedBy", fields: [createdById], references: [id])
+
+  @@index([dashboardId, revokedAt])
   @@index([organizationId])
 }

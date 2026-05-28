@@ -77,3 +77,20 @@ export const CaptureSnapshotDtoSchema = z
   })
   .strict();
 export type CaptureSnapshotDto = z.infer<typeof CaptureSnapshotDtoSchema>;
+
+// Share link creation — optional expiry + optional password.
+export const CreateShareLinkDtoSchema = z
+  .object({
+    expiresAt: z.string().datetime().transform((s) => new Date(s)).optional(),
+    password: z.string().min(4).max(128).optional(),
+  })
+  .strict();
+export type CreateShareLinkDto = z.infer<typeof CreateShareLinkDtoSchema>;
+
+// Public resolve — optional password supplied as query param or body.
+export const ResolveShareDtoSchema = z
+  .object({
+    password: z.string().optional(),
+  })
+  .strict();
+export type ResolveShareDto = z.infer<typeof ResolveShareDtoSchema>;

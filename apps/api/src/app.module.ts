@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
@@ -42,6 +43,18 @@ import { ReportsModule } from './reports/reports.module.js';
         autoLogging: {
           ignore: (req) => req.url === '/health',
         },
+      },
+    }),
+    BullModule.forRootAsync({
+      useFactory: () => {
+        const url = new URL(process.env.REDIS_URL ?? 'redis://localhost:6379');
+        return {
+          connection: {
+            host: url.hostname,
+            port: Number(url.port || 6379),
+            password: url.password || undefined,
+          },
+        };
       },
     }),
     PrismaModule,

@@ -59,6 +59,12 @@ if (process.env.NODE_ENV !== 'production') {
 export { PrismaClient } from '@prisma/client';
 export type { Prisma } from '@prisma/client';
 
+// Re-export generated Prisma model types used directly by consuming apps
+// (e.g. background processors that pass whole rows between methods). Add as
+// needed; most code should prefer `Prisma.<Model>GetPayload<...>` for shaped
+// selects.
+export type { ScheduledReport, ReportRun } from '@prisma/client';
+
 // Re-export the generated Prisma enums so consuming apps don't need a
 // direct `@prisma/client` dep (it's a transitive of this package). Add to
 // this list as new enums land in the schema.
@@ -74,4 +80,6 @@ export {
   OrgUnitMemberRole,
   OrgUnitLeaveReason,
   AuditAction,
+  ReportFormat,
+  ReportRunStatus,
 } from '@prisma/client';

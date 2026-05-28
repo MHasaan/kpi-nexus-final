@@ -14,3 +14,39 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
   }
 }
+
+@media print {
+  /* Hide non-content elements */
+  .no-print,
+  header,
+  nav,
+  aside,
+  footer {
+    display: none !important;
+  }
+
+  /* Stretch main content to full width */
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure colors print accurately */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  .shadow-sm,
+  .shadow {
+    box-shadow: none !important;
+  }
+}

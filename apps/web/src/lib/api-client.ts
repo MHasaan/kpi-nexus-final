@@ -883,6 +883,264 @@ export async function listAudit(params: AuditListParams = {}): Promise<AuditEntr
 }
 
 // =============================================================================
+// Reports (P3)
+// =============================================================================
+
+export type ReportFormat = 'CSV' | 'EXCEL' | 'PDF';
+export type ReportRunStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+
+export interface ReportRun {
+  id: string;
+  status: ReportRunStatus;
+  ranAt: string | null;
+  fileUrl: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface ScheduledReport {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  cron: string;
+  format: ReportFormat;
+  recipients: string[];
+  dashboardId: string | null;
+  kpiIds: string[];
+  isActive: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  runs: ReportRun[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShareLink {
+  id: string;
+  dashboardId: string;
+  token: string;
+  hasPassword: boolean;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  viewCount: number;
+  lastViewedAt: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface PublicWidget {
+  id: string;
+  widgetType: string;
+  title: string | null;
+  config: Record<string, unknown>;
+  position: WidgetPosition;
+  sortOrder: number;
+}
+
+export interface PublicKpiValue {
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  latestValue: number | null;
+  latestRecordedAt: string | null;
+  thresholdStatus: string | null;
+}
+
+export interface PublicDashboardPayload {
+  dashboard: {
+    id: string;
+    name: string;
+    description: string | null;
+  };
+  widgets: PublicWidget[];
+  kpiValues: PublicKpiValue[];
+  viewCount?: number;
+}
+
+export interface SparklinePoint {
+  recordedAt: string;
+  value: number;
+}
+
+export interface EmbedKpiSnapshot {
+  kpiId: string;
+  kpiName: string;
+  unit: string | null;
+  latestValue: number | null;
+  latestRecordedAt: string | null;
+  sparkline: SparklinePoint[];
+  thresholdStatus: string | null;
+}
+
+export interface BoardPackMover {
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  previousValue: number | null;
+  currentValue: number | null;
+  change: number | null;
+  changePct: number | null;
+}
+
+export interface BoardPackQuadrantKpi {
+  kpiId: string;
+  name: string;
+  value: number | null;
+  status: string | null;
+}
+
+export interface BoardPackQuadrant {
+  name: string;
+  kpis: BoardPackQuadrantKpi[];
+  healthDistribution?: Record<string, number>;
+}
+
+export interface BoardPack {
+  org: { id: string; name: string };
+  period: { sinceDays: number; from: string; to: string };
+  topMovers: BoardPackMover[];
+  quadrants: BoardPackQuadrant[];
+}
+
+// Scheduled reports
+
+export async function listScheduledReports(): Promise<ScheduledReport[]> {
+  return api('/scheduled-reports');
+}
+
+export async function createScheduledReport(body: {
+  name: string;
+  cron: string;
+  format: ReportFormat;
+  recipients: string[];
+  dashboardId?: string;
+  kpiIds?: string[];
+  description?: string;
+}): Promise<ScheduledReport> {
+  return api('/scheduled-reports', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function getScheduledReport(id: string): Promise<ScheduledReport> {
+  return api(`/scheduled-reports/${id}`);
+}
+
+export async function updateScheduledReport(
+  id: string,
+  patch: Partial<{
+    name: string;
+    cron: string;
+    format: ReportFormat;
+    recipients: string[];
+    isActive: boolean;
+    dashboardId: string;
+    kpiIds: string[];
+    description: string;
+  }>,
+): Promise<ScheduledReport> {
+  return api(`/scheduled-reports/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+
+export async function deleteScheduledReport(id: string): Promise<void> {
+  return api(`/scheduled-reports/${id}`, { method: 'DELETE' });
+}
+
+export async function triggerScheduledReport(id: string): Promise<void> {
+  return api(`/scheduled-reports/${id}/trigger`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+// On-demand report download (returns a blob and triggers browser download)
+
+export async function downloadReport(body: {
+  format: ReportFormat;
+  dashboardId?: string;
+  kpiIds?: string[];
+  from?: string;
+  to?: string;
+}): Promise<void> {
+  const token = getAccessToken();
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (token) headers['authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${apiBaseUrl}/reports/generate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errPayload = await res.json().catch(() => ({})) as { message?: string };
+    throw new ApiError(res.status, errPayload.message ?? `HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+  const filename = match?.[1]?.replace(/['"]/g, '') ?? `report.${body.format.toLowerCase()}`;
+
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+// Board pack
+
+export async function getBoardPack(sinceDays: number): Promise<BoardPack> {
+  return api(`/reports/board-pack?sinceDays=${sinceDays}`);
+}
+
+// Embed token
+
+export async function mintEmbedToken(kpiId: string): Promise<{ token: string }> {
+  return api(`/reports/kpis/${kpiId}/embed-token`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+// Share links (authenticated)
+
+export async function listShareLinks(dashboardId: string): Promise<ShareLink[]> {
+  return api(`/dashboards/${dashboardId}/share`);
+}
+
+export async function createShareLink(
+  dashboardId: string,
+  body: { expiresAt?: string; password?: string },
+): Promise<ShareLink> {
+  return api(`/dashboards/${dashboardId}/share`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function revokeShareLink(linkId: string): Promise<void> {
+  return api(`/dashboards/share/${linkId}`, { method: 'DELETE' });
+}
+
+// Public dashboard resolve (NO auth)
+
+export async function getPublicDashboard(token: string): Promise<PublicDashboardPayload> {
+  return api(`/public/dashboards/${token}`, { auth: false });
+}
+
+export async function submitPublicDashboardPassword(
+  token: string,
+  password: string,
+): Promise<PublicDashboardPayload> {
+  return api(`/public/dashboards/${token}`, {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ password }),
+  });
+}
+
+// Public embed resolve (NO auth)
+
+export async function getPublicEmbedKpi(token: string): Promise<EmbedKpiSnapshot> {
+  return api(`/public/embed/kpi/${token}`, { auth: false });
+}
+
+// =============================================================================
 // Session
 // =============================================================================
 

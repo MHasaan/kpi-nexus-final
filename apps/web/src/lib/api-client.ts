@@ -734,11 +734,11 @@ export async function captureSnapshot(
 }
 
 export async function getSnapshot(snapshotId: string): Promise<DashboardSnapshot> {
-  return api(`/snapshots/${snapshotId}`);
+  return api(`/dashboards/snapshots/${snapshotId}`);
 }
 
 export async function deleteSnapshot(snapshotId: string): Promise<void> {
-  return api(`/snapshots/${snapshotId}`, { method: 'DELETE' });
+  return api(`/dashboards/snapshots/${snapshotId}`, { method: 'DELETE' });
 }
 
 // =============================================================================

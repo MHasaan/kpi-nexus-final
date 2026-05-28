@@ -183,7 +183,7 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     test.skip(!apiAvailable, 'api not reachable');
 
     const stamp = suffix();
-    const reg = await registerAndSeed(page, stamp);
+    await registerAndSeed(page, stamp);
     const adminEmail = `admin-${stamp}@kpis.test.local`;
 
     await page.goto('/kpis');

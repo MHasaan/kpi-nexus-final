@@ -23,6 +23,7 @@ import {
   useTerminology,
 } from '../../../lib/terminology-context';
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
+import { DashboardSettingsForm } from '../../../components/dashboard-grid/settings-form';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -59,6 +60,9 @@ function DashboardDetailInner() {
 
   // Edit mode
   const [editMode, setEditMode] = useState(false);
+
+  // Settings (metadata edit) panel
+  const [showSettings, setShowSettings] = useState(false);
 
   // Date range
   const [preset, setPreset] = useState<DatePreset>('30d');
@@ -260,6 +264,18 @@ function DashboardDetailInner() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setShowSettings((s) => !s)}
+                  data-testid="dashboard-settings-toggle"
+                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
+                    showSettings
+                      ? 'border-accent-primary bg-accent-primary text-white'
+                      : 'border-border bg-surface-1 text-content-default hover:bg-surface-2'
+                  }`}
+                >
+                  Settings
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowAddForm((s) => !s)}
                   data-testid="dashboard-add-widget-toggle"
                   className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2"
@@ -299,6 +315,19 @@ function DashboardDetailInner() {
                 </button>
               </div>
             </header>
+
+            {/* Settings (metadata edit + conflict resolution) */}
+            {showSettings && (
+              <DashboardSettingsForm
+                dashboard={dashboard}
+                onSaved={(updated) =>
+                  setDashboard((prev) =>
+                    prev ? { ...updated, widgets: prev.widgets } : updated,
+                  )
+                }
+                onClose={() => setShowSettings(false)}
+              />
+            )}
 
             {/* Snapshot feedback */}
             {snapDone && (

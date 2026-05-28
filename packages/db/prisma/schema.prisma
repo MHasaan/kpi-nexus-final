@@ -183,6 +183,7 @@ model Organization {
   kpiDataPoints         KPIDataPoint[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
+  dashboardSnapshots    DashboardSnapshot[]
 
   @@index([tenantStatus])
 }
@@ -963,5 +964,22 @@ model DashboardWidget {
   updatedAt      DateTime     @updatedAt
 
   @@index([dashboardId])
+  @@index([organizationId])
+}
+
+// A frozen point-in-time snapshot of a dashboard + its widgets + latest KPI
+// values for each referenced KPI. Created on demand; never mutated after
+// creation. `payload` is a structured JSON blob (see SnapshotService.capture).
+model DashboardSnapshot {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dashboardId    String
+  label          String?
+  payload        Json
+  takenById      String
+  takenAt        DateTime     @default(now())
+
+  @@index([dashboardId, takenAt])
   @@index([organizationId])
 }

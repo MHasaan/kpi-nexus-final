@@ -12,18 +12,20 @@ import {
   Post,
 } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
-import type { ZodTypeAny, infer as ZInfer } from 'zod';
+import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import {
-  buildDashboardEtag,
   DashboardsService,
-  parseIfMatch,
   type PublicDashboard,
+  buildDashboardEtag,
+  parseIfMatch,
 } from './dashboards.service.js';
-import { WidgetsService, type PublicWidget } from './widgets.service.js';
+import { type PublicSnapshotFull, type PublicSnapshotSummary, SnapshotService } from './snapshots.service.js';
+import { type PublicWidget, WidgetsService } from './widgets.service.js';
 import {
   AddWidgetDtoSchema,
+  CaptureSnapshotDtoSchema,
   CreateDashboardDtoSchema,
   UpdateDashboardDtoSchema,
   UpdateWidgetDtoSchema,
@@ -47,12 +49,28 @@ export class DashboardsController {
   constructor(
     private readonly dashboards: DashboardsService,
     private readonly widgets: WidgetsService,
+    private readonly snapshots: SnapshotService,
   ) {}
 
   @Get()
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
   list(): Promise<PublicDashboard[]> {
     return this.dashboards.list();
+  }
+
+  // Snapshots — static-segment routes declared before :id to avoid shadowing.
+
+  @Get('snapshots/:snapshotId')
+  @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
+  getSnapshot(@Param('snapshotId') snapshotId: string): Promise<PublicSnapshotFull> {
+    return this.snapshots.get(snapshotId);
+  }
+
+  @Delete('snapshots/:snapshotId')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteSnapshot(@Param('snapshotId') snapshotId: string): Promise<void> {
+    return this.snapshots.delete(snapshotId);
   }
 
   @Get(':id')
@@ -93,6 +111,24 @@ export class DashboardsController {
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
   setDefault(@Param('id') id: string): Promise<PublicDashboard> {
     return this.dashboards.setDefault(id);
+  }
+
+  // Snapshots (per-dashboard sub-resource) -----------------------------------
+
+  @Get(':id/snapshots')
+  @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
+  listSnapshots(@Param('id') dashboardId: string): Promise<PublicSnapshotSummary[]> {
+    return this.snapshots.list(dashboardId);
+  }
+
+  @Post(':id/snapshots')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.CREATED)
+  captureSnapshot(
+    @Param('id') dashboardId: string,
+    @Body() body: unknown,
+  ): Promise<PublicSnapshotFull> {
+    return this.snapshots.capture(dashboardId, parse(CaptureSnapshotDtoSchema, body));
   }
 
   // Widgets ------------------------------------------------------------------

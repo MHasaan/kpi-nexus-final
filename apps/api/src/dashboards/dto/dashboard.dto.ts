@@ -69,3 +69,11 @@ export type UpdateWidgetDto = z.infer<typeof UpdateWidgetDtoSchema>;
 // Fast-path body for drag/resize. Just the geometry.
 export const UpdateWidgetPositionDtoSchema = WidgetPositionSchema;
 export type UpdateWidgetPositionDto = z.infer<typeof UpdateWidgetPositionDtoSchema>;
+
+// Snapshot capture — just an optional human label.
+export const CaptureSnapshotDtoSchema = z
+  .object({
+    label: z.string().trim().max(200).optional(),
+  })
+  .strict();
+export type CaptureSnapshotDto = z.infer<typeof CaptureSnapshotDtoSchema>;

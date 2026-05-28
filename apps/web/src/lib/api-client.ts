@@ -1062,10 +1062,20 @@ export async function downloadReport(body: {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (token) headers['authorization'] = `Bearer ${token}`;
 
+  // The date-range bar emits bare `YYYY-MM-DD`; the API expects full ISO
+  // datetimes, so normalize before sending.
+  const toIso = (s: string | undefined): string | undefined =>
+    s ? new Date(s).toISOString() : undefined;
+  const payload = {
+    ...body,
+    from: toIso(body.from),
+    to: toIso(body.to),
+  };
+
   const res = await fetch(`${apiBaseUrl}/reports/generate`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {

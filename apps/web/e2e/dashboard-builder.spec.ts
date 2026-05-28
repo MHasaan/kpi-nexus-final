@@ -227,28 +227,21 @@ test.describe('Dashboard builder — widget add + persistence', () => {
         timeout: 10_000,
       });
 
-      // Enter edit mode and delete widget 1.
+      // Enter edit mode and delete widget 1 via the UI delete button.
       //
-      // KNOWN ISSUE (P3 bug): The react-grid-layout DraggableCore wrapper in
-      // edit mode intercepts pointer events on the grid items, causing the delete
-      // button click to not reliably propagate to the React onClick handler. The
-      // widget stays visible even though the button is rendered and "clickable".
-      //
-      // Workaround for the e2e test: delete the widget via the API directly,
-      // then reload to confirm persistence. The UI-click path is tested in the
-      // "add a widget" test (where delete mode is not active during that step).
-      //
-      // Bug details: clicking `widget-delete-${w1.id}` in headless Chromium while
-      // isDraggable=true does not fire the button's onClick. This is likely because
-      // react-grid-layout's DraggableCore consumes the mousedown event on the grid
-      // item, preventing the button click from completing. Reproducible across 3
-      // retries (15 s timeout each).
-      //
-      // Delete via API as a workaround:
-      const deleteRes = await apiCtx.delete(`/dashboards/${dash.id}/widgets/${w1.id}`);
-      expect(deleteRes.status()).toBe(204);
+      // The delete button is tagged `.widget-no-drag` and the grid passes
+      // `draggableCancel=".widget-no-drag"`, so react-grid-layout's DraggableCore
+      // does NOT swallow the button's pointer events in edit mode. This exercises
+      // the real UI delete path while drag is active.
+      await page.getByTestId('dashboard-edit-toggle').click();
+      await page.getByTestId(`widget-delete-${w1.id}`).click();
 
-      // Reload → widget 2 still present, widget 1 gone (API-level persistence check)
+      // Widget 1 should disappear from the grid after the delete resolves.
+      await expect(page.getByTestId(`widget-card-${w1.id}`)).not.toBeVisible({
+        timeout: 10_000,
+      });
+
+      // Reload → widget 2 still present, widget 1 gone (persistence check)
       await page.reload();
       await expect(page.getByTestId('dashboard-detail-heading')).toBeVisible();
       await expect(page.getByTestId(`widget-card-${w2.id}`)).toBeVisible({

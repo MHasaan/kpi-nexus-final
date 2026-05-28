@@ -145,6 +145,7 @@ export function DashboardGrid({
         isDraggable={editMode}
         isResizable={editMode}
         draggableHandle=".widget-drag-handle"
+        draggableCancel=".widget-no-drag"
         onLayoutChange={handleLayoutChange}
         useCSSTransforms
       >
@@ -172,7 +173,7 @@ export function DashboardGrid({
                     disabled={deletingId === widget.id}
                     data-testid={`widget-delete-${widget.id}`}
                     aria-label={`Delete ${widget.title ?? widget.widgetType} widget`}
-                    className="ml-1 rounded px-1.5 py-0.5 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50"
+                    className="widget-no-drag ml-1 rounded px-1.5 py-0.5 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50"
                   >
                     {deletingId === widget.id ? '…' : '✕'}
                   </button>

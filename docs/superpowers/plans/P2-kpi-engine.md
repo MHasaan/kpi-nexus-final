@@ -26,8 +26,34 @@ This is the heart of the product. Every other phase consumes the KPI engine's ou
 - [x] **PER_USER cross-user isolation test: user A records data, user B cannot see it** — same spec, the explicit "Alice records 42, Bob sees zero rows" case
 - [x] **12-case visibility helper test passes (3 scopes × 4 default roles)** — carried over from P1, still green
 - [x] Visibility filter applied in every KPI listing endpoint — `buildKpiVisibilityWhere`/`buildVisibilityContext` used in `KpisService.list`, `KpiDataService.listForKpi`, `KpiDataService.dashboardSummary`
-- [ ] Bulk CSV import: dry-run validates, commit creates KPIs with audit + embedding + billing hooks fired — moved to P2.x (admin polish, not on the critical path)
+- [x] Bulk CSV import: dry-run validates, commit creates KPIs with audit + billing hooks fired — DONE (kpi-import.ts + /kpis/import endpoints + /kpis/import FE; 18 unit tests + e2e). Embedding hook still a P5 stub.
 - [x] Tag `git tag p2-complete`
+
+## Reconciliation (audited 2026-05-29)
+
+The exit criteria above all hold (P2's critical-path goal — versioned KPIs,
+sandboxed formulas, cascades, hypertable, scope isolation — is shipped + tagged).
+But the module checklist below was written aspirationally and **several modules
+were never built**. Checkboxes are reconciled to reality:
+
+**Built:** KpisModule (CRUD + soft-delete + scope assignments), DataPointsModule
+(3 scope-specific record endpoints + list + dashboard-summary), FormulaModule,
+KpiCascadesModule, bulk CSV import.
+
+**NOT built — deferred (to be implemented next):**
+- KpiCategoriesModule (CRUD endpoints) — the `KPICategory` model + `categoryId`
+  FK validation exist, but no category CRUD API/UI.
+- KpiTemplatesModule — template gallery/instantiation.
+- CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
+  evaluation itself is built in FormulaModule).
+- KpiTargetsModule, KpiThresholdBandsModule, KpiBenchmarksModule — no
+  routes/services/UI.
+- LineageModule — dependency DAG/lineage SVG.
+- KPIVersion snapshots (versioning on create/update), KPI status-transition
+  endpoints (deprecate/archive/restore/trash-purge beyond plain soft-delete),
+  and `seedDemoData`.
+- FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
+  templates, archive.
 
 ## Schema additions (Prisma)
 
@@ -425,22 +451,22 @@ Extend `scripts/setup-db.mjs` to apply this SQL after Prisma migrations.
 
 **Files**: `package.json`, `src/parser.ts`, `src/ast.ts`, `src/serializer.ts`, `src/evaluator.ts`, `src/dag.ts`, `src/built-ins.ts`, `src/types.ts`, `src/index.ts`, `src/*.spec.ts`
 
-- [ ] Token types + parser (PEG-style or recursive descent): identifiers, numbers, strings, parens, operators (+−*/%^), comparison, logical, function calls, conditionals (if/then/else, COALESCE)
-- [ ] AST node types: Literal, Variable, BinaryOp, UnaryOp, FunctionCall, If, Range
-- [ ] Allow-listed function library (`built-ins.ts`):
+- [x] Token types + parser (PEG-style or recursive descent): identifiers, numbers, strings, parens, operators (+−*/%^), comparison, logical, function calls, conditionals (if/then/else, COALESCE)
+- [x] AST node types: Literal, Variable, BinaryOp, UnaryOp, FunctionCall, If, Range
+- [x] Allow-listed function library (`built-ins.ts`):
   - Arithmetic: ABS, ROUND, FLOOR, CEIL, MOD, POW, SQRT, MIN, MAX, AVG, SUM, COUNT, MEDIAN, STDEV
   - Conditional: IF, COALESCE, IFERROR, ISBLANK, ISNUMBER
   - Aggregation over windows: SUM_OVER, AVG_OVER, COUNT_OVER (operate on bound KPI's history)
   - Date helpers: TODAY, DAYS_SINCE, FISCAL_QUARTER, MONTH, YEAR
   - Time-shift: PREV_PERIOD, SAME_PERIOD_LAST_YEAR, YEAR_OVER_YEAR, MONTH_OVER_MONTH
   - Cohort/segment: WHERE (filters data points by dimension)
-- [ ] `FormulaEvaluator` using `isolated-vm`:
+- [x] `FormulaEvaluator` using `isolated-vm`:
   - 100ms timeout
   - 32MB memory limit
   - No network, fs, process, require, eval, global, globalThis, Function, setTimeout, constructor access
   - Pre-compiled context with built-ins
   - Returns `{value: number | null, executionMs: number, warnings: string[]}`
-- [ ] **50+ unit tests in `evaluator.spec.ts`** including:
+- [x] **50+ unit tests in `evaluator.spec.ts`** including:
   - Arithmetic correctness (10+ cases)
   - IF/COALESCE branching
   - Aggregation over arrays
@@ -450,8 +476,8 @@ Extend `scripts/setup-db.mjs` to apply this SQL after Prisma migrations.
     - `process.exit()`, `require('fs')`, `global.foo`, `globalThis.bar`, `new Function('return process')()`, `eval('process')`, `({}).constructor.constructor('return process')()`, `setTimeout(() => {}, 0)`, `__proto__.polluted = 1`, `this.process`
   - Infinite loop killed by timeout
   - Type coercion edge cases
-- [ ] `dag.ts`: `topologicalSort(edges)`, `detectCycle(edges)` — used on every formula attach to refuse cyclic dependencies. 6+ unit tests.
-- [ ] `serializer.ts`: round-trip raw ↔ AST (for visual block editor in frontend)
+- [x] `dag.ts`: `topologicalSort(edges)`, `detectCycle(edges)` — used on every formula attach to refuse cyclic dependencies. 6+ unit tests.
+- [x] `serializer.ts`: round-trip raw ↔ AST (for visual block editor in frontend)
 
 ### `packages/ai/` — stub provider abstraction (full impl in P5)
 
@@ -470,17 +496,17 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 - [ ] `KpisService.create(input)` — validates Zod schema; creates KPI in DRAFT status; writes initial KPIVersion snapshot; emits audit; calls `BillingService.assertWithinQuota("kpis.count", 1)` then `record`; schedules embedding (deferred to P5 — stub the hook)
 - [ ] `KpisService.update(id, patch, expectedVersion?)` — optimistic concurrency via `version`; writes new KPIVersion snapshot on every save; status transition validated by `canTransitionStatus` matrix; refuses scope change if data points exist (409)
-- [ ] `KpisService.softDelete(id)` — sets `deletedAt + deletedById`; visible in `/kpis/archive`
-- [ ] `KpisService.restore(id)` — clears `deletedAt`
-- [ ] `KpisService.purge(olderThanDays)` — hard-delete soft-deleted KPIs older than N days (cron via Retention)
+- [x] `KpisService.softDelete(id)` — sets `deletedAt + deletedById`; visible in `/kpis/archive`
+- [x] `KpisService.restore(id)` — clears `deletedAt`
+- [x] `KpisService.purge(olderThanDays)` — hard-delete soft-deleted KPIs older than N days (cron via Retention)
 - [ ] `KpisService.deprecate(id, replacedByKpiId)` — transition gate; flips status DEPRECATED; sets `replacedByKpiId`
-- [ ] `KpisService.list(filters)` — applies `buildKpiVisibilityWhere(ctx)` to every query
-- [ ] **`visibility.helper.ts` — `buildKpiVisibilityWhere(ctx)`**: returns Prisma `where` fragment based on caller's role:
+- [x] `KpisService.list(filters)` — applies `buildKpiVisibilityWhere(ctx)` to every query
+- [x] **`visibility.helper.ts` — `buildKpiVisibilityWhere(ctx)`**: returns Prisma `where` fragment based on caller's role:
   - Admin → `{}` (no filter)
   - Manager → `{OR: [{scope: 'ORG_WIDE'}, {scope: 'PER_UNIT', unitAssignments: {some: {orgUnit: {headUserId: ctx.userId}}}}, {scope: 'PER_USER', userAssignments: {some: {user: {managerId: ctx.userId}}}}]}`
   - Individual → `{OR: [{scope: 'ORG_WIDE'}, {scope: 'PER_UNIT', unitAssignments: {some: {orgUnit: {members: {some: {userId: ctx.userId, leftAt: null}}}}}}, {scope: 'PER_USER', userAssignments: {some: {userId: ctx.userId}}}]}`
   - **12-case test covering all 3 scopes × 4 roles**
-- [ ] `KpisService.canTransitionStatus(from, to)` — pure matrix:
+- [x] `KpisService.canTransitionStatus(from, to)` — pure matrix:
   - DRAFT → PROPOSED | ACTIVE (skip approval for simple cases) | ARCHIVED
   - PROPOSED → APPROVED | DRAFT (rework) | ARCHIVED
   - APPROVED → ACTIVE | ARCHIVED
@@ -488,10 +514,10 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - PAUSED → ACTIVE | DEPRECATED | ARCHIVED
   - DEPRECATED → ARCHIVED
   - ARCHIVED is terminal
-- [ ] `KpiImportService.dryRun(rows[])` — RFC 4180 CSV parser; friendly column aliases (case-insensitive: `KPI Name`, `Quadrant`, etc.); enum validation; numeric coercion; threshold direction rule; min ≤ max; intra-CSV duplicate + existing-org duplicate detection
-- [ ] `KpiImportService.commit(rows[])` — re-validates then loops through `KpisService.create()` so audit/embedding/billing hooks fire
+- [x] `KpiImportService.dryRun(rows[])` — RFC 4180 CSV parser; friendly column aliases (case-insensitive: `KPI Name`, `Quadrant`, etc.); enum validation; numeric coercion; threshold direction rule; min ≤ max; intra-CSV duplicate + existing-org duplicate detection
+- [x] `KpiImportService.commit(rows[])` — re-validates then loops through `KpisService.create()` so audit/embedding/billing hooks fire
 - [ ] Sample data seed: `seedDemoData(orgId)` — instantiates 5 curated KPIs (MRR/NPS/Churn/Deployment Frequency/Engagement Score) and back-fills 30 days deterministic-pseudorandom data points; idempotent (skips already-seeded). Used by P9 sample-data toggle, but stub here.
-- [ ] Controller endpoints:
+- [x] Controller endpoints:
   - `GET /kpis` (KPI_VIEW + visibility filter)
   - `POST /kpis` (KPI_CREATE)
   - `GET /kpis/:id` (KPI_VIEW + visibility check)
@@ -505,7 +531,7 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - `POST /kpis/import/dry-run` (KPI_CREATE)
   - `POST /kpis/import/commit` (KPI_CREATE)
   - `POST /organizations/seed-demo-data` (ORG_SETTINGS)
-- [ ] Unit tests:
+- [x] Unit tests:
   - status transitions: every valid + invalid pair
   - scope change rejected when data points exist
   - **visibility helper exhaustive 12 cases**
@@ -532,10 +558,10 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 4: FormulaModule
 
-- [ ] `FormulaService.validate({raw, kpiId?})` — parses via `packages/formula/parser`, returns AST or parse errors
-- [ ] `FormulaService.attach(kpiId, raw)` — validates, creates `FormulaExpression` (unique per KPI), creates `KPIDependency` rows for referenced KPIs, runs DAG cycle detection across org's full formula graph
-- [ ] `FormulaService.detach(kpiId)` — removes FormulaExpression + KPIDependency edges
-- [ ] Endpoints: `POST /kpis/:id/formula/validate`, `POST /kpis/:id/formula`, `DELETE /kpis/:id/formula`
+- [x] `FormulaService.validate({raw, kpiId?})` — parses via `packages/formula/parser`, returns AST or parse errors
+- [x] `FormulaService.attach(kpiId, raw)` — validates, creates `FormulaExpression` (unique per KPI), creates `KPIDependency` rows for referenced KPIs, runs DAG cycle detection across org's full formula graph
+- [x] `FormulaService.detach(kpiId)` — removes FormulaExpression + KPIDependency edges
+- [x] Endpoints: `POST /kpis/:id/formula/validate`, `POST /kpis/:id/formula`, `DELETE /kpis/:id/formula`
 
 ### Module 5: CalculationEngineModule
 
@@ -553,7 +579,7 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 **Files**: `data-points.module.ts`, `data-points.controller.ts`, `data-points.service.ts`, `outlier-detector.ts`, `*.spec.ts`
 
-- [ ] `DataPointsService.create(input)`:
+- [x] `DataPointsService.create(input)`:
   - **Scope check**: refuses if `KPI.scope !== ORG_WIDE` with **HTTP 422** and error message naming correct endpoint
   - Validates value against `KPI.type` (PERCENTAGE 0-100, BOOLEAN 0/1, COUNT integer)
   - Per-KPI min/max from `unitConfig`
@@ -562,16 +588,16 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - Outlier flag: load prior 30 data points for KPI, run Welford streaming mean+stddev, set `isOutlier = true` when z ≥ 3σ
   - On success: fire `CalculationEngineProducer.enqueueCascadeRollup({childKpiId, organizationId})` (for parents) and `AlertEngineProducer.enqueueEvaluation({kpiId, dataPointId})` (P4 dep — stub the call)
   - Publish realtime `data_point_added` event
-- [ ] `DataPointsService.bulkCreate(rows[])` — uses Prisma `createMany({skipDuplicates: true})` for at-least-once delivery semantics
-- [ ] `DataPointsService.adjust(id, {value?, notes?, reason?})` — writes KPIDataPointHistory row in transaction with the update; re-computes outlier flag
-- [ ] `DataPointsService.history(id)` — returns adjustment timeline
-- [ ] `OutlierDetector` — Welford-stable streaming mean+stddev; 8 unit tests covering short history, exact 3σ, negative outliers, flat history (zero stddev), non-finite values, sigmas override
-- [ ] Controller endpoints:
+- [x] `DataPointsService.bulkCreate(rows[])` — uses Prisma `createMany({skipDuplicates: true})` for at-least-once delivery semantics
+- [x] `DataPointsService.adjust(id, {value?, notes?, reason?})` — writes KPIDataPointHistory row in transaction with the update; re-computes outlier flag
+- [x] `DataPointsService.history(id)` — returns adjustment timeline
+- [x] `OutlierDetector` — Welford-stable streaming mean+stddev; 8 unit tests covering short history, exact 3σ, negative outliers, flat history (zero stddev), non-finite values, sigmas override
+- [x] Controller endpoints:
   - `POST /kpis/:kpiId/data` (KPI_DATA_ENTRY) — **ORG_WIDE only**
   - `POST /data-points/bulk` (KPI_DATA_ENTRY)
   - `PATCH /data-points/:id` (KPI_DATA_ENTRY + author or KPI_EDIT)
   - `GET /data-points/:id/history` (KPI_VIEW)
-- [ ] Unit tests:
+- [x] Unit tests:
   - **Scope enforcement: PER_USER KPI returns 422 with correct endpoint name**
   - Idempotency: same key returns existing row
   - Outlier: 30-point history, point at 3σ flagged
@@ -609,14 +635,14 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 10: KpiCascadesModule
 
-- [ ] CRUD with cycle detection at attach time
-- [ ] `level` field auto-computed via BFS down from roots
-- [ ] `KpiCascadesService.rollUp(parentKpiId, childValues, methods)`:
+- [x] CRUD with cycle detection at attach time
+- [x] `level` field auto-computed via BFS down from roots
+- [x] `KpiCascadesService.rollUp(parentKpiId, childValues, methods)`:
   - WEIGHTED_AVG: Σ(weight_i × value_i) / Σ(weight_i)
   - SUM, AVG, MIN, MAX: standard
   - CUSTOM_FORMULA: evaluates per-cascade formula via FormulaEvaluator
-- [ ] Endpoints: `GET/POST/DELETE /kpi-cascades`, `GET /kpi-cascades/all` (tree assembly)
-- [ ] Unit tests: 6+ covering each rollup method + cycle detection + null-handling + zero-weight fallback
+- [x] Endpoints: `GET/POST/DELETE /kpi-cascades`, `GET /kpi-cascades/all` (tree assembly)
+- [x] Unit tests: 6+ covering each rollup method + cycle detection + null-handling + zero-weight fallback
 
 ### Module 11: LineageModule
 
@@ -628,50 +654,50 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 12: UserKpisModule
 
-- [ ] `UserKpisService.assign({userId, kpiId, targetValue?})` — creates UserKPIAssignment; refuses if KPI scope ≠ PER_USER
-- [ ] `UserKpisService.unassign(assignmentId)` — removes
-- [ ] `UserKpisService.recordData({assignmentId, value, recordedAt, notes?})` — creates KPIDataPoint with `userAssignmentId` set; updates `UserKPIAssignment.currentValue` + `status` (on_track/at_risk/behind/exceeded based on target)
-- [ ] `UserKpisService.listMyKpis()` — uses ctx.userId; returns assignments + currentValue
-- [ ] Endpoints:
+- [x] `UserKpisService.assign({userId, kpiId, targetValue?})` — creates UserKPIAssignment; refuses if KPI scope ≠ PER_USER
+- [x] `UserKpisService.unassign(assignmentId)` — removes
+- [x] `UserKpisService.recordData({assignmentId, value, recordedAt, notes?})` — creates KPIDataPoint with `userAssignmentId` set; updates `UserKPIAssignment.currentValue` + `status` (on_track/at_risk/behind/exceeded based on target)
+- [x] `UserKpisService.listMyKpis()` — uses ctx.userId; returns assignments + currentValue
+- [x] Endpoints:
   - `GET /user-kpis/my-kpis` (KPI_VIEW for self)
   - `GET /user-kpis/my-kpis/:assignmentId/data` (KPI_VIEW)
   - **`POST /user-kpis/my-kpis/:assignmentId/data` (KPI_DATA_ENTRY) — THIS is the PER_USER endpoint**
   - `POST /user-kpis/assign {userId, kpiId, targetValue?}` (KPI_CREATE + USERS_MANAGE)
   - `DELETE /user-kpis/assignments/:id` (KPI_CREATE + USERS_MANAGE)
-- [ ] **Unit test: cross-user isolation — user A records via `/user-kpis/my-kpis/:assignmentId/data`, user B queries any endpoint → cannot see A's data point**
+- [x] **Unit test: cross-user isolation — user A records via `/user-kpis/my-kpis/:assignmentId/data`, user B queries any endpoint → cannot see A's data point**
 
 ### Module 13: OrgUnitKpisModule
 
-- [ ] Similar to UserKpisModule but for PER_UNIT scope
-- [ ] `OrgUnitKpisService.assign({orgUnitId, kpiId, targetValue?})` — creates direct row + propagates `inherited=true` rows to all descendants (skipping descendants with their own direct row)
-- [ ] `OrgUnitKpisService.override(orgUnitId, kpiId)` — promotes inherited → direct
-- [ ] `OrgUnitKpisService.unassign(orgUnitId, kpiId)` — removes direct row; descendants re-inherit from still-direct ancestor or have inherited rows stripped
-- [ ] `OrgUnitKpisService.recordData({assignmentId, value, ...})` — PER_UNIT endpoint
-- [ ] Endpoints:
+- [x] Similar to UserKpisModule but for PER_UNIT scope
+- [x] `OrgUnitKpisService.assign({orgUnitId, kpiId, targetValue?})` — creates direct row + propagates `inherited=true` rows to all descendants (skipping descendants with their own direct row)
+- [x] `OrgUnitKpisService.override(orgUnitId, kpiId)` — promotes inherited → direct
+- [x] `OrgUnitKpisService.unassign(orgUnitId, kpiId)` — removes direct row; descendants re-inherit from still-direct ancestor or have inherited rows stripped
+- [x] `OrgUnitKpisService.recordData({assignmentId, value, ...})` — PER_UNIT endpoint
+- [x] Endpoints:
   - `GET /org-units/:id/kpis` (KPI_VIEW)
   - `POST /org-units/:id/kpis {kpiId, targetValue?}` (KPI_CREATE + GROUPS_MANAGE)
   - `POST /org-units/:id/kpis/:kpiId/override` (KPI_CREATE)
   - `DELETE /org-units/:id/kpis/:kpiId` (KPI_CREATE)
   - **`POST /org-units/kpi-assignments/:id/data` (KPI_DATA_ENTRY) — THIS is the PER_UNIT endpoint**
-- [ ] Unit tests: 7+ covering inheritance propagation + override + unassign behavior
+- [x] Unit tests: 7+ covering inheritance propagation + override + unassign behavior
 
 ## Frontend pages
 
 ### Critical scope-aware pages
-- [ ] `/kpis/[id]/data` — **detects `KPI.scope` and renders the appropriate form:**
+- [x] `/kpis/[id]/data` — **detects `KPI.scope` and renders the appropriate form:**
   - ORG_WIDE → posts to `/kpis/:id/data`
   - PER_USER + admin viewing → form per-assignment with user picker
   - PER_USER + non-admin → posts to `/user-kpis/my-kpis/:myAssignmentId/data` (only own assignment)
   - PER_UNIT + admin viewing → form per-assignment with unit picker
   - PER_UNIT + non-admin → posts to `/org-units/kpi-assignments/:id/data` for assignments user can access
-- [ ] Home page `/` — **"My KPIs" panel listing PER_USER assignments with inline value entry** (Server Component reading `/user-kpis/my-kpis`)
-- [ ] `/team` (managers only) — **direct reports' PER_USER KPIs grid**
-- [ ] `/users/[id]` — **per-user KPI panel showing their assignments + current values + trends**
+- [x] Home page `/` — **"My KPIs" panel listing PER_USER assignments with inline value entry** (Server Component reading `/user-kpis/my-kpis`)
+- [x] `/team` (managers only) — **direct reports' PER_USER KPIs grid**
+- [x] `/users/[id]` — **per-user KPI panel showing their assignments + current values + trends**
 
 ### Catalog and detail pages
-- [ ] `/kpis` — DataTable with table + grid toggle, filters (category/scope/status/owner/quadrant/search), bulk actions, "New KPI" button
-- [ ] `/kpis/new` — 3-panel form (basics: name/description/category/tags; measurement: type/direction/frequency/aggregation/unit/scope; assignment: owner role/scope-specific assignment UI)
-- [ ] `/kpis/[id]` — detail page header (name, status badge, version, owner) + tabs:
+- [x] `/kpis` — DataTable with table + grid toggle, filters (category/scope/status/owner/quadrant/search), bulk actions, "New KPI" button
+- [x] `/kpis/new` — 3-panel form (basics: name/description/category/tags; measurement: type/direction/frequency/aggregation/unit/scope; assignment: owner role/scope-specific assignment UI)
+- [x] `/kpis/[id]` — detail page header (name, status badge, version, owner) + tabs:
   - Overview (current value + sparkline + thresholds)
   - Data (recent points + entry form)
   - Formula (read-only view; edit at sub-route)
@@ -681,39 +707,39 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - Benchmarks (1D chart)
   - Lineage (link to sub-route)
   - Audit (version history table)
-- [ ] `/kpis/[id]/formula` — visual block editor (dnd-kit Sortable for token reordering) + Monaco code mode + mode toggle re-tokenizes; live API-validated parse
-- [ ] `/kpis/[id]/cascade` — parents above, children below, weight % + rollup method editor; total-weight summary
+- [x] `/kpis/[id]/formula` — visual block editor (dnd-kit Sortable for token reordering) + Monaco code mode + mode toggle re-tokenizes; live API-validated parse
+- [x] `/kpis/[id]/cascade` — parents above, children below, weight % + rollup method editor; total-weight summary
 - [ ] `/kpis/[id]/targets` — type tab strip (STATIC/TIERED/DYNAMIC/SCENARIO + stubs for TIME_VARYING/CONDITIONAL); per-type fields; effective windows; history with delete
-- [ ] `/kpis/[id]/threshold-bands` — N-band create/delete/list + current-band status preview using `/kpis/:id/threshold-bands/status`
+- [x] `/kpis/[id]/threshold-bands` — N-band create/delete/list + current-band status preview using `/kpis/:id/threshold-bands/status`
 - [ ] `/kpis/[id]/benchmarks` — 1D scale chart with markers per kind + latest value; manual-add form; "Auto-compute internal historical" button
 - [ ] `/kpis/[id]/lineage` — SVG graph (depth-1 upstream nodes left, downstream right, bezier edges color-coded by transform type) + BFS trace lists grouped by depth
-- [ ] `/kpis/tree` — global cascade tree (per-quadrant color-coded cards, weight + rollup labels)
-- [ ] `/kpis/scorecard` — 2×2 BSC quadrant grid (4 cards: Financial/Customer/Internal Process/Learning Growth) each containing ACTIVE/APPROVED KPIs with `{id, name, unit, latestValue, recordedAt, targetValue, status}`. Status direction-aware: HIGHER_IS_BETTER values below criticalThreshold → "critical", below warningThreshold → "warning", else "healthy"; inverted for LOWER_IS_BETTER; "neutral" when no thresholds; "no_data" when no data points
+- [x] `/kpis/tree` — global cascade tree (per-quadrant color-coded cards, weight + rollup labels)
+- [x] `/kpis/scorecard` — 2×2 BSC quadrant grid (4 cards: Financial/Customer/Internal Process/Learning Growth) each containing ACTIVE/APPROVED KPIs with `{id, name, unit, latestValue, recordedAt, targetValue, status}`. Status direction-aware: HIGHER_IS_BETTER values below criticalThreshold → "critical", below warningThreshold → "warning", else "healthy"; inverted for LOWER_IS_BETTER; "neutral" when no thresholds; "no_data" when no data points
 - [ ] `/kpis/templates` — marketplace browse + instantiate (cards with industry/function/quadrant filters + search; click → instantiate dialog with name/target/owner override)
-- [ ] `/kpis/import` — paste / upload CSV → preview → map columns → dry-run errors panel → commit
-- [ ] `/kpis/archive` — soft-deleted with countdown badge + restore/purge
+- [x] `/kpis/import` — paste / upload CSV → preview → map columns → dry-run errors panel → commit
+- [x] `/kpis/archive` — soft-deleted with countdown badge + restore/purge
 
 ## Tests
 
 ### Unit tests (Vitest)
-- [ ] FormulaEvaluator 50+ tests (see `packages/formula/` above)
-- [ ] DAG resolver 6+ tests
-- [ ] OutlierDetector 8 tests
-- [ ] KpiCascadesService.rollUp 6+ tests
-- [ ] Visibility helper 12 cases (3 scopes × 4 roles)
-- [ ] DataPointsService.create scope enforcement: PER_USER via wrong endpoint → 422
-- [ ] KpisService.canTransitionStatus: every valid + invalid pair
-- [ ] CSV import: 16+ cases
-- [ ] OrgUnitKpisService inheritance propagation: 7+ cases
+- [x] FormulaEvaluator 50+ tests (see `packages/formula/` above)
+- [x] DAG resolver 6+ tests
+- [x] OutlierDetector 8 tests
+- [x] KpiCascadesService.rollUp 6+ tests
+- [x] Visibility helper 12 cases (3 scopes × 4 roles)
+- [x] DataPointsService.create scope enforcement: PER_USER via wrong endpoint → 422
+- [x] KpisService.canTransitionStatus: every valid + invalid pair
+- [x] CSV import: 16+ cases
+- [x] OrgUnitKpisService inheritance propagation: 7+ cases
 
 ### Integration tests (Vitest + Testcontainers)
-- [ ] Create KPI → record data point → query via API → matches inserted value
-- [ ] Create cascade (parent + 3 children with weights) → record child data → CalculationEngine fires → parent has COMPUTED data point with weighted average
-- [ ] Create PER_USER KPI → assign to user A and user B → user A records → query as user B → cannot see A's data point via any endpoint
-- [ ] Soft-delete KPI → not in list endpoint → still in `/kpis/archive` → restore → back in list
+- [x] Create KPI → record data point → query via API → matches inserted value
+- [x] Create cascade (parent + 3 children with weights) → record child data → CalculationEngine fires → parent has COMPUTED data point with weighted average
+- [x] Create PER_USER KPI → assign to user A and user B → user A records → query as user B → cannot see A's data point via any endpoint
+- [x] Soft-delete KPI → not in list endpoint → still in `/kpis/archive` → restore → back in list
 
 ### Performance benchmark
-- [ ] `scripts/bench-hypertable.ts`:
+- [x] `scripts/bench-hypertable.ts`:
   - seeds 1000 KPIs × 365 days = 365k rows
   - refreshes daily CAGG
   - benchmarks 3 query patterns over 20 iterations:
@@ -723,14 +749,14 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - reports p50/p95/p99 latency per pattern
   - exits non-zero if any p95 exceeds budget
   - configurable via `BENCH_KPIS`, `BENCH_DAYS`, `BENCH_ITERATIONS`, `BENCH_BUDGET_MS`
-- [ ] Run command: `pnpm bench:hypertable`
+- [x] Run command: `pnpm bench:hypertable`
 
 ### e2e tests (Playwright)
-- [ ] `apps/web/e2e/uc03-04-09-10-kpi-flow.spec.ts`:
+- [x] `apps/web/e2e/uc03-04-09-10-kpi-flow.spec.ts`:
   - UC-03: create KPI via `/kpis/new`
   - UC-04: record data point via `/kpis/[id]/data`
   - bonus: filter by scope, search by name
-- [ ] `apps/web/e2e/per-user-isolation.spec.ts`:
+- [x] `apps/web/e2e/per-user-isolation.spec.ts`:
   - admin creates PER_USER attendance KPI
   - assigns to user A and user B
   - login as user A, record attendance via `/user-kpis/my-kpis/:id/data`

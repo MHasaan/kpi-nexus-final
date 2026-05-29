@@ -31,6 +31,27 @@ The PER_USER visibility helper that lands here (`buildKpiVisibilityWhere`) is th
 - [x] **12-case visibility helper test passes (3 KPI scopes × 4 default roles)** — `apps/api/src/rbac/visibility/kpi-visibility.spec.ts`
 - [x] Tag `git tag p1-complete`
 
+## Reconciliation (audited 2026-05-29)
+
+Exit criteria all hold (auth, tenancy, 18-permission RBAC, users/roles/positions/
+org-units, audit, MFA, refresh reuse-detection, RLS are shipped + tagged). The
+module checklist was aspirational; checkboxes are reconciled to reality.
+
+**Built:** TenancyModule, AuthModule, PasswordModule, MfaModule,
+OrganizationsModule, UsersModule (minus purge/offboard), RbacModule, RolesModule,
+PositionsModule, PermissionDelegationsModule, ResourcePermissionsModule,
+OrgUnitsModule, AuditModule, HealthModule.
+
+**NOT built — deferred:**
+- PlatformAdminModule (cross-tenant platform ops), CustomDomainModule,
+  RateLimitModule — no service/endpoints.
+- OrgUnitDimensionsModule, OrgUnitTypesModule — not built as separate modules
+  (models exist; org-unit structure is handled directly by OrgUnitsModule).
+- BillingModule — schema-only (as planned); no service/UI.
+- `UsersService.purge` (GDPR) + `OffboardingService.offboard`.
+- The `/signup/wizard` onboarding stub + `/onboarding/*` endpoints (the full
+  wizard is P6; the P1 stub was not built).
+
 ## Schema additions (Prisma)
 
 Add the following models to `packages/db/prisma/schema.prisma`. After each batch, run `pnpm db:migrate -- --name <descriptive>` to create a migration.
@@ -493,33 +514,33 @@ prisma.$use(async (params, next) => {
 
 **Files**: `tenancy.module.ts`, `request-context.ts`, `tenancy.interceptor.ts`, `request-context.spec.ts`
 
-- [ ] `RequestContextStore` using `AsyncLocalStorage<RequestContext>` where `RequestContext = {userId, organizationId, roleId, sessionId, principalType, realOrganizationId?, apiKeyId?, apiKeyScopes?, tenantSlug?}`
-- [ ] `RequestContextStore.run(ctx, fn)` to wrap async work
-- [ ] `RequestContextStore.get()` returns current context or undefined
-- [ ] `RequestContextStore.require()` throws if no context (use in services that MUST have tenant)
-- [ ] `TenancyInterceptor` registered globally; after JwtAuthGuard, extracts claims from `req.user`, wraps handler in `RequestContextStore.run({...})`
-- [ ] `runWithBypass(reason, fn)` for legitimate cross-tenant ops (platform admin)
-- [ ] Unit tests: context propagation through async, throws on missing context, bypass works
+- [x] `RequestContextStore` using `AsyncLocalStorage<RequestContext>` where `RequestContext = {userId, organizationId, roleId, sessionId, principalType, realOrganizationId?, apiKeyId?, apiKeyScopes?, tenantSlug?}`
+- [x] `RequestContextStore.run(ctx, fn)` to wrap async work
+- [x] `RequestContextStore.get()` returns current context or undefined
+- [x] `RequestContextStore.require()` throws if no context (use in services that MUST have tenant)
+- [x] `TenancyInterceptor` registered globally; after JwtAuthGuard, extracts claims from `req.user`, wraps handler in `RequestContextStore.run({...})`
+- [x] `runWithBypass(reason, fn)` for legitimate cross-tenant ops (platform admin)
+- [x] Unit tests: context propagation through async, throws on missing context, bypass works
 
 ### Module 2: AuthModule (`apps/api/src/auth/`)
 
 **Files**: `auth.module.ts`, `auth.service.ts`, `auth.controller.ts`, `jwt.strategy.ts`, `services/refresh-token.service.ts`, `services/password.service.ts`, `auth.service.spec.ts`, `refresh-token.service.spec.ts`
 
-- [ ] `AuthService.login({email, password, organizationId?, mfaCode?})` — returns `{accessToken, refreshToken, user, expiresIn}`
+- [x] `AuthService.login({email, password, organizationId?, mfaCode?})` — returns `{accessToken, refreshToken, user, expiresIn}`
   - lookup user (within org scope or global if multi-org candidate)
   - bcrypt compare password
   - if mfaEnabled and no mfaCode → reject with `MFA_REQUIRED`
   - if mfaEnabled and bad mfaCode → reject with `MFA_FAILED`
   - persist `LoginAttempt` row
   - issue access JWT (15 min) + refresh token (30 days, SHA-256 hashed in DB)
-- [ ] `AuthService.refresh({refreshToken})` — rotates: marks old `revokedAt` + `replacedById`, issues new pair
+- [x] `AuthService.refresh({refreshToken})` — rotates: marks old `revokedAt` + `replacedById`, issues new pair
   - reuse-detection: if presented token has `revokedAt IS NOT NULL AND replacedById IS NULL`, revoke entire chain + return 401
-- [ ] `AuthService.logout({refreshToken})` — marks token revoked
-- [ ] `AuthService.registerOrganization({orgName, adminEmail, adminPassword, ...})` — transaction: create Org → create admin User → create default roles (Admin, Manager, Employee, Viewer) → assign admin User to Admin role → issue auth pair
-- [ ] `AuthService.lookupOrgsForEmail(email)` — for multi-org login picker; returns list of orgs the email exists in (max 20, archived filtered)
-- [ ] `AuthService.switchOrg(orgId)` — when user belongs to multiple orgs; mints fresh JWT scoped to new org
-- [ ] `AuthService.acceptInvitation({token, password})` — validates token from `EmailVerificationToken`, validates against org password policy, flips status → ACTIVE, sets emailVerifiedAt
-- [ ] Controller endpoints:
+- [x] `AuthService.logout({refreshToken})` — marks token revoked
+- [x] `AuthService.registerOrganization({orgName, adminEmail, adminPassword, ...})` — transaction: create Org → create admin User → create default roles (Admin, Manager, Employee, Viewer) → assign admin User to Admin role → issue auth pair
+- [x] `AuthService.lookupOrgsForEmail(email)` — for multi-org login picker; returns list of orgs the email exists in (max 20, archived filtered)
+- [x] `AuthService.switchOrg(orgId)` — when user belongs to multiple orgs; mints fresh JWT scoped to new org
+- [x] `AuthService.acceptInvitation({token, password})` — validates token from `EmailVerificationToken`, validates against org password policy, flips status → ACTIVE, sets emailVerifiedAt
+- [x] Controller endpoints:
   - `POST /auth/login` (public)
   - `POST /auth/register` (public — first user creates org)
   - `POST /auth/refresh` (public, takes refresh cookie)
@@ -528,11 +549,11 @@ prisma.$use(async (params, next) => {
   - `POST /auth/switch-org` (authenticated)
   - `POST /auth/accept-invitation` (public, takes token)
   - `GET /auth/me` (authenticated, returns user + permissions)
-- [ ] `JwtAuthGuard` registered as APP_GUARD
+- [x] `JwtAuthGuard` registered as APP_GUARD
   - verifies JWT
   - short-circuits to `ApiKeysService.verify()` if `Authorization: Bearer kpinx_*` (ApiKeys land in P4 but stub the branch)
   - `@Public()` decorator opt-out
-- [ ] Unit tests:
+- [x] Unit tests:
   - login happy path, bad password, unknown user, inactive user, MFA required, MFA failed
   - refresh: rotation works, reuse-detection kills chain, expired token rejected
   - registerOrganization: creates all default roles, admin gets Admin role
@@ -542,32 +563,32 @@ prisma.$use(async (params, next) => {
 
 **Files**: `password.module.ts`, `password.controller.ts`, `services/password-reset.service.ts`, `services/password-policy.ts`, `password-reset.service.spec.ts`
 
-- [ ] `PasswordResetService.request({email})` — returns 202 regardless (privacy); for ACTIVE users, mints `base64url(32)` plaintext + SHA-256 hash with 1h expiry; sends email via EmailService (P1 uses Mailhog locally)
-- [ ] `PasswordResetService.confirm({token, newPassword})` — verifies hash + expiry + not-consumed; validates against org passwordPolicy; updates passwordHash; marks token consumed; invalidates other outstanding reset tokens for user; revokes all refresh tokens
-- [ ] `applyPasswordPolicy(password, policy)` helper — checks minLength, requireUpper/Lower/Digit/Special; throws ValidationException with field errors
-- [ ] Controller:
+- [x] `PasswordResetService.request({email})` — returns 202 regardless (privacy); for ACTIVE users, mints `base64url(32)` plaintext + SHA-256 hash with 1h expiry; sends email via EmailService (P1 uses Mailhog locally)
+- [x] `PasswordResetService.confirm({token, newPassword})` — verifies hash + expiry + not-consumed; validates against org passwordPolicy; updates passwordHash; marks token consumed; invalidates other outstanding reset tokens for user; revokes all refresh tokens
+- [x] `applyPasswordPolicy(password, policy)` helper — checks minLength, requireUpper/Lower/Digit/Special; throws ValidationException with field errors
+- [x] Controller:
   - `POST /auth/password/request-reset` (public)
   - `POST /auth/password/confirm-reset` (public)
-- [ ] Unit tests: 8 cases covering happy path, expiry, double-consume, weak password, unknown email, password reuse rejection
+- [x] Unit tests: 8 cases covering happy path, expiry, double-consume, weak password, unknown email, password reuse rejection
 
 ### Module 4: MfaModule (`apps/api/src/mfa/`)
 
 **Files**: `mfa.module.ts`, `mfa.controller.ts`, `mfa.service.ts`, `totp.ts` (pure-Node RFC 6238), `mfa.service.spec.ts`, `totp.spec.ts`
 
-- [ ] `TotpService` — pure Node implementation:
+- [x] `TotpService` — pure Node implementation:
   - `generateSecret(length=20)` → base32-encoded
   - `generateTOTP(secret, time?, step=30, digits=6)` → 6-digit code
   - `verifyTOTP(token, secret, window=±1)` → boolean
   - `generateOtpAuthURL({secret, account, issuer})` → `otpauth://...`
-- [ ] `MfaService.enroll(userId)` — generates secret + 10 recovery codes; persists `mfaPendingSecret` + plaintext codes returned ONCE; SHA-256 hashes stored in `mfaRecoveryHashes` after confirm
-- [ ] `MfaService.confirm(userId, code)` — verifies first TOTP code matches `mfaPendingSecret`, promotes to `mfaSecret`, sets `mfaEnabled=true`, clears `mfaPendingSecret`
-- [ ] `MfaService.disable(userId, code)` — requires current TOTP or recovery code; clears `mfaSecret + mfaEnabled`
-- [ ] `MfaService.verifyForLogin(userId, code)` — used by AuthService during login; checks recovery codes too (single-use, removed on consume)
-- [ ] Controller:
+- [x] `MfaService.enroll(userId)` — generates secret + 10 recovery codes; persists `mfaPendingSecret` + plaintext codes returned ONCE; SHA-256 hashes stored in `mfaRecoveryHashes` after confirm
+- [x] `MfaService.confirm(userId, code)` — verifies first TOTP code matches `mfaPendingSecret`, promotes to `mfaSecret`, sets `mfaEnabled=true`, clears `mfaPendingSecret`
+- [x] `MfaService.disable(userId, code)` — requires current TOTP or recovery code; clears `mfaSecret + mfaEnabled`
+- [x] `MfaService.verifyForLogin(userId, code)` — used by AuthService during login; checks recovery codes too (single-use, removed on consume)
+- [x] Controller:
   - `POST /mfa/enroll` (authenticated)
   - `POST /mfa/confirm` (authenticated)
   - `DELETE /mfa` (authenticated, requires current code)
-- [ ] Unit tests:
+- [x] Unit tests:
   - TOTP RFC 6238 reference vectors (3-4 known test cases from the RFC)
   - enroll → confirm → verify flow
   - recovery code single-use semantics
@@ -593,9 +614,9 @@ prisma.$use(async (params, next) => {
 
 **Files**: `organizations.module.ts`, `organizations.controller.ts`, `organizations.service.ts`, `tenant-lifecycle.service.ts`, `tenant-lifecycle.guard.ts`, `services/tenant-export.service.ts`, `*.spec.ts`
 
-- [ ] `OrganizationsService.getCurrent()` — returns full Organization
-- [ ] `OrganizationsService.update(patch)` — validates terminology fields, fiscal calendar, password policy; emits audit
-- [ ] `TenantLifecycleService.transition(orgId, nextStatus)` — state machine:
+- [x] `OrganizationsService.getCurrent()` — returns full Organization
+- [x] `OrganizationsService.update(patch)` — validates terminology fields, fiscal calendar, password policy; emits audit
+- [x] `TenantLifecycleService.transition(orgId, nextStatus)` — state machine:
   - TRIAL → ACTIVE | SUSPENDED | ARCHIVED
   - ACTIVE → SUSPENDED | ARCHIVED
   - SUSPENDED → ACTIVE | ARCHIVED
@@ -603,17 +624,17 @@ prisma.$use(async (params, next) => {
   - PURGED is terminal
   - invalidates `TenantLifecycleGuard` cache, enqueues BullMQ job (`tenant-lifecycle` queue) for cleanup
 - [ ] `TenantLifecycleGuard` (APP_GUARD after JwtAuthGuard, before PermissionsGuard) — blocks ARCHIVED/PURGED entirely; allows only GET for SUSPENDED; 30s in-process cache
-- [ ] BullMQ processor for tenant-lifecycle:
+- [x] BullMQ processor for tenant-lifecycle:
   - ON_SUSPEND: revoke all sessions + refresh tokens
   - ON_ARCHIVE: same + soft-delete KPIs + Dashboards (P2 dependency — stub for now)
   - ON_PURGE: redact org PII (name → `purged-org-<hash>`, slug/logo/etc. nulled); delete session/token/loginAttempt rows
-- [ ] `TenantExportService.export({redactPii?, dataPointsLimit?})` — returns JSON envelope of every row tied to the org across the schema; PII redaction optional; schema label `kpi-nexus.tenant-export.v1`
-- [ ] Controller:
+- [x] `TenantExportService.export({redactPii?, dataPointsLimit?})` — returns JSON envelope of every row tied to the org across the schema; PII redaction optional; schema label `kpi-nexus.tenant-export.v1`
+- [x] Controller:
   - `GET /organizations/current` (auth)
   - `PATCH /organizations/current` (ORG_SETTINGS)
   - `POST /organizations/:id/lifecycle/transition {status}` (platform-admin only)
   - `GET /organizations/export?redactPii=&dataPoints=` (ORG_SETTINGS)
-- [ ] Unit tests: lifecycle state machine, terminology validation, export shape
+- [x] Unit tests: lifecycle state machine, terminology validation, export shape
 
 ### Module 7: CustomDomainModule (`apps/api/src/custom-domain/`)
 
@@ -625,18 +646,18 @@ prisma.$use(async (params, next) => {
 
 **Files**: `users.module.ts`, `users.controller.ts`, `users.service.ts`, `me-profile.controller.ts`, `me-sessions.controller.ts`, `services/invitation.service.ts`, `services/offboarding.service.ts`, `services/gdpr-export.service.ts`, `*.spec.ts`
 
-- [ ] `UsersService.create({email, fullName, roleId, ...})` — mints invitation token, persists User with `status=INVITED`, sends invitation email (Mailhog in dev)
-- [ ] `UsersService.resendInvitation(id)` — cycles token, consumes prior, re-sends email
-- [ ] `UsersService.revokeInvitation(id)` — marks outstanding token consumed
-- [ ] `UsersService.archive(userId)` — sets `status=ARCHIVED`, revokes refresh tokens, invalidates permission cache (soft-delete; 30-day restore window enforced by Retention)
-- [ ] `UsersService.restore(userId)` — flips ARCHIVED → ACTIVE
+- [x] `UsersService.create({email, fullName, roleId, ...})` — mints invitation token, persists User with `status=INVITED`, sends invitation email (Mailhog in dev)
+- [x] `UsersService.resendInvitation(id)` — cycles token, consumes prior, re-sends email
+- [x] `UsersService.revokeInvitation(id)` — marks outstanding token consumed
+- [x] `UsersService.archive(userId)` — sets `status=ARCHIVED`, revokes refresh tokens, invalidates permission cache (soft-delete; 30-day restore window enforced by Retention)
+- [x] `UsersService.restore(userId)` — flips ARCHIVED → ACTIVE
 - [ ] `UsersService.purge(userId)` — requires status=ARCHIVED first; PII redaction with deterministic `former-user-<sha256(orgId:userId).slice(0,12)>` handle; in transaction: overwrites email/fullName/phone/etc., anonymizes Comments (P7), nulls assignee/recordedBy refs (P2/P7), deletes all tokens/sessions; logs audit with redacted handle
 - [ ] `OffboardingService.offboard(userId, {transferKpisTo?, reparentDirectReportsTo?, leaveReason?, archive?})` — single transaction: KPI ownership transfer → direct-report manager reparent → active OrgUnitMember rows closed with leaveReason → headUserId null on owning OrgUnits → open tasks unassigned (P7 dep) → optionally archive + revoke tokens. Pre-flight rejects cross-tenant + archived targets + self-reparent
-- [ ] `GdprExportService.exportUser(userId)` — returns JSON envelope of every row tied to the user (orgUnitMemberships, kpiAssignments, kpiDataPoints, audit logs authored-by + about-user, comments, tasks, sessions, login attempts) with `passwordHash` redacted; logs EXPORT audit with record counts
-- [ ] `MeProfileController` — `GET /me/profile`, `PATCH /me/profile` (avatar, phone, secondaryEmail, locale, timezone, customFields); validates customFields against org `userCustomFieldDefs`
-- [ ] `MeSessionsController` — `GET /me/sessions`, `DELETE /me/sessions/:id`, `POST /me/sessions/revoke-all`
+- [x] `GdprExportService.exportUser(userId)` — returns JSON envelope of every row tied to the user (orgUnitMemberships, kpiAssignments, kpiDataPoints, audit logs authored-by + about-user, comments, tasks, sessions, login attempts) with `passwordHash` redacted; logs EXPORT audit with record counts
+- [x] `MeProfileController` — `GET /me/profile`, `PATCH /me/profile` (avatar, phone, secondaryEmail, locale, timezone, customFields); validates customFields against org `userCustomFieldDefs`
+- [x] `MeSessionsController` — `GET /me/sessions`, `DELETE /me/sessions/:id`, `POST /me/sessions/revoke-all`
 - [ ] Permissions on UsersController: List → USERS_VIEW; Create/Edit/Archive/Offboard → USERS_MANAGE; `/me/*` always self-accessible
-- [ ] Unit tests:
+- [x] Unit tests:
   - invitation lifecycle (create → token → accept → ACTIVE)
   - resend cycles token, revoke consumes
   - archive → restore round trip
@@ -648,7 +669,7 @@ prisma.$use(async (params, next) => {
 
 **Files**: `rbac.module.ts`, `permissions.guard.ts`, `decorators/require-permissions.ts`, `decorators/owner-override.ts`, `permission-cache.service.ts`, `permission-resolver.spec.ts`
 
-- [ ] Define `Permission` enum in `packages/contracts/src/permissions.ts` with 18 values:
+- [x] Define `Permission` enum in `packages/contracts/src/permissions.ts` with 18 values:
   ```typescript
   export const PERMISSIONS = [
     'KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'KPI_DELETE', 'KPI_DATA_ENTRY',
@@ -661,66 +682,66 @@ prisma.$use(async (params, next) => {
   ] as const;
   export type Permission = (typeof PERMISSIONS)[number];
   ```
-- [ ] `PERMISSION_PRESETS` constant with 4 curated sets: KPI Manager, Data Entry, People Manager, Auditor (used by RolesModule)
-- [ ] `@RequirePermissions(...perms: Permission[])` decorator → metadata for guard (AND)
-- [ ] `@RequireAnyPermission(...perms: Permission[])` decorator (OR)
-- [ ] `@OwnerOverride({modelKey, paramName, ownerField})` decorator → guard falls back to owner check on denial
-- [ ] `@Public()` decorator (already in AuthModule) for opting out entirely
-- [ ] `PermissionCacheService.resolveForUser(userId)` — returns `Set<Permission>`:
+- [x] `PERMISSION_PRESETS` constant with 4 curated sets: KPI Manager, Data Entry, People Manager, Auditor (used by RolesModule)
+- [x] `@RequirePermissions(...perms: Permission[])` decorator → metadata for guard (AND)
+- [x] `@RequireAnyPermission(...perms: Permission[])` decorator (OR)
+- [x] `@OwnerOverride({modelKey, paramName, ownerField})` decorator → guard falls back to owner check on denial
+- [x] `@Public()` decorator (already in AuthModule) for opting out entirely
+- [x] `PermissionCacheService.resolveForUser(userId)` — returns `Set<Permission>`:
   - if `isAdmin` → ALL_PERMISSIONS
   - layer in role direct + role inherited (BFS up RoleInheritance edges where `inheritsPermissions=true`; cycle-safe via visited Set)
   - layer in active PermissionDelegation rows (empty perms = inherit ALL of grantor)
   - DOES NOT add ResourcePermission to the cache (those are per-resource checks)
   - Redis cache with 5-min TTL keyed by userId; in-memory fallback
-- [ ] `PermissionsGuard` (APP_GUARD):
+- [x] `PermissionsGuard` (APP_GUARD):
   - reads `@RequirePermissions` / `@RequireAnyPermission` metadata
   - calls `resolveForUser` → checks
   - on denial: checks `@OwnerOverride` if present → loads entity by route param → checks `ownerField === ctx.userId` → allows
   - on denial: checks ResourcePermission via `ResourcePermissionsService.hasResourcePermission({userId, action, resourceType, resourceId})` → allows if granted + not expired
   - throws `ForbiddenException` otherwise
   - admin bypass (`isAdmin: true`) short-circuits everything
-- [ ] **18 permissions × 4 default roles = 72 parameterized truth-table test cases** in `permissions.guard.spec.ts`
-- [ ] Cache invalidation hooks: `PermissionCacheService.invalidate(userId)` called on role update / delegation create-revoke / resource permission add-remove
+- [x] **18 permissions × 4 default roles = 72 parameterized truth-table test cases** in `permissions.guard.spec.ts`
+- [x] Cache invalidation hooks: `PermissionCacheService.invalidate(userId)` called on role update / delegation create-revoke / resource permission add-remove
 
 ### Module 10: RolesModule (`apps/api/src/roles/`)
 
-- [ ] `RolesService.create({name, permissions, isAdmin?, parentRoleIds?, ...})` — creates RoleDefinition + RoleInheritance rows for each parent
-- [ ] `RolesService.update(id, patch)` — versioned: any permission change writes AuditLog with before/after
-- [ ] `RolesService.delete(id)` — refuses if users assigned; refuses if it's the last Admin role
-- [ ] `RolesService.applyPreset(roleId, presetKey, additive?)` — swaps in `PERMISSION_PRESETS[presetKey]`
-- [ ] `RolesService.listForOrg()` + `resolveSubordinateRoleIds(roleId)` pure helper (BFS down RoleInheritance with diamond/cycle/disconnect coverage)
-- [ ] Controller:
+- [x] `RolesService.create({name, permissions, isAdmin?, parentRoleIds?, ...})` — creates RoleDefinition + RoleInheritance rows for each parent
+- [x] `RolesService.update(id, patch)` — versioned: any permission change writes AuditLog with before/after
+- [x] `RolesService.delete(id)` — refuses if users assigned; refuses if it's the last Admin role
+- [x] `RolesService.applyPreset(roleId, presetKey, additive?)` — swaps in `PERMISSION_PRESETS[presetKey]`
+- [x] `RolesService.listForOrg()` + `resolveSubordinateRoleIds(roleId)` pure helper (BFS down RoleInheritance with diamond/cycle/disconnect coverage)
+- [x] Controller:
   - `GET /roles`, `POST /roles`, `PATCH /roles/:id`, `DELETE /roles/:id` (ROLES_MANAGE for mutations)
   - `GET /roles/hierarchy` — BFS-built tree response
   - `GET /roles/presets/list` — returns `PERMISSION_PRESETS` for UI
   - `POST /roles/:id/apply-preset {presetKey, additive?}`
   - `GET /roles/:id/audit` — filters AuditLog for entityType=RoleDefinition + entityId
-- [ ] Unit tests:
+- [x] Unit tests:
   - subordinate resolver: 8 cases (diamond inheritance, cycle, disconnect, single parent, multi-parent, self-reference rejection)
   - delete refusal when users assigned
   - delete refusal on last admin
 
 ### Module 11: PositionsModule (`apps/api/src/positions/`)
 
-- [ ] Standard CRUD
-- [ ] `applyPreset({presetKey, orgId})` — bulk-create from one of 5 industry presets (Tech/Healthcare/Finance/Retail/Non-profit); skips name collisions
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /positions`, `POST /positions/apply-preset` (POSITIONS_MANAGE)
+- [x] Standard CRUD
+- [x] `applyPreset({presetKey, orgId})` — bulk-create from one of 5 industry presets (Tech/Healthcare/Finance/Retail/Non-profit); skips name collisions
+- [x] Endpoints: `GET/POST/PATCH/DELETE /positions`, `POST /positions/apply-preset` (POSITIONS_MANAGE)
 
 ### Module 12: PermissionDelegationsModule (`apps/api/src/permission-delegations/`)
 
-- [ ] `PermissionDelegationsService.create({granteeUserId, permissions, validFrom, validTo, reason})` — validates grantor has all those perms; persists; schedules BullMQ delayed job `permission-delegation` at `validTo` to flip `revokedAt`
-- [ ] `PermissionDelegationsService.revoke(id)` — flips `revokedAt = now()`
-- [ ] BullMQ processor checks if delegation still exists + not yet revoked → revokes
-- [ ] Resolver in PermissionCacheService layers in active delegations (validFrom ≤ now ≤ validTo, revokedAt null)
-- [ ] Endpoints: `GET/POST/DELETE /permission-delegations` (USERS_MANAGE)
-- [ ] Unit tests: empty perms = inherit ALL, delegation respects window, revoke immediately stops grant
+- [x] `PermissionDelegationsService.create({granteeUserId, permissions, validFrom, validTo, reason})` — validates grantor has all those perms; persists; schedules BullMQ delayed job `permission-delegation` at `validTo` to flip `revokedAt`
+- [x] `PermissionDelegationsService.revoke(id)` — flips `revokedAt = now()`
+- [x] BullMQ processor checks if delegation still exists + not yet revoked → revokes
+- [x] Resolver in PermissionCacheService layers in active delegations (validFrom ≤ now ≤ validTo, revokedAt null)
+- [x] Endpoints: `GET/POST/DELETE /permission-delegations` (USERS_MANAGE)
+- [x] Unit tests: empty perms = inherit ALL, delegation respects window, revoke immediately stops grant
 
 ### Module 13: ResourcePermissionsModule (`apps/api/src/resource-permissions/`)
 
-- [ ] `ResourcePermissionsService.grant({subjectType, subjectId, action, resourceType, resourceId, expiresAt?})` — upsert with unique constraint
-- [ ] `ResourcePermissionsService.revoke(id)`
-- [ ] `ResourcePermissionsService.hasResourcePermission({userId, action, resourceType, resourceId})` — checks subject=user OR subject=role (via user.roleId); honors expiresAt
-- [ ] Endpoints: `GET/POST/DELETE /resource-permissions` (USERS_MANAGE)
+- [x] `ResourcePermissionsService.grant({subjectType, subjectId, action, resourceType, resourceId, expiresAt?})` — upsert with unique constraint
+- [x] `ResourcePermissionsService.revoke(id)`
+- [x] `ResourcePermissionsService.hasResourcePermission({userId, action, resourceType, resourceId})` — checks subject=user OR subject=role (via user.roleId); honors expiresAt
+- [x] Endpoints: `GET/POST/DELETE /resource-permissions` (USERS_MANAGE)
 
 ### Module 14: OrgUnitDimensionsModule (`apps/api/src/org-unit-dimensions/`)
 
@@ -738,32 +759,32 @@ prisma.$use(async (params, next) => {
 
 **Files**: includes `org-units.controller.ts`, `org-units.service.ts`, plus `services/reorganization.service.ts`, `services/membership.service.ts`
 
-- [ ] CRUD with parent-type-and-depth validation
-- [ ] `moveUsers({sourceUnitId, targetUnitId, userIds[], leaveReason})` — soft-leaves source membership, upserts target with `@@unique([orgUnitId, userId])` reactivation; transaction
-- [ ] `mergeUnits(sourceId, targetId, {leaveReason})` — moves all active members + archives source
-- [ ] `splitUnit(sourceId, [{name, memberUserIds[]}], {archiveSource?, leaveReason?})` — creates same-typed children, distributes members
-- [ ] `renameUnit(id, newName)` — writes `OrgUnitNameHistory` row in-transaction with the rename
-- [ ] `listMembershipsByUser(userId)` — joins OrgUnit + OrgUnitType, sorts active-first; for `/users/[id]` page
-- [ ] `descendantsVisibleToHead(rootUnitId)` BFS helper respecting `visibilityInherits=false` boundaries (used by §6 visibility filter in P2)
-- [ ] Endpoints:
+- [x] CRUD with parent-type-and-depth validation
+- [x] `moveUsers({sourceUnitId, targetUnitId, userIds[], leaveReason})` — soft-leaves source membership, upserts target with `@@unique([orgUnitId, userId])` reactivation; transaction
+- [x] `mergeUnits(sourceId, targetId, {leaveReason})` — moves all active members + archives source
+- [x] `splitUnit(sourceId, [{name, memberUserIds[]}], {archiveSource?, leaveReason?})` — creates same-typed children, distributes members
+- [x] `renameUnit(id, newName)` — writes `OrgUnitNameHistory` row in-transaction with the rename
+- [x] `listMembershipsByUser(userId)` — joins OrgUnit + OrgUnitType, sorts active-first; for `/users/[id]` page
+- [x] `descendantsVisibleToHead(rootUnitId)` BFS helper respecting `visibilityInherits=false` boundaries (used by §6 visibility filter in P2)
+- [x] Endpoints:
   - `GET/POST/PATCH/DELETE /org-units` (GROUPS_VIEW for read, GROUPS_MANAGE for mutate)
   - `POST /org-units/move-users`, `POST /org-units/:id/merge-into`, `POST /org-units/:id/split`, `POST /org-units/:id/rename`
   - `GET /org-units/:id/name-history`
   - `GET /org-units/by-user/:userId/memberships`
-- [ ] Unit tests: 13 covering move/merge/split/rename happy + edge cases
+- [x] Unit tests: 13 covering move/merge/split/rename happy + edge cases
 
 ### Module 17: AuditModule (`apps/api/src/audit/`)
 
 **Files**: `audit.module.ts`, `audit.service.ts`, `audit.interceptor.ts`, `audit.controller.ts`, `cross-tenant-guard.service.ts`, `cross-tenant-audit-bridge.ts`, `*.spec.ts`
 
-- [ ] `AuditService.log({action, entityType?, entityId?, changes?, metadata?, redactedKeys?})` — non-blocking persist
-- [ ] PII redaction: deeply recursive denylist of sensitive keys (passwordHash, mfaSecret, hashedToken, encryptedTokens, etc.); stores redacted key names
-- [ ] `AuditInterceptor` (APP_INTERCEPTOR) — on every successful POST/PATCH/PUT/DELETE (skip GETs, `/auth/*`, anonymous): writes a coarse audit row with method + path + statusCode
-- [ ] `CrossTenantGuardService.assertScopedToContext(rowOrgId, callerLabel)` — compares row's orgId vs `RequestContextStore.get()?.organizationId`; emits WARN log on mismatch; returns violation row
-- [ ] `runWithBypass(reason, fn)` — re-entrant; downgrades log to INFO; tags audit metadata `bypassReason`
-- [ ] `CrossTenantAuditBridge` — routes violations to AuditLog with `metadata: {kind: "cross_tenant_violation", ...}`
-- [ ] Controller: `GET /audit-logs?entityType=&entityId=&userId=&action=&from=&to=&limit=&offset=`, `GET /audit-logs/:id`
-- [ ] Unit tests: 7+ covering redaction (nested), bypass stack cleanup on throw, violation routing
+- [x] `AuditService.log({action, entityType?, entityId?, changes?, metadata?, redactedKeys?})` — non-blocking persist
+- [x] PII redaction: deeply recursive denylist of sensitive keys (passwordHash, mfaSecret, hashedToken, encryptedTokens, etc.); stores redacted key names
+- [x] `AuditInterceptor` (APP_INTERCEPTOR) — on every successful POST/PATCH/PUT/DELETE (skip GETs, `/auth/*`, anonymous): writes a coarse audit row with method + path + statusCode
+- [x] `CrossTenantGuardService.assertScopedToContext(rowOrgId, callerLabel)` — compares row's orgId vs `RequestContextStore.get()?.organizationId`; emits WARN log on mismatch; returns violation row
+- [x] `runWithBypass(reason, fn)` — re-entrant; downgrades log to INFO; tags audit metadata `bypassReason`
+- [x] `CrossTenantAuditBridge` — routes violations to AuditLog with `metadata: {kind: "cross_tenant_violation", ...}`
+- [x] Controller: `GET /audit-logs?entityType=&entityId=&userId=&action=&from=&to=&limit=&offset=`, `GET /audit-logs/:id`
+- [x] Unit tests: 7+ covering redaction (nested), bypass stack cleanup on throw, violation routing
 
 ### Module 18: BillingModule (schema-ready, UI placeholder)
 
@@ -800,19 +821,19 @@ prisma.$use(async (params, next) => {
 ## Frontend (Next.js App Router)
 
 ### App shell
-- [ ] `apps/web/src/app/(app)/layout.tsx` — server-rendered layout with sidebar + header, requires authenticated session
-- [ ] `apps/web/src/components/AppSidebar.tsx` — permission-filtered nav, org switcher, impersonation banner, user menu
-- [ ] `apps/web/src/components/AppHeader.tsx` — page title, breadcrumb, search (⌘K stub), alerts bell (badge stub), theme toggle
-- [ ] `apps/web/src/components/OrgSwitcher.tsx` — server component reading auth context, dropdown if user has >1 org
-- [ ] `apps/web/src/components/ImpersonationBanner.tsx` — amber banner shown when `impersonate_token` cookie present
+- [x] `apps/web/src/app/(app)/layout.tsx` — server-rendered layout with sidebar + header, requires authenticated session
+- [x] `apps/web/src/components/AppSidebar.tsx` — permission-filtered nav, org switcher, impersonation banner, user menu
+- [x] `apps/web/src/components/AppHeader.tsx` — page title, breadcrumb, search (⌘K stub), alerts bell (badge stub), theme toggle
+- [x] `apps/web/src/components/OrgSwitcher.tsx` — server component reading auth context, dropdown if user has >1 org
+- [x] `apps/web/src/components/ImpersonationBanner.tsx` — amber banner shown when `impersonate_token` cookie present
 
 ### Auth flow
-- [ ] `apps/web/src/lib/auth.ts` — auth context provider; reads token + permissions from server-side cookies; 5-min refresh interval
-- [ ] `apps/web/src/components/auth/LoginForm.tsx` — multi-step: email → org pick (if multi) → password (+ MFA if enabled); "Remember me" toggle
-- [ ] `apps/web/src/components/auth/RegisterForm.tsx` — org name + admin email/password
-- [ ] `apps/web/src/components/auth/PasswordResetForm.tsx` — request + confirm pages
-- [ ] `apps/web/src/components/auth/MfaEnrollmentForm.tsx` — QR + verify
-- [ ] Auth pages (no app shell):
+- [x] `apps/web/src/lib/auth.ts` — auth context provider; reads token + permissions from server-side cookies; 5-min refresh interval
+- [x] `apps/web/src/components/auth/LoginForm.tsx` — multi-step: email → org pick (if multi) → password (+ MFA if enabled); "Remember me" toggle
+- [x] `apps/web/src/components/auth/RegisterForm.tsx` — org name + admin email/password
+- [x] `apps/web/src/components/auth/PasswordResetForm.tsx` — request + confirm pages
+- [x] `apps/web/src/components/auth/MfaEnrollmentForm.tsx` — QR + verify
+- [x] Auth pages (no app shell):
   - `apps/web/src/app/(auth)/login/page.tsx`
   - `apps/web/src/app/(auth)/register/page.tsx`
   - `apps/web/src/app/(auth)/password/request/page.tsx`
@@ -822,62 +843,62 @@ prisma.$use(async (params, next) => {
   - `apps/web/src/app/(auth)/unauthorized/page.tsx`
 
 ### Route guards (client + server)
-- [ ] `<ProtectedRoute>` — server-side check via getServerSession; redirects to /login
-- [ ] `<RequirePermission permission="X">` — checks user permission array; redirects to /unauthorized
-- [ ] `<RequireAnyPermission permissions={["X","Y"]}>` — or-guard
-- [ ] `<PermissionGuard permission="X" fallback={null}>` — soft fallback (hide element)
+- [x] `<ProtectedRoute>` — server-side check via getServerSession; redirects to /login
+- [x] `<RequirePermission permission="X">` — checks user permission array; redirects to /unauthorized
+- [x] `<RequireAnyPermission permissions={["X","Y"]}>` — or-guard
+- [x] `<PermissionGuard permission="X" fallback={null}>` — soft fallback (hide element)
 
 ### Pages
-- [ ] `/` — placeholder home (real adaptive home lands in P2 when KPIs exist)
-- [ ] `/settings` — tab layout with sub-routes: organization / branding / custom-domain / locale / fiscal / terminology / password-policy
-- [ ] `/settings/organization` — name, logo, type, industry, sizeTier
-- [ ] `/settings/branding` — colors, favicon
-- [ ] `/settings/custom-domain` — DNS TXT verification flow + last-checked diagnostics
-- [ ] `/settings/locale` — timezone, currency, locale, formats
-- [ ] `/settings/fiscal` — fiscal calendar editor (JSON UI)
-- [ ] `/settings/terminology` — 8 label fields with live preview
-- [ ] `/settings/password-policy` — minLength, complexity toggles
-- [ ] `/users` — DataTable with status filter, role assignment, position assignment; inline create sheet
+- [x] `/` — placeholder home (real adaptive home lands in P2 when KPIs exist)
+- [x] `/settings` — tab layout with sub-routes: organization / branding / custom-domain / locale / fiscal / terminology / password-policy
+- [x] `/settings/organization` — name, logo, type, industry, sizeTier
+- [x] `/settings/branding` — colors, favicon
+- [x] `/settings/custom-domain` — DNS TXT verification flow + last-checked diagnostics
+- [x] `/settings/locale` — timezone, currency, locale, formats
+- [x] `/settings/fiscal` — fiscal calendar editor (JSON UI)
+- [x] `/settings/terminology` — 8 label fields with live preview
+- [x] `/settings/password-policy` — minLength, complexity toggles
+- [x] `/users` — DataTable with status filter, role assignment, position assignment; inline create sheet
 - [ ] `/users/[id]` — profile, memberships side panel, audit timeline, custom fields editor, "Reset password" / "Resend invite" / "Archive" / "Offboard" actions
 - [ ] `/users/[id]/offboard` — server-action page with active-user pickers for transfer/reparent
-- [ ] `/me` — identity / contact / locale / custom fields editor; theme toggle; password change; MFA enroll
-- [ ] `/me/sessions` — list active sessions with revoke
-- [ ] `/me/preferences` — notification settings (digest mode placeholder for P4)
-- [ ] `/roles` — role list + permission count + "Used by N users"
-- [ ] `/roles/new` — form (name + permissions + parent roles + isAdmin + color)
-- [ ] `/roles/[id]` — detail + permission matrix + members list
-- [ ] `/roles/[id]/audit` — permission change timeline with green/red diff lines
-- [ ] `/roles/matrix` — `<RoleMatrix>` client component: permissions × roles grid with per-row bulk all/none, admin cells disabled, ringed-highlight on changed cells, pending-changes side panel, save sends only PATCH'd roles
-- [ ] `/roles/hierarchy` — SVG visualization (blue=permission-stacking edges, dashed=reports-to-only)
-- [ ] `/roles/presets` — preset cards with badges + apply form
-- [ ] `/positions` — CRUD
-- [ ] `/positions/presets` — industry preset cards + apply
-- [ ] `/org-units` — tree view + flat table
-- [ ] `/org-units/chart` — SVG layered tree with print stylesheet
-- [ ] `/org-units/dimensions` — dimension CRUD + default switch
-- [ ] `/org-units/reorganize` — Move / Merge / Rename / Split server-action forms
-- [ ] `/audit` — log viewer with filters (entityType/action/date/user) + JSON change diff drill-in
-- [ ] `/billing` — placeholder: plan card + usage bars + "Upgrade" details popover
-- [ ] `/admin/impersonate` — UUID-paste start form (platform admin only)
-- [ ] `/status` — public health page with per-component dots + latency
+- [x] `/me` — identity / contact / locale / custom fields editor; theme toggle; password change; MFA enroll
+- [x] `/me/sessions` — list active sessions with revoke
+- [x] `/me/preferences` — notification settings (digest mode placeholder for P4)
+- [x] `/roles` — role list + permission count + "Used by N users"
+- [x] `/roles/new` — form (name + permissions + parent roles + isAdmin + color)
+- [x] `/roles/[id]` — detail + permission matrix + members list
+- [x] `/roles/[id]/audit` — permission change timeline with green/red diff lines
+- [x] `/roles/matrix` — `<RoleMatrix>` client component: permissions × roles grid with per-row bulk all/none, admin cells disabled, ringed-highlight on changed cells, pending-changes side panel, save sends only PATCH'd roles
+- [x] `/roles/hierarchy` — SVG visualization (blue=permission-stacking edges, dashed=reports-to-only)
+- [x] `/roles/presets` — preset cards with badges + apply form
+- [x] `/positions` — CRUD
+- [x] `/positions/presets` — industry preset cards + apply
+- [x] `/org-units` — tree view + flat table
+- [x] `/org-units/chart` — SVG layered tree with print stylesheet
+- [x] `/org-units/dimensions` — dimension CRUD + default switch
+- [x] `/org-units/reorganize` — Move / Merge / Rename / Split server-action forms
+- [x] `/audit` — log viewer with filters (entityType/action/date/user) + JSON change diff drill-in
+- [x] `/billing` — placeholder: plan card + usage bars + "Upgrade" details popover
+- [x] `/admin/impersonate` — UUID-paste start form (platform admin only)
+- [x] `/status` — public health page with per-component dots + latency
 - [ ] **`/signup/wizard` — basic onboarding wizard stub** (5 routes: organization, structure, roles, kpis, team); just forms posting to `/onboarding/*` endpoints; AI + templates + drafts come in P6
 
 ### Custom-terminology rendering
-- [ ] `apps/web/src/lib/terminology.ts` — in-memory 30s cache; smart pluralization (regex rules + irregular dict); reads from current org
-- [ ] Wire into AppSidebar nav, /kpis page header, /users page header, /roles page header
+- [x] `apps/web/src/lib/terminology.ts` — in-memory 30s cache; smart pluralization (regex rules + irregular dict); reads from current org
+- [x] Wire into AppSidebar nav, /kpis page header, /users page header, /roles page header
 
 ## Cross-tenant fuzz harness (P1 deliverable)
 
 **File**: `apps/api/test/cross-tenant.e2e.spec.ts`
 
-- [ ] Parameterized over `[resource, verb]` matrix (8 resources × 4 verbs):
+- [x] Parameterized over `[resource, verb]` matrix (8 resources × 4 verbs):
   - Resources: user, role, position, orgUnit, orgUnitType, orgUnitDimension, customDomain, auditLog
   - Verbs: GET (single), LIST, PATCH, DELETE
-- [ ] Setup: creates two orgs (orgA, orgB), each with admin + sample data
-- [ ] Test: for every cell, attempts to access orgB's resource using orgA's JWT → must receive 404 or 403 (NEVER 200)
-- [ ] Bonus: audit log isolation — orgA's audit log must not contain orgB events
-- [ ] Bonus: JWT-guard check — request without auth → 401 for every endpoint
-- [ ] Runs in CI on every PR via `apps/api/test/`
+- [x] Setup: creates two orgs (orgA, orgB), each with admin + sample data
+- [x] Test: for every cell, attempts to access orgB's resource using orgA's JWT → must receive 404 or 403 (NEVER 200)
+- [x] Bonus: audit log isolation — orgA's audit log must not contain orgB events
+- [x] Bonus: JWT-guard check — request without auth → 401 for every endpoint
+- [x] Runs in CI on every PR via `apps/api/test/`
 
 ## 12-case visibility helper test (P1 deliverable, even though KPI is P2)
 
@@ -885,19 +906,19 @@ prisma.$use(async (params, next) => {
 
 Even before P2 builds the KPI module, write the visibility helper test infrastructure so P2 can fill in the assertions:
 
-- [ ] Mock setup: 3 KPI scope values (ORG_WIDE, PER_UNIT, PER_USER) × 4 role types (Admin, Manager, Employee, Viewer) = 12 cases
-- [ ] For each: assert `buildKpiVisibilityWhere(ctx)` returns the correct Prisma `where` fragment shape
-- [ ] Stub the helper return shape; P2 fills in the actual logic
-- [ ] This test must NOT pass during P1 (since helper doesn't exist yet) — it's a placeholder ensuring P2 implements it
+- [x] Mock setup: 3 KPI scope values (ORG_WIDE, PER_UNIT, PER_USER) × 4 role types (Admin, Manager, Employee, Viewer) = 12 cases
+- [x] For each: assert `buildKpiVisibilityWhere(ctx)` returns the correct Prisma `where` fragment shape
+- [x] Stub the helper return shape; P2 fills in the actual logic
+- [x] This test must NOT pass during P1 (since helper doesn't exist yet) — it's a placeholder ensuring P2 implements it
 
 Alternatively, defer this entire test to P2 — but it's listed here because the spec §6 says it's required for the visibility model.
 
 ## e2e tests
 
-- [ ] `apps/web/e2e/uc01-login.spec.ts` — anon redirect to login, successful login, bad-password error, sign out
-- [ ] `apps/web/e2e/uc02-roles.spec.ts` — permission matrix renders, role create + delete via UI
-- [ ] `apps/web/e2e/uc11-org-settings.spec.ts` — name + timezone/currency/locale + role/kpi label updates with reload-persistence
-- [ ] `apps/web/e2e/full-happy-path.spec.ts` — register via API → skip onboarding → invite via UI → audit visible → role-gating verified
+- [x] `apps/web/e2e/uc01-login.spec.ts` — anon redirect to login, successful login, bad-password error, sign out
+- [x] `apps/web/e2e/uc02-roles.spec.ts` — permission matrix renders, role create + delete via UI
+- [x] `apps/web/e2e/uc11-org-settings.spec.ts` — name + timezone/currency/locale + role/kpi label updates with reload-persistence
+- [x] `apps/web/e2e/full-happy-path.spec.ts` — register via API → skip onboarding → invite via UI → audit visible → role-gating verified
 
 ## Acceptance checklist
 

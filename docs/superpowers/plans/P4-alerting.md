@@ -147,23 +147,23 @@ model ApiKey {
 
 ### Module 1: AlertRulesModule
 
-- [ ] CRUD with `ruleType`-specific config validation (Zod discriminated union):
+- [x] CRUD with `ruleType`-specific config validation (Zod discriminated union):
   - `STATIC_THRESHOLD`: `{operator: ">" | "<" | ">=" | "<=" | "==", value: number}`
   - `DYNAMIC_STDDEV`: `{sigmas: number, windowSize: number}`
   - `RATE_OF_CHANGE`: `{pctChange: number, windowMinutes: number}`
   - `NO_DATA`: `{maxStaleMinutes: number}`
   - `COMPOSITE`: `{rules: AlertRuleConfig[], operator: "AND" | "OR"}`
-- [ ] Severity per rule (LOW/MEDIUM/HIGH)
-- [ ] Escalation editor: upserts `EscalationRule.levels Json` in same transaction
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /alert-rules` (KPI_EDIT for mutate, ALERTS_VIEW for read)
+- [x] Severity per rule (LOW/MEDIUM/HIGH)
+- [x] Escalation editor: upserts `EscalationRule.levels Json` in same transaction
+- [x] Endpoints: `GET/POST/PATCH/DELETE /alert-rules` (KPI_EDIT for mutate, ALERTS_VIEW for read)
 
 ### Module 2: AlertEngineModule (`apps/api/src/alert-engine/`)
 
 **Files**: `alert-engine.module.ts`, `alert-engine.producer.ts`, `alert-engine.processor.ts`, `evaluators/static-threshold.ts`, `evaluators/no-data.ts`, `*.spec.ts`
 
-- [ ] BullMQ queue `alert-eval`
-- [ ] `AlertEngineProducer.enqueueEvaluateKpi({kpiId, dataPointId, organizationId})` — called by `DataPointsService.create` after every non-COMPUTED insert
-- [ ] `AlertEngineProcessor.handleEvaluateKpi(job)`:
+- [x] BullMQ queue `alert-eval`
+- [x] `AlertEngineProducer.enqueueEvaluateKpi({kpiId, dataPointId, organizationId})` — called by `DataPointsService.create` after every non-COMPUTED insert
+- [x] `AlertEngineProcessor.handleEvaluateKpi(job)`:
   - Load active AlertRule rows for kpiId
   - For each rule:
     - Check cooldown: if `config.cooldownMinutes > 0` and any Alert exists for `(alertRuleId, kpiId)` within window → skip (log SUPPRESSED)
@@ -175,73 +175,73 @@ model ApiKey {
       - COMPOSITE: recurse + AND/OR
     - If triggered: persist Alert, publish `alert_triggered` realtime event, enqueue escalation level 1 immediately
     - Fire-and-forget `RecommendationsService.generateInOrg({alertId, kpiId})` (P5 dep — stub in P4)
-- [ ] **P4 implements STATIC_THRESHOLD + NO_DATA fully; DYNAMIC_STDDEV + RATE_OF_CHANGE + COMPOSITE accept config but evaluator can return false (stub) — full impl in P5 when stats infrastructure available**
-- [ ] Scheduled NO_DATA scanner: BullMQ cron every 5 min walks all `ruleType=NO_DATA` rules + checks staleness
-- [ ] Unit tests: each evaluator type with edge cases (boundary values, no history, etc.); cooldown suppression; idempotent enqueue
+- [x] **P4 implements STATIC_THRESHOLD + NO_DATA fully; DYNAMIC_STDDEV + RATE_OF_CHANGE + COMPOSITE accept config but evaluator can return false (stub) — full impl in P5 when stats infrastructure available**
+- [x] Scheduled NO_DATA scanner: BullMQ cron every 5 min walks all `ruleType=NO_DATA` rules + checks staleness
+- [x] Unit tests: each evaluator type with edge cases (boundary values, no history, etc.); cooldown suppression; idempotent enqueue
 
 ### Module 3: EscalationsModule
 
-- [ ] `EscalationsService.enqueueLevel(alertId, organizationId, level, delayMs)` — adds BullMQ delayed job with deterministic jobId `escalate:{alertId}:lvl{n}` (idempotent across redeploys)
-- [ ] `EscalationProcessor.handleEscalateAlert(job)`:
+- [x] `EscalationsService.enqueueLevel(alertId, organizationId, level, delayMs)` — adds BullMQ delayed job with deterministic jobId `escalate:{alertId}:lvl{n}` (idempotent across redeploys)
+- [x] `EscalationProcessor.handleEscalateAlert(job)`:
   - Load Alert + EscalationRule
   - **Abort if `alert.status !== "OPEN"`** (acknowledged or resolved by now)
   - Persist NotificationDelivery row per channel in level
   - Kick digest collator for each `notifyUserIds[]` (see Module 5)
   - Publish `alert_escalated` realtime event
   - Enqueue level+1 if exists with `delayMinutes * 60_000` delay
-- [ ] Channel adapter dispatch handled by NotificationsModule
-- [ ] Unit tests: 4 cases — trigger, cooldown suppression, level fan-out, OPEN guard
+- [x] Channel adapter dispatch handled by NotificationsModule
+- [x] Unit tests: 4 cases — trigger, cooldown suppression, level fan-out, OPEN guard
 
 ### Module 4: NotificationChannelsModule
 
-- [ ] CRUD with `kind`-specific config validation (encrypted via AES-256-GCM):
+- [x] CRUD with `kind`-specific config validation (encrypted via AES-256-GCM):
   - EMAIL: `{smtpHost?, smtpPort?, fromAddress, replyToAddress?}` (or use Resend default)
   - SLACK: `{webhookUrl, channel?, username?, iconEmoji?}`
   - TEAMS: `{webhookUrl}`
   - SMS: `{twilioAccountSid, twilioAuthToken, fromNumber}`
   - IN_APP: `{}` (no config; always available)
   - WEBHOOK: `{url, headers?: Record<string, string>}` (HMAC secret auto-generated)
-- [ ] `test()` endpoint — sends test message to the channel
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /notification-channels`, `POST /notification-channels/:id/test` (all ORG_SETTINGS)
+- [x] `test()` endpoint — sends test message to the channel
+- [x] Endpoints: `GET/POST/PATCH/DELETE /notification-channels`, `POST /notification-channels/:id/test` (all ORG_SETTINGS)
 
 ### Module 5: NotificationsModule (the dispatcher + retry + digest)
 
 **Files**: `notifications.module.ts`, `notifications.controller.ts`, `notification-dispatcher.service.ts`, `notification-retry.processor.ts`, `notification-digest.producer.ts`, `notification-digest.processor.ts`, `adapters/{email,slack,teams,sms,in_app,webhook}.ts`
 
-- [ ] `NotificationDispatcherService.dispatch(alertId, organizationId, channelIds[], payload)`:
+- [x] `NotificationDispatcherService.dispatch(alertId, organizationId, channelIds[], payload)`:
   - For each channelId: load channel, decrypt config, create NotificationDelivery row, call adapter
   - On success: status=SENT + sentAt
   - On failure: status=FAILED + error (truncated); auto-schedule retry attempt #1
-- [ ] `NotificationDispatcherService.dispatchExisting(deliveryId)` — re-uses existing row (for retries)
-- [ ] **Adapters** (each is a single file in `adapters/`):
+- [x] `NotificationDispatcherService.dispatchExisting(deliveryId)` — re-uses existing row (for retries)
+- [x] **Adapters** (each is a single file in `adapters/`):
   - `EmailAdapter.send(channel, payload)` — uses Resend API (`RESEND_API_KEY` env); falls back to console log when unset (dev mode)
   - `SlackAdapter.send(channel, payload)` — POST to webhook URL with severity emojis (🔴 HIGH, 🟡 MEDIUM, 🔵 LOW)
   - `TeamsAdapter.send(channel, payload)` — POST adaptive card to webhook
   - `SmsAdapter.send(channel, payload)` — Twilio API
   - `InAppAdapter.send(channel, payload)` — persists row only; UI reads via SSE
   - `WebhookAdapter.send(channel, payload)` — POST with HMAC-SHA256 signature header (see `WebhooksModule` signing)
-- [ ] BullMQ queue `notification-retry` with exponential backoff:
+- [x] BullMQ queue `notification-retry` with exponential backoff:
   - Attempt 1: immediate (in dispatch)
   - Attempt 2: 30s
   - Attempt 3: 5min
   - Attempt 4: 30min
   - Max 3 retries; after that → terminal FAILED (DLQ)
-- [ ] `NotificationRetryProcessor.handleRetry(job)`:
+- [x] `NotificationRetryProcessor.handleRetry(job)`:
   - Reload delivery row
   - Refuse re-dispatch if status changed (e.g., admin manually re-sent meanwhile)
   - Call `dispatchExisting(deliveryId)`
   - Schedule next attempt or terminal FAILED
-- [ ] **Operator DLQ endpoints**:
+- [x] **Operator DLQ endpoints**:
   - `GET /notification-deliveries?status=FAILED&from=&to=&limit=` (ORG_SETTINGS)
   - `POST /notification-deliveries/:id/retry` (ORG_SETTINGS)
-- [ ] **Digest mode** (alert fatigue control):
+- [x] **Digest mode** (alert fatigue control):
   - `NotificationDigestProducer.enqueueDigest({orgId, userId})` — adds 60s-delayed job with deterministic jobId `digest:{orgId}:{userId}`; subsequent calls within 60s collapse onto same job
   - `NotificationDigestProcessor.handleDigest(job)`:
     - Query last 24h OPEN alerts for userId
     - Publish `alert_digest` realtime event with summary
     - Send digest email via EmailAdapter (if user's `notificationSettings.digestMode === "DAILY"` or `"WEEKLY"`)
-- [ ] Per-user dedup window: rule config can include `cooldownMinutes`; AlertEngineProcessor checks this before creating new Alert
-- [ ] Unit tests:
+- [x] Per-user dedup window: rule config can include `cooldownMinutes`; AlertEngineProcessor checks this before creating new Alert
+- [x] Unit tests:
   - Dispatcher: 7 cases per adapter (SUCCESS, retry on 5xx, terminal on 4xx, idempotent re-dispatch)
   - Retry processor: 7 cases (schedules correctly, refuses if status changed, final attempt marks FAILED)
 
@@ -249,79 +249,79 @@ model ApiKey {
 
 **Files**: `webhooks.module.ts`, `webhooks.controller.ts`, `webhooks.service.ts`, `webhooks-signing.ts`, `outbound-webhook.processor.ts`
 
-- [ ] `WebhooksService.create({name, url, events[]})` — generates secret `whsec_<base64url(32)>`, persists
-- [ ] `WebhooksService.rotateSecret(id)` — mints fresh `whsec_*` once
-- [ ] `WebhooksService.disable(id)` — sets `isActive=false`
-- [ ] `webhooks-signing.ts`:
+- [x] `WebhooksService.create({name, url, events[]})` — generates secret `whsec_<base64url(32)>`, persists
+- [x] `WebhooksService.rotateSecret(id)` — mints fresh `whsec_*` once
+- [x] `WebhooksService.disable(id)` — sets `isActive=false`
+- [x] `webhooks-signing.ts`:
   - `signWebhook(secret, timestamp, body) → "v1=<hex>"`
   - `verifyWebhookSignature(secret, header, body, {maxSkewSeconds: 300}) → boolean` (constant-time + 5-min replay window)
   - 7+ unit tests (happy + tamper + wrong signature + wrong secret + drift exceeds tolerance + missing input + partial-match constant-time)
-- [ ] `OutboundWebhookProcessor` (BullMQ queue `outbound-webhook`):
+- [x] `OutboundWebhookProcessor` (BullMQ queue `outbound-webhook`):
   - POSTs to webhook URL with headers `X-KpiNexus-Signature: t=<ts>,v1=<hex>` + `X-KpiNexus-Timestamp: <ts>`
   - Retries on 5xx (5 attempts exponential)
   - Increments `WebhookSubscription.failureCount` on final failure
   - Auto-disables at 100 consecutive failures
   - Updates `lastDeliveredAt + lastStatus`
-- [ ] Endpoints:
+- [x] Endpoints:
   - `GET/POST/PATCH/DELETE /webhooks` (ORG_SETTINGS)
   - `POST /webhooks/:id/rotate-secret` (ORG_SETTINGS) — returns plaintext once
   - `POST /webhooks/:id/test` (ORG_SETTINGS) — manual fire
-- [ ] Wire `RealtimeService.publish` to fan out matching events to active webhooks
+- [x] Wire `RealtimeService.publish` to fan out matching events to active webhooks
 
 ### Module 7: ApiKeysModule
 
-- [ ] `ApiKeysService.create({name, scopes[], expiresAt?})`:
+- [x] `ApiKeysService.create({name, scopes[], expiresAt?})`:
   - Generate plaintext: `kpinx_<base64url(24)>` (~37 chars total)
   - Hash with SHA-256 → store in `hashedKey`
   - Extract 12-char display prefix (after `kpinx_`)
   - Return plaintext ONCE (never persisted in plaintext)
-- [ ] `ApiKeysService.verify(plaintext)` — SHA-256 hash, lookup, validates not revoked + not expired; returns `{organizationId, apiKeyId, scopes}`; updates `lastUsedAt`
-- [ ] `ApiKeysService.revoke(id)` — sets `revokedAt = now()`
-- [ ] Endpoints: `GET/POST/DELETE /api-keys` (ORG_SETTINGS); POST returns plaintext
-- [ ] **Wire into JwtAuthGuard**: short-circuits when `Authorization: Bearer kpinx_*` is present — calls `ApiKeysService.verify`; synthesises `req.user = {sub: apiKeyId, organizationId, principalType: "api_key", apiKeyScopes}` for the downstream `TenancyInterceptor`. `PermissionsGuard` checks `apiKeyScopes` against required perms for API-key principals (admin bypass disabled).
-- [ ] Extend `RequestContext` with `principalType`/`apiKeyId`/`apiKeyScopes` (P1 already added these field placeholders)
-- [ ] Unit tests: 6 covering create/verify/revoke/expire + 4 guard tests (happy path, invalid key 401, JWT fallback, @Public bypass)
+- [x] `ApiKeysService.verify(plaintext)` — SHA-256 hash, lookup, validates not revoked + not expired; returns `{organizationId, apiKeyId, scopes}`; updates `lastUsedAt`
+- [x] `ApiKeysService.revoke(id)` — sets `revokedAt = now()`
+- [x] Endpoints: `GET/POST/DELETE /api-keys` (ORG_SETTINGS); POST returns plaintext
+- [x] **Wire into JwtAuthGuard**: short-circuits when `Authorization: Bearer kpinx_*` is present — calls `ApiKeysService.verify`; synthesises `req.user = {sub: apiKeyId, organizationId, principalType: "api_key", apiKeyScopes}` for the downstream `TenancyInterceptor`. `PermissionsGuard` checks `apiKeyScopes` against required perms for API-key principals (admin bypass disabled).
+- [x] Extend `RequestContext` with `principalType`/`apiKeyId`/`apiKeyScopes` (P1 already added these field placeholders)
+- [x] Unit tests: 6 covering create/verify/revoke/expire + 4 guard tests (happy path, invalid key 401, JWT fallback, @Public bypass)
 
 ## Frontend pages
 
-- [ ] `/alerts` — table with filters (severity, status, KPI category, search); manual scan trigger; bulk acknowledge; severity badges (🔴🟡🔵)
-- [ ] `/alerts/[id]` — detail page with related KPI chart + recommendation panel (stubbed until P5) + comments (stubbed until P7) + ack/snooze actions
-- [ ] `/alerts/new` — form: name + description + KPI picker + rule type tabs (STATIC_THRESHOLD/DYNAMIC_STDDEV/RATE_OF_CHANGE/NO_DATA) + per-type fields + severity + escalation editor (see below)
-- [ ] `<EscalationBuilder>` client component:
+- [x] `/alerts` — table with filters (severity, status, KPI category, search); manual scan trigger; bulk acknowledge; severity badges (🔴🟡🔵)
+- [x] `/alerts/[id]` — detail page with related KPI chart + recommendation panel (stubbed until P5) + comments (stubbed until P7) + ack/snooze actions
+- [x] `/alerts/new` — form: name + description + KPI picker + rule type tabs (STATIC_THRESHOLD/DYNAMIC_STDDEV/RATE_OF_CHANGE/NO_DATA) + per-type fields + severity + escalation editor (see below)
+- [x] `<EscalationBuilder>` client component:
   - Dynamic list of levels with per-level: `delayMinutes` input, channels multi-select, notify-roles multi-select, optional notify-users multi-select
   - Up/down reorder + remove + clear-all controls
   - Compiles to `escalationLevels` JSON shape the API accepts
   - Empty-recipient rows dropped at serialize time
-- [ ] `/alerts/channels` — NotificationChannel CRUD for EMAIL/SLACK/TEAMS/SMS/WEBHOOK/IN_APP with per-kind config + send-test button
-- [ ] `/settings/notifications` — per-user prefs:
+- [x] `/alerts/channels` — NotificationChannel CRUD for EMAIL/SLACK/TEAMS/SMS/WEBHOOK/IN_APP with per-kind config + send-test button
+- [x] `/settings/notifications` — per-user prefs:
   - Email digest mode (OFF / DAILY 8am / WEEKLY Monday 8am)
   - Mute hours (start/end times for "do not disturb")
   - Per-channel mute (e.g., "no SMS")
-- [ ] DLQ admin view at `/settings/notifications/dlq` — `GET /notification-deliveries?status=FAILED` with filter form + manual retry per row
-- [ ] `/settings/webhooks` — list with name, URL (truncated), events, isActive toggle, lastStatus badge; create form; rotate-secret action
-- [ ] `/settings/api-keys` — list with keyPrefix, scopes, lastUsedAt, revoke; mint flow (modal shows plaintext ONCE with copy button)
-- [ ] AppHeader alerts bell — badge with unread alert count; opens NotificationCenter drawer with last 20 alerts + acknowledge inline
+- [x] DLQ admin view at `/settings/notifications/dlq` — `GET /notification-deliveries?status=FAILED` with filter form + manual retry per row
+- [x] `/settings/webhooks` — list with name, URL (truncated), events, isActive toggle, lastStatus badge; create form; rotate-secret action
+- [x] `/settings/api-keys` — list with keyPrefix, scopes, lastUsedAt, revoke; mint flow (modal shows plaintext ONCE with copy button)
+- [x] AppHeader alerts bell — badge with unread alert count; opens NotificationCenter drawer with last 20 alerts + acknowledge inline
 
 ## Tests
 
 ### Unit tests
-- [ ] AlertEngine evaluators: 5 rule types × 3-5 edge cases each
-- [ ] Cooldown suppression: same KPI within window does not create new Alert
-- [ ] Escalation OPEN guard: if alert acknowledged before escalation fires → no level-2 dispatch
-- [ ] Webhook signing: 7 cases
-- [ ] ApiKey verify: 6 cases + guard 4 cases
-- [ ] Dispatcher: 7 cases per adapter
-- [ ] Retry processor: 7 cases
+- [x] AlertEngine evaluators: 5 rule types × 3-5 edge cases each
+- [x] Cooldown suppression: same KPI within window does not create new Alert
+- [x] Escalation OPEN guard: if alert acknowledged before escalation fires → no level-2 dispatch
+- [x] Webhook signing: 7 cases
+- [x] ApiKey verify: 6 cases + guard 4 cases
+- [x] Dispatcher: 7 cases per adapter
+- [x] Retry processor: 7 cases
 
 ### Integration tests
-- [ ] Full alert flow: create STATIC_THRESHOLD rule → record breaching data point → alert appears in Alert table → NotificationDelivery rows created → Mailhog has email
-- [ ] Escalation: create rule with 3-level escalation (1min, 5min, 10min) → wait → assert level 2 fires after 1 min if not acked
-- [ ] Retry on failure: mock 503 from email provider → assert retry attempts 30s/5min/30min then terminal FAILED
-- [ ] Digest: 5 alerts within 60s window → single email with summary
-- [ ] Webhook outbound: trigger event → POST to test URL → signature verifies via verifyWebhookSignature
+- [x] Full alert flow: create STATIC_THRESHOLD rule → record breaching data point → alert appears in Alert table → NotificationDelivery rows created → Mailhog has email
+- [x] Escalation: create rule with 3-level escalation (1min, 5min, 10min) → wait → assert level 2 fires after 1 min if not acked
+- [x] Retry on failure: mock 503 from email provider → assert retry attempts 30s/5min/30min then terminal FAILED
+- [x] Digest: 5 alerts within 60s window → single email with summary
+- [x] Webhook outbound: trigger event → POST to test URL → signature verifies via verifyWebhookSignature
 
 ### e2e tests
-- [ ] `apps/web/e2e/uc-alerts.spec.ts`: create alert rule via UI → record breaching data via API → assert alert visible in `/alerts` → click to acknowledge → status changes to ACKNOWLEDGED
+- [x] `apps/web/e2e/uc-alerts.spec.ts`: create alert rule via UI → record breaching data via API → assert alert visible in `/alerts` → click to acknowledge → status changes to ACKNOWLEDGED
 
 ## Acceptance checklist
 

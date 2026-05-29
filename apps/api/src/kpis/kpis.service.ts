@@ -317,6 +317,44 @@ export class KpisService {
     });
   }
 
+  /** Soft-deleted (archived) KPIs in the org — for the archive/trash view. */
+  listArchived(): Promise<PublicKpi[]> {
+    const ctx = RequestContextStore.require();
+    return this.prisma.kPI.findMany({
+      where: { organizationId: ctx.organizationId, deletedAt: { not: null } },
+      select: kpiSelect,
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  /** Restore a soft-deleted KPI. */
+  async restore(id: string): Promise<PublicKpi> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.prisma.kPI.findFirst({
+      where: { id, organizationId: ctx.organizationId, deletedAt: { not: null } },
+      select: { id: true, name: true },
+    });
+    if (!existing) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Archived KPI not found' });
+    await this.prisma.kPI.update({ where: { id }, data: { deletedAt: null, isArchived: false } });
+    await this.audit.record({ action: 'UPDATE', entityType: 'KPI', entityId: id, metadata: { name: existing.name, restored: true } });
+    return this.prisma.kPI.findUniqueOrThrow({ where: { id }, select: kpiSelect });
+  }
+
+  /** Hard-delete a soft-deleted KPI (and its dependent rows via cascade). Requires it be archived first. */
+  async purge(id: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.prisma.kPI.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+      select: { id: true, name: true, deletedAt: true },
+    });
+    if (!existing) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    if (existing.deletedAt === null) {
+      throw new UnprocessableEntityException({ code: 'NOT_ARCHIVED', message: 'Archive the KPI before purging it' });
+    }
+    await this.prisma.kPI.delete({ where: { id } });
+    await this.audit.record({ action: 'DELETE', entityType: 'KPI', entityId: id, metadata: { name: existing.name, purged: true } });
+  }
+
   /**
    * Move a KPI through its lifecycle state machine (see kpi-status.ts). Rejects
    * illegal transitions with 422; bumps version + writes a KPIVersion snapshot.

@@ -67,10 +67,29 @@ export class KpisController {
     return this.kpis.list();
   }
 
+  @Get('archived')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  listArchived(): Promise<PublicKpi[]> {
+    return this.kpis.listArchived();
+  }
+
   @Get(':id')
   @RequirePermissions(PermissionKey.KPI_VIEW)
   getById(@Param('id') id: string): Promise<PublicKpi> {
     return this.kpis.getById(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PermissionKey.KPI_EDIT)
+  restore(@Param('id') id: string): Promise<PublicKpi> {
+    return this.kpis.restore(id);
+  }
+
+  @Delete(':id/purge')
+  @RequirePermissions(PermissionKey.KPI_DELETE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  purge(@Param('id') id: string): Promise<void> {
+    return this.kpis.purge(id);
   }
 
   @Get(':id/versions')

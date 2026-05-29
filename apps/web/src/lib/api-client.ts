@@ -517,6 +517,16 @@ export async function deleteKpi(id: string): Promise<void> {
   return api(`/kpis/${id}`, { method: 'DELETE' });
 }
 
+export async function listArchivedKpis(): Promise<KpiSummary[]> {
+  return api('/kpis/archived');
+}
+export async function restoreKpi(id: string): Promise<KpiSummary> {
+  return api(`/kpis/${id}/restore`, { method: 'POST', body: JSON.stringify({}) });
+}
+export async function purgeKpi(id: string): Promise<void> {
+  return api(`/kpis/${id}/purge`, { method: 'DELETE' });
+}
+
 export async function recordOrgWideDataPoint(
   kpiId: string,
   body: {

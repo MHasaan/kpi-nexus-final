@@ -23,9 +23,14 @@
 - ✅ `InsightsModule` — `computeWindowStats`/`rankByAbsChange` (7 tests), generate + generateBatch + daily BullMQ cron (on-demand via `/insights/schedule-daily`). e2e 5/5.
 - ✅ `RecommendationsModule` — `parseRecommendation` (graceful fallback, priority normalization, 6 tests), generate/generateInOrg/updateStatus, **alert auto-trigger wired into AlertEngineProcessor**. e2e 4/4 incl. full breach→alert→recommendation chain.
 
-API unit suite **640/640**; 16 AI e2e tests green. Mock-first dev via `AI_MOCK_RESPONSE` in `apps/api/.env`.
+**NLQ + ML sidecar complete** (3 more commits):
+- ✅ Migration `20260530000000_p5_nlq_embeddings` — KpiCatalogEmbedding (pgvector per-provider cols) + NLQQuery.
+- ✅ `NlqModule` — `embedding-helpers` (sourceText/columnForDim/toVectorLiteral, 6 tests), KpiCatalogEmbeddingService (raw-SQL pgvector upsert + cosineSearch scoped to org + visible-ids), **retrieval-augmented `ask` whose candidate set is the asker's visibility-filtered KPIs only** (`POST /nlq/ask`, `POST /nlq/reembed`). e2e 2/2 incl. **CRITICAL visibility test** (Manager never sees a PER_USER KPI assigned to the admin). The 5-tool tool-use loop is deferred — RAG form satisfies the same visibility invariant + is deterministically testable.
+- ✅ **Python ML sidecar** (`apps/ml`, numpy/sklearn/scipy): `/anomaly/detect` (zscore/ewma/IsolationForest/ensemble), `/forecast` (naive + bands; prophet/arima deferred — heavy toolchain), `/whatif`, `/correlation` (scipy) + `HmacAuthMiddleware` (constant-time, ±5min skew, refuses dev secret in prod). pytest **23/23**.
 
-**Remaining**: NLQ chat (embeddings + pgvector catalog search + tool-use loop + **critical visibility filter**), the Python ML sidecar (anomaly/forecast/whatif + HMAC) and the AnomalyDetection/Forecasts/WhatIf modules that call it, frontend pages, NLQ golden-question harness, `git tag p5-complete`. Live Gemini smoke test pending the user's API key.
+API unit suite **646/646**; 18 AI e2e green; ML pytest 23/23. Mock-first dev via `AI_MOCK_RESPONSE` in `apps/api/.env`.
+
+**Remaining**: NestJS ML-client modules (MlClientService HMAC + AnomalyDetection/Forecasts/WhatIf modules + migration for those models, calling the sidecar — needs uvicorn running for cross-process e2e); frontend pages (/settings/ai, /ask, /insights, /recommendations, /kpis/[id]/{anomalies,forecast,whatif}); NLQ golden-question harness (≥18/20); e2e UC06/07/08; `git tag p5-complete`. Live Gemini smoke test pending the user's API key.
 
 ## Why this phase matters
 

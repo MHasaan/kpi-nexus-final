@@ -80,16 +80,16 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `AuthModule`: login, register-org, refresh rotation with reuse-detection, multi-org lookup, org switching, accept-invitation
 - [ ] `PasswordModule`: reset request + confirm (1h expiry, single-use)
 - [ ] `MfaModule`: TOTP enroll/confirm/disable (RFC 6238, pure Node, recovery codes)
-- [ ] `PlatformAdminModule`: list + grant/revoke + impersonation
+- [x] `PlatformAdminModule`: list + grant/revoke + bootstrap-if-empty guard (impersonation deferred) — built 2026-05-29
 - [ ] `OrganizationsModule`: CRUD, settings, terminology, fiscal calendar, lifecycle transitions, export
-- [ ] `CustomDomainModule`: DNS TXT verification flow
+- [x] `CustomDomainModule`: DNS TXT verification flow (register/list/verify/delete) — built 2026-05-29
 - [ ] `UsersModule`: CRUD + invitation lifecycle + offboarding + GDPR export
 - [ ] `RbacModule`: 18-permission enum, `@RequirePermissions`/`@RequireAnyPermission`/`@OwnerOverride` decorators, `PermissionsGuard`, Redis 5-min cache + in-memory fallback
 - [ ] `RolesModule`: CRUD + multi-parent inheritance + 4 presets + audit timeline
 - [ ] `PositionsModule`: CRUD + industry presets
 - [ ] `PermissionDelegationsModule`: CRUD + BullMQ delayed auto-revoke at validTo
 - [ ] `ResourcePermissionsModule`: CRUD + `hasResourcePermission()` fast-path
-- [ ] `OrgUnitDimensionsModule`, `OrgUnitTypesModule`, `OrgUnitsModule` (+ reorganization: move/merge/split/rename)
+- [x] `OrgUnitDimensionsModule`, `OrgUnitTypesModule` (dedicated CRUD + in-use guards, built 2026-05-29), `OrgUnitsModule` (+ reorganization: move/merge/split/rename)
 - [ ] `OrgChartModule`: read-side projection for SVG tree
 - [ ] `AuditModule`: structured events + redaction + interceptor + cross-tenant guard with `runWithBypass`
 - [x] `BillingModule`: Plan catalog (FREE/PRO/ENTERPRISE lazy seed), quota enforcement (assertWithinQuota wired into KPI create — 402 on exceed), FeatureFlag gating, setPlan, GET /billing status (built 2026-05-29; cost-telemetry cron + UI still deferred)

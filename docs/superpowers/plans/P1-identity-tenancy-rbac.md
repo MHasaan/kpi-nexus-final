@@ -42,11 +42,11 @@ OrganizationsModule, UsersModule (minus purge/offboard), RbacModule, RolesModule
 PositionsModule, PermissionDelegationsModule, ResourcePermissionsModule,
 OrgUnitsModule, AuditModule, HealthModule.
 
-**NOT built — deferred:**
-- PlatformAdminModule (cross-tenant platform ops), CustomDomainModule,
-  RateLimitModule — **built 2026-05-29** (Redis ZSET sliding window; env-gated APP_GUARD `RATE_LIMIT_ENABLED`, off by default; auth 10/60s by IP + general 600/60s by org; pure policy 4 tests + guard 3 tests).
-- OrgUnitDimensionsModule, OrgUnitTypesModule — not built as separate modules
-  (models exist; org-unit structure is handled directly by OrgUnitsModule).
+**Built 2026-05-29 (audit-gap closeout):**
+- **RateLimitModule** — Redis ZSET sliding window; env-gated APP_GUARD `RATE_LIMIT_ENABLED` (off by default); auth 10/60s by IP + general 600/60s by org; pure policy 4 tests + guard 3 tests.
+- **PlatformAdminModule** — global (cross-tenant) `isPlatformAdmin`/list/grant/revoke + `PlatformAdminGuard` (bootstrap-if-empty); `GET/POST/DELETE /platform/admins`; 4 guard unit tests. (Impersonation deferred.)
+- **CustomDomainModule** — register/list/verify(DNS-TXT)/delete under `/custom-domains`; pure deterministic challenge helper (4 tests) + e2e.
+- **OrgUnitDimensionsModule + OrgUnitTypesModule** — dedicated CRUD under `/org-unit-dimensions` + `/org-unit-types` (in-use guards); e2e.
 - BillingModule — **service built 2026-05-29** (plan catalog lazy-seed, assertWithinQuota wired into KPI create → 402, hasFeature gating, setPlan, GET /billing; pure quota-check 6 tests + e2e). Cost-telemetry cron + `/billing` UI still deferred.
 - **built 2026-05-29**: `UsersService.purge` (GDPR — requires ARCHIVED, deterministic PII-free handle, token wipe + recordedBy null, audited) + `OffboardingService.offboard` (transfers KPIs, reparents reports, vacates units, archives; self-reparent/inactive-target/already-gone guards; pure purgedHandle 4 tests + e2e). `POST /users/:id/{offboard,purge}`.
 - The `/signup/wizard` onboarding stub + `/onboarding/*` endpoints (the full

@@ -28,6 +28,9 @@ import { UserKpisModule } from './user-kpis/user-kpis.module.js';
 import { OrgUnitKpisModule } from './org-unit-kpis/org-unit-kpis.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { RateLimitModule } from './rate-limit/rate-limit.module.js';
+import { OrgStructureModule } from './org-structure/org-structure.module.js';
+import { CustomDomainsModule } from './custom-domains/custom-domains.module.js';
+import { PlatformAdminModule } from './platform-admin/platform-admin.module.js';
 import { LineageModule } from './lineage/lineage.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
@@ -105,6 +108,9 @@ import { ReportsModule } from './reports/reports.module.js';
     OrgUnitKpisModule,
     BillingModule,
     RateLimitModule,
+    OrgStructureModule,
+    CustomDomainsModule,
+    PlatformAdminModule,
     LineageModule,
     DashboardsModule,
     ReportsModule,

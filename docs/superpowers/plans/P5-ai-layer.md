@@ -17,7 +17,15 @@
 - ✅ Migration `20260529220000_p5_ai_providers_budget` — AiProvider / AiFeatureConfig / AiCallLog / AiBudget + enums (applied; client regenerated; types exported from @kpi-nexus/db).
 - ✅ `apps/api/src/ai/` AiModule — AiRouterService (fallback chain, 6 tests), AiBudgetService (Redis caps + pure evaluateBudget, 12 tests), ByoKeyService (AES-256-GCM envelope + rotation detection, 7 tests), AiProviderRegistry (BYO>platform, mock mode), AiConfigsService + DEFAULT_FYP_CONFIG, AiCallLogService. Controllers: `/ai/configs`, `/ai/budget`, `/ai/providers/:key/byok` (ORG_SETTINGS). 28 api unit tests + `apps/web/e2e/ai-foundation.spec.ts` (4/4).
 
-**Remaining**: feature modules (anomaly, forecast, whatif, kpi-suggestions, insights, recommendations, NLQ), the Python ML sidecar, frontend pages, NLQ golden-question harness. Live Gemini smoke test pending the user's API key.
+**Text-AI feature modules complete** (3 more commits):
+- ✅ `KpiSuggestionsModule` — `parseKpiSuggestions` (fence strip + enum validation + clamp, 8 tests) + `POST /ai/suggest-kpis` (KPI_CREATE). e2e 3/3.
+- ✅ Migration `20260529230000_p5_insights_recommendations` — KPIInsight + Recommendation + RecommendationStatus.
+- ✅ `InsightsModule` — `computeWindowStats`/`rankByAbsChange` (7 tests), generate + generateBatch + daily BullMQ cron (on-demand via `/insights/schedule-daily`). e2e 5/5.
+- ✅ `RecommendationsModule` — `parseRecommendation` (graceful fallback, priority normalization, 6 tests), generate/generateInOrg/updateStatus, **alert auto-trigger wired into AlertEngineProcessor**. e2e 4/4 incl. full breach→alert→recommendation chain.
+
+API unit suite **640/640**; 16 AI e2e tests green. Mock-first dev via `AI_MOCK_RESPONSE` in `apps/api/.env`.
+
+**Remaining**: NLQ chat (embeddings + pgvector catalog search + tool-use loop + **critical visibility filter**), the Python ML sidecar (anomaly/forecast/whatif + HMAC) and the AnomalyDetection/Forecasts/WhatIf modules that call it, frontend pages, NLQ golden-question harness, `git tag p5-complete`. Live Gemini smoke test pending the user's API key.
 
 ## Why this phase matters
 

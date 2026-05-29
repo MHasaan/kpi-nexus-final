@@ -37,8 +37,10 @@ But the module checklist below was written aspirationally and **several modules
 were never built**. Checkboxes are reconciled to reality:
 
 **Built:** KpisModule (CRUD + soft-delete + scope assignments), DataPointsModule
-(3 scope-specific record endpoints + list + dashboard-summary), FormulaModule,
-KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
+(3 scope-specific record endpoints + list + dashboard-summary), FormulaModule
+(pure evaluator `formula.ts` only — persistence/attach built separately, see
+calc-engine block below), `CascadeService` pure rollup helper, bulk CSV import,
+**KpiCategoriesModule (CRUD +
 /kpis/categories UI; 6 unit tests + e2e)**, **KPI status state-machine +
 KPIVersion snapshots (transition/versions endpoints; snapshot on
 create/update/transition; 11 unit tests + e2e)**, **KpiTargetsModule (6 target
@@ -62,7 +64,10 @@ DRAFT KPI w/ dup-name refusal + popularity bump, org-private create, under
 `record()`; in-memory BFS `getUpstream`/`getDownstream`/`trace` both directions
 grouped by depth, cycle-safe + diamond-safe; `GET /lineage/:type/:id/{upstream,
 downstream,trace}`; 9 unit tests + e2e — built 2026-05-29; `record()` to be
-consumed by CalculationEngine #8)**.
+consumed by CalculationEngine #8)**, **KpiCascadesModule (CRUD over existing
+KPICascade: attach w/ pure cycle detection + level BFS, detach, list, tree;
+`GET /kpi-cascades` + `/all`, `POST`/`DELETE` KPI_EDIT; rollUp delegates to
+CascadeService; 8 unit tests + e2e — built 2026-05-29)**.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
   templates, archive.

@@ -163,7 +163,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [x] `KpiTargetsModule`: 6 target types (STATIC/TIERED/DYNAMIC/TIME_VARYING/CONDITIONAL/SCENARIO) + `resolveActive(kpiId, at)`
 - [x] `KpiThresholdBandsModule`: N-band thresholds + hysteresis (`consecutivePointsRequired`)
 - [x] `KpiBenchmarksModule`: internal (auto-computed N-day average) + external (industry) + compute trigger
-- [ ] `KpiCascadesModule`: parent↔child with weight + rollupMethod + cycle detection
+- [x] `KpiCascadesModule`: parent↔child with weight + rollupMethod + cycle detection
 - [x] `LineageModule`: record + BFS trace upstream/downstream
 - [ ] `UserKpisModule`: per-user assignments + personal data entry via `POST /user-kpis/my-kpis/:assignmentId/data`
 - [ ] `OrgUnitKpisModule`: per-unit assignments + inheritance to descendants

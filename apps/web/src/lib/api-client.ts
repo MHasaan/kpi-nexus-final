@@ -89,6 +89,7 @@ export interface AuthUser {
   roleId: string | null;
   mfaEnabled?: boolean;
   status?: string;
+  notificationSettings?: NotificationSettings | null;
 }
 
 export interface AuthOrganization {
@@ -1380,4 +1381,47 @@ export async function deleteWebhook(id: string): Promise<void> {
 
 export async function testWebhook(id: string): Promise<{ queued: boolean }> {
   return api(`/webhooks/${id}/test`, { method: 'POST' });
+}
+
+// =============================================================================
+// Per-user notification prefs + DLQ (P4 settings)
+// =============================================================================
+
+export interface NotificationSettings {
+  digestMode?: 'OFF' | 'DAILY' | 'WEEKLY';
+  muteStart?: string;
+  muteEnd?: string;
+  mutedChannelKinds?: string[];
+}
+
+export async function updateNotificationSettings(
+  body: NotificationSettings,
+): Promise<{ notificationSettings: NotificationSettings | null }> {
+  return api('/auth/me/notification-settings', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export type NotificationDeliveryStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SUPPRESSED';
+
+export interface NotificationDelivery {
+  id: string;
+  organizationId: string;
+  alertId: string;
+  channelId: string | null;
+  targetUserId: string | null;
+  status: NotificationDeliveryStatus;
+  attempts: number;
+  error: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+export async function listNotificationDeliveries(
+  status?: NotificationDeliveryStatus,
+): Promise<NotificationDelivery[]> {
+  const q = status ? `?status=${status}` : '';
+  return api(`/notification-deliveries${q}`);
+}
+
+export async function retryNotificationDelivery(id: string): Promise<NotificationDelivery> {
+  return api(`/notification-deliveries/${id}/retry`, { method: 'POST' });
 }

@@ -58,7 +58,7 @@ export class KpisService {
   ) {}
 
   async list(): Promise<PublicKpi[]> {
-    const ctx = RequestContextStore.require();
+    RequestContextStore.require(); // assert tenant context
     const visibility = await this.buildVisibilityContext();
     const where = buildKpiVisibilityWhere(visibility);
 

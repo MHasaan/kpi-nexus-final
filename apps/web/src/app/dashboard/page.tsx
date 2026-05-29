@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { AlertsBell } from '../../components/alerts-bell';
 import {
   ApiError,
   clearTokens,
@@ -110,6 +111,9 @@ function DashboardPageInner() {
               <Link href="/roles" className="text-content-muted hover:text-content-strong">
                 {pluralize(terminology.roleLabel)}
               </Link>
+              <Link href="/alerts" className="text-content-muted hover:text-content-strong" data-testid="nav-alerts">
+                Alerts
+              </Link>
               <Link href="/profile" className="text-content-muted hover:text-content-strong">
                 Profile
               </Link>
@@ -120,6 +124,7 @@ function DashboardPageInner() {
           </div>
           {user && (
             <div className="flex items-center gap-3 text-sm">
+              <AlertsBell />
               <span className="text-content-muted" data-testid="dashboard-user-email">
                 {user.email}
               </span>

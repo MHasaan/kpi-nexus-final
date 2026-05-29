@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@kpi-nexus/db';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';

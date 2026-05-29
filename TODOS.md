@@ -93,7 +93,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `OrgChartModule`: read-side projection for SVG tree
 - [ ] `AuditModule`: structured events + redaction + interceptor + cross-tenant guard with `runWithBypass`
 - [x] `BillingModule`: Plan catalog (FREE/PRO/ENTERPRISE lazy seed), quota enforcement (assertWithinQuota wired into KPI create — 402 on exceed), FeatureFlag gating, setPlan, GET /billing status (built 2026-05-29; cost-telemetry cron + UI still deferred)
-- [ ] `RateLimitModule`: Redis sliding window, 2 buckets (auth+general), 429 with retryAfter
+- [x] `RateLimitModule`: Redis ZSET sliding window, 2 buckets (auth 10/60s by IP + general 600/60s by org), 429; env-gated APP_GUARD (RATE_LIMIT_ENABLED, off by default so tests/dev unaffected) — built 2026-05-29
 - [ ] `HealthModule`: `/health` + `/health/details`
 
 ### Frontend

@@ -1599,3 +1599,35 @@ export async function getLineageDownstream(type: string, id: string, depth = 1):
 export async function recomputeKpi(kpiId: string): Promise<{ value: number | null }> {
   return api(`/kpis/${kpiId}/recompute`, { method: 'POST', body: JSON.stringify({}) });
 }
+
+// =============================================================================
+// KPI templates (marketplace)
+// =============================================================================
+
+export interface KpiTemplate {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  type: string;
+  scorecardQuadrant: string | null;
+  function: string | null;
+  industry: string | null;
+  unit: string | null;
+  targetSummary: string | null;
+  tags: string[];
+  popularity: number;
+  isGlobal: boolean;
+}
+
+export async function listTemplates(filters: { function?: string; search?: string } = {}): Promise<KpiTemplate[]> {
+  const qs = new URLSearchParams();
+  if (filters.function) qs.set('function', filters.function);
+  if (filters.search) qs.set('search', filters.search);
+  const s = qs.toString();
+  return api(`/kpi-templates${s ? `?${s}` : ''}`);
+}
+
+export async function instantiateTemplate(id: string, body: { name?: string; targetValue?: number } = {}): Promise<KpiSummary> {
+  return api(`/kpi-templates/${id}/instantiate`, { method: 'POST', body: JSON.stringify(body) });
+}

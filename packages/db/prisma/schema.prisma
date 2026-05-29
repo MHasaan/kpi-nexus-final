@@ -1475,3 +1475,100 @@ model KPIDependency {
   @@index([organizationId, sourceKpiId])
   @@index([organizationId, dependentKpiId])
 }
+
+// ============================================================================
+// P5 — AI layer: provider config, per-feature routing, call log, budget caps
+// ============================================================================
+
+enum AiProviderKey {
+  CLAUDE
+  GEMINI
+  OPENAI
+  OLLAMA
+}
+
+enum AiCallStatus {
+  SUCCESS
+  FAILED
+  SUPPRESSED
+}
+
+enum CircuitBreakerMode {
+  FAIL_CLOSED
+  FALLBACK
+}
+
+// A configured AI provider for an org. `encryptedCredentials` holds the
+// AES-256-GCM envelope for a bring-your-own key (null = use the platform key).
+// Scalar FK (org-scoped explicitly).
+model AiProvider {
+  id                   String        @id @default(cuid())
+  organizationId       String
+  key                  AiProviderKey
+  displayName          String
+  isEnabled            Boolean       @default(true)
+  encryptedCredentials Json?
+  supportedFeatures    String[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+// Per-org override of which provider+model serves a given AiFeature, with an
+// optional fallback and per-feature spend cap. Unconfigured features fall back
+// to DEFAULT_FYP_CONFIG in code. Scalar FK (org-scoped explicitly).
+model AiFeatureConfig {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  feature            String
+  providerId         String
+  model              String
+  fallbackProviderId String?
+  fallbackModel      String?
+  perFeatureCapUsd   Float?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([organizationId, feature])
+  @@index([organizationId])
+}
+
+// Append-only ledger of every AI provider call for cost attribution + audit.
+// Scalar FK (org-scoped explicitly).
+model AiCallLog {
+  id             String        @id @default(cuid())
+  organizationId String
+  feature        String
+  providerKey    AiProviderKey
+  modelId        String
+  inputTokens    Int           @default(0)
+  outputTokens   Int           @default(0)
+  costUsd        Float         @default(0)
+  latencyMs      Int           @default(0)
+  status         AiCallStatus
+  errorCode      String?
+  requestId      String
+  context        Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, feature, createdAt])
+  @@index([requestId])
+}
+
+// One budget row per org. Redis holds the live rolling counters; this row is
+// the durable source of truth for caps + the persisted spend snapshot.
+model AiBudget {
+  id                  String             @id @default(cuid())
+  organizationId      String             @unique
+  dailyCapUsd         Float              @default(1.0)
+  monthlyCapUsd       Float              @default(30.0)
+  circuitBreaker      CircuitBreakerMode @default(FAIL_CLOSED)
+  currentDailySpend   Float              @default(0)
+  currentMonthlySpend Float              @default(0)
+  dailyPeriodStart    DateTime           @default(now())
+  monthlyPeriodStart  DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}

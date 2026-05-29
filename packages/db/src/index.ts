@@ -79,6 +79,10 @@ export type {
   LineageEdge,
   FormulaExpression,
   KPIDependency,
+  AiProvider,
+  AiFeatureConfig,
+  AiCallLog,
+  AiBudget,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -104,4 +108,7 @@ export {
   NotificationChannelKind,
   NotificationDeliveryStatus,
   KPITargetType,
+  AiProviderKey,
+  AiCallStatus,
+  CircuitBreakerMode,
 } from '@prisma/client';

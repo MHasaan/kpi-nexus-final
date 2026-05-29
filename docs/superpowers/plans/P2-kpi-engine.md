@@ -43,13 +43,15 @@ KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
 KPIVersion snapshots (transition/versions endpoints; snapshot on
 create/update/transition; 11 unit tests + e2e)**, **KpiTargetsModule (6 target
 types w/ per-type + monotonic-band validation, resolveActive window logic, CRUD
-under /kpis/:id/targets; 9 unit tests + e2e — built 2026-05-29)**.
+under /kpis/:id/targets; 9 unit tests + e2e)**, **KpiThresholdBandsModule
+(N-band CRUD + hysteresis status resolver under /kpis/:id/threshold-bands +
+/status; 10 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
 - KpiTemplatesModule — template gallery/instantiation.
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
   evaluation itself is built in FormulaModule).
-- KpiThresholdBandsModule, KpiBenchmarksModule — no routes/services/UI.
+- KpiBenchmarksModule — no routes/services/UI.
 - LineageModule — dependency DAG/lineage SVG.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
@@ -618,14 +620,14 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 8: KpiThresholdBandsModule
 
-- [ ] N-band threshold model
-- [ ] `resolveStatus(kpiId)` helper in `threshold-resolver.ts`:
+- [x] N-band threshold model
+- [x] `resolveStatus(kpiId)` helper in `threshold-resolver.ts`:
   - load recent N data points (N = max `consecutivePointsRequired` across bands)
   - for each band, check if last N values fall in `[lower, upper]`
   - require N consecutive in same band before flipping status (hysteresis)
   - falls back to last stable band when streak breaks
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /kpis/:kpiId/threshold-bands`, `GET /kpis/:kpiId/threshold-bands/status`
-- [ ] Unit tests: 9 cases covering open-ended bands, non-overlapping ranges, fallback semantics, no_data, no_bands
+- [x] Endpoints: `GET/POST/PATCH/DELETE /kpis/:kpiId/threshold-bands`, `GET /kpis/:kpiId/threshold-bands/status`
+- [x] Unit tests: 9 cases covering open-ended bands, non-overlapping ranges, fallback semantics, no_data, no_bands
 
 ### Module 9: KpiBenchmarksModule
 

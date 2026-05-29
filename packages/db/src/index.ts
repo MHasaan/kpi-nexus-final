@@ -73,6 +73,7 @@ export type {
   WebhookSubscription,
   ApiKey,
   KPITarget,
+  KPIThresholdBand,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a

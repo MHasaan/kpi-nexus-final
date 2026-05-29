@@ -1312,3 +1312,27 @@ model KPITarget {
   @@index([kpiId, effectiveFrom])
   @@index([organizationId])
 }
+
+// ============================================================================
+// P2.x — KPI threshold bands (build backlog; deferred from initial P2)
+// ============================================================================
+
+// Named status bands over a KPI's value range. A value falls in a band when it
+// is within [lower, upper] (null bound = open-ended). `consecutivePointsRequired`
+// drives hysteresis in the status resolver. Scalar FKs (org-scoped explicitly).
+model KPIThresholdBand {
+  id                        String   @id @default(cuid())
+  organizationId            String
+  kpiId                     String
+  name                      String
+  lower                     Float?
+  upper                     Float?
+  color                     String
+  order                     Int
+  consecutivePointsRequired Int      @default(1)
+  createdAt                 DateTime @default(now())
+  createdById               String
+
+  @@index([kpiId, order])
+  @@index([organizationId])
+}

@@ -275,6 +275,7 @@ export class KpiDataService {
       latestRecordedAt: Date | null;
       aggregatedValue: number | null;
       pointCount: number;
+      scorecardQuadrant: string | null;
     }>
   > {
     const ctx = RequestContextStore.require();
@@ -288,6 +289,7 @@ export class KpiDataService {
         unit: true,
         targetValue: true,
         aggregationMethod: true,
+        scorecardQuadrant: true,
       },
     });
 
@@ -335,6 +337,7 @@ export class KpiDataService {
           latestRecordedAt: points[0]?.recordedAt ?? null,
           aggregatedValue: aggregate(points.map((p) => p.value), kpi.aggregationMethod),
           pointCount: points.length,
+          scorecardQuadrant: kpi.scorecardQuadrant,
         };
       }),
     );

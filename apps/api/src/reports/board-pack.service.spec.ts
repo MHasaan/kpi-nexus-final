@@ -114,6 +114,7 @@ describe('BoardPackService', () => {
         latestRecordedAt: new Date(),
         aggregatedValue: aggregated,
         pointCount: 5,
+        scorecardQuadrant: null,
       });
       prisma.kpiStore.push({
         id: `kpi_${i}`,
@@ -158,6 +159,7 @@ describe('BoardPackService', () => {
         latestRecordedAt: new Date(),
         aggregatedValue: 800,
         pointCount: 3,
+        scorecardQuadrant: null,
       },
       {
         kpiId: 'kpi_cust_1',
@@ -169,6 +171,7 @@ describe('BoardPackService', () => {
         latestRecordedAt: new Date(),
         aggregatedValue: 60,
         pointCount: 2,
+        scorecardQuadrant: null,
       },
     );
 

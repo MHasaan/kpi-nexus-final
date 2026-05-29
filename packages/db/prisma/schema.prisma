@@ -739,6 +739,9 @@ model KPI {
   warningThreshold  Float?
   criticalThreshold Float?
   allowNegative     Boolean           @default(false)
+  // Balanced-scorecard quadrant (free string: FINANCIAL | CUSTOMER |
+  // INTERNAL_PROCESS | LEARNING_GROWTH). Drives the /kpis/scorecard grid.
+  scorecardQuadrant String?
   ownerUserId       String?
   owner             User?             @relation("KpiOwner", fields: [ownerUserId], references: [id])
   tags              String[]

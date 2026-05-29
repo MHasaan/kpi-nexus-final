@@ -506,6 +506,7 @@ export async function createKpi(body: {
   description?: string;
   frequency?: KpiFrequency;
   targetValue?: number;
+  scorecardQuadrant?: string;
   orgUnitIds?: string[];
   userIds?: string[];
 }): Promise<KpiSummary> {
@@ -553,6 +554,7 @@ export interface DashboardSummaryRow {
   latestRecordedAt: string | null;
   aggregatedValue: number | null;
   pointCount: number;
+  scorecardQuadrant: string | null;
 }
 
 export async function getDashboardSummary(

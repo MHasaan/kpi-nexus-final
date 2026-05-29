@@ -70,6 +70,7 @@ export const CreateKpiDtoSchema = z
     warningThreshold: z.number().finite().optional(),
     criticalThreshold: z.number().finite().optional(),
     allowNegative: z.boolean().default(false),
+    scorecardQuadrant: z.enum(['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']).optional(),
     ownerUserId: z.string().optional(),
     tags: z.array(z.string()).default([]),
     // Scope-specific assignments — validated by service (e.g. PER_UNIT

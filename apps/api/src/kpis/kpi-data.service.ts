@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
+import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 
@@ -91,6 +92,7 @@ export class KpiDataService {
     private readonly resolver: PermissionResolverService,
     private readonly realtime: RealtimeService,
     private readonly alertEngine: AlertEngineProducer,
+    private readonly calcEngine: CalculationEngineProducer,
   ) {}
 
   /** POST /kpis/:id/data — ORG_WIDE only. */
@@ -485,7 +487,51 @@ export class KpiDataService {
       targetUserId: point.userId,
     });
 
+    // Reactive recompute pipeline (fire-and-forget). COMPUTED points are written
+    // by the calc engine via direct Prisma writes (never through this path), so
+    // the guard below prevents re-entry / infinite loops.
+    if (point.sourceType !== 'COMPUTED') {
+      await this.enqueueDerivedRecomputes(point.kpiId, point.periodStart, point.periodEnd, params.organizationId);
+    }
+
     return point;
+  }
+
+  /**
+   * Enqueue cascade rollups for every parent of `kpiId` and recomputes for every
+   * formula KPI that references it. Fire-and-forget; never throws into the write.
+   */
+  private async enqueueDerivedRecomputes(
+    kpiId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    organizationId: string,
+  ): Promise<void> {
+    try {
+      const [parents, dependents] = await Promise.all([
+        this.prisma.kPICascade.findMany({
+          where: { childKpiId: kpiId, organizationId },
+          select: { parentKpiId: true },
+        }),
+        this.prisma.kPIDependency.findMany({
+          where: { sourceKpiId: kpiId, organizationId },
+          select: { dependentKpiId: true },
+        }),
+      ]);
+      for (const p of parents) {
+        await this.calcEngine.enqueueCascadeRollup({
+          organizationId,
+          parentKpiId: p.parentKpiId,
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+        });
+      }
+      for (const d of dependents) {
+        await this.calcEngine.enqueueRecompute({ organizationId, kpiId: d.dependentKpiId });
+      }
+    } catch (err) {
+      this.logger.warn(`enqueueDerivedRecomputes failed for kpi ${kpiId}: ${String(err)}`);
+    }
   }
 
   private async buildVisibilityContext() {

@@ -1,12 +1,23 @@
 """KPI Nexus ML sidecar.
 
-P0 ships only /health and /health/echo. Real endpoints (anomaly/forecast/whatif/
-correlation/seasonality) land in P5 — see docs/superpowers/plans/P5-ai-layer.md.
+Stateless analytics endpoints called by the API over HMAC-authenticated HTTP:
+  - /anomaly/detect   outlier detection (zscore/ewma/isolation_forest/ensemble)
+  - /forecast         naive linear forecast + confidence bands (prophet/arima deferred)
+  - /whatif           scenario simulation
+  - /correlation      pairwise Pearson/Spearman
+All routes except /health require a valid HMAC signature (see HmacAuthMiddleware).
 """
 
 from fastapi import FastAPI
 
-from app.routers import health
+from app.middleware.hmac_auth import HmacAuthMiddleware
+from app.routers import anomaly, correlation, forecast, health, whatif
 
 app = FastAPI(title="KPI Nexus ML Sidecar", version="0.1.0")
+app.add_middleware(HmacAuthMiddleware)
+
 app.include_router(health.router)
+app.include_router(anomaly.router)
+app.include_router(forecast.router)
+app.include_router(whatif.router)
+app.include_router(correlation.router)

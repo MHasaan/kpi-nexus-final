@@ -870,6 +870,8 @@ model KPIDataPoint {
   qualityFlag    DataPointQualityFlag @default(HIGH)
   note           String?
   metadata       Json?
+  // Set by the Welford 3σ outlier detector at insert time (vs the KPI's recent history).
+  isOutlier      Boolean              @default(false)
 
   @@id([recordedAt, id])
   @@index([organizationId, kpiId, periodStart])

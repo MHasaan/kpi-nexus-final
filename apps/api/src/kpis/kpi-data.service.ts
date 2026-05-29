@@ -15,6 +15,7 @@ import { RealtimeService } from '../realtime/realtime.service.js';
 import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { detectOutlier } from './outlier-detector.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 
 const dataPointSelect = {
@@ -33,6 +34,7 @@ const dataPointSelect = {
   sourceRef: true,
   qualityFlag: true,
   note: true,
+  isOutlier: true,
 } satisfies Prisma.KPIDataPointSelect;
 
 export type PublicDataPoint = Prisma.KPIDataPointGetPayload<{
@@ -412,6 +414,38 @@ export class KpiDataService {
     return kpi;
   }
 
+  /**
+   * Flags the incoming value as an outlier vs the KPI's recent history (same
+   * scope series), using the Welford 3σ detector. Never throws — a stats hiccup
+   * must not block the write.
+   */
+  private async computeOutlierFlag(params: {
+    organizationId: string;
+    kpiId: string;
+    orgUnitId: string | null;
+    userId: string | null;
+    dto: RecordDataPointDto;
+  }): Promise<boolean> {
+    if (params.dto?.value === undefined) return false;
+    try {
+      const prior = await this.prisma.kPIDataPoint.findMany({
+        where: {
+          organizationId: params.organizationId,
+          kpiId: params.kpiId,
+          orgUnitId: params.orgUnitId,
+          userId: params.userId,
+        },
+        select: { value: true },
+        orderBy: { recordedAt: 'desc' },
+        take: 30,
+      });
+      return detectOutlier(prior.map((p) => p.value), params.dto.value).isOutlier;
+    } catch (err) {
+      this.logger.warn(`outlier detection failed for kpi ${params.kpiId}: ${String(err)}`);
+      return false;
+    }
+  }
+
   private async insertDataPoint(params: {
     organizationId: string;
     kpiId: string;
@@ -426,6 +460,7 @@ export class KpiDataService {
         message: 'value is required',
       });
     }
+    const isOutlier = await this.computeOutlierFlag(params);
     const point = await this.prisma.kPIDataPoint.create({
       data: {
         organizationId: params.organizationId,
@@ -441,6 +476,7 @@ export class KpiDataService {
         sourceRef: params.dto.sourceRef,
         qualityFlag: params.dto.qualityFlag,
         note: params.dto.note,
+        isOutlier,
       },
       select: dataPointSelect,
     });

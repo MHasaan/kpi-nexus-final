@@ -617,7 +617,7 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
 - [x] `DataPointsService.bulkCreate(rows[])` — uses Prisma `createMany({skipDuplicates: true})` for at-least-once delivery semantics
 - [x] `DataPointsService.adjust(id, {value?, notes?, reason?})` — writes KPIDataPointHistory row in transaction with the update; re-computes outlier flag
 - [x] `DataPointsService.history(id)` — returns adjustment timeline
-- [x] `OutlierDetector` — Welford-stable streaming mean+stddev; 8 unit tests covering short history, exact 3σ, negative outliers, flat history (zero stddev), non-finite values, sigmas override
+- [x] `OutlierDetector` — Welford-stable streaming mean+population-stddev; flags `KPIDataPoint.isOutlier` at insert vs prior 30 same-scope points (added `isOutlier` column). 9 unit tests (short history, exact 3σ boundary, negative outliers, flat history/zero-stddev, non-finite values, sigmas override) + e2e (built 2026-05-29 — was previously marked done but unbuilt)
 - [x] Controller endpoints:
   - `POST /kpis/:kpiId/data` (KPI_DATA_ENTRY) — **ORG_WIDE only**
   - `POST /data-points/bulk` (KPI_DATA_ENTRY)

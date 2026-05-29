@@ -36,6 +36,19 @@ export function eventMatchesFilter(
     return true;
   }
 
+  // alert events carry kpiId; they are not dashboard-scoped, so a
+  // dashboard-filtered subscription holds them back while a kpiId-filtered or
+  // unfiltered (e.g. the global notification bell) subscription receives them.
+  if (event.type === 'alert_triggered' || event.type === 'alert_escalated') {
+    if (dashboardId !== undefined) return false;
+    if (kpiId !== undefined && event.kpiId !== kpiId) return false;
+    return true;
+  }
+  if (event.type === 'alert_digest') {
+    // User-scoped; no kpi/dashboard dimension. Only unfiltered subscriptions.
+    return kpiId === undefined && dashboardId === undefined;
+  }
+
   // For future event types that haven't been fully modelled yet, pass
   // through when no filter is set; otherwise hold back until those event
   // schemas are wired in.

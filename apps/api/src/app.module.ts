@@ -3,6 +3,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 
+import { AlertEngineModule } from './alert-engine/alert-engine.module.js';
+import { AlertRulesModule } from './alert-rules/alert-rules.module.js';
+import { AlertsModule } from './alerts/alerts.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DashboardsModule } from './dashboards/dashboards.module.js';
@@ -75,6 +78,9 @@ import { ReportsModule } from './reports/reports.module.js';
     DashboardsModule,
     ReportsModule,
     RealtimeModule,
+    AlertEngineModule,
+    AlertRulesModule,
+    AlertsModule,
     HealthModule,
   ],
 })

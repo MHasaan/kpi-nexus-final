@@ -64,6 +64,15 @@ export type { Prisma } from '@prisma/client';
 // needed; most code should prefer `Prisma.<Model>GetPayload<...>` for shaped
 // selects.
 export type { ScheduledReport, ReportRun } from '@prisma/client';
+export type {
+  AlertRule,
+  EscalationRule,
+  Alert,
+  NotificationChannel,
+  NotificationDelivery,
+  WebhookSubscription,
+  ApiKey,
+} from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
 // direct `@prisma/client` dep (it's a transitive of this package). Add to
@@ -82,4 +91,9 @@ export {
   AuditAction,
   ReportFormat,
   ReportRunStatus,
+  AlertRuleType,
+  AlertSeverity,
+  AlertStatus,
+  NotificationChannelKind,
+  NotificationDeliveryStatus,
 } from '@prisma/client';

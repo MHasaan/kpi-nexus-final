@@ -53,12 +53,42 @@ export const RealtimeDataPointAddedEventSchema = z.object({
   dashboardId: z.string().optional(),
 });
 
+// P4 — alert events. `alert_triggered` + `alert_escalated` carry kpiId so a
+// KPI-filtered subscription can receive them; `alert_digest` is user-scoped.
+export const RealtimeAlertTriggeredEventSchema = z.object({
+  type: z.literal('alert_triggered'),
+  alertId: z.string(),
+  alertRuleId: z.string().nullable(),
+  kpiId: z.string(),
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  message: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const RealtimeAlertEscalatedEventSchema = z.object({
+  type: z.literal('alert_escalated'),
+  alertId: z.string(),
+  kpiId: z.string(),
+  level: z.number().int(),
+  createdAt: z.string().datetime(),
+});
+
+export const RealtimeAlertDigestEventSchema = z.object({
+  type: z.literal('alert_digest'),
+  userId: z.string(),
+  openCount: z.number().int(),
+  createdAt: z.string().datetime(),
+});
+
 // ---------------------------------------------------------------------------
 // Discriminated union — add new variants here as phases land
 // ---------------------------------------------------------------------------
 export const RealtimeEventSchema = z.discriminatedUnion('type', [
   RealtimePingEventSchema,
   RealtimeDataPointAddedEventSchema,
+  RealtimeAlertTriggeredEventSchema,
+  RealtimeAlertEscalatedEventSchema,
+  RealtimeAlertDigestEventSchema,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -66,6 +96,9 @@ export const RealtimeEventSchema = z.discriminatedUnion('type', [
 // ---------------------------------------------------------------------------
 export type RealtimePingEvent = z.infer<typeof RealtimePingEventSchema>;
 export type RealtimeDataPointAddedEvent = z.infer<typeof RealtimeDataPointAddedEventSchema>;
+export type RealtimeAlertTriggeredEvent = z.infer<typeof RealtimeAlertTriggeredEventSchema>;
+export type RealtimeAlertEscalatedEvent = z.infer<typeof RealtimeAlertEscalatedEventSchema>;
+export type RealtimeAlertDigestEvent = z.infer<typeof RealtimeAlertDigestEventSchema>;
 export type RealtimeEvent = z.infer<typeof RealtimeEventSchema>;
 
 // ---------------------------------------------------------------------------

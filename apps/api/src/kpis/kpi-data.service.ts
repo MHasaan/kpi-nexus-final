@@ -10,9 +10,9 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
+import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 
@@ -90,6 +90,7 @@ export class KpiDataService {
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
     private readonly realtime: RealtimeService,
+    private readonly alertEngine: AlertEngineProducer,
   ) {}
 
   /** POST /kpis/:id/data — ORG_WIDE only. */
@@ -473,6 +474,16 @@ export class KpiDataService {
         `KpiDataService: realtime publish failed for dataPoint ${point.id}: ${String(err)}`,
       );
     }
+
+    // Enqueue alert evaluation (fire-and-forget; producer swallows errors).
+    await this.alertEngine.enqueueEvaluateKpi({
+      organizationId: params.organizationId,
+      kpiId: point.kpiId,
+      dataPointId: point.id,
+      value: point.value,
+      recordedAt: point.recordedAt.toISOString(),
+      targetUserId: point.userId,
+    });
 
     return point;
   }

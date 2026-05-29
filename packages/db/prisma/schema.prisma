@@ -187,6 +187,13 @@ model Organization {
   dashboardShareLinks   DashboardShareLink[]
   scheduledReports      ScheduledReport[]
   reportRuns            ReportRun[]
+  alertRules            AlertRule[]
+  escalationRules       EscalationRule[]
+  alerts                Alert[]
+  notificationChannels  NotificationChannel[]
+  notificationDeliveries NotificationDelivery[]
+  webhookSubscriptions  WebhookSubscription[]
+  apiKeys               ApiKey[]
 
   @@index([tenantStatus])
 }
@@ -1080,4 +1087,187 @@ model ReportRun {
 
   @@index([scheduledReportId, ranAt])
   @@index([organizationId])
+}
+
+// ============================================================================
+// P4 — Alerting (rules, escalation, alerts, channels, deliveries, webhooks, api keys)
+// ============================================================================
+
+enum AlertRuleType {
+  STATIC_THRESHOLD
+  DYNAMIC_STDDEV
+  RATE_OF_CHANGE
+  NO_DATA
+  COMPOSITE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum NotificationChannelKind {
+  EMAIL
+  SLACK
+  TEAMS
+  SMS
+  IN_APP
+  WEBHOOK
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SUPPRESSED
+}
+
+// A rule that evaluates a KPI's data points and raises Alerts when breached.
+// `config` is a ruleType-specific JSON blob validated by a Zod discriminated
+// union in packages/contracts. P4 fully implements STATIC_THRESHOLD + NO_DATA;
+// the other types accept config but their evaluators return false (P5 finishes).
+model AlertRule {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiId          String
+  name           String
+  description    String?
+  ruleType       AlertRuleType
+  config         Json
+  severity       AlertSeverity @default(MEDIUM)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdById    String
+
+  escalationRule EscalationRule?
+  alerts         Alert[]
+
+  @@index([kpiId, isActive])
+  @@index([organizationId, isActive])
+}
+
+// Multi-level escalation policy for an alert rule. `levels` is an ordered JSON
+// array: [{delayMinutes, channelIds[], notifyRoleIds[], notifyUserIds[]}, ...].
+model EscalationRule {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alertRuleId    String       @unique
+  alertRule      AlertRule    @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  levels         Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// A raised alert instance. `alertRuleId` is null for ad-hoc alerts (e.g. P5
+// anomaly confirms). `targetUserId` scopes PER_USER KPI alerts to one user.
+model Alert {
+  id               String        @id @default(cuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alertRuleId      String?
+  alertRule        AlertRule?    @relation(fields: [alertRuleId], references: [id], onDelete: SetNull)
+  kpiId            String
+  message          String
+  severity         AlertSeverity
+  status           AlertStatus   @default(OPEN)
+  targetUserId     String?
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  resolvedAt       DateTime?
+  meta             Json?
+  createdAt        DateTime      @default(now())
+
+  deliveries NotificationDelivery[]
+
+  @@index([organizationId, status, createdAt])
+  @@index([kpiId, status])
+  @@index([alertRuleId])
+}
+
+// A configured delivery target. `config` holds AES-256-GCM-encrypted credentials
+// (SMTP/Slack webhook/Twilio/etc.); IN_APP needs none.
+model NotificationChannel {
+  id             String                  @id @default(cuid())
+  organizationId String
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  kind           NotificationChannelKind
+  config         Json
+  isActive       Boolean                 @default(true)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([organizationId, isActive])
+}
+
+// One delivery attempt record for an alert through a channel (or IN_APP when
+// channelId is null). Drives the retry queue + DLQ admin views.
+model NotificationDelivery {
+  id             String                     @id @default(cuid())
+  organizationId String
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alertId        String
+  alert          Alert                      @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  channelId      String?
+  targetUserId   String?
+  status         NotificationDeliveryStatus @default(PENDING)
+  attempts       Int                        @default(0)
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime                   @default(now())
+
+  @@index([alertId])
+  @@index([organizationId, status, createdAt])
+  @@index([targetUserId, status])
+}
+
+// An outbound webhook subscription. `secret` (prefix whsec_) signs payloads
+// with HMAC-SHA256. Auto-disabled after sustained failures.
+model WebhookSubscription {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  url             String
+  events          String[]
+  secret          String
+  isActive        Boolean      @default(true)
+  lastDeliveredAt DateTime?
+  lastStatus      Int?
+  failureCount    Int          @default(0)
+  createdAt       DateTime     @default(now())
+  createdById     String
+
+  @@index([organizationId, isActive])
+}
+
+// A hashed API key for programmatic access. Plaintext (kpinx_*) is shown once.
+// `scopes` restrict which permissions the key grants (admin bypass disabled).
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  hashedKey      String       @unique
+  keyPrefix      String
+  scopes         String[]
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  createdById    String
+
+  @@index([organizationId, revokedAt])
 }

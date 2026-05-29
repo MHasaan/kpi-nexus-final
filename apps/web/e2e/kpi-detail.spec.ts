@@ -60,4 +60,12 @@ test('kpi detail: tabs render; record data + add target via the UI', async ({ pa
   // Overview reflects the latest value.
   await page.getByTestId('tab-overview').click();
   await expect(page.getByTestId('overview-latest')).toContainText('42');
+
+  // New tabs render.
+  await page.getByTestId('tab-formula').click();
+  await expect(page.getByTestId('formula-raw')).toBeVisible();
+  await page.getByTestId('tab-cascade').click();
+  await expect(page.getByTestId('cascade-child')).toBeVisible();
+  await page.getByTestId('tab-audit').click();
+  await expect(page.getByText('v1')).toBeVisible();
 });

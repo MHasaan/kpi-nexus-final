@@ -6,32 +6,42 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import {
   ApiError,
+  attachCascade,
   computeBenchmark,
   createBenchmark,
   createTarget,
   createThresholdBand,
   deleteBenchmark,
+  deleteCascade,
+  deleteFormula,
   deleteTarget,
   deleteThresholdBand,
   getAccessToken,
+  getFormula,
   getKpi,
+  getKpiVersions,
   getLineageDownstream,
   getLineageUpstream,
   getThresholdStatus,
   listBenchmarks,
+  listCascades,
   listKpiDataPoints,
+  listKpis,
   listTargets,
   listThresholdBands,
+  putFormula,
   recordOrgWideDataPoint,
   type Benchmark,
+  type Cascade,
   type DataPoint,
   type KpiSummary,
   type KpiTarget,
+  type KpiVersion,
   type LineageHop,
   type ThresholdBand,
 } from '../../../lib/api-client';
 
-const TABS = ['Overview', 'Data', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage'] as const;
+const TABS = ['Overview', 'Data', 'Formula', 'Cascade', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage', 'Audit'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function KpiDetailPage() {
@@ -85,10 +95,13 @@ export default function KpiDetailPage() {
 
       {tab === 'Overview' && <OverviewTab kpi={kpi} />}
       {tab === 'Data' && <DataTab kpi={kpi} />}
+      {tab === 'Formula' && <FormulaTab kpiId={kpiId} />}
+      {tab === 'Cascade' && <CascadeTab kpiId={kpiId} />}
       {tab === 'Targets' && <TargetsTab kpiId={kpiId} />}
       {tab === 'Thresholds' && <ThresholdsTab kpiId={kpiId} />}
       {tab === 'Benchmarks' && <BenchmarksTab kpiId={kpiId} />}
       {tab === 'Lineage' && <LineageTab kpiId={kpiId} />}
+      {tab === 'Audit' && <AuditTab kpiId={kpiId} />}
     </Shell>
   );
 }
@@ -332,4 +345,121 @@ function LineageTab({ kpiId }: { kpiId: string }) {
     </Card>
   );
   return <div className="grid gap-4 sm:grid-cols-2">{col('Upstream (inputs)', up)}{col('Downstream (consumers)', down)}</div>;
+}
+
+function FormulaTab({ kpiId }: { kpiId: string }) {
+  const [formula, reload] = useAsync(() => getFormula(kpiId).catch(() => null), [kpiId]);
+  const [raw, setRaw] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => { if (formula) setRaw(formula.raw); }, [formula]);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await putFormula(kpiId, raw);
+      setMsg('Formula saved.');
+      reload();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : 'Failed to save formula');
+    }
+  };
+  const clear = async () => {
+    setErr(null); setMsg(null);
+    await deleteFormula(kpiId).catch(() => undefined);
+    setRaw('');
+    reload();
+  };
+  return (
+    <Card>
+      <p className="text-sm text-content-muted">A formula derives this KPI from other KPIs (referenced by name). Example: <code className="rounded bg-surface-bg px-1">revenue - cost</code></p>
+      <form onSubmit={save} className="mt-3 space-y-3">
+        <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={3}
+          className="w-full rounded-md border border-border bg-surface-bg px-3 py-2 font-mono text-sm text-content-strong" placeholder="revenue - cost" data-testid="formula-raw" />
+        <div className="flex gap-2">
+          <button className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white" data-testid="formula-save">Save formula</button>
+          {formula && <button type="button" onClick={clear} className="rounded-md border border-border px-4 py-2 text-sm text-content-strong">Clear</button>}
+        </div>
+      </form>
+      {msg && <p className="mt-2 text-sm text-status-positive" data-testid="formula-msg">{msg}</p>}
+      {err && <p className="mt-2 text-sm text-status-critical" data-testid="formula-err">{err}</p>}
+    </Card>
+  );
+}
+
+function CascadeTab({ kpiId }: { kpiId: string }) {
+  const [edges, reload] = useAsync(() => listCascades(), [kpiId]);
+  const [names] = useAsync(() => listKpis().then((ks) => Object.fromEntries(ks.map((k) => [k.id, k.name]))), [kpiId]);
+  const nm = (id: string) => names?.[id] ?? id.slice(0, 8);
+  const parents = (edges ?? []).filter((e: Cascade) => e.childKpiId === kpiId);
+  const children = (edges ?? []).filter((e: Cascade) => e.parentKpiId === kpiId);
+  const totalWeight = children.reduce((s, c) => s + c.weight, 0);
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card>
+        <p className="mb-2 text-xs uppercase tracking-wide text-content-muted">Rolls up into (parents)</p>
+        {parents.map((e) => (
+          <div key={e.id} className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0">
+            <span className="text-content-strong">{nm(e.parentKpiId)}</span>
+            <button onClick={() => deleteCascade(e.id).then(reload)} className="text-xs text-status-critical hover:underline">Detach</button>
+          </div>
+        ))}
+        {parents.length === 0 && <p className="py-2 text-content-muted">No parents.</p>}
+      </Card>
+      <Card>
+        <p className="mb-2 text-xs uppercase tracking-wide text-content-muted">Children (weight {totalWeight})</p>
+        {children.map((e) => (
+          <div key={e.id} className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0">
+            <span className="text-content-strong">{nm(e.childKpiId)} <span className="text-content-muted">· {e.method} · w{e.weight}</span></span>
+            <button onClick={() => deleteCascade(e.id).then(reload)} className="text-xs text-status-critical hover:underline">Detach</button>
+          </div>
+        ))}
+        {children.length === 0 && <p className="py-2 text-content-muted">No children.</p>}
+        <AddChildForm kpiId={kpiId} names={names} onAdded={reload} />
+      </Card>
+    </div>
+  );
+}
+
+function AddChildForm({ kpiId, names, onAdded }: { kpiId: string; names: Record<string, string> | null; onAdded: () => void }) {
+  const [childKpiId, setChildKpiId] = useState('');
+  const options = Object.entries(names ?? {}).filter(([id]) => id !== kpiId);
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!childKpiId) return;
+    await attachCascade({ parentKpiId: kpiId, childKpiId, method: 'SUM' }).catch(() => undefined);
+    setChildKpiId('');
+    onAdded();
+  };
+  return (
+    <form onSubmit={add} className="mt-3 flex gap-2">
+      <select value={childKpiId} onChange={(e) => setChildKpiId(e.target.value)} className="flex-1 rounded-md border border-border bg-surface-bg px-2 py-1.5 text-sm" data-testid="cascade-child">
+        <option value="">Add child KPI…</option>
+        {options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+      </select>
+      <button className="rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white" data-testid="cascade-add">Attach</button>
+    </form>
+  );
+}
+
+function AuditTab({ kpiId }: { kpiId: string }) {
+  const [versions] = useAsync(() => getKpiVersions(kpiId), [kpiId]);
+  return (
+    <Card>
+      <table className="w-full text-sm">
+        <thead><tr className="text-left text-xs uppercase text-content-muted"><th className="py-2">Version</th><th>Reason</th><th>When</th></tr></thead>
+        <tbody>
+          {(versions ?? []).map((v: KpiVersion) => (
+            <tr key={v.id} className="border-t border-border">
+              <td className="py-2 text-content-strong">v{v.version}</td>
+              <td className="text-content-muted">{v.reason ?? '—'}</td>
+              <td className="text-content-muted">{new Date(v.createdAt).toLocaleString()}</td>
+            </tr>
+          ))}
+          {versions && versions.length === 0 && <tr><td colSpan={3} className="py-3 text-center text-content-muted">No versions.</td></tr>}
+        </tbody>
+      </table>
+    </Card>
+  );
 }

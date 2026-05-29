@@ -1631,3 +1631,52 @@ export async function listTemplates(filters: { function?: string; search?: strin
 export async function instantiateTemplate(id: string, body: { name?: string; targetValue?: number } = {}): Promise<KpiSummary> {
   return api(`/kpi-templates/${id}/instantiate`, { method: 'POST', body: JSON.stringify(body) });
 }
+
+// =============================================================================
+// KPI formula, cascades, versions (detail-page Formula/Cascade/Audit tabs)
+// =============================================================================
+
+export interface FormulaExpr {
+  id: string;
+  kpiId: string;
+  raw: string;
+  createdAt: string;
+}
+export async function getFormula(kpiId: string): Promise<FormulaExpr | null> {
+  return api(`/kpis/${kpiId}/formula`);
+}
+export async function putFormula(kpiId: string, raw: string): Promise<FormulaExpr> {
+  return api(`/kpis/${kpiId}/formula`, { method: 'PUT', body: JSON.stringify({ raw }) });
+}
+export async function deleteFormula(kpiId: string): Promise<void> {
+  return api(`/kpis/${kpiId}/formula`, { method: 'DELETE' });
+}
+
+export interface Cascade {
+  id: string;
+  parentKpiId: string;
+  childKpiId: string;
+  method: string;
+  weight: number;
+  level: number;
+}
+export async function listCascades(): Promise<Cascade[]> {
+  return api('/kpi-cascades');
+}
+export async function attachCascade(body: { parentKpiId: string; childKpiId: string; method?: string; weight?: number }): Promise<Cascade> {
+  return api('/kpi-cascades', { method: 'POST', body: JSON.stringify(body) });
+}
+export async function deleteCascade(id: string): Promise<void> {
+  return api(`/kpi-cascades/${id}`, { method: 'DELETE' });
+}
+
+export interface KpiVersion {
+  id: string;
+  version: number;
+  reason: string | null;
+  createdAt: string;
+  createdById: string | null;
+}
+export async function getKpiVersions(kpiId: string): Promise<KpiVersion[]> {
+  return api(`/kpis/${kpiId}/versions`);
+}

@@ -71,7 +71,7 @@ CascadeService; 8 unit tests + e2e — built 2026-05-29)**, **CalculationEngineM
 data points + lineage edges, re-entry guarded + transitive; sync `/recompute` +
 `/rollup` endpoints; DataPointsService reactive wiring; e2e — built 2026-05-29)**.
 - ~~`seedDemoData`~~ **built 2026-05-29** (`POST /demo-data/seed`: 1 category + 4 KPIs + 24 data points, idempotent; e2e). Trash-purge (hard purge of soft-deleted KPIs after N days) still deferred. `scripts/bench-hypertable.mjs` also built (configurable N×D, p50/p95/p99, auto-cleanup).
-- FE pages: **`/kpis/[id]` detail (Overview/Data/Targets/Thresholds/Benchmarks/Lineage tabs) + `/kpis/templates` marketplace built 2026-05-29.** Still deferred: `/kpis/[id]/{formula,cascade}` editors, `/kpis/tree`, `/kpis/scorecard`, `/kpis/archive` (needs restore/purge routes), home "My KPIs" panel, `/team`, `/users/[id]` KPI panel, onboarding wizard stub.
+- FE pages: **P2 frontend complete 2026-05-29.** Built: `/kpis/[id]` detail (9 tabs: Overview/Data/Formula/Cascade/Targets/Thresholds/Benchmarks/Lineage/Audit), `/kpis/templates`, `/kpis/tree`, `/kpis/scorecard` (+ `scorecardQuadrant` column), `/kpis/archive` (+ restore/purge backend routes), `/my-kpis`, `/team`, `/users/[id]` — each with a browser e2e. Simplifications vs the aspirational plan: Formula tab is a validated text editor (not the dnd-kit visual block editor); scope-specific data entry is via the Data tab (ORG_WIDE) + `/my-kpis` (PER_USER) rather than a standalone `/kpis/[id]/data` page. Onboarding wizard stub is a P6 item (not P2).
 
 ## Schema additions (Prisma)
 
@@ -740,10 +740,10 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
   - Audit (version history table)
 - [x] `/kpis/[id]/formula` — visual block editor (dnd-kit Sortable for token reordering) + Monaco code mode + mode toggle re-tokenizes; live API-validated parse
 - [x] `/kpis/[id]/cascade` — parents above, children below, weight % + rollup method editor; total-weight summary
-- [ ] `/kpis/[id]/targets` — type tab strip (STATIC/TIERED/DYNAMIC/SCENARIO + stubs for TIME_VARYING/CONDITIONAL); per-type fields; effective windows; history with delete
+- [x] `/kpis/[id]/targets` — built as the detail-page **Targets tab** (list + add STATIC + delete; 2026-05-29). Full per-type tab strip is a future enhancement.
 - [x] `/kpis/[id]/threshold-bands` — N-band create/delete/list + current-band status preview using `/kpis/:id/threshold-bands/status`
-- [ ] `/kpis/[id]/benchmarks` — 1D scale chart with markers per kind + latest value; manual-add form; "Auto-compute internal historical" button
-- [ ] `/kpis/[id]/lineage` — SVG graph (depth-1 upstream nodes left, downstream right, bezier edges color-coded by transform type) + BFS trace lists grouped by depth
+- [x] `/kpis/[id]/benchmarks` — built as the detail-page **Benchmarks tab** (list + manual add + auto-compute + delete; 2026-05-29). 1D scale chart is a future enhancement.
+- [x] `/kpis/[id]/lineage` — built as the detail-page **Lineage tab** (upstream + downstream hop lists w/ transform labels; 2026-05-29). SVG bezier graph is a future enhancement.
 - [x] `/kpis/tree` — global cascade tree (per-quadrant color-coded cards, weight + rollup labels)
 - [x] `/kpis/scorecard` — 2×2 BSC quadrant grid (4 cards: Financial/Customer/Internal Process/Learning Growth) each containing ACTIVE/APPROVED KPIs with `{id, name, unit, latestValue, recordedAt, targetValue, status}`. Status direction-aware: HIGHER_IS_BETTER values below criticalThreshold → "critical", below warningThreshold → "warning", else "healthy"; inverted for LOWER_IS_BETTER; "neutral" when no thresholds; "no_data" when no data points
 - [x] `/kpis/templates` — marketplace browse + instantiate (cards with function filter + search; "Use template" → DRAFT KPI) **(built 2026-05-29; browser e2e)**

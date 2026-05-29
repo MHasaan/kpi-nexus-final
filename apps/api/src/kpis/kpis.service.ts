@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
@@ -12,6 +13,7 @@ import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateKpiDto, UpdateKpiDto } from './dto/create-kpi.dto.js';
+import { canTransition, type KpiStatus } from './kpi-status.js';
 
 const kpiSelect = {
   id: true,
@@ -193,10 +195,21 @@ export class KpisService {
             })),
           });
         }
-        return tx.kPI.findUniqueOrThrow({
+        const full = await tx.kPI.findUniqueOrThrow({
           where: { id: kpi.id },
           select: kpiSelect,
         });
+        // Initial version snapshot (version 1).
+        await tx.kPIVersion.create({
+          data: {
+            kpiId: kpi.id,
+            version: 1,
+            snapshot: full as unknown as Prisma.InputJsonValue,
+            reason: 'created',
+            createdById: ctx.userId,
+          },
+        });
+        return full;
       });
 
       await this.audit.record({
@@ -255,6 +268,16 @@ export class KpisService {
         select: kpiSelect,
       });
 
+      await this.prisma.kPIVersion.create({
+        data: {
+          kpiId: updated.id,
+          version: updated.version,
+          snapshot: updated as unknown as Prisma.InputJsonValue,
+          reason: 'updated',
+          createdById: RequestContextStore.require().userId,
+        },
+      });
+
       await this.audit.record({
         action: 'UPDATE',
         entityType: 'KPI',
@@ -285,6 +308,59 @@ export class KpisService {
       entityType: 'KPI',
       entityId: existing.id,
       metadata: { name: existing.name, soft: true },
+    });
+  }
+
+  /**
+   * Move a KPI through its lifecycle state machine (see kpi-status.ts). Rejects
+   * illegal transitions with 422; bumps version + writes a KPIVersion snapshot.
+   */
+  async transitionStatus(id: string, to: KpiStatus, reason?: string): Promise<PublicKpi> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.getById(id);
+    const from = existing.status as KpiStatus;
+    if (from === to) {
+      throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `KPI is already ${to}` });
+    }
+    if (!canTransition(from, to)) {
+      throw new UnprocessableEntityException({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition KPI from ${from} to ${to}`,
+        details: { from, to },
+      });
+    }
+    const updated = await this.prisma.kPI.update({
+      where: { id },
+      data: { status: to, version: { increment: 1 } },
+      select: kpiSelect,
+    });
+    await this.prisma.kPIVersion.create({
+      data: {
+        kpiId: id,
+        version: updated.version,
+        snapshot: updated as unknown as Prisma.InputJsonValue,
+        reason: reason ? `status:${from}→${to} — ${reason}` : `status:${from}→${to}`,
+        createdById: ctx.userId,
+      },
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'KPI',
+      entityId: id,
+      metadata: { statusFrom: from, statusTo: to },
+    });
+    return updated;
+  }
+
+  /** Version history for a KPI (newest first). */
+  async listVersions(id: string): Promise<
+    Array<{ id: string; version: number; reason: string | null; createdById: string; createdAt: Date }>
+  > {
+    await this.getById(id); // tenant + existence
+    return this.prisma.kPIVersion.findMany({
+      where: { kpiId: id },
+      select: { id: true, version: true, reason: true, createdById: true, createdAt: true },
+      orderBy: { version: 'desc' },
     });
   }
 

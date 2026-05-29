@@ -21,6 +21,13 @@ import type { DryRunResult } from './kpi-import.js';
 
 const ImportCsvDtoSchema = z.object({ csv: z.string().min(1).max(1_000_000) }).strict();
 
+const TransitionDtoSchema = z
+  .object({
+    to: z.enum(['DRAFT', 'PROPOSED', 'APPROVED', 'ACTIVE', 'PAUSED', 'DEPRECATED', 'ARCHIVED']),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
   if (!result.success) {
@@ -64,6 +71,19 @@ export class KpisController {
   @RequirePermissions(PermissionKey.KPI_VIEW)
   getById(@Param('id') id: string): Promise<PublicKpi> {
     return this.kpis.getById(id);
+  }
+
+  @Get(':id/versions')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  versions(@Param('id') id: string) {
+    return this.kpis.listVersions(id);
+  }
+
+  @Post(':id/transition')
+  @RequirePermissions(PermissionKey.KPI_EDIT)
+  transition(@Param('id') id: string, @Body() body: unknown): Promise<PublicKpi> {
+    const dto = parse(TransitionDtoSchema, body);
+    return this.kpis.transitionStatus(id, dto.to, dto.reason);
   }
 
   @Post()

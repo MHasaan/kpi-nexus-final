@@ -39,7 +39,9 @@ were never built**. Checkboxes are reconciled to reality:
 **Built:** KpisModule (CRUD + soft-delete + scope assignments), DataPointsModule
 (3 scope-specific record endpoints + list + dashboard-summary), FormulaModule,
 KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
-/kpis/categories UI; 6 unit tests + e2e — built 2026-05-29)**.
+/kpis/categories UI; 6 unit tests + e2e)**, **KPI status state-machine +
+KPIVersion snapshots (transition/versions endpoints; snapshot on
+create/update/transition; 11 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
 - KpiTemplatesModule — template gallery/instantiation.
@@ -48,9 +50,7 @@ KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
 - KpiTargetsModule, KpiThresholdBandsModule, KpiBenchmarksModule — no
   routes/services/UI.
 - LineageModule — dependency DAG/lineage SVG.
-- KPIVersion snapshots (versioning on create/update), KPI status-transition
-  endpoints (deprecate/archive/restore/trash-purge beyond plain soft-delete),
-  and `seedDemoData`.
+- `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
   templates, archive.
 

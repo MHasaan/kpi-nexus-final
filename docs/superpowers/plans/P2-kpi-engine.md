@@ -38,11 +38,10 @@ were never built**. Checkboxes are reconciled to reality:
 
 **Built:** KpisModule (CRUD + soft-delete + scope assignments), DataPointsModule
 (3 scope-specific record endpoints + list + dashboard-summary), FormulaModule,
-KpiCascadesModule, bulk CSV import.
+KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
+/kpis/categories UI; 6 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
-- KpiCategoriesModule (CRUD endpoints) — the `KPICategory` model + `categoryId`
-  FK validation exist, but no category CRUD API/UI.
 - KpiTemplatesModule — template gallery/instantiation.
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
   evaluation itself is built in FormulaModule).
@@ -487,8 +486,8 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 1: KpiCategoriesModule
 
-- [ ] CRUD. Permissions: List → KPI_VIEW; Mutations → KPI_EDIT (or ORG_SETTINGS — pick one and document)
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /kpi-categories`
+- [x] CRUD. Permissions: List → KPI_VIEW; Mutations → KPI_EDIT (or ORG_SETTINGS — pick one and document)
+- [x] Endpoints: `GET/POST/PATCH/DELETE /kpi-categories`
 
 ### Module 2: KpisModule (`apps/api/src/kpis/`) — central module
 

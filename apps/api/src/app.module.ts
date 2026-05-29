@@ -16,6 +16,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { DashboardsModule } from './dashboards/dashboards.module.js';
 import { HealthModule } from './health/health.module.js';
 import { KpisModule } from './kpis/kpis.module.js';
+import { KpiCategoriesModule } from './kpi-categories/kpi-categories.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { OrgUnitsModule } from './org-units/org-units.module.js';
@@ -80,6 +81,7 @@ import { ReportsModule } from './reports/reports.module.js';
     PositionsModule,
     UsersModule,
     KpisModule,
+    KpiCategoriesModule,
     DashboardsModule,
     ReportsModule,
     RealtimeModule,

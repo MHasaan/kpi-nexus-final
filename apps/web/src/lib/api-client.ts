@@ -1451,3 +1451,44 @@ export async function importKpisCommit(
 ): Promise<{ createdCount: number; createdIds: string[] }> {
   return api('/kpis/import/commit', { method: 'POST', body: JSON.stringify({ csv }) });
 }
+
+// =============================================================================
+// KPI categories (P2)
+// =============================================================================
+
+export interface KpiCategory {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  sortOrder: number;
+  createdAt: string;
+  _count: { kpis: number };
+}
+
+export async function listKpiCategories(): Promise<KpiCategory[]> {
+  return api('/kpi-categories');
+}
+
+export async function createKpiCategory(body: {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  sortOrder?: number;
+}): Promise<KpiCategory> {
+  return api('/kpi-categories', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function updateKpiCategory(
+  id: string,
+  body: Partial<{ name: string; description: string; color: string; icon: string; sortOrder: number }>,
+): Promise<KpiCategory> {
+  return api(`/kpi-categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function deleteKpiCategory(id: string): Promise<void> {
+  return api(`/kpi-categories/${id}`, { method: 'DELETE' });
+}

@@ -58,6 +58,33 @@ export class PermissionsGuard implements CanActivate {
       throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Authentication required' });
     }
 
+    // API-key principals are checked against their explicit scopes — no admin
+    // bypass, no owner-override. Scopes are PermissionKey strings.
+    if (principal.principalType === 'api_key') {
+      const scopes = new Set(principal.apiKeyScopes ?? []);
+      if (requireAll && requireAll.length > 0) {
+        const missing = requireAll.filter((p) => !scopes.has(p));
+        if (missing.length > 0) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN',
+            message: 'API key missing required scope',
+            details: { missing },
+          });
+        }
+      }
+      if (requireAny && requireAny.length > 0) {
+        const any = requireAny.some((p) => scopes.has(p));
+        if (!any) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN',
+            message: 'API key missing required scope',
+            details: { requireAny },
+          });
+        }
+      }
+      return true;
+    }
+
     const resolved = await this.resolver.resolveForUser(
       principal.organizationId,
       principal.userId,

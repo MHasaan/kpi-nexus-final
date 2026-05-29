@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
+import { ApiKeysModule } from '../api-keys/api-keys.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
@@ -13,6 +14,7 @@ import { RefreshTokenService } from './services/refresh-token.service.js';
 @Module({
   imports: [
     PassportModule,
+    ApiKeysModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

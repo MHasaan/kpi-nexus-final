@@ -6,7 +6,9 @@ import { LoggerModule } from 'nestjs-pino';
 import { AlertEngineModule } from './alert-engine/alert-engine.module.js';
 import { AlertRulesModule } from './alert-rules/alert-rules.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
+import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DashboardsModule } from './dashboards/dashboards.module.js';
 import { HealthModule } from './health/health.module.js';
@@ -81,6 +83,8 @@ import { ReportsModule } from './reports/reports.module.js';
     AlertEngineModule,
     AlertRulesModule,
     AlertsModule,
+    ApiKeysModule,
+    WebhooksModule,
     HealthModule,
   ],
 })

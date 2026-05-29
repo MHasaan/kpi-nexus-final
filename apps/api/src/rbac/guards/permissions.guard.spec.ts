@@ -287,4 +287,52 @@ describe('PermissionsGuard', () => {
       await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('API-key principal (scope check, no admin bypass)', () => {
+    const apiKeyPrincipal = (scopes: PermissionKey[]): RequestContext => ({
+      organizationId: 'org_1',
+      userId: 'key_1',
+      roleId: null,
+      principalType: 'api_key',
+      apiKeyId: 'key_1',
+      apiKeyScopes: scopes,
+    });
+
+    test('allows when the key has the required scope — resolver NOT consulted', async () => {
+      const { context, guard, resolver } = makeContext(
+        { requireAll: [PermissionKey.KPI_DATA_ENTRY] },
+        { user: apiKeyPrincipal([PermissionKey.KPI_DATA_ENTRY]) },
+        null,
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(resolver.resolveForUser).not.toHaveBeenCalled();
+    });
+
+    test('denies when the key lacks the required scope', async () => {
+      const { context, guard } = makeContext(
+        { requireAll: [PermissionKey.KPI_CREATE] },
+        { user: apiKeyPrincipal([PermissionKey.KPI_DATA_ENTRY]) },
+        null,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+
+    test('requireAny — passes when the key has one of the scopes', async () => {
+      const { context, guard } = makeContext(
+        { requireAny: [PermissionKey.KPI_CREATE, PermissionKey.KPI_VIEW] },
+        { user: apiKeyPrincipal([PermissionKey.KPI_VIEW]) },
+        null,
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    test('a scopeless key is denied even for a single required permission', async () => {
+      const { context, guard } = makeContext(
+        { requireAll: [PermissionKey.KPI_VIEW] },
+        { user: apiKeyPrincipal([]) },
+        null,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+  });
 });

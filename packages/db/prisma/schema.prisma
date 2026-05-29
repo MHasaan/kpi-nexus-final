@@ -1572,3 +1572,49 @@ model AiBudget {
   monthlyPeriodStart  DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 }
+
+// ============================================================================
+// P5 — AI insights + recommendations (anomaly/forecast/NLQ models land later)
+// ============================================================================
+
+enum RecommendationStatus {
+  PENDING
+  ACTIONED
+  DISMISSED
+}
+
+// An AI-generated narrative about a KPI's recent trend. Scalar FK (org-scoped).
+model KPIInsight {
+  id               String   @id @default(cuid())
+  organizationId   String
+  kpiId            String
+  narrative        String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  generatedAt      DateTime @default(now())
+
+  @@index([organizationId, generatedAt])
+  @@index([kpiId, generatedAt])
+}
+
+// An AI recommendation triggered by an alert/anomaly or requested manually.
+// `content` holds {summary, rootCauseHypotheses[], suggestedActions[]}. Scalar
+// FK (org-scoped explicitly).
+model Recommendation {
+  id             String               @id @default(cuid())
+  organizationId String
+  kpiId          String
+  alertId        String?
+  anomalyId      String?
+  content        Json
+  confidence     Float
+  status         RecommendationStatus @default(PENDING)
+  createdAt      DateTime             @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+
+  @@index([organizationId, status])
+  @@index([kpiId, status])
+  @@index([alertId])
+}

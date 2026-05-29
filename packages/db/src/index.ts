@@ -85,6 +85,8 @@ export type {
   AiFeatureConfig,
   AiCallLog,
   AiBudget,
+  KPIInsight,
+  Recommendation,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -113,4 +115,5 @@ export {
   AiProviderKey,
   AiCallStatus,
   CircuitBreakerMode,
+  RecommendationStatus,
 } from '@prisma/client';

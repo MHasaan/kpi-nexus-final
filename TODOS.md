@@ -160,9 +160,9 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `CalculationEngineModule`: BullMQ queue `calc-engine` + processor wired to FormulaEvaluator + KpiCascadeService + LineageService
 - [ ] `DataPointsModule`: single + bulk insert with idempotency, validation, outlier flag (Welford streaming 3σ), adjust with history
 - [ ] **Critical: `POST /kpis/:id/data` returns HTTP 422 if KPI scope ≠ ORG_WIDE with correct endpoint name in error**
-- [ ] `KpiTargetsModule`: 6 target types (STATIC/TIERED/DYNAMIC/TIME_VARYING/CONDITIONAL/SCENARIO) + `resolveActive(kpiId, at)`
-- [ ] `KpiThresholdBandsModule`: N-band thresholds + hysteresis (`consecutivePointsRequired`)
-- [ ] `KpiBenchmarksModule`: internal (auto-computed N-day average) + external (industry) + compute trigger
+- [x] `KpiTargetsModule`: 6 target types (STATIC/TIERED/DYNAMIC/TIME_VARYING/CONDITIONAL/SCENARIO) + `resolveActive(kpiId, at)`
+- [x] `KpiThresholdBandsModule`: N-band thresholds + hysteresis (`consecutivePointsRequired`)
+- [x] `KpiBenchmarksModule`: internal (auto-computed N-day average) + external (industry) + compute trigger
 - [ ] `KpiCascadesModule`: parent↔child with weight + rollupMethod + cycle detection
 - [ ] `LineageModule`: record + BFS trace upstream/downstream
 - [ ] `UserKpisModule`: per-user assignments + personal data entry via `POST /user-kpis/my-kpis/:assignmentId/data`

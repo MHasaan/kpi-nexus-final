@@ -1336,3 +1336,28 @@ model KPIThresholdBand {
   @@index([kpiId, order])
   @@index([organizationId])
 }
+
+// ============================================================================
+// P2.x — KPI benchmarks (build backlog; deferred from initial P2)
+// ============================================================================
+
+// Reference values a KPI is compared against. INTERNAL_HISTORICAL rows are
+// computed by averaging recent data points; EXTERNAL_* rows are entered
+// manually with a source. `kind` is a free string (INTERNAL_HISTORICAL |
+// EXTERNAL_INDUSTRY | EXTERNAL_PEER) validated in the service. Scalar FKs
+// (org-scoped explicitly).
+model KPIBenchmark {
+  id             String    @id @default(cuid())
+  organizationId String
+  kpiId          String
+  kind           String
+  value          Float
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  source         String?
+  createdAt      DateTime  @default(now())
+  createdById    String
+
+  @@index([kpiId, kind])
+  @@index([organizationId])
+}

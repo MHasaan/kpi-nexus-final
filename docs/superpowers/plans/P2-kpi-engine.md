@@ -45,13 +45,14 @@ create/update/transition; 11 unit tests + e2e)**, **KpiTargetsModule (6 target
 types w/ per-type + monotonic-band validation, resolveActive window logic, CRUD
 under /kpis/:id/targets; 9 unit tests + e2e)**, **KpiThresholdBandsModule
 (N-band CRUD + hysteresis status resolver under /kpis/:id/threshold-bands +
-/status; 10 unit tests + e2e — built 2026-05-29)**.
+/status; 10 unit tests + e2e — built 2026-05-29)**, **KpiBenchmarksModule
+(manual CRUD + INTERNAL_HISTORICAL compute by averaging last-N-days data points,
+under /kpis/:id/benchmarks + /compute; 8 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
 - KpiTemplatesModule — template gallery/instantiation.
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
   evaluation itself is built in FormulaModule).
-- KpiBenchmarksModule — no routes/services/UI.
 - LineageModule — dependency DAG/lineage SVG.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
@@ -631,9 +632,10 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 9: KpiBenchmarksModule
 
-- [ ] CRUD + compute trigger
-- [ ] `compute(kpiId, {kind: INTERNAL_HISTORICAL, days: 30})` — averages last N days of data points into a benchmark row
-- [ ] Endpoints: `GET/POST/DELETE /kpis/:kpiId/benchmarks`, `POST /kpis/:kpiId/benchmarks/compute`
+- [x] CRUD + compute trigger
+- [x] `compute(kpiId, {kind: INTERNAL_HISTORICAL, days: 30})` — averages last N days of data points into a benchmark row (422/NO_DATA when window empty)
+- [x] Endpoints: `GET/POST/DELETE /kpis/:kpiId/benchmarks`, `POST /kpis/:kpiId/benchmarks/compute`
+- [x] Unit tests: 8 cases (kind validation, cutoff windowing, mean of empty/single/multi/negative sets) + e2e (manual CRUD + compute + invalid-kind reject)
 
 ### Module 10: KpiCascadesModule
 

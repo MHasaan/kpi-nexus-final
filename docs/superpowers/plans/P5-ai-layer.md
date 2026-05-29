@@ -9,6 +9,16 @@
 | **Blocks** | P6 (onboarding AI co-pilot uses this layer), P7 (workflow rule engine can trigger AI actions) |
 | **Spec reference** | §3.6 rest (anomaly/forecast/insight/recommendation/NLQ schema), §4.6 rest (AI modules), §7 (full AI/ML architecture) |
 
+## Progress (updated 2026-05-29)
+
+**Foundation complete** (branch `phase/p5-ai-layer`, 3 commits):
+- ✅ `packages/contracts/src/ai.ts` — canonical AiProviderKey / AiFeature(×11) / AiCallStatus / CircuitBreakerMode (source of truth for packages/ai + Prisma)
+- ✅ `packages/ai` — IAiProvider + normalized types, `pricing.ts` (priceCall), and all 5 adapters: Gemini (free-tier, 8-key rotation + 429 cooldown), Claude (messages API + cache betas), OpenAI (chat+embeddings), Ollama (local, $0), Mock (deterministic, for `AI_MOCK_RESPONSE` + tests). 35 unit tests.
+- ✅ Migration `20260529220000_p5_ai_providers_budget` — AiProvider / AiFeatureConfig / AiCallLog / AiBudget + enums (applied; client regenerated; types exported from @kpi-nexus/db).
+- ✅ `apps/api/src/ai/` AiModule — AiRouterService (fallback chain, 6 tests), AiBudgetService (Redis caps + pure evaluateBudget, 12 tests), ByoKeyService (AES-256-GCM envelope + rotation detection, 7 tests), AiProviderRegistry (BYO>platform, mock mode), AiConfigsService + DEFAULT_FYP_CONFIG, AiCallLogService. Controllers: `/ai/configs`, `/ai/budget`, `/ai/providers/:key/byok` (ORG_SETTINGS). 28 api unit tests + `apps/web/e2e/ai-foundation.spec.ts` (4/4).
+
+**Remaining**: feature modules (anomaly, forecast, whatif, kpi-suggestions, insights, recommendations, NLQ), the Python ML sidecar, frontend pages, NLQ golden-question harness. Live Gemini smoke test pending the user's API key.
+
 ## Why this phase matters
 
 AI is a major surface of the product. NLQ chat, contextual recommendations, AI-generated insights, anomaly detection with explanations, forecasting with confidence bands — these are the features that differentiate KPI Nexus from a spreadsheet. The multi-provider abstraction means we're never locked to one vendor and can let orgs BYO their own keys.

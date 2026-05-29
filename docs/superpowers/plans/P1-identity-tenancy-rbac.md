@@ -47,7 +47,7 @@ OrgUnitsModule, AuditModule, HealthModule.
   RateLimitModule — no service/endpoints.
 - OrgUnitDimensionsModule, OrgUnitTypesModule — not built as separate modules
   (models exist; org-unit structure is handled directly by OrgUnitsModule).
-- BillingModule — schema-only (as planned); no service/UI.
+- BillingModule — **service built 2026-05-29** (plan catalog lazy-seed, assertWithinQuota wired into KPI create → 402, hasFeature gating, setPlan, GET /billing; pure quota-check 6 tests + e2e). Cost-telemetry cron + `/billing` UI still deferred.
 - `UsersService.purge` (GDPR) + `OffboardingService.offboard`.
 - The `/signup/wizard` onboarding stub + `/onboarding/*` endpoints (the full
   wizard is P6; the P1 stub was not built).

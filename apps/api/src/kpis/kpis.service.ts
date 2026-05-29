@@ -8,6 +8,7 @@ import {
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
+import { BillingService } from '../billing/billing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -57,6 +58,7 @@ export class KpisService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
+    private readonly billing: BillingService,
   ) {}
 
   async list(): Promise<PublicKpi[]> {
@@ -97,6 +99,7 @@ export class KpisService {
 
   async create(dto: CreateKpiDto): Promise<PublicKpi> {
     const ctx = RequestContextStore.require();
+    await this.billing.assertWithinQuota('kpis', 1);
     this.assertScopeAssignments(dto.scope, dto);
 
     if (dto.categoryId) {

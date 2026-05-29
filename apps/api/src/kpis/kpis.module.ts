@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AlertEngineModule } from '../alert-engine/alert-engine.module.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { BillingModule } from '../billing/billing.module.js';
 import { CalculationEngineModule } from '../calculation-engine/calculation-engine.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
@@ -13,7 +14,7 @@ import { KpisController } from './kpis.controller.js';
 import { KpisService } from './kpis.service.js';
 
 @Module({
-  imports: [AuditModule, RbacModule, RealtimeModule, AlertEngineModule, CalculationEngineModule],
+  imports: [AuditModule, BillingModule, RbacModule, RealtimeModule, AlertEngineModule, CalculationEngineModule],
   controllers: [KpisController, KpiDataController],
   providers: [KpisService, KpiDataService, CascadeService, KpiImportService],
   exports: [KpisService, KpiDataService, CascadeService],

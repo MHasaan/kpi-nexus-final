@@ -92,7 +92,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `OrgUnitDimensionsModule`, `OrgUnitTypesModule`, `OrgUnitsModule` (+ reorganization: move/merge/split/rename)
 - [ ] `OrgChartModule`: read-side projection for SVG tree
 - [ ] `AuditModule`: structured events + redaction + interceptor + cross-tenant guard with `runWithBypass`
-- [ ] `BillingModule`: Plan catalog (FREE/PRO/ENTERPRISE lazy seed), TenantQuota counters, FeatureFlag, cost telemetry daily aggregate (schema only; UI is placeholder)
+- [x] `BillingModule`: Plan catalog (FREE/PRO/ENTERPRISE lazy seed), quota enforcement (assertWithinQuota wired into KPI create — 402 on exceed), FeatureFlag gating, setPlan, GET /billing status (built 2026-05-29; cost-telemetry cron + UI still deferred)
 - [ ] `RateLimitModule`: Redis sliding window, 2 buckets (auth+general), 429 with retryAfter
 - [ ] `HealthModule`: `/health` + `/health/details`
 

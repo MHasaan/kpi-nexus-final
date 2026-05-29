@@ -1670,6 +1670,16 @@ export async function deleteCascade(id: string): Promise<void> {
   return api(`/kpi-cascades/${id}`, { method: 'DELETE' });
 }
 
+export interface CascadeTreeNode {
+  parentKpiId: string;
+  parentName: string;
+  level: number;
+  children: Array<{ childKpiId: string; childName: string; method: string; weight: number }>;
+}
+export async function getCascadeTree(): Promise<CascadeTreeNode[]> {
+  return api('/kpi-cascades/all');
+}
+
 export interface KpiVersion {
   id: string;
   version: number;

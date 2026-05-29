@@ -48,7 +48,7 @@ OrgUnitsModule, AuditModule, HealthModule.
 - OrgUnitDimensionsModule, OrgUnitTypesModule — not built as separate modules
   (models exist; org-unit structure is handled directly by OrgUnitsModule).
 - BillingModule — **service built 2026-05-29** (plan catalog lazy-seed, assertWithinQuota wired into KPI create → 402, hasFeature gating, setPlan, GET /billing; pure quota-check 6 tests + e2e). Cost-telemetry cron + `/billing` UI still deferred.
-- `UsersService.purge` (GDPR) + `OffboardingService.offboard`.
+- **built 2026-05-29**: `UsersService.purge` (GDPR — requires ARCHIVED, deterministic PII-free handle, token wipe + recordedBy null, audited) + `OffboardingService.offboard` (transfers KPIs, reparents reports, vacates units, archives; self-reparent/inactive-target/already-gone guards; pure purgedHandle 4 tests + e2e). `POST /users/:id/{offboard,purge}`.
 - The `/signup/wizard` onboarding stub + `/onboarding/*` endpoints (the full
   wizard is P6; the P1 stub was not built).
 

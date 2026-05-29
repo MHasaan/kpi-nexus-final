@@ -6,12 +6,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { InviteUserDto } from './dto/invite-user.dto.js';
+import { purgedHandle } from './services/purge-handle.js';
 
 export interface PublicUser {
   id: string;
@@ -73,6 +75,58 @@ export class UsersService {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return user;
+  }
+
+  /**
+   * GDPR hard-purge: requires the user already be ARCHIVED (offboard first).
+   * Redacts PII to a deterministic, non-reversible handle, drops all auth
+   * tokens, and nulls the user's recorded-by data-point references. Audited
+   * with the redacted handle only — no PII in the log.
+   */
+  async purge(userId: string): Promise<{ handle: string }> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true, status: true },
+    });
+    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (user.status !== 'ARCHIVED') {
+      throw new UnprocessableEntityException({
+        code: 'NOT_ARCHIVED',
+        message: 'User must be ARCHIVED (offboarded) before it can be purged',
+        details: { status: user.status },
+      });
+    }
+
+    const handle = purgedHandle(ctx.organizationId, userId);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: `${handle}@purged.local`,
+          fullName: 'Former User',
+          phone: null,
+          secondaryEmail: null,
+          passwordHash: null,
+          mfaSecret: null,
+          status: 'PURGED',
+          managerId: null,
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.kPIDataPoint.updateMany({ where: { organizationId: ctx.organizationId, recordedById: userId }, data: { recordedById: null } }),
+    ]);
+
+    await this.audit.record({
+      action: 'DELETE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { gdprPurge: true, handle },
+      redactedKeys: ['email', 'fullName', 'phone'],
+    });
+    return { handle };
   }
 
   /**

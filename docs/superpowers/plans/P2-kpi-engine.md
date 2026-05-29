@@ -47,10 +47,13 @@ under /kpis/:id/targets; 9 unit tests + e2e)**, **KpiThresholdBandsModule
 (N-band CRUD + hysteresis status resolver under /kpis/:id/threshold-bands +
 /status; 10 unit tests + e2e — built 2026-05-29)**, **KpiBenchmarksModule
 (manual CRUD + INTERNAL_HISTORICAL compute by averaging last-N-days data points,
-under /kpis/:id/benchmarks + /compute; 8 unit tests + e2e — built 2026-05-29)**.
+under /kpis/:id/benchmarks + /compute; 8 unit tests + e2e — built 2026-05-29)**,
+**KpiTemplatesModule (in-memory relevance ranking + filters, 15 builtin global
+templates lazily seeded across all 4 BSC quadrants × 7 functions, instantiate →
+DRAFT KPI w/ dup-name refusal + popularity bump, org-private create, under
+/kpi-templates; 10 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
-- KpiTemplatesModule — template gallery/instantiation.
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
   evaluation itself is built in FormulaModule).
 - LineageModule — dependency DAG/lineage SVG.
@@ -542,22 +545,22 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 3: KpiTemplatesModule
 
-- [ ] `KpiTemplatesService.list({industry?, function?, scorecardQuadrant?, search?})` — applies in-memory relevance scoring:
+- [x] `KpiTemplatesService.list({industry?, function?, scorecardQuadrant?, search?})` — applies in-memory relevance scoring (pure `rankTemplates`/`scoreTemplate` in `template-ranking.ts`):
   - exact name match: 1000
   - prefix: 500
   - contains: 200
   - tag exact: 150
   - tag prefix: 75
   - description contains: 50
-  - +popularity tiebreaker capped at 25
-- [ ] `KpiTemplatesService.seedGlobalIfEmpty()` lazy-seeds 13+ starter templates spanning all 4 BSC quadrants × 7 functions (sales/marketing/ops/HR/finance/support/engineering). Idempotent.
-- [ ] `KpiTemplatesService.instantiate(templateId, {name?, targetValue?, ownerRoleId?})` — clones into caller's org with status=DRAFT; bumps template's popularity counter; refuses duplicate names
-- [ ] Endpoints:
+  - +popularity tiebreaker capped at 25 (only added to genuine matches)
+- [x] `KpiTemplatesService.seedGlobalIfEmpty()` lazy-seeds 15 starter templates spanning all 4 BSC quadrants × 7 functions (sales/marketing/ops/HR/finance/support/engineering). Idempotent (count guard + skipDuplicates on unique slug).
+- [x] `KpiTemplatesService.instantiate(templateId, {name?, targetValue?, ownerUserId?})` — clones into caller's org with status=DRAFT (delegates to `KpisService.create`, so versioning/audit/dup-name 409 come for free); bumps template's popularity counter. (`ownerRoleId` from plan → `ownerUserId`: built schema owns KPIs by user.)
+- [x] Endpoints:
   - `GET /kpi-templates?industry=&function=&scorecardQuadrant=&search=` (KPI_VIEW)
-  - `POST /kpi-templates/:id/instantiate {name?, targetValue?, ownerRoleId?}` (KPI_CREATE)
+  - `POST /kpi-templates/:id/instantiate {name?, targetValue?, ownerUserId?}` (KPI_CREATE)
   - `POST /kpi-templates` (KPI_CREATE) for org-private templates
-- [ ] Unit tests: 7+ relevance scoring + instantiate
-- [ ] Note: Full PG FTS swap (tsvector + GIN) deferred to P9 — in-memory ranking is sufficient at FYP scale
+- [x] Unit tests: 10 (relevance scoring per signal, popularity cap, filter/search/tie ordering) + e2e (list/filter/search/instantiate/dup-refusal/popularity bump/private create)
+- [x] Note: Full PG FTS swap (tsvector + GIN) deferred to P9 — in-memory ranking is sufficient at FYP scale
 
 ### Module 4: FormulaModule
 

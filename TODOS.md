@@ -155,7 +155,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 ### Backend modules
 - [ ] `KpiCategoriesModule`: CRUD
 - [ ] `KpisModule`: CRUD with version snapshots, status lifecycle (DRAFT→PROPOSED→APPROVED→ACTIVE→PAUSED→DEPRECATED→ARCHIVED), deprecation chain, soft-delete + 30-day restore, sample-data seed, bulk CSV import
-- [ ] `KpiTemplatesModule`: curated catalog + relevance scoring + org-private + marketplace + instantiation
+- [x] `KpiTemplatesModule`: curated catalog + relevance scoring + org-private + marketplace + instantiation
 - [ ] `FormulaModule`: validate + attach/detach + dependency wiring
 - [ ] `CalculationEngineModule`: BullMQ queue `calc-engine` + processor wired to FormulaEvaluator + KpiCascadeService + LineageService
 - [ ] `DataPointsModule`: single + bulk insert with idempotency, validation, outlier flag (Welford streaming 3σ), adjust with history

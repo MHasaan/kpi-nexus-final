@@ -1361,3 +1361,39 @@ model KPIBenchmark {
   @@index([kpiId, kind])
   @@index([organizationId])
 }
+
+// ============================================================================
+// P2.x — KPI templates (build backlog; deferred from initial P2)
+// ============================================================================
+
+// Starter KPI definitions browsable in a gallery and instantiable into an org.
+// `organizationId` null = global/builtin template (visible to all tenants);
+// non-null = org-private template. Relevance ranking + filtering happens in the
+// service (in-memory; PG FTS deferred to P9).
+model KPITemplate {
+  id                String             @id @default(cuid())
+  organizationId    String?
+  slug              String             @unique
+  name              String
+  description       String?
+  type              KPIType
+  direction         KPIDirection
+  frequency         KPIFrequency
+  aggregationMethod AggregationMethod?
+  scorecardQuadrant String?
+  function          String?
+  industry          String?
+  unit              String?
+  unitConfig        Json?
+  targetSummary     String?
+  tags              String[]
+  popularity        Int                @default(0)
+  isGlobal          Boolean            @default(false)
+  isBuiltin         Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+
+  @@index([function])
+  @@index([scorecardQuadrant])
+  @@index([industry])
+  @@index([popularity(sort: Desc)])
+}

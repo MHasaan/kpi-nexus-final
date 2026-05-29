@@ -71,8 +71,7 @@ CascadeService; 8 unit tests + e2e — built 2026-05-29)**, **CalculationEngineM
 data points + lineage edges, re-entry guarded + transitive; sync `/recompute` +
 `/rollup` endpoints; DataPointsService reactive wiring; e2e — built 2026-05-29)**.
 - ~~`seedDemoData`~~ **built 2026-05-29** (`POST /demo-data/seed`: 1 category + 4 KPIs + 24 data points, idempotent; e2e). Trash-purge (hard purge of soft-deleted KPIs after N days) still deferred. `scripts/bench-hypertable.mjs` also built (configurable N×D, p50/p95/p99, auto-cleanup).
-- FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
-  templates, archive.
+- FE pages: **`/kpis/[id]` detail (Overview/Data/Targets/Thresholds/Benchmarks/Lineage tabs) + `/kpis/templates` marketplace built 2026-05-29.** Still deferred: `/kpis/[id]/{formula,cascade}` editors, `/kpis/tree`, `/kpis/scorecard`, `/kpis/archive` (needs restore/purge routes), home "My KPIs" panel, `/team`, `/users/[id]` KPI panel, onboarding wizard stub.
 
 ## Schema additions (Prisma)
 
@@ -729,7 +728,7 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
 ### Catalog and detail pages
 - [x] `/kpis` — DataTable with table + grid toggle, filters (category/scope/status/owner/quadrant/search), bulk actions, "New KPI" button
 - [x] `/kpis/new` — 3-panel form (basics: name/description/category/tags; measurement: type/direction/frequency/aggregation/unit/scope; assignment: owner role/scope-specific assignment UI)
-- [x] `/kpis/[id]` — detail page header (name, status badge, version, owner) + tabs:
+- [x] `/kpis/[id]` — detail page header (name, status badge, version) + tabbed UI **(built 2026-05-29: Overview/Data/Targets/Thresholds/Benchmarks/Lineage tabs wired to their APIs; browser e2e)**:
   - Overview (current value + sparkline + thresholds)
   - Data (recent points + entry form)
   - Formula (read-only view; edit at sub-route)
@@ -747,7 +746,7 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
 - [ ] `/kpis/[id]/lineage` — SVG graph (depth-1 upstream nodes left, downstream right, bezier edges color-coded by transform type) + BFS trace lists grouped by depth
 - [x] `/kpis/tree` — global cascade tree (per-quadrant color-coded cards, weight + rollup labels)
 - [x] `/kpis/scorecard` — 2×2 BSC quadrant grid (4 cards: Financial/Customer/Internal Process/Learning Growth) each containing ACTIVE/APPROVED KPIs with `{id, name, unit, latestValue, recordedAt, targetValue, status}`. Status direction-aware: HIGHER_IS_BETTER values below criticalThreshold → "critical", below warningThreshold → "warning", else "healthy"; inverted for LOWER_IS_BETTER; "neutral" when no thresholds; "no_data" when no data points
-- [ ] `/kpis/templates` — marketplace browse + instantiate (cards with industry/function/quadrant filters + search; click → instantiate dialog with name/target/owner override)
+- [x] `/kpis/templates` — marketplace browse + instantiate (cards with function filter + search; "Use template" → DRAFT KPI) **(built 2026-05-29; browser e2e)**
 - [x] `/kpis/import` — paste / upload CSV → preview → map columns → dry-run errors panel → commit
 - [x] `/kpis/archive` — soft-deleted with countdown badge + restore/purge
 

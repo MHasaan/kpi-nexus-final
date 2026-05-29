@@ -1422,3 +1422,40 @@ model LineageEdge {
   @@index([organizationId, targetType, targetId])
   @@index([organizationId, createdAt])
 }
+
+// ============================================================================
+// P2.x — Formula persistence + dependency DAG (build backlog; calc-engine)
+// ============================================================================
+
+// One persisted formula per KPI. `raw` is the source text evaluated by the
+// formula engine; `ast` is the parsed tree used to extract referenced KPI
+// identifiers into KPIDependency edges. `compiledSql` is reserved (PG pushdown,
+// unused at FYP scale). Scalar FKs (org-scoped explicitly).
+model FormulaExpression {
+  id             String   @id @default(cuid())
+  organizationId String
+  kpiId          String   @unique
+  raw            String
+  ast            Json
+  compiledSql    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// A directed edge in the formula dependency DAG: `dependentKpiId`'s formula
+// references `sourceKpiId`. Rebuilt on every formula attach. Drives reactive
+// recompute ordering. Scalar FKs (org-scoped explicitly).
+model KPIDependency {
+  id             String   @id @default(cuid())
+  organizationId String
+  sourceKpiId    String
+  dependentKpiId String
+  formulaRef     String?
+  createdAt      DateTime @default(now())
+
+  @@unique([sourceKpiId, dependentKpiId])
+  @@index([organizationId, sourceKpiId])
+  @@index([organizationId, dependentKpiId])
+}

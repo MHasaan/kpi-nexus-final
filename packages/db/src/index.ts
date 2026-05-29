@@ -77,6 +77,8 @@ export type {
   KPIBenchmark,
   KPITemplate,
   LineageEdge,
+  FormulaExpression,
+  KPIDependency,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a

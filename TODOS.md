@@ -189,7 +189,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `/users/[id]` per-user KPI panel
 
 ### Tests
-- [ ] `scripts/bench-hypertable.ts` seeds 1000 KPIs × 365 days, benchmarks 3 query patterns with p50/p95/p99
+- [x] `scripts/bench-hypertable.mjs` seeds N KPIs × D days, benchmarks 3 query patterns with p50/p95/p99 (configurable; auto-cleanup) — built 2026-05-29
 - [ ] Cascade weighted-avg correctness on parent recompute (6+ tests covering SUM/AVG/WEIGHTED_AVG/MIN/MAX/CUSTOM_FORMULA)
 - [ ] e2e UC-03 (Configure KPIs), UC-04 (Record KPI Data Point)
 - [ ] **PER_USER cross-user isolation test: user A records data, user B cannot see it via any endpoint**

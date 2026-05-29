@@ -31,6 +31,7 @@ import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { OrgStructureModule } from './org-structure/org-structure.module.js';
 import { CustomDomainsModule } from './custom-domains/custom-domains.module.js';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module.js';
+import { DemoDataModule } from './demo-data/demo-data.module.js';
 import { LineageModule } from './lineage/lineage.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
@@ -111,6 +112,7 @@ import { ReportsModule } from './reports/reports.module.js';
     OrgStructureModule,
     CustomDomainsModule,
     PlatformAdminModule,
+    DemoDataModule,
     LineageModule,
     DashboardsModule,
     ReportsModule,

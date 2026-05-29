@@ -70,7 +70,7 @@ CascadeService; 8 unit tests + e2e — built 2026-05-29)**, **CalculationEngineM
 (calc-engine BullMQ queue; reactive RECOMPUTE + CASCADE_ROLLUP writing COMPUTED
 data points + lineage edges, re-entry guarded + transitive; sync `/recompute` +
 `/rollup` endpoints; DataPointsService reactive wiring; e2e — built 2026-05-29)**.
-- `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
+- ~~`seedDemoData`~~ **built 2026-05-29** (`POST /demo-data/seed`: 1 category + 4 KPIs + 24 data points, idempotent; e2e). Trash-purge (hard purge of soft-deleted KPIs after N days) still deferred. `scripts/bench-hypertable.mjs` also built (configurable N×D, p50/p95/p99, auto-cleanup).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
   templates, archive.
 
@@ -535,7 +535,7 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
   - ARCHIVED is terminal
 - [x] `KpiImportService.dryRun(rows[])` — RFC 4180 CSV parser; friendly column aliases (case-insensitive: `KPI Name`, `Quadrant`, etc.); enum validation; numeric coercion; threshold direction rule; min ≤ max; intra-CSV duplicate + existing-org duplicate detection
 - [x] `KpiImportService.commit(rows[])` — re-validates then loops through `KpisService.create()` so audit/embedding/billing hooks fire
-- [ ] Sample data seed: `seedDemoData(orgId)` — instantiates 5 curated KPIs (MRR/NPS/Churn/Deployment Frequency/Engagement Score) and back-fills 30 days deterministic-pseudorandom data points; idempotent (skips already-seeded). Used by P9 sample-data toggle, but stub here.
+- [x] Sample data seed: `DemoDataService.seed()` (`POST /demo-data/seed`) — 1 category + 4 curated KPIs (Revenue/Active Users/NPS/Churn) + 6 months deterministic data points each; idempotent (skips already-seeded via demo-category marker). e2e. (built 2026-05-29)
 - [x] Controller endpoints:
   - `GET /kpis` (KPI_VIEW + visibility filter)
   - `POST /kpis` (KPI_CREATE)

@@ -8,6 +8,9 @@ import { AlertRulesModule } from './alert-rules/alert-rules.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { EscalationsModule } from './escalations/escalations.module.js';
+import { NotificationChannelsModule } from './notification-channels/notification-channels.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DashboardsModule } from './dashboards/dashboards.module.js';
@@ -83,6 +86,9 @@ import { ReportsModule } from './reports/reports.module.js';
     AlertEngineModule,
     AlertRulesModule,
     AlertsModule,
+    EscalationsModule,
+    NotificationsModule,
+    NotificationChannelsModule,
     ApiKeysModule,
     WebhooksModule,
     HealthModule,

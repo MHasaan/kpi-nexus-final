@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { RealtimeService } from '../realtime/realtime.service.js';
+import type { EscalationsService } from '../escalations/escalations.service.js';
 import { AlertEngineService } from './alert-engine.service.js';
 
 interface FakeRule {
@@ -102,11 +103,15 @@ function makeEngine(prisma: FakePrisma) {
   const realtime = {
     publish: vi.fn(async (_orgId: string, _event: { type: string }) => {}),
   };
+  const escalations = {
+    enqueueLevel: vi.fn(async (_a: string, _o: string, _l: number, _d: number) => {}),
+  };
   const engine = new AlertEngineService(
     prisma as unknown as PrismaService,
     realtime as unknown as RealtimeService,
+    escalations as unknown as EscalationsService,
   );
-  return { engine, realtime };
+  return { engine, realtime, escalations };
 }
 
 const ORG = 'org_1';

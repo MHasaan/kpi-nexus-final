@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
+import { EscalationsModule } from '../escalations/escalations.module.js';
 import { AlertEngineProcessor } from './alert-engine.processor.js';
 import { AlertEngineProducer, ALERT_EVAL_QUEUE } from './alert-engine.producer.js';
 import { AlertEngineService } from './alert-engine.service.js';
@@ -18,6 +19,7 @@ import { AlertEngineService } from './alert-engine.service.js';
   imports: [
     PrismaModule,
     RealtimeModule,
+    EscalationsModule,
     BullModule.registerQueue({ name: ALERT_EVAL_QUEUE }),
   ],
   providers: [AlertEngineService, AlertEngineProducer, AlertEngineProcessor],

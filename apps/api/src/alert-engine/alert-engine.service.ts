@@ -3,6 +3,7 @@ import type { AlertRule, Prisma } from '@kpi-nexus/db';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
+import { EscalationsService } from '../escalations/escalations.service.js';
 import type {
   NoDataConfig,
   StaticThresholdConfig,
@@ -37,6 +38,7 @@ export class AlertEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeService,
+    private readonly escalations: EscalationsService,
   ) {}
 
   /** Evaluate all data-point-triggered rules for a KPI after a new data point. */
@@ -145,6 +147,10 @@ export class AlertEngineService {
     } catch (err) {
       this.logger.warn(`AlertEngine: realtime publish failed for alert ${alert.id}: ${String(err)}`);
     }
+
+    // Kick off escalation level 0 immediately. The escalation processor no-ops
+    // when the rule has no escalation policy, and halts if the alert is acked.
+    await this.escalations.enqueueLevel(alert.id, rule.organizationId, 0, 0);
 
     return alert.id;
   }

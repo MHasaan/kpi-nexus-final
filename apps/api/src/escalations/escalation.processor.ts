@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { NotificationDispatcherService } from '../notifications/notification-dispatcher.service.js';
+import { NotificationDigestService } from '../notifications/notification-digest.service.js';
 import { EscalationsService, ESCALATION_QUEUE, type EscalationJobData } from './escalations.service.js';
 
 interface EscalationLevel {
@@ -30,6 +31,7 @@ export class EscalationProcessor extends WorkerHost {
     private readonly dispatcher: NotificationDispatcherService,
     private readonly realtime: RealtimeService,
     private readonly escalations: EscalationsService,
+    private readonly digest: NotificationDigestService,
   ) {
     super();
   }
@@ -90,6 +92,11 @@ export class EscalationProcessor extends WorkerHost {
       includeInApp: userIds.length > 0,
       targetUserId: alert.targetUserId,
     });
+
+    // Kick the digest collator for each notified user (collapses within window).
+    for (const uid of userIds) {
+      await this.digest.enqueueDigest(organizationId, uid);
+    }
 
     try {
       await this.realtime.publish(organizationId, {

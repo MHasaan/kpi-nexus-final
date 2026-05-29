@@ -1301,3 +1301,83 @@ export async function deleteNotificationChannel(id: string): Promise<void> {
 export async function testNotificationChannel(id: string): Promise<{ sent: boolean }> {
   return api(`/notification-channels/${id}/test`, { method: 'POST' });
 }
+
+// =============================================================================
+// API keys + Webhooks (P4 admin settings)
+// =============================================================================
+
+export interface ApiKey {
+  id: string;
+  organizationId: string;
+  name: string;
+  keyPrefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  createdById: string;
+}
+
+export async function listApiKeys(): Promise<ApiKey[]> {
+  return api('/api-keys');
+}
+
+export async function createApiKey(body: {
+  name: string;
+  scopes: string[];
+  expiresAt?: string;
+}): Promise<{ apiKey: ApiKey; plaintext: string }> {
+  return api('/api-keys', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function revokeApiKey(id: string): Promise<ApiKey> {
+  return api(`/api-keys/${id}`, { method: 'DELETE' });
+}
+
+export interface WebhookSubscription {
+  id: string;
+  organizationId: string;
+  name: string;
+  url: string;
+  events: string[];
+  isActive: boolean;
+  lastDeliveredAt: string | null;
+  lastStatus: number | null;
+  failureCount: number;
+  createdAt: string;
+  createdById: string;
+}
+
+export async function listWebhooks(): Promise<WebhookSubscription[]> {
+  return api('/webhooks');
+}
+
+export async function createWebhook(body: {
+  name: string;
+  url: string;
+  events: string[];
+}): Promise<{ webhook: WebhookSubscription; secret: string }> {
+  return api('/webhooks', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function rotateWebhookSecret(
+  id: string,
+): Promise<{ webhook: WebhookSubscription; secret: string }> {
+  return api(`/webhooks/${id}/rotate-secret`, { method: 'POST' });
+}
+
+export async function setWebhookActive(
+  id: string,
+  isActive: boolean,
+): Promise<WebhookSubscription> {
+  return api(`/webhooks/${id}`, { method: 'PATCH', body: JSON.stringify({ isActive }) });
+}
+
+export async function deleteWebhook(id: string): Promise<void> {
+  return api(`/webhooks/${id}`, { method: 'DELETE' });
+}
+
+export async function testWebhook(id: string): Promise<{ queued: boolean }> {
+  return api(`/webhooks/${id}/test`, { method: 'POST' });
+}

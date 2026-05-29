@@ -4,6 +4,7 @@ import type { AlertRule, Prisma } from '@kpi-nexus/db';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { EscalationsService } from '../escalations/escalations.service.js';
+import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   NoDataConfig,
   StaticThresholdConfig,
@@ -63,6 +64,36 @@ export class AlertEngineService {
       if (alertId) created.push(alertId);
     }
     return created;
+  }
+
+  /**
+   * Cron entry point: scan NO_DATA rules across every org that has one. Runs a
+   * cross-tenant query under RLS bypass to find the distinct orgs, then
+   * evaluates each org under its own context.
+   */
+  async scanAllNoData(now: Date = new Date()): Promise<number> {
+    const orgs = await RequestContextStore.runWithBypass('nodata-scan', () =>
+      this.prisma.alertRule.findMany({
+        where: { ruleType: 'NO_DATA', isActive: true },
+        select: { organizationId: true },
+        distinct: ['organizationId'],
+      }),
+    );
+    let total = 0;
+    for (const { organizationId } of orgs) {
+      const created = await RequestContextStore.run(
+        {
+          userId: 'alert-engine-system',
+          organizationId,
+          roleId: null,
+          principalType: 'user',
+          bypassRls: true,
+        },
+        () => this.scanNoDataForOrg(organizationId, now),
+      );
+      total += created.length;
+    }
+    return total;
   }
 
   /** Cron scan: evaluate NO_DATA rules for one org against current staleness. */

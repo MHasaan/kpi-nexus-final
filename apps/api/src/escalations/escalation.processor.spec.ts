@@ -37,14 +37,16 @@ function makeProcessor(opts: {
   };
   const realtime = { publish: vi.fn(async () => {}) };
   const escalations = { enqueueLevel: vi.fn(async () => {}) };
+  const digest = { enqueueDigest: vi.fn(async (_o: string, _u: string) => {}) };
 
   const processor = new EscalationProcessor(
     prisma as unknown as PrismaService,
     dispatcher as unknown as NotificationDispatcherService,
     realtime as unknown as RealtimeService,
     escalations as unknown as EscalationsService,
+    digest as unknown as import('../notifications/notification-digest.service.js').NotificationDigestService,
   );
-  return { processor, prisma, dispatcher, realtime, escalations };
+  return { processor, prisma, dispatcher, realtime, escalations, digest };
 }
 
 const job = (level: number): Job<EscalationJobData> =>

@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { AlertEngineService } from './alert-engine.service.js';
-import { ALERT_EVAL_QUEUE, type AlertEvalJobData } from './alert-engine.producer.js';
+import { ALERT_EVAL_QUEUE, NO_DATA_SCAN_JOB, type AlertEvalJobData } from './alert-engine.producer.js';
 
 /**
  * AlertEngineProcessor — BullMQ worker for the `alert-eval` queue. Runs inside
@@ -21,6 +21,14 @@ export class AlertEngineProcessor extends WorkerHost {
   }
 
   async process(job: Job<AlertEvalJobData>): Promise<void> {
+    // The repeatable NO_DATA scan fans out across all orgs (handles its own
+    // per-org context internally).
+    if (job.name === NO_DATA_SCAN_JOB) {
+      const created = await this.engine.scanAllNoData();
+      if (created > 0) this.logger.log(`NO_DATA scan created ${created} alert(s)`);
+      return;
+    }
+
     const { organizationId, kpiId, value, recordedAt, targetUserId } = job.data;
     await RequestContextStore.run(
       {

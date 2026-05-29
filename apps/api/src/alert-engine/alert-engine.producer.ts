@@ -1,8 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 
 export const ALERT_EVAL_QUEUE = 'alert-eval';
+
+/** Repeatable cron job name for the NO_DATA staleness scan. */
+export const NO_DATA_SCAN_JOB = 'nodata-scan';
 
 export interface AlertEvalJobData {
   organizationId: string;
@@ -19,12 +22,30 @@ export interface AlertEvalJobData {
  * on the data point makes re-enqueues idempotent.
  */
 @Injectable()
-export class AlertEngineProducer {
+export class AlertEngineProducer implements OnModuleInit {
   private readonly logger = new Logger(AlertEngineProducer.name);
 
   constructor(
     @InjectQueue(ALERT_EVAL_QUEUE) private readonly queue: Queue<AlertEvalJobData>,
   ) {}
+
+  /** Register the repeatable NO_DATA scan (every 5 minutes) on boot. */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.queue.add(
+        NO_DATA_SCAN_JOB,
+        {} as AlertEvalJobData,
+        {
+          repeat: { pattern: '*/5 * * * *' },
+          jobId: NO_DATA_SCAN_JOB,
+          removeOnComplete: 100,
+          removeOnFail: 100,
+        },
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to register NO_DATA scan job: ${String(err)}`);
+    }
+  }
 
   async enqueueEvaluateKpi(data: AlertEvalJobData): Promise<void> {
     try {

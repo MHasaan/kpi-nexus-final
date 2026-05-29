@@ -55,8 +55,14 @@ DRAFT KPI w/ dup-name refusal + popularity bump, org-private create, under
 
 **NOT built — deferred (to be implemented next):**
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
-  evaluation itself is built in FormulaModule).
-- LineageModule — dependency DAG/lineage SVG.
+  evaluation itself is built in FormulaModule). Will call `LineageService.record()`.
+- LineageModule FE (`/kpis/[id]/lineage` SVG graph) — backend built (see below).
+
+**Built (cont.):** **LineageModule (LineageEdge model; fire-and-forget
+`record()`; in-memory BFS `getUpstream`/`getDownstream`/`trace` both directions
+grouped by depth, cycle-safe + diamond-safe; `GET /lineage/:type/:id/{upstream,
+downstream,trace}`; 9 unit tests + e2e — built 2026-05-29; `record()` to be
+consumed by CalculationEngine #8)**.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
   templates, archive.
@@ -653,11 +659,12 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 11: LineageModule
 
-- [ ] Fire-and-forget `record({sourceType, sourceId, targetType, targetId, transformType, jobRunId?, metadata?})`
-- [ ] `getUpstream(type, id, depth=1)` — BFS one hop or N
-- [ ] `getDownstream(type, id, depth=1)`
-- [ ] `traceUpstream(type, id, maxDepth=5)` — full BFS
-- [ ] Endpoints: `GET /lineage/:type/:id/upstream`, `/downstream`, `/trace`
+- [x] Fire-and-forget `record({sourceType, sourceId, targetType, targetId, transformType, jobRunId?, metadata?})` — swallows+logs errors so it never breaks the caller's flow
+- [x] `getUpstream(type, id, depth=1)` — BFS one hop or N (pure `traverse` in `lineage-graph.ts`)
+- [x] `getDownstream(type, id, depth=1)`
+- [x] `trace(type, id, maxDepth=5)` — full BFS both directions, grouped by depth (consumed by the lineage graph view). Cycle-safe + diamond-safe (shallowest-depth-wins).
+- [x] Endpoints: `GET /lineage/:type/:id/upstream`, `/downstream`, `/trace` (KPI_VIEW; depth/maxDepth validated 1..20)
+- [x] Unit tests: 9 (chain/diamond/cycle, both directions, depth limits, flatten) + e2e (auth, validation, empty-graph shapes)
 
 ### Module 12: UserKpisModule
 

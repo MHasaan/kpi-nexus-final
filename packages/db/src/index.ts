@@ -76,6 +76,7 @@ export type {
   KPIThresholdBand,
   KPIBenchmark,
   KPITemplate,
+  LineageEdge,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a

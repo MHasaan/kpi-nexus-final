@@ -164,7 +164,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [x] `KpiThresholdBandsModule`: N-band thresholds + hysteresis (`consecutivePointsRequired`)
 - [x] `KpiBenchmarksModule`: internal (auto-computed N-day average) + external (industry) + compute trigger
 - [ ] `KpiCascadesModule`: parent↔child with weight + rollupMethod + cycle detection
-- [ ] `LineageModule`: record + BFS trace upstream/downstream
+- [x] `LineageModule`: record + BFS trace upstream/downstream
 - [ ] `UserKpisModule`: per-user assignments + personal data entry via `POST /user-kpis/my-kpis/:assignmentId/data`
 - [ ] `OrgUnitKpisModule`: per-unit assignments + inheritance to descendants
 

@@ -1397,3 +1397,28 @@ model KPITemplate {
   @@index([industry])
   @@index([popularity(sort: Desc)])
 }
+
+// ============================================================================
+// P2.x — Data lineage (build backlog; deferred from initial P2)
+// ============================================================================
+
+// A directed edge in the data-lineage graph: source feeds/produces target via
+// some transform (FORMULA | CASCADE_ROLLUP | INGEST | MANUAL_ADJUST). Types are
+// free strings ("kpi" | "data_point" | "ingestion_job" | ...). Recorded
+// fire-and-forget; traversed via in-memory BFS. Scalar FKs (org-scoped).
+model LineageEdge {
+  id             String   @id @default(cuid())
+  organizationId String
+  sourceType     String
+  sourceId       String
+  targetType     String
+  targetId       String
+  transformType  String
+  jobRunId       String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, sourceType, sourceId])
+  @@index([organizationId, targetType, targetId])
+  @@index([organizationId, createdAt])
+}

@@ -21,6 +21,7 @@ import { KpiTargetsModule } from './kpi-targets/kpi-targets.module.js';
 import { KpiThresholdBandsModule } from './kpi-threshold-bands/kpi-threshold-bands.module.js';
 import { KpiBenchmarksModule } from './kpi-benchmarks/kpi-benchmarks.module.js';
 import { KpiTemplatesModule } from './kpi-templates/kpi-templates.module.js';
+import { LineageModule } from './lineage/lineage.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { OrgUnitsModule } from './org-units/org-units.module.js';
@@ -90,6 +91,7 @@ import { ReportsModule } from './reports/reports.module.js';
     KpiThresholdBandsModule,
     KpiBenchmarksModule,
     KpiTemplatesModule,
+    LineageModule,
     DashboardsModule,
     ReportsModule,
     RealtimeModule,

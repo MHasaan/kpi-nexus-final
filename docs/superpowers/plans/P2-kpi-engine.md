@@ -698,6 +698,8 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
 
 ### Module 13: OrgUnitKpisModule
 
+> Built 2026-05-29 (audit gap — previously only the data-recording endpoint existed): `OrgUnitKpisService.assign`/`override`/`unassign`/`list` under `/org-units/:id/kpis`; added `inherited`/`inheritedFromUnitId`/`targetValue`/`currentValue`/`status` to `KPIAssignmentOrgUnit`. Inheritance is recomputed from scratch after each mutation via the pure `computeInheritedAssignments` (nearest-direct-ancestor wins; cycle-safe; 7 unit tests) + e2e (cascade/override/unassign). Recording refreshes current+status.
+
 - [x] Similar to UserKpisModule but for PER_UNIT scope
 - [x] `OrgUnitKpisService.assign({orgUnitId, kpiId, targetValue?})` — creates direct row + propagates `inherited=true` rows to all descendants (skipping descendants with their own direct row)
 - [x] `OrgUnitKpisService.override(orgUnitId, kpiId)` — promotes inherited → direct

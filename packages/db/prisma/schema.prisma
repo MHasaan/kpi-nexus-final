@@ -783,13 +783,20 @@ model KPIVersion {
 // Assignment of a PER_UNIT KPI to a specific OrgUnit. Used by
 // `buildKpiVisibilityWhere` to filter the list endpoint by orgUnit membership.
 model KPIAssignmentOrgUnit {
-  id             String   @id @default(cuid())
-  organizationId String
-  kpiId          String
-  kpi            KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
-  orgUnitId      String
-  orgUnit        OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  organizationId      String
+  kpiId               String
+  kpi                 KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  orgUnitId           String
+  orgUnit             OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  // Inheritance: direct rows (inherited=false) cascade to descendants as
+  // inherited rows (inherited=true, inheritedFromUnitId = nearest direct ancestor).
+  inherited           Boolean  @default(false)
+  inheritedFromUnitId String?
+  targetValue         Float?
+  currentValue        Float?
+  status              String?
+  createdAt           DateTime @default(now())
 
   @@unique([kpiId, orgUnitId])
   @@index([organizationId])

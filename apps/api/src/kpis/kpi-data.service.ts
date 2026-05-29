@@ -138,7 +138,13 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const assignment = await this.prisma.kPIAssignmentOrgUnit.findFirst({
       where: { id: assignmentId, organizationId: ctx.organizationId },
-      select: { kpiId: true, orgUnitId: true, kpi: { select: { scope: true } } },
+      select: {
+        id: true,
+        kpiId: true,
+        orgUnitId: true,
+        targetValue: true,
+        kpi: { select: { scope: true, direction: true } },
+      },
     });
     if (!assignment) {
       throw new NotFoundException({
@@ -160,7 +166,7 @@ export class KpiDataService {
       });
     }
 
-    return this.insertDataPoint({
+    const point = await this.insertDataPoint({
       organizationId: ctx.organizationId,
       kpiId: assignment.kpiId,
       orgUnitId: assignment.orgUnitId,
@@ -168,6 +174,16 @@ export class KpiDataService {
       recordedById: ctx.userId,
       dto,
     });
+    const status = computeAssignmentStatus(
+      point.value,
+      assignment.targetValue,
+      assignment.kpi.direction as KpiDirection,
+    );
+    await this.prisma.kPIAssignmentOrgUnit.update({
+      where: { id: assignment.id },
+      data: { currentValue: point.value, status },
+    });
+    return point;
   }
 
   /** POST /user-kpis/my-kpis/:assignmentId/data — PER_USER, current user only. */

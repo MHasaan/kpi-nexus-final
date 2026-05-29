@@ -1425,3 +1425,29 @@ export async function listNotificationDeliveries(
 export async function retryNotificationDelivery(id: string): Promise<NotificationDelivery> {
   return api(`/notification-deliveries/${id}/retry`, { method: 'POST' });
 }
+
+// =============================================================================
+// KPI CSV import (P2)
+// =============================================================================
+
+export interface ImportRowError {
+  row: number;
+  column?: string;
+  message: string;
+}
+
+export interface KpiImportDryRun {
+  totalRows: number;
+  valid: Array<Record<string, unknown>>;
+  errors: ImportRowError[];
+}
+
+export async function importKpisDryRun(csv: string): Promise<KpiImportDryRun> {
+  return api('/kpis/import/dry-run', { method: 'POST', body: JSON.stringify({ csv }) });
+}
+
+export async function importKpisCommit(
+  csv: string,
+): Promise<{ createdCount: number; createdIds: string[] }> {
+  return api('/kpis/import/commit', { method: 'POST', body: JSON.stringify({ csv }) });
+}

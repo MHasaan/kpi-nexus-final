@@ -11,11 +11,15 @@ import {
   Post,
 } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
-import type { ZodTypeAny, infer as ZInfer } from 'zod';
+import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreateKpiDtoSchema, UpdateKpiDtoSchema } from './dto/create-kpi.dto.js';
 import { KpisService, type PublicKpi } from './kpis.service.js';
+import { KpiImportService } from './kpi-import.service.js';
+import type { DryRunResult } from './kpi-import.js';
+
+const ImportCsvDtoSchema = z.object({ csv: z.string().min(1).max(1_000_000) }).strict();
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -31,7 +35,24 @@ const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
 
 @Controller('kpis')
 export class KpisController {
-  constructor(private readonly kpis: KpisService) {}
+  constructor(
+    private readonly kpis: KpisService,
+    private readonly importer: KpiImportService,
+  ) {}
+
+  @Post('import/dry-run')
+  @RequirePermissions(PermissionKey.KPI_CREATE)
+  @HttpCode(HttpStatus.OK)
+  importDryRun(@Body() body: unknown): Promise<DryRunResult> {
+    return this.importer.dryRun(parse(ImportCsvDtoSchema, body).csv);
+  }
+
+  @Post('import/commit')
+  @RequirePermissions(PermissionKey.KPI_CREATE)
+  @HttpCode(HttpStatus.CREATED)
+  importCommit(@Body() body: unknown): Promise<{ createdCount: number; createdIds: string[] }> {
+    return this.importer.commit(parse(ImportCsvDtoSchema, body).csv);
+  }
 
   @Get()
   @RequirePermissions(PermissionKey.KPI_VIEW)

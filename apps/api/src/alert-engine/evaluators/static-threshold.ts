@@ -1,5 +1,5 @@
 import type { StaticThresholdConfig } from '../../alert-rules/dto/alert-rule.dto.js';
-import { notTriggered, type EvaluationResult } from './types.js';
+import { type EvaluationResult, notTriggered } from './types.js';
 
 /**
  * STATIC_THRESHOLD: compare the incoming value against a fixed threshold using

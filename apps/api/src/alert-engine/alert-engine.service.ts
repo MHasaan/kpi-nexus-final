@@ -11,7 +11,7 @@ import type {
 } from '../alert-rules/dto/alert-rule.dto.js';
 import { evaluateNoData } from './evaluators/no-data.js';
 import { evaluateStaticThreshold } from './evaluators/static-threshold.js';
-import { notTriggered, type EvaluationResult } from './evaluators/types.js';
+import { type EvaluationResult, notTriggered } from './evaluators/types.js';
 
 export interface EvaluateKpiParams {
   organizationId: string;

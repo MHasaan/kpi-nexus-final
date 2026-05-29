@@ -1,5 +1,5 @@
 import type { NoDataConfig } from '../../alert-rules/dto/alert-rule.dto.js';
-import { notTriggered, type EvaluationResult } from './types.js';
+import { type EvaluationResult, notTriggered } from './types.js';
 
 /**
  * NO_DATA: triggers when the most recent data point is older than

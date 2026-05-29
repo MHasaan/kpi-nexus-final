@@ -2,9 +2,10 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 
+import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { AlertEngineService } from './alert-engine.service.js';
-import { ALERT_EVAL_QUEUE, NO_DATA_SCAN_JOB, type AlertEvalJobData } from './alert-engine.producer.js';
+import { ALERT_EVAL_QUEUE, type AlertEvalJobData, NO_DATA_SCAN_JOB } from './alert-engine.producer.js';
 
 /**
  * AlertEngineProcessor — BullMQ worker for the `alert-eval` queue. Runs inside
@@ -16,7 +17,10 @@ import { ALERT_EVAL_QUEUE, NO_DATA_SCAN_JOB, type AlertEvalJobData } from './ale
 export class AlertEngineProcessor extends WorkerHost {
   private readonly logger = new Logger(AlertEngineProcessor.name);
 
-  constructor(private readonly engine: AlertEngineService) {
+  constructor(
+    private readonly engine: AlertEngineService,
+    private readonly recommendations: RecommendationsService,
+  ) {
     super();
   }
 
@@ -50,6 +54,11 @@ export class AlertEngineProcessor extends WorkerHost {
           this.logger.log(
             `alert-eval job ${job.id ?? '?'}: created ${created.length} alert(s) for kpi ${kpiId}`,
           );
+          // Auto-generate an AI recommendation per raised alert. Fire-and-forget
+          // (never throws) so a recommendation failure can't break alerting.
+          for (const alertId of created) {
+            await this.recommendations.generateInOrg({ alertId, kpiId });
+          }
         }
       },
     );

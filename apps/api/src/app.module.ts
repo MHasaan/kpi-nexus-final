@@ -30,6 +30,7 @@ import { BillingModule } from './billing/billing.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { KpiSuggestionsModule } from './kpi-suggestions/kpi-suggestions.module.js';
 import { InsightsModule } from './insights/insights.module.js';
+import { RecommendationsModule } from './recommendations/recommendations.module.js';
 import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { OrgStructureModule } from './org-structure/org-structure.module.js';
 import { CustomDomainsModule } from './custom-domains/custom-domains.module.js';
@@ -114,6 +115,7 @@ import { ReportsModule } from './reports/reports.module.js';
     AiModule,
     KpiSuggestionsModule,
     InsightsModule,
+    RecommendationsModule,
     RateLimitModule,
     OrgStructureModule,
     CustomDomainsModule,

@@ -1692,6 +1692,32 @@ export async function getCascadeTree(): Promise<CascadeTreeNode[]> {
   return api('/kpi-cascades/all');
 }
 
+// =============================================================================
+// User KPIs (My KPIs / team / per-user views)
+// =============================================================================
+
+export interface MyKpiRow {
+  assignmentId: string;
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  targetValue: number | null;
+  currentValue: number | null;
+  status: string | null;
+}
+export async function listMyKpis(): Promise<MyKpiRow[]> {
+  return api('/user-kpis/my-kpis');
+}
+export async function listTeamKpis(): Promise<Array<{ userId: string; fullName: string; kpis: MyKpiRow[] }>> {
+  return api('/user-kpis/team');
+}
+export async function listUserKpis(userId: string): Promise<MyKpiRow[]> {
+  return api(`/user-kpis/user/${userId}`);
+}
+export async function recordMyKpiData(assignmentId: string, value: number, periodStart: string, periodEnd: string): Promise<DataPoint> {
+  return api(`/user-kpis/my-kpis/${assignmentId}/data`, { method: 'POST', body: JSON.stringify({ value, periodStart, periodEnd }) });
+}
+
 export interface KpiVersion {
   id: string;
   version: number;

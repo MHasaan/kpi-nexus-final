@@ -39,6 +39,20 @@ export class UserKpisController {
     return this.userKpis.listMyKpis();
   }
 
+  /** Direct reports' PER_USER KPIs (manager view). */
+  @Get('team')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  team(): Promise<Array<{ userId: string; fullName: string; kpis: MyKpiRow[] }>> {
+    return this.userKpis.listTeam();
+  }
+
+  /** A specific user's PER_USER KPIs (admin/manager view). */
+  @Get('user/:userId')
+  @RequirePermissions(PermissionKey.USERS_VIEW)
+  forUser(@Param('userId') userId: string): Promise<MyKpiRow[]> {
+    return this.userKpis.listForUser(userId);
+  }
+
   @Post('assign')
   @RequirePermissions(PermissionKey.KPI_CREATE, PermissionKey.USERS_MANAGE)
   @HttpCode(HttpStatus.CREATED)

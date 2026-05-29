@@ -79,10 +79,38 @@ export class UserKpisService {
   }
 
   /** The caller's own PER_USER assignments with current value + status. */
-  async listMyKpis(): Promise<MyKpiRow[]> {
+  listMyKpis(): Promise<MyKpiRow[]> {
+    return this.rowsForUser(RequestContextStore.require().userId);
+  }
+
+  /** A specific user's PER_USER assignments (admin/manager view). */
+  async listForUser(userId: string): Promise<MyKpiRow[]> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    return this.rowsForUser(userId);
+  }
+
+  /** Direct reports of the caller, each with their PER_USER assignments. */
+  async listTeam(): Promise<Array<{ userId: string; fullName: string; kpis: MyKpiRow[] }>> {
+    const ctx = RequestContextStore.require();
+    const reports = await this.prisma.user.findMany({
+      where: { organizationId: ctx.organizationId, managerId: ctx.userId },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: 'asc' },
+    });
+    return Promise.all(
+      reports.map(async (r) => ({ userId: r.id, fullName: r.fullName, kpis: await this.rowsForUser(r.id) })),
+    );
+  }
+
+  private async rowsForUser(userId: string): Promise<MyKpiRow[]> {
     const ctx = RequestContextStore.require();
     const rows = await this.prisma.kPIAssignmentUser.findMany({
-      where: { organizationId: ctx.organizationId, userId: ctx.userId },
+      where: { organizationId: ctx.organizationId, userId },
       select: {
         id: true,
         kpiId: true,

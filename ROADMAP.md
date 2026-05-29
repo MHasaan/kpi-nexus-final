@@ -14,7 +14,7 @@ Master index for the 10-phase delivery plan. Each phase is shippable on its own.
 | P1 | Identity + Tenancy + 18-permission RBAC + basic onboarding stub | 4 wk | ✅ | [P1-identity-tenancy-rbac.md](./docs/superpowers/plans/P1-identity-tenancy-rbac.md) |
 | P2 | KPI engine + formulas + cascades + targets + thresholds + TimescaleDB | 5 wk | ✅ | [P2-kpi-engine.md](./docs/superpowers/plans/P2-kpi-engine.md) |
 | P3 | Visualization + reporting + SSE real-time + public share + embeds | 4 wk | ✅ | [P3-visualization.md](./docs/superpowers/plans/P3-visualization.md) |
-| P4 | Alerting + escalation + notifications + dedup + digest + DLQ | 3 wk | 🟨 | [P4-alerting.md](./docs/superpowers/plans/P4-alerting.md) |
+| P4 | Alerting + escalation + notifications + dedup + digest + DLQ | 3 wk | ✅ | [P4-alerting.md](./docs/superpowers/plans/P4-alerting.md) |
 | P5 | AI layer — providers + budget + NLQ + insights + recs + ML sidecar | 5 wk | ⬜ | [P5-ai-layer.md](./docs/superpowers/plans/P5-ai-layer.md) |
 | P6 | Onboarding 2.0 + AI co-pilot + drafts + templates + setup checklist | 3 wk | ⬜ | [P6-onboarding-v2.md](./docs/superpowers/plans/P6-onboarding-v2.md) |
 | P7 | Collaboration — tasks + comments + mentions + OKRs + approvals | 4 wk | ⬜ | [P7-collaboration.md](./docs/superpowers/plans/P7-collaboration.md) |

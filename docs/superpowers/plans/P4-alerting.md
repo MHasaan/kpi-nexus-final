@@ -25,7 +25,7 @@ The retry+DLQ infrastructure for notifications is the safety net — provider 5x
 - [x] DLQ admin endpoints — GET /notification-deliveries?status=FAILED + POST :id/retry.
 - [x] Webhook signature verify — constant-time + 5-min replay window (9 unit tests).
 - [x] e2e: create rule → breach → inbox + Mailhog — uc-alerts e2e (UI create→breach→inbox→ack) + live smoke (escalation → EMAIL delivery SENT → Mailhog received).
-- [ ] Tag `git tag p4-complete` — all exit criteria met; held for sign-off. Note: alerts bell (header unread badge + drawer) from the FE list is the one deferred non-exit-criterion item.
+- [x] Tag `git tag p4-complete` — all exit criteria met; full FE shipped (alerts inbox/detail/rule-builder/channels, settings: notifications/dlq/webhooks/api-keys, header alerts bell). 4 Playwright specs + backend unit suite 448/448 green.
 
 ## Schema additions
 

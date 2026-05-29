@@ -682,6 +682,8 @@ Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-de
 
 ### Module 12: UserKpisModule
 
+> Built 2026-05-29 (audit gap — previously only the data-recording endpoint existed): `UserKpisService.assign`/`unassign`/`listMyKpis` under `/user-kpis`; added `targetValue`/`currentValue`/`status` to `KPIAssignmentUser`; recording refreshes current+status via the pure direction-aware `computeAssignmentStatus` (10 unit tests) + e2e.
+
 - [x] `UserKpisService.assign({userId, kpiId, targetValue?})` — creates UserKPIAssignment; refuses if KPI scope ≠ PER_USER
 - [x] `UserKpisService.unassign(assignmentId)` — removes
 - [x] `UserKpisService.recordData({assignmentId, value, recordedAt, notes?})` — creates KPIDataPoint with `userAssignmentId` set; updates `UserKPIAssignment.currentValue` + `status` (on_track/at_risk/behind/exceeded based on target)

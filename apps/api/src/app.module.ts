@@ -24,6 +24,7 @@ import { KpiTemplatesModule } from './kpi-templates/kpi-templates.module.js';
 import { KpiCascadesModule } from './kpi-cascades/kpi-cascades.module.js';
 import { KpiFormulaModule } from './kpi-formula/kpi-formula.module.js';
 import { CalculationEngineModule } from './calculation-engine/calculation-engine.module.js';
+import { UserKpisModule } from './user-kpis/user-kpis.module.js';
 import { LineageModule } from './lineage/lineage.module.js';
 import { MfaModule } from './mfa/mfa.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
@@ -97,6 +98,7 @@ import { ReportsModule } from './reports/reports.module.js';
     KpiCascadesModule,
     KpiFormulaModule,
     CalculationEngineModule,
+    UserKpisModule,
     LineageModule,
     DashboardsModule,
     ReportsModule,

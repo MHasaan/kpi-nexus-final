@@ -16,6 +16,7 @@ import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { detectOutlier } from './outlier-detector.js';
+import { type KpiDirection, computeAssignmentStatus } from '../user-kpis/assignment-status.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 
 const dataPointSelect = {
@@ -177,7 +178,13 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const assignment = await this.prisma.kPIAssignmentUser.findFirst({
       where: { id: assignmentId, organizationId: ctx.organizationId },
-      select: { kpiId: true, userId: true, kpi: { select: { scope: true } } },
+      select: {
+        id: true,
+        kpiId: true,
+        userId: true,
+        targetValue: true,
+        kpi: { select: { scope: true, direction: true } },
+      },
     });
     if (!assignment) {
       throw new NotFoundException({
@@ -209,7 +216,7 @@ export class KpiDataService {
       });
     }
 
-    return this.insertDataPoint({
+    const point = await this.insertDataPoint({
       organizationId: ctx.organizationId,
       kpiId: assignment.kpiId,
       orgUnitId: null,
@@ -217,6 +224,18 @@ export class KpiDataService {
       recordedById: ctx.userId,
       dto,
     });
+
+    // Refresh the assignment's denormalized current value + progress status.
+    const status = computeAssignmentStatus(
+      point.value,
+      assignment.targetValue,
+      assignment.kpi.direction as KpiDirection,
+    );
+    await this.prisma.kPIAssignmentUser.update({
+      where: { id: assignment.id },
+      data: { currentValue: point.value, status },
+    });
+    return point;
   }
 
   /**

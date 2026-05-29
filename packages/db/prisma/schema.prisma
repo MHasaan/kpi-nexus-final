@@ -804,6 +804,10 @@ model KPIAssignmentUser {
   kpi            KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
   userId         String
   user           User     @relation("UserKpiAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  // Per-assignment goal + denormalized latest value/status (refreshed on record).
+  targetValue    Float?
+  currentValue   Float?
+  status         String?  // on_track | at_risk | behind | exceeded (direction-aware)
   createdAt      DateTime @default(now())
 
   @@unique([kpiId, userId])

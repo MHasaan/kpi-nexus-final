@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeLevels, wouldCreateCycle, type CascadeEdge } from './cascade-graph.js';
+import { type CascadeEdge, computeLevels, wouldCreateCycle } from './cascade-graph.js';
 
 function edge(parentKpiId: string, childKpiId: string): CascadeEdge {
   return { parentKpiId, childKpiId };

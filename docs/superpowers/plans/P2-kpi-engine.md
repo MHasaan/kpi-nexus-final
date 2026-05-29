@@ -56,9 +56,8 @@ DRAFT KPI w/ dup-name refusal + popularity bump, org-private create, under
 /kpi-templates; 10 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
-- CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
-  evaluation itself is built in FormulaModule). Will call `LineageService.record()`.
 - LineageModule FE (`/kpis/[id]/lineage` SVG graph) — backend built (see below).
+- Scheduled/cron recompute — calc-engine is reactive + manual-trigger only for now.
 
 **Built (cont.):** **LineageModule (LineageEdge model; fire-and-forget
 `record()`; in-memory BFS `getUpstream`/`getDownstream`/`trace` both directions
@@ -67,7 +66,10 @@ downstream,trace}`; 9 unit tests + e2e — built 2026-05-29; `record()` to be
 consumed by CalculationEngine #8)**, **KpiCascadesModule (CRUD over existing
 KPICascade: attach w/ pure cycle detection + level BFS, detach, list, tree;
 `GET /kpi-cascades` + `/all`, `POST`/`DELETE` KPI_EDIT; rollUp delegates to
-CascadeService; 8 unit tests + e2e — built 2026-05-29)**.
+CascadeService; 8 unit tests + e2e — built 2026-05-29)**, **CalculationEngineModule
+(calc-engine BullMQ queue; reactive RECOMPUTE + CASCADE_ROLLUP writing COMPUTED
+data points + lineage edges, re-entry guarded + transitive; sync `/recompute` +
+`/rollup` endpoints; DataPointsService reactive wiring; e2e — built 2026-05-29)**.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
   templates, archive.
@@ -588,13 +590,16 @@ built 2026-05-29 (calc-engine foundations):
 
 **Files**: `calculation-engine.module.ts`, `calculation-engine.producer.ts`, `calculation-engine.processor.ts`
 
-- [ ] BullMQ queue `calc-engine`
-- [ ] `CalculationEngineProducer.enqueueRecompute({kpiId, organizationId})` — for formula re-evaluation
-- [ ] `CalculationEngineProducer.enqueueCascadeRollup({childKpiId, organizationId})` — fired by DataPointsService on every non-COMPUTED insert
-- [ ] `CalculationEngineProcessor`:
-  - RECOMPUTE: load FormulaExpression, evaluate via FormulaEvaluator, write COMPUTED data point
-  - CASCADE_ROLLUP: walk cascade tree level-by-level (max depth 5), load latest child values, apply per-edge rollupMethod via `KpiCascadesService.rollUp()`, write COMPUTED data point per parent, record CASCADE_ROLLUP LineageEdge
-  - Re-entry blocked by `sourceType === "COMPUTED"` guard
+Built 2026-05-29 (calc-engine pipeline; spec `2026-05-29-calc-engine-pipeline-design.md`):
+- [x] BullMQ queue `calc-engine` (in-process WorkerHost, alert-engine pattern)
+- [x] `CalculationEngineProducer.enqueueRecompute({organizationId, kpiId})` + `enqueueCascadeRollup({organizationId, parentKpiId, periodStart, periodEnd})` — fire-and-forget; deterministic jobIds collapse pending dupes, `removeOnComplete: true` keeps them re-runnable
+- [x] Fired by `KpiDataService` on every non-COMPUTED insert (cascade rollup for parents + recompute for formula dependents)
+- [x] `CalculationEngineProcessor` (system RequestContext per job):
+  - RECOMPUTE: load FormulaExpression, bind dependency-source latest values, `evaluateFormula`, write COMPUTED data point + FORMULA lineage edges, enqueue transitive dependents
+  - CASCADE_ROLLUP: `CascadeService.computeForParent`, write parent COMPUTED data point + CASCADE_ROLLUP lineage edges, enqueue transitive parents
+  - Re-entry blocked: COMPUTED points are written via direct Prisma (never through DataPointsService), so they never re-trigger
+- [x] 💡 Synchronous trigger endpoints `POST /kpis/:id/recompute` + `/rollup` (KPI_EDIT) — same service methods, deterministic for e2e + manual use
+- [x] e2e: formula recompute (value + COMPUTED point + FORMULA lineage), cascade rollup (value + parent COMPUTED point + CASCADE_ROLLUP lineage), reactive insert → rollup observed via poll
 
 ### Module 6: DataPointsModule (the workhorse)
 

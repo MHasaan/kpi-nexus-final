@@ -157,7 +157,7 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 - [ ] `KpisModule`: CRUD with version snapshots, status lifecycle (DRAFT→PROPOSED→APPROVED→ACTIVE→PAUSED→DEPRECATED→ARCHIVED), deprecation chain, soft-delete + 30-day restore, sample-data seed, bulk CSV import
 - [x] `KpiTemplatesModule`: curated catalog + relevance scoring + org-private + marketplace + instantiation
 - [x] `FormulaModule`: validate + attach/detach + dependency wiring
-- [ ] `CalculationEngineModule`: BullMQ queue `calc-engine` + processor wired to FormulaEvaluator + KpiCascadeService + LineageService
+- [x] `CalculationEngineModule`: BullMQ queue `calc-engine` + processor wired to FormulaEvaluator + KpiCascadeService + LineageService
 - [ ] `DataPointsModule`: single + bulk insert with idempotency, validation, outlier flag (Welford streaming 3σ), adjust with history
 - [ ] **Critical: `POST /kpis/:id/data` returns HTTP 422 if KPI scope ≠ ORG_WIDE with correct endpoint name in error**
 - [x] `KpiTargetsModule`: 6 target types (STATIC/TIERED/DYNAMIC/TIME_VARYING/CONDITIONAL/SCENARIO) + `resolveActive(kpiId, at)`

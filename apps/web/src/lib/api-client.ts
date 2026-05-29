@@ -1492,3 +1492,110 @@ export async function updateKpiCategory(
 export async function deleteKpiCategory(id: string): Promise<void> {
   return api(`/kpi-categories/${id}`, { method: 'DELETE' });
 }
+
+// =============================================================================
+// KPI detail: single fetch + targets / threshold-bands / benchmarks / lineage
+// =============================================================================
+
+export async function getKpi(id: string): Promise<KpiSummary> {
+  return api(`/kpis/${id}`);
+}
+
+export interface KpiTarget {
+  id: string;
+  kpiId: string;
+  type: string;
+  value: number | null;
+  minValue: number | null;
+  expectedValue: number | null;
+  stretchValue: number | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  scenarioName: string | null;
+  createdAt: string;
+}
+
+export async function listTargets(kpiId: string): Promise<KpiTarget[]> {
+  return api(`/kpis/${kpiId}/targets`);
+}
+export async function createTarget(
+  kpiId: string,
+  body: { type: string; value?: number; minValue?: number; expectedValue?: number; stretchValue?: number; effectiveFrom?: string; effectiveTo?: string; scenarioName?: string },
+): Promise<KpiTarget> {
+  return api(`/kpis/${kpiId}/targets`, { method: 'POST', body: JSON.stringify(body) });
+}
+export async function deleteTarget(kpiId: string, targetId: string): Promise<void> {
+  return api(`/kpis/${kpiId}/targets/${targetId}`, { method: 'DELETE' });
+}
+
+export interface ThresholdBand {
+  id: string;
+  kpiId: string;
+  name: string;
+  lower: number | null;
+  upper: number | null;
+  color: string;
+  order: number;
+  consecutivePointsRequired: number;
+}
+export interface ThresholdStatus {
+  band: string | null;
+  reason?: string;
+  color?: string;
+}
+export async function listThresholdBands(kpiId: string): Promise<ThresholdBand[]> {
+  return api(`/kpis/${kpiId}/threshold-bands`);
+}
+export async function createThresholdBand(
+  kpiId: string,
+  body: { name: string; lower?: number | null; upper?: number | null; color: string; order: number; consecutivePointsRequired?: number },
+): Promise<ThresholdBand> {
+  return api(`/kpis/${kpiId}/threshold-bands`, { method: 'POST', body: JSON.stringify(body) });
+}
+export async function deleteThresholdBand(kpiId: string, bandId: string): Promise<void> {
+  return api(`/kpis/${kpiId}/threshold-bands/${bandId}`, { method: 'DELETE' });
+}
+export async function getThresholdStatus(kpiId: string): Promise<ThresholdStatus> {
+  return api(`/kpis/${kpiId}/threshold-bands/status`);
+}
+
+export interface Benchmark {
+  id: string;
+  kpiId: string;
+  kind: string;
+  value: number;
+  source: string | null;
+  createdAt: string;
+}
+export async function listBenchmarks(kpiId: string): Promise<Benchmark[]> {
+  return api(`/kpis/${kpiId}/benchmarks`);
+}
+export async function createBenchmark(
+  kpiId: string,
+  body: { kind: string; value: number; source?: string },
+): Promise<Benchmark> {
+  return api(`/kpis/${kpiId}/benchmarks`, { method: 'POST', body: JSON.stringify(body) });
+}
+export async function computeBenchmark(kpiId: string, days = 30): Promise<Benchmark> {
+  return api(`/kpis/${kpiId}/benchmarks/compute`, { method: 'POST', body: JSON.stringify({ days }) });
+}
+export async function deleteBenchmark(kpiId: string, benchmarkId: string): Promise<void> {
+  return api(`/kpis/${kpiId}/benchmarks/${benchmarkId}`, { method: 'DELETE' });
+}
+
+export interface LineageHop {
+  type: string;
+  id: string;
+  via: string;
+  edgeId: string;
+}
+export async function getLineageUpstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
+  return api(`/lineage/${type}/${id}/upstream?depth=${depth}`);
+}
+export async function getLineageDownstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
+  return api(`/lineage/${type}/${id}/downstream?depth=${depth}`);
+}
+
+export async function recomputeKpi(kpiId: string): Promise<{ value: number | null }> {
+  return api(`/kpis/${kpiId}/recompute`, { method: 'POST', body: JSON.stringify({}) });
+}

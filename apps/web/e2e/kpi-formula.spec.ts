@@ -54,7 +54,7 @@ test('formula: attach/detach + dependency edges + cycle/unknown/parse rejection'
   });
 
   const revenue = await makeKpi(api, 'revenue');
-  const cost = await makeKpi(api, 'cost');
+  await makeKpi(api, 'cost'); // referenced by name in the formula below
   const margin = await makeKpi(api, 'margin');
 
   // No formula yet.

@@ -38,8 +38,8 @@ were never built**. Checkboxes are reconciled to reality:
 
 **Built:** KpisModule (CRUD + soft-delete + scope assignments), DataPointsModule
 (3 scope-specific record endpoints + list + dashboard-summary), FormulaModule
-(pure evaluator `formula.ts` only — persistence/attach built separately, see
-calc-engine block below), `CascadeService` pure rollup helper, bulk CSV import,
+(pure evaluator `formula.ts` + persistence/attach layer — see Module 4 + calc-engine
+block below), `CascadeService` pure rollup helper, bulk CSV import,
 **KpiCategoriesModule (CRUD +
 /kpis/categories UI; 6 unit tests + e2e)**, **KPI status state-machine +
 KPIVersion snapshots (transition/versions endpoints; snapshot on
@@ -575,10 +575,14 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 4: FormulaModule
 
-- [x] `FormulaService.validate({raw, kpiId?})` — parses via `packages/formula/parser`, returns AST or parse errors
-- [x] `FormulaService.attach(kpiId, raw)` — validates, creates `FormulaExpression` (unique per KPI), creates `KPIDependency` rows for referenced KPIs, runs DAG cycle detection across org's full formula graph
-- [x] `FormulaService.detach(kpiId)` — removes FormulaExpression + KPIDependency edges
-- [x] Endpoints: `POST /kpis/:id/formula/validate`, `POST /kpis/:id/formula`, `DELETE /kpis/:id/formula`
+Evaluator (`formula.ts`) was built earlier (50+ tests). Persistence/attach layer
+built 2026-05-29 (calc-engine foundations):
+- [x] Parse-validation is inline in `attach` (via `parseFormula`; parse failure → 400 `FORMULA_PARSE_ERROR`). No separate `/validate` endpoint — YAGNI.
+- [x] `KpiFormulaService.attach(kpiId, {raw})` — parses, resolves referenced identifiers to KPIs **by name** in org (unknown → 400 `UNKNOWN_KPI_REFS`), runs DAG cycle detection (400 `FORMULA_CYCLE`), upserts `FormulaExpression` (unique per KPI) + rebuilds `KPIDependency` edges in a transaction
+- [x] `KpiFormulaService.detach(kpiId)` — removes FormulaExpression + its KPIDependency edges
+- [x] `KpiFormulaService.get(kpiId)` — returns the expression or null
+- [x] Endpoints: `GET /kpis/:id/formula`, `PUT /kpis/:id/formula` (attach/replace), `DELETE /kpis/:id/formula` (KPI_VIEW / KPI_EDIT)
+- [x] Pure unit tests: 10 (identifier extraction, dependency cycle detection) + e2e (attach/get/detach, unknown-ref, parse-error, cycle)
 
 ### Module 5: CalculationEngineModule
 

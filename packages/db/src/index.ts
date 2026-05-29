@@ -72,6 +72,7 @@ export type {
   NotificationDelivery,
   WebhookSubscription,
   ApiKey,
+  KPITarget,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -96,4 +97,5 @@ export {
   AlertStatus,
   NotificationChannelKind,
   NotificationDeliveryStatus,
+  KPITargetType,
 } from '@prisma/client';

@@ -41,14 +41,15 @@ were never built**. Checkboxes are reconciled to reality:
 KpiCascadesModule, bulk CSV import, **KpiCategoriesModule (CRUD +
 /kpis/categories UI; 6 unit tests + e2e)**, **KPI status state-machine +
 KPIVersion snapshots (transition/versions endpoints; snapshot on
-create/update/transition; 11 unit tests + e2e — built 2026-05-29)**.
+create/update/transition; 11 unit tests + e2e)**, **KpiTargetsModule (6 target
+types w/ per-type + monotonic-band validation, resolveActive window logic, CRUD
+under /kpis/:id/targets; 9 unit tests + e2e — built 2026-05-29)**.
 
 **NOT built — deferred (to be implemented next):**
 - KpiTemplatesModule — template gallery/instantiation.
 - CalculationEngineModule — scheduled recompute of COMPUTED KPIs (formula
   evaluation itself is built in FormulaModule).
-- KpiTargetsModule, KpiThresholdBandsModule, KpiBenchmarksModule — no
-  routes/services/UI.
+- KpiThresholdBandsModule, KpiBenchmarksModule — no routes/services/UI.
 - LineageModule — dependency DAG/lineage SVG.
 - `seedDemoData` + trash-purge (hard purge of soft-deleted KPIs after N days).
 - FE pages: `/kpis/[id]/targets`, `/thresholds`, `/benchmarks`, `/lineage`,
@@ -605,15 +606,15 @@ Add stub `IAiProvider` interface in `src/types.ts` so other packages can referen
 
 ### Module 7: KpiTargetsModule
 
-- [ ] CRUD with per-type validation:
+- [x] CRUD with per-type validation:
   - STATIC needs `value`
   - TIERED needs ≥1 band + monotonic order (min ≤ expected ≤ stretch ≤ impossible for HIGHER_IS_BETTER, reversed for LOWER)
   - DYNAMIC needs `formula`
   - TIME_VARYING needs `effectiveFrom`
   - CONDITIONAL needs `metadata.condition`
   - SCENARIO needs `scenarioName` + same bands as TIERED
-- [ ] `resolveActive(kpiId, at)` — picks most-recent window containing the moment
-- [ ] Endpoints: `GET/POST/PATCH/DELETE /kpis/:kpiId/targets`, `GET /kpis/:kpiId/targets/active?at=`
+- [x] `resolveActive(kpiId, at)` — picks most-recent window containing the moment
+- [x] Endpoints: `GET/POST/PATCH/DELETE /kpis/:kpiId/targets`, `GET /kpis/:kpiId/targets/active?at=`
 
 ### Module 8: KpiThresholdBandsModule
 

@@ -1271,3 +1271,44 @@ model ApiKey {
 
   @@index([organizationId, revokedAt])
 }
+
+// ============================================================================
+// P2.x — KPI targets (build backlog; deferred from initial P2)
+// ============================================================================
+
+enum KPITargetType {
+  STATIC
+  TIERED
+  DYNAMIC
+  TIME_VARYING
+  CONDITIONAL
+  SCENARIO
+}
+
+// A target/goal for a KPI. Type-specific fields are validated in the service
+// (STATIC→value, TIERED/SCENARIO→bands, DYNAMIC→formula, TIME_VARYING→window,
+// CONDITIONAL→metadata.condition). Scalar FKs (no Prisma relations) — queries
+// are org-scoped explicitly.
+model KPITarget {
+  id              String        @id @default(cuid())
+  organizationId  String
+  kpiId           String
+  type            KPITargetType @default(STATIC)
+  value           Float?
+  minValue        Float?
+  expectedValue   Float?
+  stretchValue    Float?
+  impossibleValue Float?
+  formula         String?
+  metadata        Json?
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  scenarioName    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String
+
+  @@index([kpiId, type])
+  @@index([kpiId, effectiveFrom])
+  @@index([organizationId])
+}

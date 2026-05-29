@@ -1168,3 +1168,136 @@ export async function logoutRequest(): Promise<void> {
   }
   clearTokens();
 }
+
+// =============================================================================
+// Alerting (P4)
+// =============================================================================
+
+export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+export type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
+export type AlertRuleType =
+  | 'STATIC_THRESHOLD'
+  | 'DYNAMIC_STDDEV'
+  | 'RATE_OF_CHANGE'
+  | 'NO_DATA'
+  | 'COMPOSITE';
+
+export interface EscalationLevelInput {
+  delayMinutes: number;
+  channelIds: string[];
+  notifyRoleIds: string[];
+  notifyUserIds: string[];
+}
+
+export interface AlertRule {
+  id: string;
+  organizationId: string;
+  kpiId: string;
+  name: string;
+  description: string | null;
+  ruleType: AlertRuleType;
+  config: Record<string, unknown>;
+  severity: AlertSeverity;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+  escalationRule: { id: string; levels: unknown; createdAt: string; updatedAt: string } | null;
+}
+
+export interface Alert {
+  id: string;
+  organizationId: string;
+  alertRuleId: string | null;
+  kpiId: string;
+  message: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  targetUserId: string | null;
+  acknowledgedAt: string | null;
+  acknowledgedById: string | null;
+  resolvedAt: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NotificationChannel {
+  id: string;
+  organizationId: string;
+  name: string;
+  kind: 'EMAIL' | 'SLACK' | 'TEAMS' | 'SMS' | 'IN_APP' | 'WEBHOOK';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listAlertRules(kpiId?: string): Promise<AlertRule[]> {
+  const q = kpiId ? `?kpiId=${encodeURIComponent(kpiId)}` : '';
+  return api(`/alert-rules${q}`);
+}
+
+export async function createAlertRule(body: {
+  kpiId: string;
+  name: string;
+  description?: string;
+  ruleType: AlertRuleType;
+  severity?: AlertSeverity;
+  isActive?: boolean;
+  config: Record<string, unknown>;
+  escalationLevels?: EscalationLevelInput[];
+}): Promise<AlertRule> {
+  return api('/alert-rules', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteAlertRule(id: string): Promise<void> {
+  return api(`/alert-rules/${id}`, { method: 'DELETE' });
+}
+
+export async function listAlerts(filter: {
+  status?: AlertStatus;
+  severity?: AlertSeverity;
+  kpiId?: string;
+} = {}): Promise<Alert[]> {
+  const params = new URLSearchParams();
+  if (filter.status) params.set('status', filter.status);
+  if (filter.severity) params.set('severity', filter.severity);
+  if (filter.kpiId) params.set('kpiId', filter.kpiId);
+  const q = params.toString();
+  return api(`/alerts${q ? `?${q}` : ''}`);
+}
+
+export async function getAlert(id: string): Promise<Alert> {
+  return api(`/alerts/${id}`);
+}
+
+export async function acknowledgeAlert(id: string): Promise<Alert> {
+  return api(`/alerts/${id}/acknowledge`, { method: 'POST' });
+}
+
+export async function resolveAlert(id: string): Promise<Alert> {
+  return api(`/alerts/${id}/resolve`, { method: 'POST' });
+}
+
+export async function getAlertUnreadCount(): Promise<{ count: number }> {
+  return api('/alerts/unread-count');
+}
+
+export async function listNotificationChannels(): Promise<NotificationChannel[]> {
+  return api('/notification-channels');
+}
+
+export async function createNotificationChannel(body: {
+  name: string;
+  kind: NotificationChannel['kind'];
+  config: Record<string, unknown>;
+}): Promise<NotificationChannel> {
+  return api('/notification-channels', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteNotificationChannel(id: string): Promise<void> {
+  return api(`/notification-channels/${id}`, { method: 'DELETE' });
+}
+
+export async function testNotificationChannel(id: string): Promise<{ sent: boolean }> {
+  return api(`/notification-channels/${id}/test`, { method: 'POST' });
+}

@@ -57,7 +57,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export { PrismaClient } from '@prisma/client';
-export type { Prisma } from '@prisma/client';
+// Runtime export (not type-only): the Prisma namespace also carries values like
+// Prisma.DbNull / Prisma.JsonNull needed to null nullable Json columns.
+export { Prisma } from '@prisma/client';
 
 // Re-export generated Prisma model types used directly by consuming apps
 // (e.g. background processors that pass whole rows between methods). Add as

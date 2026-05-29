@@ -18,6 +18,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1055.0",
     "@aws-sdk/s3-request-presigner": "^3.1055.0",
+    "@kpi-nexus/ai": "workspace:*",
     "@kpi-nexus/contracts": "workspace:*",
     "@kpi-nexus/db": "workspace:*",
     "@nestjs/bullmq": "^11.0.0",

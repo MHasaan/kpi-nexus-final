@@ -34,6 +34,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module.
 import { NlqModule } from './nlq/nlq.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { SetupChecklistModule } from './setup-checklist/setup-checklist.module.js';
+import { OrgTemplatesModule } from './org-templates/org-templates.module.js';
 import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { OrgStructureModule } from './org-structure/org-structure.module.js';
 import { CustomDomainsModule } from './custom-domains/custom-domains.module.js';
@@ -122,6 +123,7 @@ import { ReportsModule } from './reports/reports.module.js';
     NlqModule,
     AnalyticsModule,
     SetupChecklistModule,
+    OrgTemplatesModule,
     RateLimitModule,
     OrgStructureModule,
     CustomDomainsModule,

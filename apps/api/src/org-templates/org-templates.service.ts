@@ -1,0 +1,82 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+
+import { PrismaService } from '../prisma/prisma.service.js';
+import { BUILTIN_TEMPLATES } from './builtins.js';
+import { type PayloadCounts, type TemplatePayload, countPayload } from './template-payload.js';
+
+export interface TemplateSummary {
+  slug: string;
+  name: string;
+  description: string | null;
+  tier: string;
+  orgType: string | null;
+  industry: string | null;
+  isBuiltin: boolean;
+  popularity: number;
+  counts: PayloadCounts;
+}
+
+@Injectable()
+export class OrgTemplatesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** Idempotently seed the builtin templates (upsert by slug). */
+  async seedBuiltins(): Promise<void> {
+    for (const t of BUILTIN_TEMPLATES) {
+      await this.prisma.orgTemplate.upsert({
+        where: { slug: t.slug },
+        create: {
+          slug: t.slug,
+          name: t.name,
+          description: t.description,
+          tier: t.tier,
+          orgType: t.orgType ?? null,
+          industry: t.industry ?? null,
+          payload: t.payload as unknown as object,
+          isBuiltin: true,
+          isPublic: true,
+        },
+        update: {
+          name: t.name,
+          description: t.description,
+          tier: t.tier,
+          payload: t.payload as unknown as object,
+        },
+      });
+    }
+  }
+
+  /** Public list of builtin (+ public) templates with section counts. */
+  async list(filter: { tier?: string; industry?: string; orgType?: string } = {}): Promise<TemplateSummary[]> {
+    await this.seedBuiltins();
+    const rows = await this.prisma.orgTemplate.findMany({
+      where: {
+        isPublic: true,
+        ...(filter.tier ? { tier: filter.tier } : {}),
+        ...(filter.industry ? { industry: filter.industry } : {}),
+        ...(filter.orgType ? { orgType: filter.orgType } : {}),
+      },
+      orderBy: [{ tier: 'asc' }, { popularity: 'desc' }, { name: 'asc' }],
+    });
+    return rows.map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      description: r.description,
+      tier: r.tier,
+      orgType: r.orgType,
+      industry: r.industry,
+      isBuiltin: r.isBuiltin,
+      popularity: r.popularity,
+      counts: countPayload(r.payload as unknown as TemplatePayload),
+    }));
+  }
+
+  /** Full payload for a single template. */
+  async preview(slug: string): Promise<{ slug: string; name: string; payload: TemplatePayload; counts: PayloadCounts }> {
+    await this.seedBuiltins();
+    const row = await this.prisma.orgTemplate.findUnique({ where: { slug } });
+    if (!row) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: `Template '${slug}' not found` });
+    const payload = row.payload as unknown as TemplatePayload;
+    return { slug: row.slug, name: row.name, payload, counts: countPayload(payload) };
+  }
+}

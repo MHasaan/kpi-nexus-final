@@ -14,6 +14,10 @@ import type {
   CreateOrgUnitDto,
   UpdateOrgUnitDto,
 } from './dto/create-org-unit.dto.js';
+import type {
+  MoveUsersDto,
+  SplitUnitDto,
+} from './dto/reorganize.dto.js';
 
 const orgUnitSelect = {
   id: true,
@@ -41,6 +45,14 @@ const memberSelect = {
   joinedAt: true,
   leftAt: true,
   leaveReason: true,
+} as const;
+
+const nameHistorySelect = {
+  id: true,
+  orgUnitId: true,
+  previousName: true,
+  changedById: true,
+  changedAt: true,
 } as const;
 
 @Injectable()
@@ -303,6 +315,300 @@ export class OrgUnitsService {
       entityType: 'OrgUnitMember',
       entityId: member.id,
       metadata: { orgUnitId, userId },
+    });
+  }
+
+  // ==========================================================================
+  // Reorganization — rename / move / merge / split
+  // ==========================================================================
+
+  /** Load a unit (tenant-scoped) or throw NotFound. */
+  private async requireUnit(id: string) {
+    const ctx = RequestContextStore.require();
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id, organizationId: ctx.organizationId },
+      select: { id: true, name: true, parentUnitId: true, orgUnitTypeId: true },
+    });
+    if (!unit) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
+    }
+    return unit;
+  }
+
+  /**
+   * Rename a unit, recording the previous name in OrgUnitNameHistory. The
+   * history insert + name update happen in one transaction so the audit trail
+   * can never drift from the live name.
+   */
+  async renameUnit(id: string, newName: string) {
+    const ctx = RequestContextStore.require();
+    const unit = await this.requireUnit(id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.orgUnitNameHistory.create({
+        data: {
+          orgUnitId: id,
+          previousName: unit.name,
+          changedById: ctx.userId,
+        },
+      });
+      return tx.orgUnit.update({
+        where: { id },
+        data: { name: newName },
+        select: orgUnitSelect,
+      });
+    });
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'OrgUnit',
+      entityId: id,
+      changes: { name: { from: unit.name, to: newName } },
+    });
+
+    return updated;
+  }
+
+  /** Name-change history for a unit, newest first. */
+  async getNameHistory(id: string) {
+    await this.requireUnit(id); // tenant ownership check
+    return this.prisma.orgUnitNameHistory.findMany({
+      where: { orgUnitId: id },
+      select: nameHistorySelect,
+      orderBy: { changedAt: 'desc' },
+    });
+  }
+
+  /**
+   * Move users into `toUnitId`, optionally ending their active membership in
+   * `fromUnitId`. Membership in the target is idempotent against the unique
+   * [orgUnitId, userId] constraint: a previously-left row is reactivated rather
+   * than duplicated.
+   */
+  async moveUsers(dto: MoveUsersDto): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const toUnit = await this.requireUnit(dto.toUnitId);
+    if (dto.fromUnitId) {
+      await this.requireUnit(dto.fromUnitId); // tenant ownership check
+    }
+
+    for (const userId of dto.userIds) {
+      await this.prisma.$transaction(async (tx) => {
+        if (dto.fromUnitId) {
+          const fromMember = await tx.orgUnitMember.findFirst({
+            where: {
+              orgUnitId: dto.fromUnitId,
+              userId,
+              organizationId: ctx.organizationId,
+              leftAt: null,
+            },
+            select: { id: true },
+          });
+          if (fromMember) {
+            await tx.orgUnitMember.update({
+              where: { id: fromMember.id },
+              data: { leftAt: new Date(), leaveReason: 'TRANSFERRED' },
+            });
+          }
+        }
+        await this.upsertActiveMembership(tx, dto.toUnitId, userId, ctx.organizationId);
+      });
+    }
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'OrgUnit',
+      entityId: dto.toUnitId,
+      metadata: {
+        action: 'move-users',
+        userIds: dto.userIds,
+        fromUnitId: dto.fromUnitId ?? null,
+        toUnitId: toUnit.id,
+      },
+    });
+  }
+
+  /**
+   * Merge `sourceId` into `targetId`: reparent the source's child units to the
+   * target, move the source's active members to the target, then archive the
+   * source (status → ARCHIVED). The source is never hard-deleted so historical
+   * references and the audit trail stay intact.
+   */
+  async mergeUnits(sourceId: string, targetId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const source = await this.requireUnit(sourceId);
+    const target = await this.requireUnit(targetId);
+
+    if (sourceId === targetId) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'cannot merge an org unit into itself',
+      });
+    }
+
+    const activeMembers = await this.prisma.orgUnitMember.findMany({
+      where: { orgUnitId: sourceId, organizationId: ctx.organizationId, leftAt: null },
+      select: { id: true, userId: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Reparent source's children to the target.
+      await tx.orgUnit.updateMany({
+        where: { parentUnitId: sourceId, organizationId: ctx.organizationId },
+        data: { parentUnitId: targetId },
+      });
+
+      // 2. Move active members to the target.
+      for (const member of activeMembers) {
+        await tx.orgUnitMember.update({
+          where: { id: member.id },
+          data: { leftAt: new Date(), leaveReason: 'STRUCTURE_CHANGE' },
+        });
+        await this.upsertActiveMembership(tx, targetId, member.userId, ctx.organizationId);
+      }
+
+      // 3. Archive the source (never hard-delete).
+      await tx.orgUnit.update({
+        where: { id: sourceId },
+        data: { status: 'ARCHIVED', isActive: false },
+      });
+    });
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'OrgUnit',
+      entityId: sourceId,
+      metadata: {
+        action: 'merge-into',
+        sourceId: source.id,
+        targetId: target.id,
+        movedMemberCount: activeMembers.length,
+      },
+    });
+  }
+
+  /**
+   * Split a unit: create a new sibling unit (same parent + type as the source)
+   * named `newUnitName`, then move the listed members from the source into it.
+   */
+  async splitUnit(sourceId: string, dto: SplitUnitDto) {
+    const ctx = RequestContextStore.require();
+    const source = await this.requireUnit(sourceId);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const createData: Prisma.OrgUnitUncheckedCreateInput = {
+        organizationId: ctx.organizationId,
+        orgUnitTypeId: source.orgUnitTypeId,
+        name: dto.newUnitName,
+      };
+      if (source.parentUnitId) {
+        createData.parentUnitId = source.parentUnitId;
+      }
+      const newUnit = await tx.orgUnit.create({
+        data: createData,
+        select: orgUnitSelect,
+      });
+
+      for (const userId of dto.memberUserIds) {
+        const member = await tx.orgUnitMember.findFirst({
+          where: {
+            orgUnitId: sourceId,
+            userId,
+            organizationId: ctx.organizationId,
+            leftAt: null,
+          },
+          select: { id: true },
+        });
+        if (member) {
+          await tx.orgUnitMember.update({
+            where: { id: member.id },
+            data: { leftAt: new Date(), leaveReason: 'TRANSFERRED' },
+          });
+        }
+        await this.upsertActiveMembership(tx, newUnit.id, userId, ctx.organizationId);
+      }
+
+      return newUnit;
+    });
+
+    await this.audit.record({
+      action: 'CREATE',
+      entityType: 'OrgUnit',
+      entityId: created.id,
+      metadata: {
+        action: 'split',
+        sourceId,
+        memberUserIds: dto.memberUserIds,
+      },
+    });
+
+    return created;
+  }
+
+  /**
+   * BFS over `parentUnitId` to collect every descendant unit id of `unitId`
+   * within the current tenant. Cycle-safe (tracks visited ids); the seed unit
+   * itself is not included in the result.
+   */
+  async descendantsVisibleToHead(unitId: string): Promise<string[]> {
+    const ctx = RequestContextStore.require();
+    const visited = new Set<string>([unitId]);
+    const result: string[] = [];
+    const queue: string[] = [unitId];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const children = await this.prisma.orgUnit.findMany({
+        where: { parentUnitId: current, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      for (const child of children) {
+        if (visited.has(child.id)) continue;
+        visited.add(child.id);
+        result.push(child.id);
+        queue.push(child.id);
+      }
+    }
+
+    return result;
+  }
+
+  /** Active OrgUnitMember rows for a user within the current tenant. */
+  listMembershipsByUser(userId: string) {
+    const ctx = RequestContextStore.require();
+    return this.prisma.orgUnitMember.findMany({
+      where: { userId, organizationId: ctx.organizationId, leftAt: null },
+      select: memberSelect,
+      orderBy: { joinedAt: 'asc' },
+    });
+  }
+
+  /**
+   * Ensure an active membership for `userId` in `orgUnitId`. Reactivates a
+   * previously-left row (honouring the unique [orgUnitId, userId] constraint)
+   * or creates a fresh one. Runs inside the caller's transaction.
+   */
+  private async upsertActiveMembership(
+    tx: Prisma.TransactionClient,
+    orgUnitId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const existing = await tx.orgUnitMember.findUnique({
+      where: { orgUnitId_userId: { orgUnitId, userId } },
+      select: { id: true, leftAt: true },
+    });
+    if (existing) {
+      if (existing.leftAt !== null) {
+        await tx.orgUnitMember.update({
+          where: { id: existing.id },
+          data: { leftAt: null, leaveReason: null, joinedAt: new Date() },
+        });
+      }
+      return;
+    }
+    await tx.orgUnitMember.create({
+      data: { organizationId, orgUnitId, userId },
     });
   }
 

@@ -19,6 +19,12 @@ import {
   CreateOrgUnitDtoSchema,
   UpdateOrgUnitDtoSchema,
 } from './dto/create-org-unit.dto.js';
+import {
+  MergeUnitsDtoSchema,
+  MoveUsersDtoSchema,
+  RenameOrgUnitDtoSchema,
+  SplitUnitDtoSchema,
+} from './dto/reorganize.dto.js';
 import { OrgUnitsService } from './org-units.service.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
@@ -66,6 +72,46 @@ export class OrgUnitsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
     return this.orgUnits.remove(id);
+  }
+
+  // ---- Reorganization ----
+
+  @Post('move-users')
+  @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  moveUsers(@Body() body: unknown): Promise<void> {
+    return this.orgUnits.moveUsers(parse(MoveUsersDtoSchema, body));
+  }
+
+  @Get('by-user/:userId/memberships')
+  @RequirePermissions(PermissionKey.GROUPS_VIEW)
+  membershipsByUser(@Param('userId') userId: string) {
+    return this.orgUnits.listMembershipsByUser(userId);
+  }
+
+  @Post(':id/rename')
+  @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  rename(@Param('id') id: string, @Body() body: unknown) {
+    return this.orgUnits.renameUnit(id, parse(RenameOrgUnitDtoSchema, body).name);
+  }
+
+  @Get(':id/name-history')
+  @RequirePermissions(PermissionKey.GROUPS_VIEW)
+  nameHistory(@Param('id') id: string) {
+    return this.orgUnits.getNameHistory(id);
+  }
+
+  @Post(':id/merge-into')
+  @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  mergeInto(@Param('id') id: string, @Body() body: unknown): Promise<void> {
+    return this.orgUnits.mergeUnits(id, parse(MergeUnitsDtoSchema, body).targetId);
+  }
+
+  @Post(':id/split')
+  @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  split(@Param('id') id: string, @Body() body: unknown) {
+    return this.orgUnits.splitUnit(id, parse(SplitUnitDtoSchema, body));
   }
 
   @Get(':id/members')

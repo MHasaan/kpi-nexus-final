@@ -2,24 +2,25 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 import {
   ApiError,
+  type AuthUser,
+  type MfaEnrollResult,
   clearTokens,
   confirmMfa,
   disableMfa,
   enrollMfa,
   getAccessToken,
   meRequest,
-  type AuthUser,
-  type MfaEnrollResult,
 } from '../../lib/api-client';
 import {
-  pluralize,
   TerminologyProvider,
+  pluralize,
   useTerminology,
 } from '../../lib/terminology-context';
+import { LocalePicker } from '../../components/locale-picker';
 
 export default function ProfilePage() {
   return (
@@ -191,6 +192,8 @@ function ProfilePageInner() {
 
         {user && (
           <>
+            <LocalePicker />
+
             <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
               <h2 className="text-lg font-semibold text-content-strong">Account</h2>
               <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

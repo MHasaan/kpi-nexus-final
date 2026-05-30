@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { AlertsBell } from '../../components/alerts-bell';
+import { GlobalSearch } from '../../components/global-search';
 import { OnboardingTour } from '../../components/onboarding-tour';
 import { SetupChecklistCard } from '../../components/setup-checklist-card';
 import {
@@ -126,6 +127,7 @@ function DashboardPageInner() {
           </div>
           {user && (
             <div className="flex items-center gap-3 text-sm">
+              <GlobalSearch />
               <AlertsBell />
               <span className="text-content-muted" data-testid="dashboard-user-email">
                 {user.email}

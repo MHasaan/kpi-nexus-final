@@ -58,6 +58,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
+import { CommentsModule } from './comments/comments.module.js';
 
 @Module({
   imports: [
@@ -148,6 +149,7 @@ import { TasksModule } from './tasks/tasks.module.js';
     WebhooksModule,
     // P7 — Collaboration & Workflow
     TasksModule,
+    CommentsModule,
     HealthModule,
   ],
 })

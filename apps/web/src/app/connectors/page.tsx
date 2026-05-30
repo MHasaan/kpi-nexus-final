@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../lib/api-client';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   type Connector,
   type ConnectorType,
@@ -96,6 +97,7 @@ export default function ConnectorsPage() {
         <p className="mt-1 text-sm text-content-muted">Pull external data into a KPI on a schedule or on demand.</p>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="connectors-error">{error}</p>}
 
+        <PermissionGuard permission="ORG_SETTINGS">
         <div className="mt-5 rounded-lg border border-border bg-surface-1 p-5">
           <h2 className="text-sm font-semibold text-content-strong">New connector</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -111,6 +113,7 @@ export default function ConnectorsPage() {
           </div>
           <button type="button" data-testid="connector-create" onClick={create} className="mt-3 rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">Create connector</button>
         </div>
+        </PermissionGuard>
 
         <div className="mt-6 space-y-2" data-testid="connector-list">
           {connectors.map((c) => (
@@ -127,7 +130,7 @@ export default function ConnectorsPage() {
                 <button type="button" data-testid={`connector-run-${c.id}`} onClick={() => run(c.id)} disabled={busy === c.id} className="rounded border border-border px-3 py-1 text-xs text-content-strong hover:border-accent-primary disabled:opacity-50">
                   {busy === c.id ? 'Running…' : 'Run now'}
                 </button>
-                <button type="button" aria-label="Delete" onClick={() => remove(c.id)} className="text-content-muted hover:text-status-critical">×</button>
+                <PermissionGuard permission="ORG_SETTINGS"><button type="button" aria-label="Delete" onClick={() => remove(c.id)} className="text-content-muted hover:text-status-critical">×</button></PermissionGuard>
               </div>
             </div>
           ))}

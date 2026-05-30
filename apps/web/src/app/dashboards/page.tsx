@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   ApiError,
   clearTokens,
@@ -112,6 +113,7 @@ function DashboardsListInner() {
               data. Set one as your default to land here on sign-in.
             </p>
           </div>
+          <PermissionGuard permission="DASHBOARD_MANAGE">
           <Link
             href="/dashboards/new"
             data-testid="dashboards-new-link"
@@ -119,6 +121,7 @@ function DashboardsListInner() {
           >
             New {terminology.dashboardLabel.toLowerCase()}
           </Link>
+          </PermissionGuard>
         </div>
 
         {loadError && (
@@ -206,6 +209,7 @@ function DashboardsListInner() {
                       Set default
                     </button>
                   )}
+                  <PermissionGuard permission="DASHBOARD_MANAGE">
                   <button
                     type="button"
                     onClick={() => handleDelete(d)}
@@ -215,6 +219,7 @@ function DashboardsListInner() {
                   >
                     Delete
                   </button>
+                  </PermissionGuard>
                 </div>
               </article>
             ))}

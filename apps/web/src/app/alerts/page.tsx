@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   acknowledgeAlert,
   ApiError,
@@ -106,6 +107,7 @@ export default function AlertsPage() {
               </Link>
             </nav>
           </div>
+          <PermissionGuard permission="KPI_EDIT">
           <Link
             href="/alerts/new"
             data-testid="alerts-new-link"
@@ -113,6 +115,7 @@ export default function AlertsPage() {
           >
             + New alert rule
           </Link>
+          </PermissionGuard>
         </div>
 
         {/* Status filter */}

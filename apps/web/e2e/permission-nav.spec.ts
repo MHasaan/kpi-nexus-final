@@ -223,4 +223,92 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await page.goto('/settings/organization');
     await expect(page).toHaveURL(/\/unauthorized$/);
   });
+
+  // -----------------------------------------------------------------------
+  // A5: action-button PermissionGuard
+  //   Employee holds: KPI_VIEW, KPI_DATA_ENTRY, DASHBOARD_VIEW, ALERTS_VIEW
+  //   Employee lacks: KPI_CREATE, KPI_DELETE, DASHBOARD_MANAGE, USERS_MANAGE,
+  //                   GROUPS_MANAGE, ROLES_MANAGE, ORG_SETTINGS, KPI_EDIT
+  // -----------------------------------------------------------------------
+  test('A5 Employee: "New KPI" create button hidden; Admin: visible', async ({
+    browser,
+  }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+    test.skip(!permsAvailable, '/auth/me lacks permissions (api predates A1)');
+
+    const stamp = suffix();
+    const slug = `a5-${stamp}`;
+    const adminEmail = `admin-a5-${stamp}@test.local`;
+    const empEmail = `emp-a5-${stamp}@test.local`;
+    const adminPassword = 'correct-horse-battery-staple';
+    const empPassword = 'employee-pw-99999';
+
+    // -- Provision via API --
+    const apiCtx = await request.newContext({ baseURL: API_URL });
+    const reg = await apiCtx.post('/auth/register', {
+      data: {
+        orgName: `a5-org-${stamp}`,
+        slug,
+        adminEmail,
+        adminPassword,
+        adminFullName: 'A5 Admin',
+      },
+    });
+    expect(reg.status()).toBe(201);
+    const { accessToken: adminToken } = (await reg.json()) as { accessToken: string };
+
+    const roles = (await (
+      await apiCtx.get('/roles', { headers: { authorization: `Bearer ${adminToken}` } })
+    ).json()) as RolesResult[];
+    const employeeRole = roles.find((r) => r.name === 'Employee');
+    expect(employeeRole, 'Employee default role should exist').toBeTruthy();
+
+    const inviteResp = await apiCtx.post('/users', {
+      headers: { authorization: `Bearer ${adminToken}` },
+      data: { email: empEmail, fullName: 'A5 Employee', roleId: employeeRole!.id },
+    });
+    expect(inviteResp.status()).toBe(201);
+    const { inviteToken } = (await inviteResp.json()) as InviteResult;
+    expect(inviteToken).toBeTruthy();
+    await apiCtx.dispose();
+
+    // -- Employee context: accept invite, check /kpis --
+    const empContext = await browser.newContext();
+    const empPage = await empContext.newPage();
+    await empPage.goto(`/accept-invitation?token=${inviteToken}`);
+    await empPage.getByTestId('invite-password').fill(empPassword);
+    await empPage.getByTestId('invite-confirm-password').fill(empPassword);
+    const acceptResp = empPage.waitForResponse(
+      (r) => r.url().endsWith('/accept-invitation') && r.request().method() === 'POST',
+    );
+    await empPage.getByTestId('invite-submit').click();
+    expect((await acceptResp).status()).toBe(200);
+    await expect(empPage).toHaveURL(/\/dashboard$/);
+
+    await empPage.goto('/kpis');
+    // Employee lacks KPI_CREATE — the "Create KPI" submit button should NOT appear
+    await expect(empPage.getByTestId('kpi-submit-button')).toHaveCount(0);
+    // Employee also lacks KPI_DELETE — no Delete buttons visible
+    // (list may be empty so we just confirm no delete buttons exist in DOM)
+    const deleteButtons = empPage.getByTestId(/^delete-kpi-/);
+    expect(await deleteButtons.count()).toBe(0);
+    await empContext.close();
+
+    // -- Admin context: log in, verify /kpis shows the create button --
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto('/login');
+    await adminPage.getByLabel(/email/i).fill(adminEmail);
+    await adminPage.getByLabel(/password/i).fill(adminPassword);
+    const loginResp = adminPage.waitForResponse(
+      (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
+    );
+    await adminPage.getByRole('button', { name: /sign in/i }).click();
+    expect((await loginResp).status()).toBe(200);
+    await expect(adminPage).toHaveURL(/\/dashboard$/);
+
+    await adminPage.goto('/kpis');
+    await expect(adminPage.getByTestId('kpi-submit-button')).toBeVisible();
+    await adminContext.close();
+  });
 });

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   ApiError,
   clearTokens,
@@ -242,6 +243,7 @@ function KpisPageInner() {
           </div>
         )}
 
+        <PermissionGuard permission="KPI_CREATE">
         <section
           className="mb-8 rounded-lg border border-border bg-surface-1 p-6"
           data-testid="create-kpi-section"
@@ -430,6 +432,7 @@ function KpisPageInner() {
             </p>
           )}
         </section>
+        </PermissionGuard>
 
         <section data-testid="kpis-list-section">
           {kpis === null && !loadError && (
@@ -508,6 +511,7 @@ function KpisPageInner() {
                           {expandedKpiId === kpi.id ? 'Hide data' : 'Record value'}
                         </button>
                       )}
+                      <PermissionGuard permission="KPI_DELETE">
                       <button
                         type="button"
                         onClick={() => void handleDelete(kpi)}
@@ -517,6 +521,7 @@ function KpisPageInner() {
                       >
                         {deletingId === kpi.id ? 'Deleting…' : 'Delete'}
                       </button>
+                      </PermissionGuard>
                     </div>
                   </div>
 

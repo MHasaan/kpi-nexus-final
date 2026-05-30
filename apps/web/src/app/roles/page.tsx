@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
 import {
   ApiError,
@@ -128,6 +129,7 @@ function RolesPageInner() {
           </div>
         )}
 
+        <PermissionGuard permission="ROLES_MANAGE">
         <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
           <h2 className="text-lg font-semibold text-content-strong">Create a role</h2>
           <p className="mt-1 text-sm text-content-muted">
@@ -169,6 +171,7 @@ function RolesPageInner() {
             </p>
           )}
         </section>
+        </PermissionGuard>
 
         {deleteError && (
           <div
@@ -220,6 +223,7 @@ function RolesPageInner() {
                         ))}
                       </div>
                     </div>
+                    <PermissionGuard permission="ROLES_MANAGE">
                     <button
                       type="button"
                       onClick={() => handleDelete(role)}
@@ -229,6 +233,7 @@ function RolesPageInner() {
                     >
                       {deletingId === role.id ? 'Deleting…' : 'Delete'}
                     </button>
+                    </PermissionGuard>
                   </div>
                 </li>
               ))}

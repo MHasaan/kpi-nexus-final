@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   addOrgUnitMember,
   ApiError,
@@ -233,6 +234,7 @@ function OrgUnitsPageInner() {
           </div>
         )}
 
+        <PermissionGuard permission="GROUPS_MANAGE">
         <section
           className="mb-8 rounded-lg border border-border bg-surface-1 p-6"
           data-testid="create-unit-section"
@@ -303,6 +305,7 @@ function OrgUnitsPageInner() {
             </p>
           )}
         </section>
+        </PermissionGuard>
 
         <section data-testid="units-list-section">
           {units === null && !loadError && (
@@ -362,6 +365,7 @@ function OrgUnitsPageInner() {
                         >
                           {isExpanded ? 'Hide members' : 'Members'}
                         </button>
+                        <PermissionGuard permission="GROUPS_MANAGE">
                         <button
                           type="button"
                           onClick={() => void handleDelete(unit)}
@@ -371,6 +375,7 @@ function OrgUnitsPageInner() {
                         >
                           {deletingId === unit.id ? 'Deleting…' : 'Delete'}
                         </button>
+                        </PermissionGuard>
                       </div>
                     </div>
 
@@ -417,6 +422,7 @@ function OrgUnitsPageInner() {
                                         {m.memberRole}
                                       </span>
                                     </span>
+                                    <PermissionGuard permission="GROUPS_MANAGE">
                                     <button
                                       type="button"
                                       onClick={() => void handleRemoveMember(unit.id, m.userId)}
@@ -425,12 +431,14 @@ function OrgUnitsPageInner() {
                                     >
                                       Remove
                                     </button>
+                                    </PermissionGuard>
                                   </li>
                                 );
                               })}
                           </ul>
                         )}
 
+                        <PermissionGuard permission="GROUPS_MANAGE">
                         <div className="mt-4 grid gap-2 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
                           <label className="block">
                             <span className="text-sm font-medium text-content-default">
@@ -487,6 +495,7 @@ function OrgUnitsPageInner() {
                             {addMemberError}
                           </p>
                         )}
+                        </PermissionGuard>
                       </div>
                     )}
                   </li>

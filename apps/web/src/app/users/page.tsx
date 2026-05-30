@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
 import {
   ApiError,
@@ -133,6 +134,7 @@ function UsersPageInner() {
           </div>
         )}
 
+        <PermissionGuard permission="USERS_MANAGE">
         <section
           className="mb-8 rounded-lg border border-border bg-surface-1 p-6"
           data-testid="invite-section"
@@ -227,6 +229,7 @@ function UsersPageInner() {
             </div>
           )}
         </section>
+        </PermissionGuard>
 
         <section data-testid="users-list-section">
           {users === null && !loadError && (

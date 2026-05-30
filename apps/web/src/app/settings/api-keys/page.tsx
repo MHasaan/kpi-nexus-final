@@ -13,6 +13,7 @@ import {
   revokeApiKey,
   type ApiKey,
 } from '../../../lib/api-client';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 
 // Curated scope choices (subset of the 18 canonical permissions).
 const SCOPE_CHOICES = [
@@ -122,6 +123,7 @@ export default function ApiKeysPage() {
         )}
 
         {/* Mint form */}
+        <PermissionGuard permission="ORG_SETTINGS">
         <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
           <h2 className="text-lg font-semibold text-content-strong">Create API key</h2>
           <form onSubmit={handleCreate} className="mt-4 grid gap-4" data-testid="apikey-create-form">
@@ -148,6 +150,7 @@ export default function ApiKeysPage() {
             </div>
           </form>
         </section>
+        </PermissionGuard>
 
         {loadError && <div role="alert" data-testid="apikeys-error" className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical">{loadError}</div>}
 
@@ -167,7 +170,7 @@ export default function ApiKeysPage() {
                     <td className="px-4 py-3">{k.revokedAt ? 'Revoked' : 'Active'}</td>
                     <td className="px-4 py-3 text-right">
                       {!k.revokedAt && (
-                        <button type="button" onClick={() => void handleRevoke(k.id)} disabled={busyId === k.id} data-testid={`apikey-revoke-${k.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Revoke</button>
+                        <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void handleRevoke(k.id)} disabled={busyId === k.id} data-testid={`apikey-revoke-${k.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Revoke</button></PermissionGuard>
                       )}
                     </td>
                   </tr>

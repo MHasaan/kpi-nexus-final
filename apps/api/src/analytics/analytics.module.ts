@@ -8,17 +8,19 @@ import { RecommendationsModule } from '../recommendations/recommendations.module
 import { AnalyticsController } from './analytics.controller.js';
 import { AnomalyService } from './anomaly.service.js';
 import { ForecastsService } from './forecasts.service.js';
+import { SeasonalityService } from './seasonality.service.js';
 import { WhatIfService } from './whatif.service.js';
 
 /**
  * AnalyticsModule — ML-backed KPI analytics (anomaly detection, forecasting,
- * what-if), all routed through the HMAC-signed MlModule client and gated by KPI
- * visibility (KpisService.getById). Anomaly confirm reuses RecommendationsService.
+ * what-if, seasonality), all routed through the HMAC-signed MlModule client and
+ * gated by KPI visibility (KpisService.getById). Anomaly confirm reuses
+ * RecommendationsService.
  */
 @Module({
   imports: [PrismaModule, RbacModule, MlModule, KpisModule, RecommendationsModule],
   controllers: [AnalyticsController],
-  providers: [AnomalyService, ForecastsService, WhatIfService],
-  exports: [AnomalyService, ForecastsService, WhatIfService],
+  providers: [AnomalyService, ForecastsService, WhatIfService, SeasonalityService],
+  exports: [AnomalyService, ForecastsService, WhatIfService, SeasonalityService],
 })
 export class AnalyticsModule {}

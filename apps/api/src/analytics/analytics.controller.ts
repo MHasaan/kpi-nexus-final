@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { AnomalyService } from './anomaly.service.js';
 import { ForecastsService } from './forecasts.service.js';
+import { SeasonalityService } from './seasonality.service.js';
 import { WhatIfService } from './whatif.service.js';
 
 const DetectSchema = z
@@ -34,13 +35,21 @@ const WhatIfSchema = z
   .object({ scenarios: z.array(ScenarioSchema).min(1).max(20), baselineCount: z.number().int().min(1).max(365).optional() })
   .strict();
 
-/** ML-backed analytics for a KPI: anomalies, forecasts, what-if. */
+const SeasonalitySchema = z
+  .object({
+    period: z.number().int().min(2).max(365).optional(),
+    model: z.enum(['additive', 'multiplicative']).optional(),
+  })
+  .strict();
+
+/** ML-backed analytics for a KPI: anomalies, forecasts, what-if, seasonality. */
 @Controller('kpis/:kpiId')
 export class AnalyticsController {
   constructor(
     private readonly anomaly: AnomalyService,
     private readonly forecasts: ForecastsService,
     private readonly whatif: WhatIfService,
+    private readonly seasonality: SeasonalityService,
   ) {}
 
   @Get('anomalies')
@@ -92,5 +101,13 @@ export class AnalyticsController {
     const parsed = WhatIfSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'scenarios required', details: parsed.error.flatten() });
     return this.whatif.simulate(kpiId, parsed.data);
+  }
+
+  @Post('seasonality')
+  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  decompose(@Param('kpiId') kpiId: string, @Body() body: unknown) {
+    const parsed = SeasonalitySchema.safeParse(body ?? {});
+    if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid seasonality request', details: parsed.error.flatten() });
+    return this.seasonality.decompose(kpiId, parsed.data);
   }
 }

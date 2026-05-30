@@ -128,7 +128,9 @@ export class KpiDataService {
       kpiId,
       orgUnitId: null,
       userId: null,
-      recordedById: ctx.userId,
+      // API-key principals carry the key id as userId (not a real User row);
+      // leave recordedById null so the FK holds for connector/ingest writes.
+      recordedById: ctx.principalType === 'api_key' ? null : ctx.userId,
       dto,
     });
   }
@@ -524,7 +526,7 @@ export class KpiDataService {
     kpiId: string;
     orgUnitId: string | null;
     userId: string | null;
-    recordedById: string;
+    recordedById: string | null;
     dto: RecordDataPointDto;
   }): Promise<PublicDataPoint> {
     if (!params.dto || params.dto.value === undefined) {

@@ -18,12 +18,13 @@
 
 - ✅ **OnboardingModule** — `draft-token` pure (deriveDraftToken HMAC + hashDraftToken + timing-safe verify + mergeDraft, 7 tests); `start`/`getDraft`/`patchDraft`/`applyTemplate`; **`complete` = atomic `prisma.$transaction`** materializing org + roles + admin user + positions + unit hierarchy (parent-before-child) + categories + KPIs, issues JWT (new `AuthService.issueTokensForUser`). Public endpoints (X-Draft-Token). **e2e 3/3 incl. the EXIT CRITERION: template `saas-startup-rich` → complete → org has 10 roles / 14 positions / 11 units / 20 KPIs / 5 categories.**
 
-**P6 BACKEND CORE COMPLETE.** API unit suite **690/690**; servers running (api :4000 live Gemini, ML :8000).
+- ✅ **OnboardingAiModule** — `onboarding-ai-limits` (per-mode 5/30/60/100 per hr) + `parse-generated-org` (fence-strip robust to missing close → coerced partial payload, 7 tests). generate/assistant/suggest/explain/apply; runs **pre-org** so it calls the provider registry directly with primary→fallback (org-scoped budget/log don't apply yet) + per-mode RateLimitService + OnboardingAIInteraction log. Public endpoints. **e2e 3/3 incl. both exit criteria: live generate returns a reasonable org (5 roles/14 positions/11 units/5 cats/10 KPIs), 6th generator → 429.**
 
-**Remaining**:
-1. **OnboardingAiModule** — generate/assistant/suggest/explain via AiRouter (ONBOARDING_* features already in DEFAULT_FYP_CONFIG) + per-mode rate limits (5/30/60/100 per hr) + OnboardingAIInteraction log. (Schema model already exists.)
-2. **Frontend** — the big 3-pane wizard shell + 5 steps + AI co-pilot rail + DraftSyncProvider (600ms debounce + localStorage resume) + EntrySplash/TemplateGallery + SetupChecklistCard on home + onboarding tour.
-3. Integration/e2e per plan + `git tag p6-complete`.
+**✅ P6 BACKEND COMPLETE.** API unit suite **697/697**; servers running (api :4000 live Gemini, ML :8000).
+
+**Remaining (P6 frontend + closeout)**:
+1. **Frontend** — the big 3-pane wizard shell (`apps/web/src/app/signup/wizard/`) + 5 steps + AI co-pilot rail + DraftSyncProvider (600ms debounce PUT /onboarding/:id + localStorage resume, X-Draft-Token) + EntrySplash (Quick/Full/Template gallery) + SetupChecklistCard on home (GET /setup-checklist) + onboarding tour. API contracts: POST /onboarding/start → {sessionId,draftToken}; GET/PUT /onboarding/:id; POST :id/apply-template; POST :id/complete → JWT; POST /onboarding/ai/{generate,assistant,suggest,explain,apply}; GET /org-templates.
+2. e2e per plan + `git tag p6-complete`.
 
 ## Why this phase matters
 

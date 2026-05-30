@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
+import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { BillingService } from '../billing/billing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -14,7 +16,7 @@ import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateKpiDto, UpdateKpiDto } from './dto/create-kpi.dto.js';
-import { canTransition, type KpiStatus } from './kpi-status.js';
+import { type KpiStatus, canTransition } from './kpi-status.js';
 
 const kpiSelect = {
   id: true,
@@ -60,6 +62,7 @@ export class KpisService {
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
     private readonly billing: BillingService,
+    @Optional() private readonly approvalGate?: ApprovalGateService,
   ) {}
 
   async list(): Promise<PublicKpi[]> {
@@ -236,8 +239,19 @@ export class KpisService {
     }
   }
 
-  async update(id: string, dto: UpdateKpiDto): Promise<PublicKpi> {
+  async update(
+    id: string,
+    dto: UpdateKpiDto,
+    opts: { bypassApproval?: boolean } = {},
+  ): Promise<PublicKpi> {
     const existing = await this.getById(id);
+
+    // Approval seam: if a definition change (anything beyond a pure status
+    // transition) is captured by an active KPI_DEFINITION workflow, this throws
+    // 202 and records a pending request instead of mutating.
+    if (this.approvalGate && !opts.bypassApproval && !isStatusOnlyKpiPatch(dto)) {
+      await this.approvalGate.requireApprovalIfActive('KPI_DEFINITION', id, dto, opts);
+    }
 
     if (dto.scope && dto.scope !== existing.scope) {
       throw new BadRequestException({
@@ -533,4 +547,14 @@ export class KpisService {
       (error as { code: string }).code === 'P2002'
     );
   }
+}
+
+/**
+ * A patch that only changes `status` is a lifecycle transition, not a
+ * definition change — it bypasses the KPI_DEFINITION approval gate so workflow
+ * status moves (draft → active, etc.) stay frictionless.
+ */
+function isStatusOnlyKpiPatch(dto: UpdateKpiDto): boolean {
+  const definedKeys = Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined);
+  return definedKeys.length > 0 && definedKeys.every((k) => k === 'status');
 }

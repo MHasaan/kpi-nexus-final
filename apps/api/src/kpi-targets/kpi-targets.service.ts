@@ -1,14 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
+import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import {
-  validateTarget,
   type CreateKpiTargetDto,
   type KpiDirection,
   type UpdateKpiTargetDto,
+  validateTarget,
 } from './kpi-target.validation.js';
 
 const targetSelect = {
@@ -38,6 +39,7 @@ export class KpiTargetsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Optional() private readonly approvalGate?: ApprovalGateService,
   ) {}
 
   async list(kpiId: string): Promise<PublicKpiTarget[]> {
@@ -49,10 +51,18 @@ export class KpiTargetsService {
     });
   }
 
-  async create(kpiId: string, dto: CreateKpiTargetDto): Promise<PublicKpiTarget> {
+  async create(
+    kpiId: string,
+    dto: CreateKpiTargetDto,
+    opts: { bypassApproval?: boolean } = {},
+  ): Promise<PublicKpiTarget> {
     const ctx = RequestContextStore.require();
     const direction = await this.requireKpi(kpiId);
     this.assertValid(dto, direction);
+
+    if (this.approvalGate && !opts.bypassApproval) {
+      await this.approvalGate.requireApprovalIfActive('KPI_TARGET', kpiId, { kind: 'create', kpiId, dto }, opts);
+    }
 
     const created = await this.prisma.kPITarget.create({
       data: {
@@ -77,11 +87,19 @@ export class KpiTargetsService {
     return created;
   }
 
-  async update(id: string, dto: UpdateKpiTargetDto): Promise<PublicKpiTarget> {
+  async update(
+    id: string,
+    dto: UpdateKpiTargetDto,
+    opts: { bypassApproval?: boolean } = {},
+  ): Promise<PublicKpiTarget> {
     const existing = await this.requireTarget(id);
     const direction = await this.requireKpi(existing.kpiId);
     // Validate the merged shape.
     this.assertValid({ ...existing, ...dto } as CreateKpiTargetDto, direction);
+
+    if (this.approvalGate && !opts.bypassApproval) {
+      await this.approvalGate.requireApprovalIfActive('KPI_TARGET', id, { kind: 'update', targetId: id, dto }, opts);
+    }
 
     const updated = await this.prisma.kPITarget.update({
       where: { id },

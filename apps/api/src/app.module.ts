@@ -60,6 +60,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { CommentsModule } from './comments/comments.module.js';
 import { OkrsModule } from './okrs/okrs.module.js';
+import { ApprovalsModule } from './approvals/approvals.module.js';
 
 @Module({
   imports: [
@@ -152,6 +153,7 @@ import { OkrsModule } from './okrs/okrs.module.js';
     TasksModule,
     CommentsModule,
     OkrsModule,
+    ApprovalsModule,
     HealthModule,
   ],
 })

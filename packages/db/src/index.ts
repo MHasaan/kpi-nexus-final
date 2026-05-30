@@ -95,6 +95,14 @@ export type {
   OnboardingAIInteraction,
   OrgTemplate,
   OnboardingTask,
+  Task,
+  Comment,
+  Mention,
+  Objective,
+  KeyResult,
+  ApprovalWorkflow,
+  ApprovalRequest,
+  Workflow,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -127,4 +135,9 @@ export {
   ForecastModelKind,
   OnboardingStatus,
   OnboardingAiMode,
+  TaskStatus,
+  TaskPriority,
+  ObjectiveStatus,
+  ApprovalEntityType,
+  ApprovalRequestStatus,
 } from '@prisma/client';

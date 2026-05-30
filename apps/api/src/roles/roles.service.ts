@@ -2,8 +2,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 
+import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
@@ -41,6 +43,7 @@ export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resolver: PermissionResolverService,
+    @Optional() private readonly approvalGate?: ApprovalGateService,
   ) {}
 
   async list(): Promise<PublicRole[]> {
@@ -93,9 +96,19 @@ export class RolesService {
     }
   }
 
-  async update(id: string, dto: UpdateRoleDto): Promise<PublicRole> {
+  async update(
+    id: string,
+    dto: UpdateRoleDto,
+    opts: { bypassApproval?: boolean } = {},
+  ): Promise<PublicRole> {
     // Verify the role belongs to the tenant before updating
     await this.getById(id);
+
+    // Approval seam: gate only sensitive permission changes (permissions /
+    // isAdmin). Cosmetic edits (name, color) flow through untouched.
+    if (this.approvalGate && !opts.bypassApproval && (dto.permissions !== undefined || dto.isAdmin !== undefined)) {
+      await this.approvalGate.requireApprovalIfActive('ROLE_PERMISSIONS', id, dto, opts);
+    }
 
     try {
       const updated = await this.prisma.roleDefinition.update({

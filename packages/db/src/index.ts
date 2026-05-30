@@ -108,6 +108,8 @@ export type {
   Pipeline,
   IngestionJob,
   Plugin,
+  SsoConfig,
+  ScimToken,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -149,4 +151,5 @@ export {
   ConnectorType,
   PipelineStatus,
   PluginType,
+  SsoProtocol,
 } from '@prisma/client';

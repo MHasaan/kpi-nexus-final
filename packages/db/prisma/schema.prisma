@@ -2120,3 +2120,44 @@ model Plugin {
 
   @@index([organizationId, type, isEnabled])
 }
+
+// ============================================================================
+// P9 — Polish: SSO (SAML/OIDC) + SCIM provisioning tokens.
+// ============================================================================
+
+enum SsoProtocol {
+  SAML
+  OIDC
+}
+
+// One SSO config per org. `encryptedCertificate` (SAML X.509) is sealed with the
+// integration crypto key. JIT provisioning auto-creates users on first login.
+model SsoConfig {
+  id                   String      @id @default(cuid())
+  organizationId       String      @unique
+  protocol             SsoProtocol
+  idpEntityId          String?
+  idpSsoUrl            String?
+  idpMetadataUrl       String?
+  encryptedCertificate String?
+  allowJitProvisioning Boolean     @default(true)
+  defaultRoleId        String?
+  isActive             Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+}
+
+// A bearer token an IdP (Okta/Azure AD) uses against /scim/v2. Stored hashed.
+model ScimToken {
+  id             String    @id @default(cuid())
+  organizationId String
+  label          String
+  hashedToken    String    @unique
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdById    String
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId, revokedAt])
+}

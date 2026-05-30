@@ -123,7 +123,9 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
 
     // AppShell nav: admin sees every entry, including the gated admin-only ones.
     const nav = page.getByRole('navigation', { name: 'Primary' });
-    await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+      nav.getByRole('link', { name: 'Dashboard', exact: true }),
+    ).toBeVisible();
     await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible();
     // Admin-only entries present:
@@ -197,7 +199,9 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
 
     // 3. AppShell nav: the no-permission + held entries are visible …
     const nav = page.getByRole('navigation', { name: 'Primary' });
-    await expect(nav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+      nav.getByRole('link', { name: 'Dashboard', exact: true }),
+    ).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible(); // KPI_VIEW
     await expect(nav.getByRole('link', { name: 'Alerts' })).toBeVisible(); // ALERTS_VIEW

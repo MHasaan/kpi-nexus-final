@@ -42,13 +42,19 @@ export default function OkrsPage() {
   }, [load, router]);
 
   const create = async () => {
-    if (!name.trim() || !userId) return;
+    if (!name.trim()) return;
     setCreating(true);
     try {
+      // Resolve the owner inline if the me-request hasn't landed yet.
+      let owner = userId;
+      if (!owner) {
+        owner = (await meRequest()).user.id;
+        setUserId(owner);
+      }
       const year = '2026';
       const obj = await createObjective({
         name: name.trim(),
-        ownerUserId: userId,
+        ownerUserId: owner,
         periodStart: `${year}-01-01`,
         periodEnd: `${year}-12-31`,
         status: 'ACTIVE',

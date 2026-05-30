@@ -57,6 +57,7 @@ import { RolesModule } from './roles/roles.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ReportsModule } from './reports/reports.module.js';
+import { TasksModule } from './tasks/tasks.module.js';
 
 @Module({
   imports: [
@@ -145,6 +146,8 @@ import { ReportsModule } from './reports/reports.module.js';
     NotificationChannelsModule,
     ApiKeysModule,
     WebhooksModule,
+    // P7 — Collaboration & Workflow
+    TasksModule,
     HealthModule,
   ],
 })

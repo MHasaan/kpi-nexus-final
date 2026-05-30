@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
+import { AppShell } from '../../components/app-shell';
 import {
   ApiError,
   type AuthUser,
@@ -15,11 +15,7 @@ import {
   getAccessToken,
   meRequest,
 } from '../../lib/api-client';
-import {
-  TerminologyProvider,
-  pluralize,
-  useTerminology,
-} from '../../lib/terminology-context';
+import { TerminologyProvider } from '../../lib/terminology-context';
 import { LocalePicker } from '../../components/locale-picker';
 
 export default function ProfilePage() {
@@ -31,7 +27,6 @@ export default function ProfilePage() {
 }
 
 function ProfilePageInner() {
-  const { terminology } = useTerminology();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -132,47 +127,7 @@ function ProfilePageInner() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
-                Dashboard
-              </Link>
-              <Link href="/users" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.memberLabel)}
-              </Link>
-              <Link href="/roles" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link href="/positions" className="text-content-muted hover:text-content-strong">
-                Positions
-              </Link>
-              <Link
-                href="/profile"
-                className="font-medium text-accent-primary"
-                data-testid="nav-profile"
-              >
-                Profile
-              </Link>
-              <Link
-                href="/settings/organization"
-                className="text-content-muted hover:text-content-strong"
-              >
-                Settings
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
-
+    <AppShell>
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1
           className="mb-6 text-2xl font-semibold text-content-strong"
@@ -390,7 +345,7 @@ function ProfilePageInner() {
           </>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { AppShell } from '../../components/app-shell';
 import {
   ApiError,
   clearTokens,
@@ -214,53 +215,7 @@ function KpisPageInner() {
   const kpiLabelPlural = pluralize(terminology.kpiLabel);
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex flex-wrap gap-4 text-sm">
-              <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
-                Dashboard
-              </Link>
-              <Link
-                href="/kpis"
-                className="font-medium text-accent-primary"
-                data-testid="nav-kpis"
-              >
-                {kpiLabelPlural}
-              </Link>
-              <Link href="/users" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.memberLabel)}
-              </Link>
-              <Link href="/org-units" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.groupLabel)}
-              </Link>
-              <Link href="/roles" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link href="/positions" className="text-content-muted hover:text-content-strong">
-                Positions
-              </Link>
-              <Link href="/profile" className="text-content-muted hover:text-content-strong">
-                Profile
-              </Link>
-              <Link
-                href="/settings/organization"
-                className="text-content-muted hover:text-content-strong"
-              >
-                Settings
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
-
+    <AppShell>
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
           <h1
@@ -682,7 +637,7 @@ function KpisPageInner() {
           )}
         </section>
       </div>
-    </main>
+    </AppShell>
   );
 }
 

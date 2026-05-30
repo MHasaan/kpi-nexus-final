@@ -1,20 +1,19 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   ApiError,
   clearTokens,
   getAccessToken,
   getMyOrganization,
-  logoutRequest,
   updateMyOrganization,
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import {
-  pluralize,
   TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
@@ -29,7 +28,7 @@ export default function OrganizationSettingsPage() {
 
 function OrganizationSettingsInner() {
   const router = useRouter();
-  const { terminology, refresh: refreshTerminology } = useTerminology();
+  const { refresh: refreshTerminology } = useTerminology();
   const [org, setOrg] = useState<OrganizationSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -107,51 +106,9 @@ function OrganizationSettingsInner() {
     }
   }
 
-  async function handleLogout() {
-    await logoutRequest();
-    router.push('/login');
-  }
-
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
-                Dashboard
-              </Link>
-              <Link
-                href="/roles"
-                className="text-content-muted hover:text-content-strong"
-                data-testid="nav-roles"
-              >
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link
-                href="/settings/organization"
-                className="font-medium text-accent-primary"
-              >
-                Settings
-              </Link>
-            </nav>
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-md border border-border px-3 py-1.5 text-sm text-content-default transition hover:bg-surface-2"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold text-content-strong">
           Organization settings
@@ -245,7 +202,8 @@ function OrganizationSettingsInner() {
           </form>
         )}
       </div>
-    </main>
+      </RequirePermission>
+    </AppShell>
   );
 }
 

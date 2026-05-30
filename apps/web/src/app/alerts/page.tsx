@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { AppShell } from '../../components/app-shell';
 import {
   acknowledgeAlert,
   ApiError,
@@ -86,24 +87,25 @@ export default function AlertsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/alerts" className="font-medium text-content-strong">Alerts</Link>
-            <Link href="/alerts/channels" className="text-content-muted hover:text-content-strong">Channels</Link>
-          </nav>
-        </div>
-      </header>
-
+    <AppShell>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-content-strong" data-testid="alerts-heading">
-            Alerts
-          </h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-content-strong" data-testid="alerts-heading">
+              Alerts
+            </h1>
+            <nav className="mt-2 flex gap-4 text-sm" aria-label="Alerts sections">
+              <Link href="/alerts" className="font-medium text-accent-primary">
+                Alerts
+              </Link>
+              <Link
+                href="/alerts/channels"
+                className="text-content-muted hover:text-content-strong"
+              >
+                Channels
+              </Link>
+            </nav>
+          </div>
           <Link
             href="/alerts/new"
             data-testid="alerts-new-link"
@@ -205,6 +207,6 @@ export default function AlertsPage() {
           </div>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }

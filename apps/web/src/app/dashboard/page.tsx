@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { AlertsBell } from '../../components/alerts-bell';
-import { GlobalSearch } from '../../components/global-search';
+import { AppShell } from '../../components/app-shell';
 import { OnboardingTour } from '../../components/onboarding-tour';
 import { SetupChecklistCard } from '../../components/setup-checklist-card';
 import {
@@ -15,7 +14,6 @@ import {
   clearTokens,
   getAccessToken,
   getDashboardSummary,
-  logoutRequest,
   meRequest,
 } from '../../lib/api-client';
 import {
@@ -72,79 +70,10 @@ function DashboardPageInner() {
     };
   }, [router]);
 
-  async function handleLogout() {
-    await logoutRequest();
-    router.push('/login');
-  }
-
   const kpiLabelPlural = pluralize(terminology.kpiLabel);
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-              KPI Nexus
-            </Link>
-            <nav className="flex flex-wrap gap-4 text-sm">
-              <Link
-                href="/dashboard"
-                className="font-medium text-accent-primary"
-                data-testid="nav-dashboard"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/dashboards"
-                className="text-content-muted hover:text-content-strong"
-                data-testid="nav-dashboards"
-              >
-                {pluralize(terminology.dashboardLabel)}
-              </Link>
-              <Link href="/kpis" className="text-content-muted hover:text-content-strong">
-                {kpiLabelPlural}
-              </Link>
-              <Link href="/users" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.memberLabel)}
-              </Link>
-              <Link href="/org-units" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.groupLabel)}
-              </Link>
-              <Link href="/roles" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link href="/alerts" className="text-content-muted hover:text-content-strong" data-testid="nav-alerts">
-                Alerts
-              </Link>
-              <Link href="/profile" className="text-content-muted hover:text-content-strong">
-                Profile
-              </Link>
-              <Link href="/settings/organization" className="text-content-muted hover:text-content-strong">
-                Settings
-              </Link>
-            </nav>
-          </div>
-          {user && (
-            <div className="flex items-center gap-3 text-sm">
-              <GlobalSearch />
-              <AlertsBell />
-              <span className="text-content-muted" data-testid="dashboard-user-email">
-                {user.email}
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                data-testid="dashboard-signout-button"
-                className="rounded-md border border-border px-3 py-1.5 text-sm text-content-default transition hover:bg-surface-2"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
+    <AppShell>
       <div className="mx-auto max-w-6xl px-6 py-10">
         {loading && (
           <p className="text-sm text-content-muted">Loading your dashboard…</p>
@@ -205,7 +134,7 @@ function DashboardPageInner() {
           </>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }
 

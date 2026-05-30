@@ -40,7 +40,10 @@ export function RequirePermission({
     if (ready && !granted && fallback === undefined) {
       router.replace('/unauthorized');
     }
-  }, [ready, granted, fallback, router]);
+    // `fallback` is intentionally omitted from the deps: it is only used as an
+    // identity comparison in the guard condition, so re-running on its
+    // reference change would cause needless effect churn.
+  }, [ready, granted, router]);
 
   if (!ready) return null;
   if (!granted) return fallback !== undefined ? <>{fallback}</> : null;
@@ -80,7 +83,9 @@ export function RequireAnyPermission({
     if (ready && !granted && fallback === undefined) {
       router.replace('/unauthorized');
     }
-  }, [ready, granted, fallback, router]);
+    // `fallback` is intentionally omitted from the deps (identity-only use in
+    // the condition above).
+  }, [ready, granted, router]);
 
   if (!ready) return null;
   if (!granted) return fallback !== undefined ? <>{fallback}</> : null;

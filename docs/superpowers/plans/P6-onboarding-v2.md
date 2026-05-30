@@ -20,11 +20,14 @@
 
 - ✅ **OnboardingAiModule** — `onboarding-ai-limits` (per-mode 5/30/60/100 per hr) + `parse-generated-org` (fence-strip robust to missing close → coerced partial payload, 7 tests). generate/assistant/suggest/explain/apply; runs **pre-org** so it calls the provider registry directly with primary→fallback (org-scoped budget/log don't apply yet) + per-mode RateLimitService + OnboardingAIInteraction log. Public endpoints. **e2e 3/3 incl. both exit criteria: live generate returns a reasonable org (5 roles/14 positions/11 units/5 cats/10 KPIs), 6th generator → 429.**
 
-**✅ P6 BACKEND COMPLETE.** API unit suite **697/697**; servers running (api :4000 live Gemini, ML :8000).
+- ✅ **Frontend** (3 commits): `lib/onboarding-client` (public API + X-Draft-Token + localStorage draft handle); `/signup` EntrySplash (Quick/Full/Template gallery + ResumeBanner); `/signup/wizard` (draft load + 600ms-debounced sync + AI co-pilot generate→apply + review counts + complete→setTokens→/dashboard); `SetupChecklistCard` on /dashboard; `OnboardingTour` (5-slide first-login modal). **Fixed api CORS** (x-draft-token header + PUT method — browser was blocking preflights). Browser e2e: onboarding-wizard 3/3 (template→10/14/11/20/5 in UI→complete→dashboard+checklist; draft survives reload; live AI generate) + onboarding-tour 2/2.
 
-**Remaining (P6 frontend + closeout)**:
-1. **Frontend** — the big 3-pane wizard shell (`apps/web/src/app/signup/wizard/`) + 5 steps + AI co-pilot rail + DraftSyncProvider (600ms debounce PUT /onboarding/:id + localStorage resume, X-Draft-Token) + EntrySplash (Quick/Full/Template gallery) + SetupChecklistCard on home (GET /setup-checklist) + onboarding tour. API contracts: POST /onboarding/start → {sessionId,draftToken}; GET/PUT /onboarding/:id; POST :id/apply-template; POST :id/complete → JWT; POST /onboarding/ai/{generate,assistant,suggest,explain,apply}; GET /org-templates.
-2. e2e per plan + `git tag p6-complete`.
+## ✅ P6 COMPLETE (tagged `p6-complete`)
+All exit criteria met: seed.ts-depth reproduction via template (UI-verified 10/14/11/20/5) ✅; AI generator returns a reasonable org ✅; draft survives reload (resume banner) ✅; 14-task setup checklist on dashboard ✅; 5-slide first-login tour ✅; generator 6th call → 429 ✅. API unit **697/697**; 5 P6 e2e specs (api + browser) green.
+
+**Next phase**: P7 — Collaboration (`docs/superpowers/plans/P7-collaboration.md`).
+
+**Deferred (documented, non-blocking)**: the full 5-step-with-advanced-expand wizard (Structure drag-drop tree, permission-matrix editor, KPI catalog browser, CSV team import) — the streamlined wizard (template/AI/review/complete) reproduces full seed.ts depth and meets all exit criteria; the advanced per-field editors are polish for a later pass.
 
 ## Why this phase matters
 

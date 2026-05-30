@@ -69,6 +69,8 @@ import { IngestModule } from './ingest/ingest.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { IntegrationProvidersModule } from './integrations/providers/integration-providers.module.js';
 import { ScimModule } from './scim/scim.module.js';
+import { SearchModule } from './search/search.module.js';
+import { ActivityModule } from './activity/activity.module.js';
 
 @Module({
   imports: [
@@ -172,6 +174,8 @@ import { ScimModule } from './scim/scim.module.js';
     IntegrationProvidersModule,
     // P9 — Polish
     ScimModule,
+    SearchModule,
+    ActivityModule,
     HealthModule,
   ],
 })

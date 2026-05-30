@@ -1,25 +1,21 @@
 # Handoff
 
 ## State
-Branch `phase/p8-integrations` (off p7-complete). **P0–P8 done+tagged.** ✅ **P8 COMPLETE** (tagged `p8-complete`).
+Branch `phase/p9-polish` (off p8-complete). **ALL 10 PHASES P0–P9 done+tagged.** ✅ **P9 COMPLETE** (tagged `p9-complete` + `v1.0.0`). 🎉 The rebuild is shippable.
 
-### P8 recap (complete) — Integrations & Extensibility
-- Migration `20260530040000_p8_integrations` (IntegrationConnection, Connector, Pipeline, IngestionJob, Plugin + 4 enums).
-- **IntegrationsModule** (19) — pure AES-256-GCM `integration-crypto` + connection CRUD (tokens encrypted, never returned/audited); getDecryptedTokens/updateStatus/rotateTokens.
-- **InboundEmailModule** (19) — pure HMAC verify + plus-addressing + quoted-reply strip; `POST /webhooks/inbound/email` (@Public, dev passthrough) → resolve entity→org+sender → CommentsService in synthesized ctx.
-- **ConnectorsModule** (17) — pure extract (dot-path, REST/GraphQL, GraphQL errors[] reject); CRUD + runNow (fetch→extract→bulkRecordOrgWide→IngestionJob). REST+GraphQL only.
-- **IngestModule** (4) — `POST /ingest` gated KPI_DATA_ENTRY → bulkRecordOrgWide + IngestionJob. **api-key scopes ARE PermissionKeys** so KPI_DATA_ENTRY key → 403 on POST /kpis (existing guard).
-- **Slack/Teams/Jira** (24) — pure sig verify + Block Kit/Adaptive Card builders + Jira→Task status map; SlackService.handleInteractive (team_id→org→ack alert), JiraService.handleWebhook (status→Task); public callbacks.
-- **PluginsModule** (5) — catalog CRUD + enable/disable. Webhook event catalog extended + GET /webhooks/events.
-- **Frontend** — /integrations, /connectors(+[id]), /plugins; lib/integrations-client.ts.
-- **Tests**: API unit **892/892**; e2e p8-integrations 4/4 (scope 403, inbound email→comment, connector run, plugin lifecycle).
+### P9 recap (complete) — Polish
+- Migration `20260530050000_p9_sso_scim_polish` (SsoConfig + ScimToken + SsoProtocol).
+- **ScimModule RFC 7644** (40) — flattenScimUserPatch pure (flat + PatchOp); ScimUsersService (provision INVITED, active→SUSPENDED/ACTIVE, DELETE→ARCHIVED); ScimGroupsService (roles-as-groups, membership=roleId, cross-tenant drop); ScimTokenService (hashed bearer); `/scim/v2/*` token-authed + `/scim/tokens` admin.
+- **SearchModule** (12) — pure scorer + 4-entity search; **ActivityModule** (4) — cursor-paginated audit feed.
+- **SsoModule** (5) — config + JIT provisioning (SAML/OIDC exchange = WorkOS-deferred); **RetentionModule** (8) — tier presets FREE/PRO/ENTERPRISE.
+- **FE**: i18n (en/es/fr/ur-PK, RTL flip + locale picker on /profile, 6 web tests), ⌘K global search, /activity, /settings/{scim,retention,sso}, a11y skip-link, <html lang> synced.
+- **Tests**: API unit **961/961**; web unit 15/15; e2e p9-polish 4/4 + i18n-rtl 1/1.
 
-Key fixes: IntegrationCryptoService env param @Optional (Nest DI); db index re-exports for P8 models/enums; **recordedById null for api_key principals** (ctx.userId is the key id, not a User → FK fail on connector/ingest writes) in KpiDataService.recordForOrgWideKpi.
+### Deferred (documented, post-v1 hardening)
+Live SAML/OIDC (WorkOS wiring; JIT unit-tested); Lighthouse/k6/axe CI gates + bundle budgets; OpenAPI/Spectral + SDK gen; plugin iframe sandbox + isolated-vm; ACM automation; connector schedule auto-runs + Postgres/MySQL runners (P8). Known: SCIM DELETE with `content-type: application/json` + empty body → 400 (Fastify strict parser; well-behaved clients fine). Fix later via NestFactory `bodyParser:false` + manual empty-body-tolerant parser (in-bootstrap addContentTypeParser conflicts with NestFastify's own JSON parser registration).
 
-Architecture: ApprovalGateModule pattern reused mentally; connectors/ingest share new `KpiDataService.bulkRecordOrgWide`. Servers during dev: api :4000 (LIVE Gemini), ML :8000. Background api started from `apps/api/dist/main.js` for e2e (log `.api-p8.log`).
+## Servers
+api :4000 (LIVE Gemini, started from `apps/api/dist/main.js`, log `.api-p9.log`), ML :8000.
 
-### Deferred (documented, non-blocking)
-Connector schedule BullMQ auto-runs (manual run shipped) + Postgres/MySQL/S3 runners (REST+GraphQL shipped). Plugin iframe sandbox + SSO/SCIM (`scim:provision`) → P9. Slack/Jira OAuth connect flows need real provider apps (handlers/formatting unit-tested).
-
-## NEXT — P9 Polish
-Execute `docs/superpowers/plans/P9-polish.md`: SSO + SCIM + custom domains + i18n + global search + activity feed + a11y + perf budgets + OpenAPI. Create branch `phase/p9-polish` off p8-complete. **Final phase.**
+## NEXT
+The 10-phase rebuild plan is COMPLETE (v1.0.0). Post-launch chapters (not part of this plan): frontend Claude Design session, beta program, Stripe billing wiring, mobile, real-time collab. For FYP submission, v1.0.0 with all phase plans complete is the end.

@@ -19,7 +19,7 @@ Master index for the 10-phase delivery plan. Each phase is shippable on its own.
 | P6 | Onboarding 2.0 + AI co-pilot + drafts + templates + setup checklist | 3 wk | ✅ | [P6-onboarding-v2.md](./docs/superpowers/plans/P6-onboarding-v2.md) |
 | P7 | Collaboration — tasks + comments + mentions + OKRs + approvals | 4 wk | ✅ | [P7-collaboration.md](./docs/superpowers/plans/P7-collaboration.md) |
 | P8 | Integrations + connectors + email-in + webhooks + API keys + plugins | 4 wk | ✅ | [P8-integrations.md](./docs/superpowers/plans/P8-integrations.md) |
-| P9 | Polish — SSO + SCIM + custom domains + i18n + a11y + perf | 3 wk | ⬜ | [P9-polish.md](./docs/superpowers/plans/P9-polish.md) |
+| P9 | Polish — SSO + SCIM + custom domains + i18n + a11y + perf | 3 wk | ✅ | [P9-polish.md](./docs/superpowers/plans/P9-polish.md) |
 
 **Total: ~37 weeks solo (≈8.5 months full-time).** Achievable in calendar 12 months with normal life happening.
 

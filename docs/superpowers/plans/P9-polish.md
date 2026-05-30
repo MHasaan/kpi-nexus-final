@@ -9,6 +9,23 @@
 | **Blocks** | None — last phase before v1.0 |
 | **Spec reference** | §3.8 rest (SsoConfig/ScimToken), §4.10 rest (Search/Activity), §10 (perf), §12 (a11y) |
 
+## ✅ P9 COMPLETE (tagged `p9-complete` + `v1.0.0`)
+
+The testable, self-contained scope of the polish phase is done; external/CI-bound items (live SAML, Lighthouse/k6/axe CI gates, SDK gen, ACM) are documented deferrals. **API unit 961/961**; web unit 15/15; 5 P9 e2e green (SCIM round-trip, search, activity, retention, i18n RTL).
+
+- **Schema** — migration `20260530050000_p9_sso_scim_polish`: SsoConfig + ScimToken + SsoProtocol enum; db re-exports.
+- **ScimModule (RFC 7644)** (40) — pure `flattenScimUserPatch` (flat + PatchOp, stringy-bool coercion) + filter parsers; ScimUsersService (provision INVITED, userName filter, PATCH/PUT active→SUSPENDED/ACTIVE, DELETE→ARCHIVED); ScimGroupsService (roles-as-groups, membership=roleId, cross-tenant drop); ScimTokenService (hashed bearer, verify/revoke); `/scim/v2/*` token-authed + admin `/scim/tokens`.
+- **SearchModule** (12) — pure scorer (exact/prefix/substring) + 4-entity parallel search, per-type cap, soft-delete/archived exclusion; `GET /search`.
+- **ActivityModule** (4) — cursor-paginated AuditLog feed with side-loaded user names; admin-all vs own-only; `GET /activity`.
+- **SsoModule** (5) — SsoConfigService (get/upsert, cert omitted from reads) + SsoService JIT (existing-user login or ACTIVE provision + JWT); `GET/PUT /sso/config`.
+- **RetentionModule** (8) — RETENTION_TIERS (FREE 90 / PRO 365 / ENTERPRISE 2555) + one-click `apply-tier` across entity types.
+- **Frontend** — i18n (dictionaries en/es/fr/ur-PK, pure `translate` + LocaleProvider with RTL flip + locale picker on /profile, 6 web tests), global ⌘K search palette, `/activity` feed, `/settings/{scim,retention,sso}`, a11y skip-to-content link, `<html lang>` synced to locale.
+- **e2e** — `p9-polish.spec.ts` 4/4 (SCIM provision→suspend→archive, search, activity, retention) + `i18n-rtl.spec.ts` 1/1 (ur-PK → `dir=rtl` + translated + persists).
+
+**🎉 v1.0.0 — all 10 phases (P0–P9) complete and tagged. The KPI Nexus rebuild is shippable.**
+
+**Deferred (documented, non-blocking — post-v1 hardening)**: live SAML/OIDC exchange (WorkOS wiring; JIT logic unit-tested), Lighthouse/k6/axe CI gates + bundle budgets (CI infra), OpenAPI/Spectral + SDK gen, plugin iframe sandbox + isolated-vm FORMULA_FN, ACM cert automation. SCIM clients that send `content-type: application/json` on a bodyless DELETE get a 400 from Fastify's strict JSON parser — well-behaved clients (no content-type on empty body) work; an empty-body-tolerant parser is a small follow-up.
+
 ## Why this phase matters
 
 P0–P8 ship a working SaaS. P9 makes it enterprise-shippable — SSO for IT departments, SCIM for HRIS auto-provisioning, custom domains for branding, i18n for global users, a11y for compliance, perf budgets so it doesn't slow down at scale. P9 is fully cuttable except a11y if you need to ship earlier.

@@ -59,6 +59,7 @@ import { UsersModule } from './users/users.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { CommentsModule } from './comments/comments.module.js';
+import { OkrsModule } from './okrs/okrs.module.js';
 
 @Module({
   imports: [
@@ -150,6 +151,7 @@ import { CommentsModule } from './comments/comments.module.js';
     // P7 — Collaboration & Workflow
     TasksModule,
     CommentsModule,
+    OkrsModule,
     HealthModule,
   ],
 })

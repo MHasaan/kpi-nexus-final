@@ -16,13 +16,14 @@
 - ✅ `SetupChecklistModule` — pure defaults + `mergeChecklist` (7 tests); lazy list (14 pending, no rows until status change) + markStatus (complete/dismiss/reset); auth-only endpoints. e2e 2/2.
 - ✅ `OrgTemplatesModule` — `template-payload` (shape + `validateTemplatePayload` referential integrity + `countPayload`, 6 tests) + builtins: **SaaS-Startup (Rich) reproduces seed.ts depth exactly — 10 roles / 14 positions / 11 units / 20 KPIs / 5 categories** + Tech/Retail starters + Minimal (5 tests, all referentially valid). PUBLIC list/preview endpoints. e2e 3/3.
 
-API unit suite green incl. these; servers running (api :4000 live Gemini, ML :8000).
+- ✅ **OnboardingModule** — `draft-token` pure (deriveDraftToken HMAC + hashDraftToken + timing-safe verify + mergeDraft, 7 tests); `start`/`getDraft`/`patchDraft`/`applyTemplate`; **`complete` = atomic `prisma.$transaction`** materializing org + roles + admin user + positions + unit hierarchy (parent-before-child) + categories + KPIs, issues JWT (new `AuthService.issueTokensForUser`). Public endpoints (X-Draft-Token). **e2e 3/3 incl. the EXIT CRITERION: template `saas-startup-rich` → complete → org has 10 roles / 14 positions / 11 units / 20 KPIs / 5 categories.**
+
+**P6 BACKEND CORE COMPLETE.** API unit suite **690/690**; servers running (api :4000 live Gemini, ML :8000).
 
 **Remaining**:
-1. **OnboardingModule** — `start` (session + draftTokenHash HMAC), draft `patch`/`get` (token-validated payload merge), **`complete` atomic `$transaction`** (Organization + RoleDefinitions + Positions + OrgUnitTypes + OrgUnits[parent hierarchy] + KPICategories + KPIs + admin User + JWT + 14 OnboardingTask rows), `apply-template` (reuses OrgTemplatesService.preview → merge into draft). Pure draft-token + payload-merge tests + transaction-atomicity test + e2e reproducing seed.ts depth via template→complete.
-2. **OnboardingAiModule** — generate/assistant/suggest/explain via AiRouter (ONBOARDING_* features already in DEFAULT_FYP_CONFIG) + per-mode rate limits + interaction log.
-3. **Frontend** — the big 3-pane wizard shell + 5 steps + AI co-pilot rail + DraftSyncProvider + EntrySplash/TemplateGallery + SetupChecklistCard on home + onboarding tour.
-4. Integration/e2e per plan + `git tag p6-complete`.
+1. **OnboardingAiModule** — generate/assistant/suggest/explain via AiRouter (ONBOARDING_* features already in DEFAULT_FYP_CONFIG) + per-mode rate limits (5/30/60/100 per hr) + OnboardingAIInteraction log. (Schema model already exists.)
+2. **Frontend** — the big 3-pane wizard shell + 5 steps + AI co-pilot rail + DraftSyncProvider (600ms debounce + localStorage resume) + EntrySplash/TemplateGallery + SetupChecklistCard on home + onboarding tour.
+3. Integration/e2e per plan + `git tag p6-complete`.
 
 ## Why this phase matters
 

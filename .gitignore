@@ -50,3 +50,6 @@ venv/
 # Misc
 .cache/
 .vercel/
+
+# Playwright MCP audit scratch (screenshots, snapshots, console logs)
+.playwright-mcp/

@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+
 import { Public } from '../rbac/decorators/public.decorator.js';
+import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from './auth.service.js';
@@ -44,6 +47,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
+    private readonly permissionResolver: PermissionResolverService,
   ) {}
 
   @Public()
@@ -96,23 +100,32 @@ export class AuthController {
       mfaEnabled: boolean;
       status: string;
       notificationSettings: unknown;
+      permissions: string[];
     };
   }> {
     const ctx = RequestContextStore.require();
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: ctx.userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        organizationId: true,
-        roleId: true,
-        mfaEnabled: true,
-        status: true,
-        notificationSettings: true,
-      },
-    });
-    return { user };
+    const [user, resolved] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: ctx.userId },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          organizationId: true,
+          roleId: true,
+          mfaEnabled: true,
+          status: true,
+          notificationSettings: true,
+        },
+      }),
+      this.permissionResolver.resolveForCurrentPrincipal(),
+    ]);
+
+    const permissions: string[] = resolved.isAdmin
+      ? [...ALL_PERMISSIONS]
+      : [...resolved.permissions];
+
+    return { user: { ...user, permissions } };
   }
 
   /** Update the current user's notification preferences (digest, mute hours). */

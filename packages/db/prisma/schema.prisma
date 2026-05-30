@@ -1706,3 +1706,100 @@ model Forecast {
 
   @@index([organizationId, kpiId, generatedAt])
 }
+
+// ============================================================================
+// P6 — Onboarding 2.0: sessions, AI interactions, org templates, setup checklist
+// ============================================================================
+
+enum OnboardingStatus {
+  in_progress
+  completed
+  archived
+}
+
+enum OnboardingAiMode {
+  generator
+  assistant
+  suggest
+  explain
+}
+
+// A draft onboarding session. `organizationId` is null until completed (the org
+// is materialized at the end). `payload` is the entire draft state; resumable
+// via `draftTokenHash` (HMAC of session id + secret) before auth exists.
+model OnboardingSession {
+  id               String           @id @default(cuid())
+  organizationId   String?
+  organizationName String
+  userId           String?
+  userEmail        String
+  draftTokenHash   String?
+  payload          Json
+  status           OnboardingStatus @default(in_progress)
+  entryMode        String           @default("full")
+  lastEditedStep   String?
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  updatedAt        DateTime         @updatedAt
+
+  @@index([userEmail, status])
+}
+
+// Audit + analytics of every AI co-pilot interaction during onboarding.
+model OnboardingAIInteraction {
+  id               String           @id @default(cuid())
+  sessionId        String
+  mode             OnboardingAiMode
+  prompt           String
+  response         String
+  appliedSections  String[]
+  editedSections   String[]
+  rejectedSections String[]
+  promptTokens     Int              @default(0)
+  completionTokens Int              @default(0)
+  latencyMs        Int
+  providerKey      String?
+  modelId          String?
+  costUsd          Float?
+  createdAt        DateTime         @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+// A reusable org template (builtin when organizationId is null). `payload` holds
+// roles + positions + units + categories + KPIs to seed a new org.
+model OrgTemplate {
+  id             String   @id @default(cuid())
+  organizationId String?
+  slug           String   @unique
+  name           String
+  description    String?
+  tier           String   @default("starter")
+  orgType        String?
+  industry       String?
+  payload        Json
+  isBuiltin      Boolean  @default(false)
+  isPublic       Boolean  @default(false)
+  popularity     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([tier])
+  @@index([industry])
+}
+
+// A post-onboarding setup-checklist task. Lazily upserted: fresh orgs see 14
+// pending defaults without rows until a status changes. Scalar FK (org-scoped).
+model OnboardingTask {
+  id             String    @id @default(cuid())
+  organizationId String
+  key            String
+  status         String    @default("pending")
+  dueAt          DateTime?
+  completedAt    DateTime?
+  completedById  String?
+  dismissedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}

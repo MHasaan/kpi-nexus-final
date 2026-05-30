@@ -91,6 +91,10 @@ export type {
   NLQQuery,
   AnomalyDetection,
   Forecast,
+  OnboardingSession,
+  OnboardingAIInteraction,
+  OrgTemplate,
+  OnboardingTask,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -121,4 +125,6 @@ export {
   CircuitBreakerMode,
   RecommendationStatus,
   ForecastModelKind,
+  OnboardingStatus,
+  OnboardingAiMode,
 } from '@prisma/client';

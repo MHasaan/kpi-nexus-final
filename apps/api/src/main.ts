@@ -7,9 +7,14 @@ import {
 } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 
+import { ensureProviderKeysLoaded } from './ai/provider-key-loader.js';
 import { AppModule } from './app.module.js';
 
 async function bootstrap(): Promise<void> {
+  // Load AI provider keys from the local .env even if a launcher pre-set them
+  // empty (which @nestjs/config won't override). Must run before any AI call.
+  ensureProviderKeysLoaded();
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ trustProxy: true }),

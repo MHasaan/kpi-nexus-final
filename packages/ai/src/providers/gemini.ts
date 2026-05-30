@@ -79,6 +79,59 @@ export class GeminiProvider implements IAiProvider {
     return fallback;
   }
 
+  /**
+   * Key-level failures (quota-exhausted 429, invalid/forbidden key 401/403) mean
+   * a *different* key may succeed — so the same request rotates to the next key.
+   * Other 4xx (bad request) and 5xx are NOT key-specific, so we surface them
+   * immediately rather than burning the whole pool.
+   */
+  private isKeyLevelStatus(status: number): boolean {
+    return status === 429 || status === 401 || status === 403;
+  }
+
+  /**
+   * Run a request across the key pool with intra-request failover: try a key,
+   * and on a key-level error park it (if rate-limited) and retry the same call
+   * with the next available key, until one succeeds or every key is exhausted.
+   * `makeUrl` injects the chosen key; `init` is identical across attempts.
+   */
+  private async fetchWithKeyFailover(makeUrl: (apiKey: string) => string, init: RequestInit): Promise<Response> {
+    if (this.apiKeys.length === 0) {
+      throw new AiProviderError('Gemini has no API keys configured', this.key, false);
+    }
+    const tried = new Set<string>();
+    let lastError: AiProviderError | undefined;
+
+    for (let attempt = 0; attempt < this.apiKeys.length; attempt += 1) {
+      const apiKey = this.nextKey();
+      if (tried.has(apiKey)) break; // pool cycled (all remaining parked) → stop
+      tried.add(apiKey);
+
+      let res: Response;
+      try {
+        res = (await this.fetchImpl(makeUrl(apiKey), init)) as Response;
+      } catch (err) {
+        // Network failure — transient; try the next key.
+        lastError = new AiProviderError(`Gemini network error: ${String(err)}`, this.key, true);
+        continue;
+      }
+
+      if (res.ok) return res;
+
+      const detail = await safeText(res);
+      if (this.isKeyLevelStatus(res.status)) {
+        if (res.status === 429) this.parkedUntil.set(apiKey, this.now() + this.cooldownMs);
+        lastError = httpError(this.key, res.status, detail);
+        continue; // this key is exhausted/invalid → try the next one
+      }
+      // Request-level (4xx) or server (5xx): not key-specific — don't burn the pool.
+      throw httpError(this.key, res.status, detail);
+    }
+
+    // Every key errored at the key level.
+    throw lastError ?? new AiProviderError('Gemini: all API keys exhausted', this.key, true, 429);
+  }
+
   private mapFinish(reason: string | undefined, hasToolCall: boolean): AiFinishReason {
     if (hasToolCall) return 'tool_use';
     switch (reason) {
@@ -124,18 +177,14 @@ export class GeminiProvider implements IAiProvider {
 
   private async generate(req: AiCompletionRequest): Promise<AiCompletionResult> {
     const model = requireModel(this.key, req.model);
-    const apiKey = this.nextKey();
-    const url = `${this.baseUrl}/models/${model}:generateContent?key=${apiKey}`;
-    const res = await this.fetchImpl(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(this.buildBody(req)),
-    });
-
-    if (!res.ok) {
-      if (res.status === 429) this.parkedUntil.set(apiKey, this.now() + this.cooldownMs);
-      throw httpError(this.key, res.status, await safeText(res));
-    }
+    const res = await this.fetchWithKeyFailover(
+      (apiKey) => `${this.baseUrl}/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(this.buildBody(req)),
+      },
+    );
 
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>;
@@ -185,24 +234,21 @@ export class GeminiProvider implements IAiProvider {
   }
 
   async embed(req: AiEmbeddingRequest): Promise<number[][]> {
-    const apiKey = this.nextKey();
     // text-embedding-004 is the canonical embed model; strip our `gemini-` prefix.
     const embedModel = req.model.replace(/^gemini-/, '');
-    const url = `${this.baseUrl}/models/${embedModel}:batchEmbedContents?key=${apiKey}`;
-    const res = await this.fetchImpl(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        requests: req.texts.map((text) => ({
-          model: `models/${embedModel}`,
-          content: { parts: [{ text }] },
-        })),
-      }),
-    });
-    if (!res.ok) {
-      if (res.status === 429) this.parkedUntil.set(apiKey, this.now() + this.cooldownMs);
-      throw httpError(this.key, res.status, await safeText(res));
-    }
+    const res = await this.fetchWithKeyFailover(
+      (apiKey) => `${this.baseUrl}/models/${embedModel}:batchEmbedContents?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          requests: req.texts.map((text) => ({
+            model: `models/${embedModel}`,
+            content: { parts: [{ text }] },
+          })),
+        }),
+      },
+    );
     const data = (await res.json()) as { embeddings?: Array<{ values: number[] }> };
     return (data.embeddings ?? []).map((e) => e.values);
   }

@@ -71,6 +71,8 @@ import { IntegrationProvidersModule } from './integrations/providers/integration
 import { ScimModule } from './scim/scim.module.js';
 import { SearchModule } from './search/search.module.js';
 import { ActivityModule } from './activity/activity.module.js';
+import { SsoModule } from './sso/sso.module.js';
+import { RetentionModule } from './retention/retention.module.js';
 
 @Module({
   imports: [
@@ -176,6 +178,8 @@ import { ActivityModule } from './activity/activity.module.js';
     ScimModule,
     SearchModule,
     ActivityModule,
+    SsoModule,
+    RetentionModule,
     HealthModule,
   ],
 })

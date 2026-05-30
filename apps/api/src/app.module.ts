@@ -61,6 +61,7 @@ import { TasksModule } from './tasks/tasks.module.js';
 import { CommentsModule } from './comments/comments.module.js';
 import { OkrsModule } from './okrs/okrs.module.js';
 import { ApprovalsModule } from './approvals/approvals.module.js';
+import { WorkflowsModule } from './workflows/workflows.module.js';
 
 @Module({
   imports: [
@@ -154,6 +155,7 @@ import { ApprovalsModule } from './approvals/approvals.module.js';
     CommentsModule,
     OkrsModule,
     ApprovalsModule,
+    WorkflowsModule,
     HealthModule,
   ],
 })

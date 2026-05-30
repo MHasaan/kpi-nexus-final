@@ -7,6 +7,7 @@ import { BillingModule } from '../billing/billing.module.js';
 import { CalculationEngineModule } from '../calculation-engine/calculation-engine.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
+import { WorkflowsModule } from '../workflows/workflows.module.js';
 import { CascadeService } from './cascade.service.js';
 import { KpiDataController } from './kpi-data.controller.js';
 import { KpiDataService } from './kpi-data.service.js';
@@ -15,7 +16,7 @@ import { KpisController } from './kpis.controller.js';
 import { KpisService } from './kpis.service.js';
 
 @Module({
-  imports: [AuditModule, BillingModule, RbacModule, RealtimeModule, AlertEngineModule, CalculationEngineModule, ApprovalGateModule],
+  imports: [AuditModule, BillingModule, RbacModule, RealtimeModule, AlertEngineModule, CalculationEngineModule, ApprovalGateModule, WorkflowsModule],
   controllers: [KpisController, KpiDataController],
   providers: [KpisService, KpiDataService, CascadeService, KpiImportService],
   exports: [KpisService, KpiDataService, CascadeService],

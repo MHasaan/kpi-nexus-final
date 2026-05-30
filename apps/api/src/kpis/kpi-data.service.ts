@@ -4,10 +4,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
+import { WorkflowsService } from '../workflows/workflows.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -96,6 +98,7 @@ export class KpiDataService {
     private readonly realtime: RealtimeService,
     private readonly alertEngine: AlertEngineProducer,
     private readonly calcEngine: CalculationEngineProducer,
+    @Optional() private readonly workflows?: WorkflowsService,
   ) {}
 
   /** POST /kpis/:id/data — ORG_WIDE only. */
@@ -566,6 +569,16 @@ export class KpiDataService {
     // the guard below prevents re-entry / infinite loops.
     if (point.sourceType !== 'COMPUTED') {
       await this.enqueueDerivedRecomputes(point.kpiId, point.periodStart, point.periodEnd, params.organizationId);
+
+      // Generic workflow engine: fire kpi_changed (fire-and-forget; runEvent
+      // swallows its own errors so a rule never breaks the data write).
+      if (this.workflows) {
+        await this.workflows.runEvent('kpi_changed', {
+          kind: 'kpi_changed',
+          kpiId: point.kpiId,
+          value: point.value,
+        });
+      }
     }
 
     return point;

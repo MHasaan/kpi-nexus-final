@@ -66,6 +66,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
 import { InboundEmailModule } from './inbound-email/inbound-email.module.js';
 import { ConnectorsModule } from './connectors/connectors.module.js';
 import { IngestModule } from './ingest/ingest.module.js';
+import { PluginsModule } from './plugins/plugins.module.js';
 
 @Module({
   imports: [
@@ -165,6 +166,7 @@ import { IngestModule } from './ingest/ingest.module.js';
     InboundEmailModule,
     ConnectorsModule,
     IngestModule,
+    PluginsModule,
     HealthModule,
   ],
 })

@@ -15,7 +15,8 @@ import { z } from 'zod';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
-import { WebhooksService, type PublicWebhook } from './webhooks.service.js';
+import { WEBHOOK_EVENT_CATALOG } from './webhook-events.js';
+import { type PublicWebhook, WebhooksService } from './webhooks.service.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -47,6 +48,13 @@ export class WebhooksController {
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   list(): Promise<PublicWebhook[]> {
     return this.webhooks.list();
+  }
+
+  /** Catalog of dispatchable events for the subscription event picker. */
+  @Get('events')
+  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  events(): { events: readonly string[] } {
+    return { events: WEBHOOK_EVENT_CATALOG };
   }
 
   @Post()

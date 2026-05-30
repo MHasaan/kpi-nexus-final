@@ -65,6 +65,7 @@ import { WorkflowsModule } from './workflows/workflows.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
 import { InboundEmailModule } from './inbound-email/inbound-email.module.js';
 import { ConnectorsModule } from './connectors/connectors.module.js';
+import { IngestModule } from './ingest/ingest.module.js';
 
 @Module({
   imports: [
@@ -163,6 +164,7 @@ import { ConnectorsModule } from './connectors/connectors.module.js';
     IntegrationsModule,
     InboundEmailModule,
     ConnectorsModule,
+    IngestModule,
     HealthModule,
   ],
 })

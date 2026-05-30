@@ -1,18 +1,24 @@
 # Handoff
 
 ## State
-Branch `phase/p6-onboarding` (off p5-complete). **P0–P6 done+tagged.** ✅ **P6 COMPLETE** (tagged `p6-complete`).
+Branch `phase/p7-collaboration` (off p6-complete). **P0–P7 done+tagged.** ✅ **P7 COMPLETE** (tagged `p7-complete`).
 
-### P6 recap (complete)
-- **Backend** (6 commits): migration `20260530020000_p6_onboarding`; SetupChecklistModule (14-task lazy); OrgTemplatesModule (SaaS-Startup-Rich = seed.ts depth 10 roles/14 positions/11 units/20 KPIs/5 cats, PUBLIC endpoints); OnboardingModule (draft-token HMAC; start/getDraft/patchDraft/applyTemplate; **complete = atomic $transaction → org+roles+adminUser+positions+unit hierarchy+categories+KPIs +JWT**); OnboardingAiModule (per-mode limits; generate/assistant/suggest/explain/apply; **runs PRE-ORG → AiProviderRegistry directly w/ primary→fallback, NOT AiRouter**).
-- **Frontend** (3 commits): `lib/onboarding-client` (public + X-Draft-Token + localStorage draft handle); `/signup` EntrySplash (Quick/Full/Template gallery + ResumeBanner); `/signup/wizard` (draft load + 600ms debounced sync + AI co-pilot generate→apply + review counts + complete→setTokens→/dashboard); SetupChecklistCard on /dashboard; OnboardingTour (5-slide first-login modal). **Fixed api CORS** (added x-draft-token header + PUT method).
-- **Exit criteria ALL met & verified**: template→complete→UI shows 10/14/11/20/5; live AI generate returns reasonable org; draft survives reload (resume banner); 14-task checklist on dashboard; 5-slide tour; generator 6th→429.
-- **Tests**: API unit **697/697**; ML pytest 23/23; packages/ai 42/42; browser e2e onboarding-wizard 3/3, onboarding-tour 2/2; api e2e setup-checklist 2/2, org-templates 3/3, onboarding 3/3, onboarding-ai 3/3.
+### P7 recap (complete) — Collaboration & Workflow
+- Migration `20260530030000_p7_collaboration` (Task, Comment, Mention, Objective, KeyResult, ApprovalWorkflow, ApprovalRequest, Workflow + 5 enums).
+- **TasksModule** (14) — CRUD + entity-bound visibility + mutate gate.
+- **Comments+Mentions** (24) — `@mention` → Mention rows in same `$transaction`; `/me/mentions` inbox.
+- **OkrsModule** (29) — pure `progress-math.ts`; recompute + parent rollup + depth-10 cycle guard; `syncFromLinkedKpis`.
+- **ApprovalsModule** (39) — **ApprovalGateService** seam (standalone module → no cycle) throws **202 + requestId**; wired into KpisService.update / KpiTargetsService / RolesService via `@Optional()`; ApprovalApplyService replays with bypassApproval; decide/cancel guards.
+- **WorkflowsModule** (21) — pure `evaluateRule` (6 ops) + ActionDispatcher; `kpi_changed` wired fire-and-forget into data-point write path.
+- **Frontend** — `/tasks` kanban, `/okrs` + `/okrs/[id]`, CommentsDrawer (on `/kpis/[id]`), `/me/mentions`, `/approvals`, `/workflows`; `lib/collab-client.ts`.
+- **Tests**: API unit **813/813** (+116); e2e `p7-collaboration.spec.ts` 5/5 (incl. approval 202→approve→apply, kpi_changed→auto task) + `tasks-okrs-ui.spec.ts` 2/2 browser.
 
-Servers: api :4000 (LIVE Gemini, 8-key failover), ML :8000.
+Architecture note: ApprovalGateModule (Prisma-only) is imported by domain modules; ApprovalsModule imports the domain modules for the apply side → no circular dep. Gate skips status-only KPI patches; bypassApproval flag is internal-only.
+
+Servers during dev: api :4000 (LIVE Gemini), ML :8000. Background api started from `apps/api/dist/main.js` for e2e (log `.api-p7.log`).
 
 ### Deferred (documented, non-blocking)
-Full 5-step-with-advanced-expand wizard (Structure drag-drop tree, permission-matrix editor, KPI catalog browser, CSV team import). Streamlined wizard already reproduces full seed.ts depth & meets all exit criteria; advanced per-field editors are later polish.
+Workflow `schedule` (BullMQ repeatable) + `alert` triggers not yet wired (only kpi_changed + manual); rule engine is trigger-agnostic so it's wiring-only. `send_notification` emails EMAIL channels; other kinds log. Real-time comment SSE is P9.
 
-## NEXT — P7 Collaboration
-Execute `docs/superpowers/plans/P7-collaboration.md`: tasks + comments + mentions + OKRs + approvals + workflow rule engine. Create branch `phase/p7-collaboration` off p6-complete.
+## NEXT — P8 Integrations
+Execute `docs/superpowers/plans/P8-integrations.md`: Slack/Teams/Jira + pull connectors + inbound email + webhooks + API keys + plugins. Create branch `phase/p8-integrations` off p7-complete.

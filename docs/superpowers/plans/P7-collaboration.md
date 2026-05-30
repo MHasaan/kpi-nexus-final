@@ -9,6 +9,23 @@
 | **Blocks** | P8 (Slack integration consumes tasks/comments), P9 (mentions UI in i18n) |
 | **Spec reference** | §3.7 (collaboration schema), §4.7 (collaboration modules) |
 
+## ✅ P7 COMPLETE (tagged `p7-complete`)
+
+All exit criteria met and verified end-to-end. **API unit 813/813** (+116 P7 tests); 5 API e2e + 2 browser e2e green against the live api.
+
+- **Schema** — migration `20260530030000_p7_collaboration`: Task, Comment, Mention, Objective, KeyResult, ApprovalWorkflow, ApprovalRequest, Workflow + 5 enums; db package re-exports added.
+- **TasksModule** (14 tests) — CRUD + entity-bound read visibility (admin all; others own-created + assigned) + mutate gate (creator/assignee/USERS_MANAGE); `/tasks`, `/tasks/my-tasks`, `/tasks/by-kpi/:id`.
+- **Comments + Mentions** (24) — threaded comments; `@mention` resolved + stripped of self/non-members → Mention rows in the **same `$transaction`** (rollback-tested); `/me/mentions` inbox + unread-count + mark-read/all.
+- **OkrsModule** (29) — pure `progress-math.ts` (4 KR shapes, weighted avg, zero-weight fallback, clamp); recompute with **parent rollup + depth-10 cycle guard**; `syncFromLinkedKpis` pulls latest KPI value; objective+KR CRUD.
+- **ApprovalsModule** (39) — pure `resolveStatus`; **ApprovalGateService** seam (standalone module, no cycle) throws **HTTP 202 + requestId** and records a PENDING request; wired into `KpisService.update` (skips status-only), `KpiTargetsService.create/update`, `RolesService.update` (permission changes only) via `@Optional()` injection; `ApprovalApplyService` replays approved mutations with `bypassApproval`; decide/cancel with self-approval + duplicate guards.
+- **WorkflowsModule** (21) — pure `evaluateRule` (6 operators, 3 rule kinds, fail-closed) + `ActionDispatcher` (create_task / post_webhook / send_notification); `kpi_changed` trigger wired fire-and-forget into the data-point write path; CRUD + manual trigger.
+- **Frontend** — `/tasks` kanban (HTML5 drag-drop, optimistic), `/okrs` + `/okrs/[id]` (progress meters, inline KR edit, KPI sync), `CommentsDrawer` (mounted on `/kpis/[id]`, @mention autocomplete), `/me/mentions` inbox, `/approvals` (workflow config + pending/resolved), `/workflows` rule editor; `lib/collab-client.ts`.
+- **e2e** — `p7-collaboration.spec.ts` (5/5: tasks, OKRs weighted progress, mention inbox round-trip, **approval 202 → approver applies**, kpi_changed → auto task) + `tasks-okrs-ui.spec.ts` (2/2 browser).
+
+**Next phase**: P8 — Integrations (`docs/superpowers/plans/P8-integrations.md`).
+
+**Deferred (documented, non-blocking)**: workflow `schedule` (BullMQ repeatable) + `alert` triggers — only `kpi_changed` + `manual` are wired; the rule engine and dispatcher are trigger-agnostic so adding them is wiring-only. `send_notification` currently emails EMAIL-kind channels; other channel kinds log. Real-time comment SSE is P9.
+
 ## Why this phase matters
 
 KPIs are leading indicators; people are how things actually move. Tasks make KPI changes actionable. Comments preserve context. OKRs frame KPIs in goal hierarchies. Approval workflows add governance for sensitive changes. The rule engine generalizes alerting into "if this then that" for any KPI event.

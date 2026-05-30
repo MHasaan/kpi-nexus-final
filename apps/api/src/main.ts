@@ -24,6 +24,21 @@ async function bootstrap(): Promise<void> {
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
 
+  // SCIM clients (Okta/Azure AD) send `content-type: application/json` on
+  // bodyless DELETE/POST requests; Fastify's strict JSON parser then 400s on the
+  // empty body. Strip a stale JSON content-type from genuinely empty requests so
+  // the request is treated as bodyless. An onRequest hook avoids the
+  // content-type-parser registration conflict with NestFastify's own parser.
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.addHook('onRequest', (req, _reply, done: () => void) => {
+    const len = req.headers['content-length'];
+    const ct = req.headers['content-type'];
+    if ((!len || len === '0') && typeof ct === 'string' && ct.includes('application/json')) {
+      delete req.headers['content-type'];
+    }
+    done();
+  });
+
   // CORS — allow the web dev server (3000) and any configured origin. In
   // prod a single allowed origin (custom domain) is set via env.
   const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:3000')

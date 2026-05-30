@@ -50,9 +50,10 @@ test('SCIM round-trip: provision (INVITED) → deactivate (SUSPENDED) → delete
   const mint = await ctx.post('/scim/tokens', { data: { label: 'Okta' } });
   expect(mint.status()).toBe(201);
   const { token } = (await mint.json()) as { token: string };
-  // NB: no global content-type — Playwright adds it per-request when a JSON
-  // `data` body is present, so the bodyless DELETE stays content-type-free.
-  const scim = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${token}` } });
+  // Mirror a real IdP (Okta) which sends content-type on every request — incl.
+  // the bodyless DELETE. The api's onRequest hook strips a stale JSON
+  // content-type from empty requests so Fastify's strict parser doesn't 400.
+  const scim = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${token}`, 'content-type': 'application/json' } });
 
   // Provision a user.
   const userName = `scim-${stamp}@p9.test.local`;

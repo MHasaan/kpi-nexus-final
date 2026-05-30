@@ -1,4 +1,4 @@
-import { DICTIONARIES, type Locale } from './dictionaries.js';
+import { DICTIONARIES, type Locale } from './dictionaries';
 
 /**
  * Pure translation lookup with en-US fallback then the key itself. Keeps the

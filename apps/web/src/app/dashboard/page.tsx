@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { AlertsBell } from '../../components/alerts-bell';
+import { OnboardingTour } from '../../components/onboarding-tour';
 import { SetupChecklistCard } from '../../components/setup-checklist-card';
 import {
   ApiError,
@@ -157,6 +158,7 @@ function DashboardPageInner() {
         )}
         {user && (
           <>
+            <OnboardingTour />
             <div className="mb-6">
               <SetupChecklistCard />
             </div>

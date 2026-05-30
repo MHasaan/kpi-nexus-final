@@ -1996,3 +1996,127 @@ model Workflow {
 
   @@index([organizationId, isActive])
 }
+
+// ============================================================================
+// P8 — Integrations & Extensibility: connections, connectors, pipelines,
+// ingestion jobs, plugins. All scalar FKs (org-scoped explicitly per convention).
+// ============================================================================
+
+enum IntegrationConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  PENDING
+  ERROR
+}
+
+enum ConnectorType {
+  REST
+  GRAPHQL
+  POSTGRES
+  MYSQL
+  S3
+  GCS
+  WEBHOOK
+}
+
+enum PipelineStatus {
+  IDLE
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum PluginType {
+  WIDGET
+  TEMPLATE
+  FORMULA_FN
+  CONNECTOR
+}
+
+// A connected third-party provider (Slack/Teams/Jira/…). `encryptedTokens`
+// holds an AES-256-GCM ciphertext blob — never logged, redacted from audit.
+model IntegrationConnection {
+  id              String                      @id @default(cuid())
+  organizationId  String
+  provider        String
+  displayName     String?
+  encryptedTokens Json
+  scopes          String[]
+  status          IntegrationConnectionStatus @default(PENDING)
+  lastSyncAt      DateTime?
+  lastError       String?
+  metadata        Json?
+  createdById     String
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  @@index([organizationId, provider])
+}
+
+// A scheduled data pull (REST/GraphQL/Postgres/…). `config` shape depends on
+// `type`; see the matching runner in connectors/runners/.
+model Connector {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  type           ConnectorType
+  config         Json
+  schedule       String?
+  isActive       Boolean       @default(true)
+  lastRunAt      DateTime?
+  lastRunStatus  String?
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, isActive])
+}
+
+// A transform/filter/load pipeline attached to a connector (transform stage
+// deferred post-P9; P8 uses source → load via valuePath extraction).
+model Pipeline {
+  id             String         @id @default(cuid())
+  organizationId String
+  connectorId    String
+  name           String
+  steps          Json
+  status         PipelineStatus @default(IDLE)
+  lastRunAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([connectorId])
+}
+
+// Audit row for every ingestion (CSV/JSON/webhook/connector). `source` carries
+// {label, apiKeyId?, connectorId?, rowCount}.
+model IngestionJob {
+  id             String    @id @default(cuid())
+  organizationId String
+  kind           String
+  source         Json
+  status         String
+  startedAt      DateTime
+  finishedAt     DateTime?
+  errorLog       String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId, createdAt])
+}
+
+// A registered extension (widget/template/formula-fn/connector). P8 catalogs
+// installs; iframe sandbox execution lands in P9.
+model Plugin {
+  id             String     @id @default(cuid())
+  organizationId String
+  name           String
+  type           PluginType
+  version        String
+  entryUrl       String
+  description    String?
+  isEnabled      Boolean    @default(true)
+  config         Json?
+  installedById  String
+  createdAt      DateTime   @default(now())
+
+  @@index([organizationId, type, isEnabled])
+}

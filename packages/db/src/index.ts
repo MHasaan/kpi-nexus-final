@@ -103,6 +103,11 @@ export type {
   ApprovalWorkflow,
   ApprovalRequest,
   Workflow,
+  IntegrationConnection,
+  Connector,
+  Pipeline,
+  IngestionJob,
+  Plugin,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -140,4 +145,8 @@ export {
   ObjectiveStatus,
   ApprovalEntityType,
   ApprovalRequestStatus,
+  IntegrationConnectionStatus,
+  ConnectorType,
+  PipelineStatus,
+  PluginType,
 } from '@prisma/client';

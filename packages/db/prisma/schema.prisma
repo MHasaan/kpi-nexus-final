@@ -1661,3 +1661,48 @@ model NLQQuery {
 
   @@index([organizationId, createdAt])
 }
+
+// ============================================================================
+// P5 — ML sidecar persistence: anomaly detections + forecasts
+// ============================================================================
+
+enum ForecastModelKind {
+  PROPHET
+  ARIMA
+  NAIVE
+  LSTM
+}
+
+// A detected anomaly for a KPI data point. `score` is the detector's anomaly
+// score; `method` is the algorithm (ISOLATION_FOREST | ZSCORE | EWMA | ENSEMBLE).
+// Confirming one fires a recommendation + synthetic alert. Scalar FK (org-scoped).
+model AnomalyDetection {
+  id             String   @id @default(cuid())
+  organizationId String
+  kpiId          String
+  dataPointId    String?
+  score          Float
+  method         String
+  isConfirmed    Boolean  @default(false)
+  detectedAt     DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([kpiId, detectedAt])
+  @@index([kpiId, isConfirmed])
+}
+
+// A stored forecast for a KPI. `predictions` is [{ds, yhat, yhat_lower_80,
+// yhat_upper_80, yhat_lower_95, yhat_upper_95}]; `fitMetrics` is {rmse, mape}.
+// Scalar FK (org-scoped explicitly).
+model Forecast {
+  id             String            @id @default(cuid())
+  organizationId String
+  kpiId          String
+  horizon        Int
+  model          ForecastModelKind
+  predictions    Json
+  fitMetrics     Json?
+  generatedAt    DateTime          @default(now())
+
+  @@index([organizationId, kpiId, generatedAt])
+}

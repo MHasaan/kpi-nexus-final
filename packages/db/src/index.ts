@@ -89,6 +89,8 @@ export type {
   Recommendation,
   KpiCatalogEmbedding,
   NLQQuery,
+  AnomalyDetection,
+  Forecast,
 } from '@prisma/client';
 
 // Re-export the generated Prisma enums so consuming apps don't need a
@@ -118,4 +120,5 @@ export {
   AiCallStatus,
   CircuitBreakerMode,
   RecommendationStatus,
+  ForecastModelKind,
 } from '@prisma/client';

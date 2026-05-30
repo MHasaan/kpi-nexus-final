@@ -40,6 +40,7 @@ import {
   type LineageHop,
   type ThresholdBand,
 } from '../../../lib/api-client';
+import { CommentsDrawer } from '../../../components/comments-drawer';
 
 const TABS = ['Overview', 'Data', 'Formula', 'Cascade', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage', 'Audit'] as const;
 type Tab = (typeof TABS)[number];
@@ -76,6 +77,7 @@ export default function KpiDetailPage() {
           <h1 className="text-2xl font-semibold text-content-strong" data-testid="kpi-detail-name">{kpi.name}</h1>
           <span className="rounded-full border border-border px-2 py-0.5 text-xs text-content-muted">{kpi.status}</span>
           <span className="text-xs text-content-muted">v{kpi.version} · {kpi.scope} · {kpi.type}</span>
+          <span className="ml-auto"><CommentsDrawer entityType="kpi" entityId={kpiId} /></span>
         </div>
         {kpi.description && <p className="mt-1 text-sm text-content-muted">{kpi.description}</p>}
       </div>

@@ -374,6 +374,25 @@ export class AuthService {
     return { accessToken, refreshToken: refresh.plaintext, expiresIn: this.accessTtlSeconds };
   }
 
+  /**
+   * Public token issuance for flows that create their own org+admin user
+   * (e.g. OnboardingService.complete) and need a JWT pair without going through
+   * register/login.
+   */
+  issueTokensForUser(params: {
+    userId: string;
+    organizationId: string;
+    roleId: string;
+    isAdmin: boolean;
+  }): Promise<AuthPair> {
+    return this.issuePair({
+      sub: params.userId,
+      org: params.organizationId,
+      rid: params.roleId,
+      adm: params.isAdmin,
+    });
+  }
+
   private signAccess(payload: JwtPayload): Promise<string> {
     return this.jwt.signAsync(payload, { expiresIn: `${this.accessTtlSeconds}s` });
   }

@@ -37,6 +37,13 @@ describe('validateTemplatePayload', () => {
     expect(validateTemplatePayload(bad)).toContainEqual(expect.stringContaining('admin role'));
   });
 
+  it('does not throw on a partial/empty draft — reports problems instead', () => {
+    const partial = { organization: { name: 'X' } } as unknown as TemplatePayload;
+    const problems = validateTemplatePayload(partial);
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems).toContainEqual(expect.stringContaining('admin role'));
+  });
+
   it('counts payload sections', () => {
     expect(countPayload(base)).toEqual({ roles: 1, positions: 1, orgUnitTypes: 1, orgUnits: 1, kpiCategories: 1, kpis: 1 });
   });

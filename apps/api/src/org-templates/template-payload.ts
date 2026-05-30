@@ -83,17 +83,24 @@ export function countPayload(p: TemplatePayload): PayloadCounts {
  */
 export function validateTemplatePayload(p: TemplatePayload): string[] {
   const problems: string[] = [];
-  const catNames = new Set(p.kpiCategories.map((c) => c.name));
-  const typeNames = new Set(p.orgUnitTypes.map((t) => t.name));
-  const unitNames = new Set(p.orgUnits.map((u) => u.name));
+  // Coalesce missing sections so a partial draft reports problems, never throws.
+  const roles = p.roles ?? [];
+  const kpis = p.kpis ?? [];
+  const orgUnits = p.orgUnits ?? [];
+  const orgUnitTypes = p.orgUnitTypes ?? [];
+  const kpiCategories = p.kpiCategories ?? [];
+
+  const catNames = new Set(kpiCategories.map((c) => c.name));
+  const typeNames = new Set(orgUnitTypes.map((t) => t.name));
+  const unitNames = new Set(orgUnits.map((u) => u.name));
 
   if (!p.organization?.name) problems.push('organization.name is required');
-  if (!p.roles.some((r) => r.isAdmin)) problems.push('at least one admin role is required');
+  if (!roles.some((r) => r.isAdmin)) problems.push('at least one admin role is required');
 
-  for (const k of p.kpis) {
+  for (const k of kpis) {
     if (!catNames.has(k.category)) problems.push(`KPI "${k.name}" references unknown category "${k.category}"`);
   }
-  for (const u of p.orgUnits) {
+  for (const u of orgUnits) {
     if (!typeNames.has(u.type)) problems.push(`unit "${u.name}" references unknown type "${u.type}"`);
     if (u.parent && !unitNames.has(u.parent)) problems.push(`unit "${u.name}" references unknown parent "${u.parent}"`);
   }

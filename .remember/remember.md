@@ -1,24 +1,25 @@
 # Handoff
 
 ## State
-Branch `phase/p7-collaboration` (off p6-complete). **P0–P7 done+tagged.** ✅ **P7 COMPLETE** (tagged `p7-complete`).
+Branch `phase/p8-integrations` (off p7-complete). **P0–P8 done+tagged.** ✅ **P8 COMPLETE** (tagged `p8-complete`).
 
-### P7 recap (complete) — Collaboration & Workflow
-- Migration `20260530030000_p7_collaboration` (Task, Comment, Mention, Objective, KeyResult, ApprovalWorkflow, ApprovalRequest, Workflow + 5 enums).
-- **TasksModule** (14) — CRUD + entity-bound visibility + mutate gate.
-- **Comments+Mentions** (24) — `@mention` → Mention rows in same `$transaction`; `/me/mentions` inbox.
-- **OkrsModule** (29) — pure `progress-math.ts`; recompute + parent rollup + depth-10 cycle guard; `syncFromLinkedKpis`.
-- **ApprovalsModule** (39) — **ApprovalGateService** seam (standalone module → no cycle) throws **202 + requestId**; wired into KpisService.update / KpiTargetsService / RolesService via `@Optional()`; ApprovalApplyService replays with bypassApproval; decide/cancel guards.
-- **WorkflowsModule** (21) — pure `evaluateRule` (6 ops) + ActionDispatcher; `kpi_changed` wired fire-and-forget into data-point write path.
-- **Frontend** — `/tasks` kanban, `/okrs` + `/okrs/[id]`, CommentsDrawer (on `/kpis/[id]`), `/me/mentions`, `/approvals`, `/workflows`; `lib/collab-client.ts`.
-- **Tests**: API unit **813/813** (+116); e2e `p7-collaboration.spec.ts` 5/5 (incl. approval 202→approve→apply, kpi_changed→auto task) + `tasks-okrs-ui.spec.ts` 2/2 browser.
+### P8 recap (complete) — Integrations & Extensibility
+- Migration `20260530040000_p8_integrations` (IntegrationConnection, Connector, Pipeline, IngestionJob, Plugin + 4 enums).
+- **IntegrationsModule** (19) — pure AES-256-GCM `integration-crypto` + connection CRUD (tokens encrypted, never returned/audited); getDecryptedTokens/updateStatus/rotateTokens.
+- **InboundEmailModule** (19) — pure HMAC verify + plus-addressing + quoted-reply strip; `POST /webhooks/inbound/email` (@Public, dev passthrough) → resolve entity→org+sender → CommentsService in synthesized ctx.
+- **ConnectorsModule** (17) — pure extract (dot-path, REST/GraphQL, GraphQL errors[] reject); CRUD + runNow (fetch→extract→bulkRecordOrgWide→IngestionJob). REST+GraphQL only.
+- **IngestModule** (4) — `POST /ingest` gated KPI_DATA_ENTRY → bulkRecordOrgWide + IngestionJob. **api-key scopes ARE PermissionKeys** so KPI_DATA_ENTRY key → 403 on POST /kpis (existing guard).
+- **Slack/Teams/Jira** (24) — pure sig verify + Block Kit/Adaptive Card builders + Jira→Task status map; SlackService.handleInteractive (team_id→org→ack alert), JiraService.handleWebhook (status→Task); public callbacks.
+- **PluginsModule** (5) — catalog CRUD + enable/disable. Webhook event catalog extended + GET /webhooks/events.
+- **Frontend** — /integrations, /connectors(+[id]), /plugins; lib/integrations-client.ts.
+- **Tests**: API unit **892/892**; e2e p8-integrations 4/4 (scope 403, inbound email→comment, connector run, plugin lifecycle).
 
-Architecture note: ApprovalGateModule (Prisma-only) is imported by domain modules; ApprovalsModule imports the domain modules for the apply side → no circular dep. Gate skips status-only KPI patches; bypassApproval flag is internal-only.
+Key fixes: IntegrationCryptoService env param @Optional (Nest DI); db index re-exports for P8 models/enums; **recordedById null for api_key principals** (ctx.userId is the key id, not a User → FK fail on connector/ingest writes) in KpiDataService.recordForOrgWideKpi.
 
-Servers during dev: api :4000 (LIVE Gemini), ML :8000. Background api started from `apps/api/dist/main.js` for e2e (log `.api-p7.log`).
+Architecture: ApprovalGateModule pattern reused mentally; connectors/ingest share new `KpiDataService.bulkRecordOrgWide`. Servers during dev: api :4000 (LIVE Gemini), ML :8000. Background api started from `apps/api/dist/main.js` for e2e (log `.api-p8.log`).
 
 ### Deferred (documented, non-blocking)
-Workflow `schedule` (BullMQ repeatable) + `alert` triggers not yet wired (only kpi_changed + manual); rule engine is trigger-agnostic so it's wiring-only. `send_notification` emails EMAIL channels; other kinds log. Real-time comment SSE is P9.
+Connector schedule BullMQ auto-runs (manual run shipped) + Postgres/MySQL/S3 runners (REST+GraphQL shipped). Plugin iframe sandbox + SSO/SCIM (`scim:provision`) → P9. Slack/Jira OAuth connect flows need real provider apps (handlers/formatting unit-tested).
 
-## NEXT — P8 Integrations
-Execute `docs/superpowers/plans/P8-integrations.md`: Slack/Teams/Jira + pull connectors + inbound email + webhooks + API keys + plugins. Create branch `phase/p8-integrations` off p7-complete.
+## NEXT — P9 Polish
+Execute `docs/superpowers/plans/P9-polish.md`: SSO + SCIM + custom domains + i18n + global search + activity feed + a11y + perf budgets + OpenAPI. Create branch `phase/p9-polish` off p8-complete. **Final phase.**

@@ -9,6 +9,24 @@
 | **Blocks** | None — last feature phase before polish |
 | **Spec reference** | §3.8 (integration schema), §4.8 (integration modules) |
 
+## ✅ P8 COMPLETE (tagged `p8-complete`)
+
+All hermetic exit criteria met and verified end-to-end. **API unit 892/892** (+~88 P8 tests); 4 API e2e green against the live api (Slack/Jira live OAuth round-trips are covered by unit tests + remain manual against real provider apps).
+
+- **Schema** — migration `20260530040000_p8_integrations`: IntegrationConnection, Connector, Pipeline, IngestionJob, Plugin + 4 enums; db re-exports added.
+- **IntegrationsModule** (19) — pure AES-256-GCM `integration-crypto` (hex/base64/passphrase key load, tamper/short/wrong-key rejection, 8KB+UTF-8); connection CRUD with token encryption, `getDecryptedTokens`/`updateStatus`/`rotateTokens`; **tokens never returned by list/get and never in audit**.
+- **InboundEmailModule** (19) — pure HMAC verify + plus-addressing parse + quoted-reply strip + email extraction; `POST /webhooks/inbound/email` (`@Public`, dev passthrough) resolves entity→org + sender, persists via CommentsService in a synthesized context.
+- **ConnectorsModule** (17) — pure `connector-extract` (dot-path, REST/GraphQL row extraction, numeric coercion, GraphQL `errors[]` rejection, config validation); CRUD + `runNow` (fetch→extract→`bulkRecordOrgWide`→IngestionJob log) for REST + GraphQL.
+- **IngestModule** (4) — `POST /ingest` gated by `KPI_DATA_ENTRY`; bulk rows → `bulkRecordOrgWide` + IngestionJob with apiKeyId. Scope enforcement is the existing guard (api-key scopes ARE PermissionKeys) — a `KPI_DATA_ENTRY` key is 403 on `POST /kpis`.
+- **Slack/Teams/Jira** (24) — pure Slack signature verify + Block Kit builder, Teams Adaptive Card builder, Jira→Task status map; `SlackService.handleInteractive` (team_id→org→acknowledge alert), `JiraService.handleWebhook` (issue status→Task), public signature-verified callbacks.
+- **PluginsModule** (5) — catalog CRUD + enable/disable (sandbox execution is P9). Webhook event catalog extended (P7/P8 events) + `GET /webhooks/events`.
+- **Frontend** — `/integrations` marketplace (connect/disconnect), `/connectors` (+ `/connectors/[id]` run history), `/plugins` gallery; `lib/integrations-client.ts`.
+- **e2e** — `p8-integrations.spec.ts` 4/4: API-key scope 403, inbound email→comment, connector run pipeline, plugin lifecycle.
+
+**Next phase**: P9 — Polish (`docs/superpowers/plans/P9-polish.md`): SSO, SCIM, custom domains, i18n, search, activity, a11y, perf.
+
+**Deferred (documented, non-blocking)**: connector `schedule` BullMQ repeatable auto-runs (manual run + schedule persistence shipped; auto-scheduling is worker wiring) and Postgres/MySQL/S3 runners (REST+GraphQL shipped). Plugin iframe sandbox, SSO/SCIM (`scim:provision` scope) → P9. Slack/Jira OAuth connect flows need real provider apps (handlers + formatting unit-tested).
+
 ## Why this phase matters
 
 A SaaS without integrations is a silo. Slack/Teams alerts + Jira issue creation + REST connectors pulling external data + inbound email creating comments — these turn KPI Nexus into the hub it's meant to be.

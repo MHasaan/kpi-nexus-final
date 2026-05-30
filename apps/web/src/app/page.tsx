@@ -16,7 +16,8 @@ export default function HomePage() {
             Sign in
           </Link>
           <Link
-            href="/register"
+            href="/signup"
+            data-testid="home-guided-setup"
             className="rounded-md border border-border px-5 py-2.5 text-sm font-medium text-content-default hover:bg-surface-1"
           >
             Create organization

@@ -5,19 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { AlertsBell } from '../../components/alerts-bell';
+import { SetupChecklistCard } from '../../components/setup-checklist-card';
 import {
   ApiError,
+  type AuthUser,
+  type DashboardSummaryRow,
   clearTokens,
   getAccessToken,
   getDashboardSummary,
   logoutRequest,
   meRequest,
-  type AuthUser,
-  type DashboardSummaryRow,
 } from '../../lib/api-client';
 import {
-  pluralize,
   TerminologyProvider,
+  pluralize,
   useTerminology,
 } from '../../lib/terminology-context';
 
@@ -156,6 +157,9 @@ function DashboardPageInner() {
         )}
         {user && (
           <>
+            <div className="mb-6">
+              <SetupChecklistCard />
+            </div>
             <h1
               className="text-2xl font-semibold text-content-strong"
               data-testid="dashboard-heading"

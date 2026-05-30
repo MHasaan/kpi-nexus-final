@@ -63,6 +63,7 @@ import { OkrsModule } from './okrs/okrs.module.js';
 import { ApprovalsModule } from './approvals/approvals.module.js';
 import { WorkflowsModule } from './workflows/workflows.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
+import { InboundEmailModule } from './inbound-email/inbound-email.module.js';
 
 @Module({
   imports: [
@@ -159,6 +160,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
     WorkflowsModule,
     // P8 — Integrations & Extensibility
     IntegrationsModule,
+    InboundEmailModule,
     HealthModule,
   ],
 })

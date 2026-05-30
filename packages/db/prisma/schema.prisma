@@ -1803,3 +1803,196 @@ model OnboardingTask {
   @@unique([organizationId, key])
   @@index([organizationId])
 }
+
+// ============================================================================
+// P7 — Collaboration & Workflow: tasks, comments, mentions, OKRs, approvals,
+// generic rule engine. All scalar FKs (org-scoped explicitly per convention).
+// ============================================================================
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ObjectiveStatus {
+  DRAFT
+  ACTIVE
+  AT_RISK
+  ACHIEVED
+  MISSED
+  ARCHIVED
+}
+
+enum ApprovalEntityType {
+  KPI_DEFINITION
+  KPI_TARGET
+  ROLE_PERMISSIONS
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// An actionable task, optionally tied to a KPI or an alert. Status lifecycle:
+// TODO → IN_PROGRESS → BLOCKED/DONE/CANCELLED.
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  kpiId          String?
+  alertId        String?
+  title          String
+  description    String?
+  assigneeUserId String?
+  dueAt          DateTime?
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  externalRef    String? // Jira link, etc.
+  createdById    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status, dueAt])
+  @@index([organizationId, kpiId])
+  @@index([organizationId, assigneeUserId, status])
+}
+
+// A threaded comment on any entity (kpi/dashboard/alert/task/objective).
+// `mentionedUserIds` is denormalized; canonical inbox rows live in Mention.
+model Comment {
+  id               String    @id @default(cuid())
+  organizationId   String
+  entityType       String // "kpi" | "dashboard" | "alert" | "task" | "objective"
+  entityId         String
+  parentCommentId  String? // threading
+  authorId         String
+  body             String    @db.Text
+  mentionedUserIds String[]
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@index([parentCommentId])
+}
+
+// A per-user mention inbox row, created in the same transaction as its Comment.
+model Mention {
+  id              String    @id @default(cuid())
+  organizationId  String
+  commentId       String
+  mentionedUserId String
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([commentId, mentionedUserId])
+  @@index([organizationId, mentionedUserId, readAt])
+}
+
+// An OKR objective. `parentObjectiveId` forms the alignment tree; `progress` is
+// 0-1, recomputed from key results + child objectives.
+model Objective {
+  id                String          @id @default(cuid())
+  organizationId    String
+  name              String
+  description       String?
+  ownerUserId       String
+  parentObjectiveId String? // alignment graph
+  periodStart       DateTime
+  periodEnd         DateTime
+  status            ObjectiveStatus @default(DRAFT)
+  progress          Float           @default(0) // 0-1
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([organizationId, status])
+  @@index([parentObjectiveId])
+  @@index([ownerUserId])
+}
+
+// A key result under an objective. Optional `kpiId` link drives auto-progress.
+model KeyResult {
+  id             String   @id @default(cuid())
+  organizationId String
+  objectiveId    String
+  name           String
+  description    String?
+  kpiId          String? // optional KPI link for auto-progress
+  baselineValue  Float?
+  targetValue    Float
+  currentValue   Float?
+  weight         Float    @default(1.0)
+  progress       Float    @default(0) // 0-1
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([objectiveId])
+  @@index([kpiId])
+}
+
+// Per-entity-type approval gate config (one active workflow per type per org).
+model ApprovalWorkflow {
+  id                      String             @id @default(cuid())
+  organizationId          String
+  entityType              ApprovalEntityType
+  requiredApproverRoleIds String[]
+  requireAll              Boolean            @default(false)
+  isActive                Boolean            @default(false)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  @@unique([organizationId, entityType])
+}
+
+// A pending mutation captured by an active approval workflow. `proposedPayload`
+// is replayed by ApprovalApplyService once approved. `decisions` is
+// [{userId, decision, comment, decidedAt}].
+model ApprovalRequest {
+  id              String                @id @default(cuid())
+  organizationId  String
+  workflowId      String
+  entityType      ApprovalEntityType
+  entityId        String
+  requesterUserId String
+  proposedPayload Json
+  status          ApprovalRequestStatus @default(PENDING)
+  decisions       Json                  @default("[]")
+  resolvedAt      DateTime?
+  createdAt       DateTime              @default(now())
+
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, status, createdAt])
+}
+
+// A generic if-this-then-that automation. `triggers` is string[] of
+// kpi_changed/schedule/alert/manual; `rule` and `action` are JSON (see
+// rule-evaluator.ts / action-dispatcher.ts for shapes).
+model Workflow {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  triggers       String[]
+  rule           Json?
+  action         Json
+  isActive       Boolean   @default(true)
+  scheduleCron   String?
+  lastRunAt      DateTime?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, isActive])
+}

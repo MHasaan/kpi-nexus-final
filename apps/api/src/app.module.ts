@@ -32,6 +32,7 @@ import { KpiSuggestionsModule } from './kpi-suggestions/kpi-suggestions.module.j
 import { InsightsModule } from './insights/insights.module.js';
 import { RecommendationsModule } from './recommendations/recommendations.module.js';
 import { NlqModule } from './nlq/nlq.module.js';
+import { AnalyticsModule } from './analytics/analytics.module.js';
 import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { OrgStructureModule } from './org-structure/org-structure.module.js';
 import { CustomDomainsModule } from './custom-domains/custom-domains.module.js';
@@ -118,6 +119,7 @@ import { ReportsModule } from './reports/reports.module.js';
     InsightsModule,
     RecommendationsModule,
     NlqModule,
+    AnalyticsModule,
     RateLimitModule,
     OrgStructureModule,
     CustomDomainsModule,

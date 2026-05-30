@@ -5,6 +5,8 @@
  * envelope when present.
  */
 
+import { clearCachedPermissions, setCachedPermissions } from './permissions';
+
 const TOKEN_KEY = 'kpi-nexus.access-token';
 const REFRESH_KEY = 'kpi-nexus.refresh-token';
 
@@ -45,6 +47,7 @@ export function clearTokens(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_KEY);
+  clearCachedPermissions();
 }
 
 export async function api<T = unknown>(
@@ -87,6 +90,7 @@ export interface AuthUser {
   fullName: string;
   organizationId: string;
   roleId: string | null;
+  permissions: string[];
   mfaEnabled?: boolean;
   status?: string;
   notificationSettings?: NotificationSettings | null;
@@ -132,7 +136,10 @@ export async function registerRequest(body: {
 }
 
 export async function meRequest(): Promise<{ user: AuthUser }> {
-  return api('/auth/me');
+  const result = await api<{ user: AuthUser }>('/auth/me');
+  // Cache permissions for synchronous access in usePermissions / guard components.
+  setCachedPermissions(result.user.permissions ?? []);
+  return result;
 }
 
 // =============================================================================

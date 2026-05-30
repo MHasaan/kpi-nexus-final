@@ -9,6 +9,21 @@
 | **Blocks** | Nothing strictly, but a polished onboarding is critical for FYP demo |
 | **Spec reference** | §3.9 (onboarding schema), §4.9 (onboarding modules), §7.12 (onboarding AI), §11 (P6 phase summary) |
 
+## Progress (updated 2026-05-30) — branch `phase/p6-onboarding`
+
+**Backend foundation done** (3 commits):
+- ✅ Migration `20260530020000_p6_onboarding` — OnboardingSession / OnboardingAIInteraction / OrgTemplate / OnboardingTask + OnboardingStatus/OnboardingAiMode enums.
+- ✅ `SetupChecklistModule` — pure defaults + `mergeChecklist` (7 tests); lazy list (14 pending, no rows until status change) + markStatus (complete/dismiss/reset); auth-only endpoints. e2e 2/2.
+- ✅ `OrgTemplatesModule` — `template-payload` (shape + `validateTemplatePayload` referential integrity + `countPayload`, 6 tests) + builtins: **SaaS-Startup (Rich) reproduces seed.ts depth exactly — 10 roles / 14 positions / 11 units / 20 KPIs / 5 categories** + Tech/Retail starters + Minimal (5 tests, all referentially valid). PUBLIC list/preview endpoints. e2e 3/3.
+
+API unit suite green incl. these; servers running (api :4000 live Gemini, ML :8000).
+
+**Remaining**:
+1. **OnboardingModule** — `start` (session + draftTokenHash HMAC), draft `patch`/`get` (token-validated payload merge), **`complete` atomic `$transaction`** (Organization + RoleDefinitions + Positions + OrgUnitTypes + OrgUnits[parent hierarchy] + KPICategories + KPIs + admin User + JWT + 14 OnboardingTask rows), `apply-template` (reuses OrgTemplatesService.preview → merge into draft). Pure draft-token + payload-merge tests + transaction-atomicity test + e2e reproducing seed.ts depth via template→complete.
+2. **OnboardingAiModule** — generate/assistant/suggest/explain via AiRouter (ONBOARDING_* features already in DEFAULT_FYP_CONFIG) + per-mode rate limits + interaction log.
+3. **Frontend** — the big 3-pane wizard shell + 5 steps + AI co-pilot rail + DraftSyncProvider + EntrySplash/TemplateGallery + SetupChecklistCard on home + onboarding tour.
+4. Integration/e2e per plan + `git tag p6-complete`.
+
 ## Why this phase matters
 
 The original app's onboarding wizard is one of its strongest features (9 steps, AI co-pilot, AI generator). Reproducing it at quality + adding the "express full seed.ts depth" capability is what makes the rebuild's demo land. The setup checklist + draft persistence are what bridge "I just signed up" to "I'm using this productively daily."

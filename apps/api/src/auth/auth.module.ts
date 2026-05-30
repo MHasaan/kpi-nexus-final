@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { JwtStrategy } from './jwt.strategy.js';
+import { MeSessionsController } from './me-sessions.controller.js';
 import { RefreshTokenService } from './services/refresh-token.service.js';
 
 @Module({
@@ -24,7 +25,7 @@ import { RefreshTokenService } from './services/refresh-token.service.js';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MeSessionsController],
   providers: [
     AuthService,
     RefreshTokenService,

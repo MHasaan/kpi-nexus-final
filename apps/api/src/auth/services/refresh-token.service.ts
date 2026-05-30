@@ -1,8 +1,17 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
+
+export interface ActiveSessionInfo {
+  id: string;
+  deviceInfo: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+}
 
 export interface IssuedRefreshToken {
   plaintext: string;
@@ -100,6 +109,81 @@ export class RefreshTokenService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Session-management API (used by MeSessionsController)
+  // -------------------------------------------------------------------------
+
+  /**
+   * List all active (non-revoked, non-expired) refresh-token sessions for a
+   * user. Returns metadata only — `hashedToken` is never included.
+   */
+  async listActiveForUser(userId: string): Promise<ActiveSessionInfo[]> {
+    return this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        deviceInfo: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Revoke a single session by its row id, but ONLY if it belongs to `userId`.
+   * Walks the replacement chain via `revokeChain`. Throws NotFoundException
+   * when the row is missing or belongs to a different user.
+   */
+  async revokeOne(userId: string, tokenId: string): Promise<void> {
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { id: tokenId },
+      select: { id: true, userId: true },
+    });
+
+    if (!record || record.userId !== userId) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'session not found' });
+    }
+
+    await this.revokeChain(tokenId);
+  }
+
+  /**
+   * Revoke all active sessions for `userId`. If `keepPresentedToken` is
+   * supplied, the row whose `hashedToken` matches is excluded from revocation
+   * so the caller remains logged in.
+   *
+   * Returns `{ revoked: number }` — the number of rows updated.
+   */
+  async revokeAllExcept(
+    userId: string,
+    keepPresentedToken?: string,
+  ): Promise<{ revoked: number }> {
+    const where: Parameters<typeof this.prisma.refreshToken.updateMany>[0]['where'] = {
+      userId,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    };
+
+    if (keepPresentedToken) {
+      const keepHash = this.hash(keepPresentedToken);
+      where.hashedToken = { not: keepHash };
+    }
+
+    const result = await this.prisma.refreshToken.updateMany({
+      where,
+      data: { revokedAt: new Date() },
+    });
+
+    return { revoked: result.count };
   }
 
   /** Walk the `replacedById` chain forward from a compromised token and revoke every link. */

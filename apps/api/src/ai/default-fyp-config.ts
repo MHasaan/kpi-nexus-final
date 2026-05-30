@@ -57,8 +57,9 @@ export const DEFAULT_FYP_CONFIG: Record<AiFeature, FeatureRoute> = {
     fallback: { provider: 'GEMINI', model: 'gemini-2.5-flash' },
   },
   EMBEDDINGS: {
-    provider: 'OPENAI',
-    model: 'openai-text-embedding-3-small',
-    fallback: { provider: 'GEMINI', model: 'gemini-text-embedding-004' },
+    // Gemini-first (free, and the model the FYP deployment has keys for).
+    provider: 'GEMINI',
+    model: 'gemini-embedding-001',
+    fallback: { provider: 'OPENAI', model: 'openai-text-embedding-3-small' },
   },
 };

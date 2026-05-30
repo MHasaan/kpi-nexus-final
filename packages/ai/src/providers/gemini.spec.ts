@@ -107,18 +107,22 @@ describe('GeminiProvider', () => {
     expect(urls[2]).toContain('key=c');
   });
 
-  it('embeds texts via batchEmbedContents', async () => {
+  it('embeds via batchEmbedContents using the model id verbatim + a fixed 768 dim', async () => {
     const fetchImpl = jsonFetch(200, {
       embeddings: [{ values: [0.1, 0.2, 0.3] }, { values: [0.4, 0.5, 0.6] }],
     });
     const p = new GeminiProvider({ apiKeys: ['k'], fetchImpl });
-    const vectors = await p.embed({ texts: ['a', 'b'], model: 'gemini-text-embedding-004' });
+    const vectors = await p.embed({ texts: ['a', 'b'], model: 'gemini-embedding-001' });
     expect(vectors).toEqual([
       [0.1, 0.2, 0.3],
       [0.4, 0.5, 0.6],
     ]);
-    const url = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0] as string;
-    expect(url).toContain(':batchEmbedContents');
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    // Model id used as-is (NOT stripped) — gemini-embedding-001 is the real API model.
+    expect(url).toContain('models/gemini-embedding-001:batchEmbedContents');
+    const sent = JSON.parse((init as { body: string }).body);
+    expect(sent.requests[0].model).toBe('models/gemini-embedding-001');
+    expect(sent.requests[0].outputDimensionality).toBe(768); // fits the gemini pgvector column
   });
 
   it('throws if no api keys are configured', async () => {

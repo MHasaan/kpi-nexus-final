@@ -19,7 +19,8 @@ describe('DEFAULT_FYP_CONFIG', () => {
     expect(c.fallback?.provider).toBe('CLAUDE');
   });
 
-  it('routes embeddings to OpenAI by default', () => {
-    expect(DEFAULT_FYP_CONFIG.EMBEDDINGS.provider).toBe('OPENAI');
+  it('routes embeddings to Gemini by default (free, FYP has keys)', () => {
+    expect(DEFAULT_FYP_CONFIG.EMBEDDINGS.provider).toBe('GEMINI');
+    expect(DEFAULT_FYP_CONFIG.EMBEDDINGS.model).toBe('gemini-embedding-001');
   });
 });

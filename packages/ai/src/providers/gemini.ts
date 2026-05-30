@@ -234,8 +234,10 @@ export class GeminiProvider implements IAiProvider {
   }
 
   async embed(req: AiEmbeddingRequest): Promise<number[][]> {
-    // text-embedding-004 is the canonical embed model; strip our `gemini-` prefix.
-    const embedModel = req.model.replace(/^gemini-/, '');
+    // The model id is the real Gemini embedding model (e.g. gemini-embedding-001);
+    // used verbatim apart from a leading `models/`. outputDimensionality is fixed
+    // at 768 so the result fits the `embedding_gemini vector(768)` pgvector column.
+    const embedModel = req.model.replace(/^models\//, '');
     const res = await this.fetchWithKeyFailover(
       (apiKey) => `${this.baseUrl}/models/${embedModel}:batchEmbedContents?key=${apiKey}`,
       {
@@ -245,6 +247,7 @@ export class GeminiProvider implements IAiProvider {
           requests: req.texts.map((text) => ({
             model: `models/${embedModel}`,
             content: { parts: [{ text }] },
+            outputDimensionality: 768,
           })),
         }),
       },

@@ -392,6 +392,19 @@ export class OrgUnitsService {
       await this.requireUnit(dto.fromUnitId); // tenant ownership check
     }
 
+    // Validate that every requested userId belongs to this tenant.
+    const distinctIds = [...new Set(dto.userIds)];
+    const foundUsers = await this.prisma.user.findMany({
+      where: { id: { in: distinctIds }, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (foundUsers.length !== distinctIds.length) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'one or more userIds are invalid or belong to another tenant',
+      });
+    }
+
     for (const userId of dto.userIds) {
       await this.prisma.$transaction(async (tx) => {
         if (dto.fromUnitId) {
@@ -494,6 +507,21 @@ export class OrgUnitsService {
   async splitUnit(sourceId: string, dto: SplitUnitDto) {
     const ctx = RequestContextStore.require();
     const source = await this.requireUnit(sourceId);
+
+    // Validate that every requested memberUserId belongs to this tenant.
+    if (dto.memberUserIds.length > 0) {
+      const distinctIds = [...new Set(dto.memberUserIds)];
+      const foundUsers = await this.prisma.user.findMany({
+        where: { id: { in: distinctIds }, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (foundUsers.length !== distinctIds.length) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'one or more userIds are invalid or belong to another tenant',
+        });
+      }
+    }
 
     const created = await this.prisma.$transaction(async (tx) => {
       const createData: Prisma.OrgUnitUncheckedCreateInput = {

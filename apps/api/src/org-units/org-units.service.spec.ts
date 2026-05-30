@@ -14,9 +14,11 @@
  *     members from source.
  *   - descendantsVisibleToHead: BFS over parentUnitId, cycle-safe.
  *   - listMembershipsByUser: only active tenant rows.
+ *   - moveUsers: foreign userId → BadRequest, no membership writes.
+ *   - splitUnit: foreign memberUserId → BadRequest, no unit/membership writes.
  */
 import { describe, expect, test, vi } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -61,6 +63,11 @@ interface FakeHistory {
   changedAt: Date;
 }
 
+interface FakeUser {
+  id: string;
+  organizationId: string;
+}
+
 const ORG = 'org_alpha';
 
 /** Match a row's organizationId against a where clause that may omit it. */
@@ -73,6 +80,7 @@ class FakePrisma {
   units: FakeUnit[] = [];
   members: FakeMember[] = [];
   history: FakeHistory[] = [];
+  users: FakeUser[] = [];
 
   orgUnit = {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
@@ -231,6 +239,19 @@ class FakePrisma {
     ),
   };
 
+  user = {
+    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const inIds = (where.id as { in: string[] } | undefined)?.in ?? [];
+      return this.users
+        .filter(
+          (u) =>
+            inIds.includes(u.id) &&
+            (where.organizationId === undefined || u.organizationId === where.organizationId),
+        )
+        .map((u) => ({ id: u.id }));
+    }),
+  };
+
   // Real-ish atomic transaction: snapshot, run, roll back on throw.
   async $transaction<T>(fn: (tx: FakePrisma) => Promise<T>): Promise<T> {
     const snapU = this.units.map((u) => ({ ...u }));
@@ -280,6 +301,15 @@ class FakePrisma {
     } as FakeMember;
     this.members.push(m);
     return m;
+  }
+
+  seedUser(partial: { id: string; organizationId?: string }): FakeUser {
+    const u: FakeUser = {
+      organizationId: ORG,
+      ...partial,
+    };
+    this.users.push(u);
+    return u;
   }
 }
 
@@ -355,6 +385,7 @@ describe('OrgUnitsService — moveUsers', () => {
     const { service, prisma } = makeService();
     prisma.seedUnit({ id: 'src', name: 'Source' });
     prisma.seedUnit({ id: 'dst', name: 'Target' });
+    prisma.seedUser({ id: 'userA' });
     prisma.seedMember({ id: 'm1', orgUnitId: 'src', userId: 'userA' });
 
     await withCtx({}, () =>
@@ -373,6 +404,7 @@ describe('OrgUnitsService — moveUsers', () => {
     const { service, prisma } = makeService();
     prisma.seedUnit({ id: 'src', name: 'Source' });
     prisma.seedUnit({ id: 'dst', name: 'Target' });
+    prisma.seedUser({ id: 'userA' });
     prisma.seedMember({ id: 'm1', orgUnitId: 'src', userId: 'userA' });
     // userA already has a LEFT membership row in dst — must be reactivated, not duplicated
     prisma.seedMember({
@@ -396,6 +428,7 @@ describe('OrgUnitsService — moveUsers', () => {
   test('moveUsers without fromUnitId only adds to target (no source side-effect)', async () => {
     const { service, prisma } = makeService();
     prisma.seedUnit({ id: 'dst', name: 'Target' });
+    prisma.seedUser({ id: 'userA' });
 
     await withCtx({}, () => service.moveUsers({ userIds: ['userA'], toUnitId: 'dst' }));
 
@@ -409,6 +442,22 @@ describe('OrgUnitsService — moveUsers', () => {
     await expect(
       withCtx({}, () => service.moveUsers({ userIds: ['userA'], toUnitId: 'nope' })),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('moveUsers with a userId from another tenant → BadRequestException and no membership writes', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'dst', name: 'Target' });
+    // 'foreignUser' belongs to a different org — NOT seeded in ORG
+    prisma.seedUser({ id: 'foreignUser', organizationId: 'org_other' });
+
+    await expect(
+      withCtx({}, () =>
+        service.moveUsers({ userIds: ['foreignUser'], toUnitId: 'dst' }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // No membership rows must have been written
+    expect(prisma.members).toHaveLength(0);
   });
 });
 
@@ -457,6 +506,8 @@ describe('OrgUnitsService — splitUnit', () => {
   test('splitUnit creates a new unit (same parent/type) and reassigns the listed members', async () => {
     const { service, prisma } = makeService();
     prisma.seedUnit({ id: 'src', name: 'Source', parentUnitId: 'parent1', orgUnitTypeId: 'type_x' });
+    prisma.seedUser({ id: 'userA' });
+    prisma.seedUser({ id: 'userB' });
     prisma.seedMember({ id: 'mA', orgUnitId: 'src', userId: 'userA' });
     prisma.seedMember({ id: 'mB', orgUnitId: 'src', userId: 'userB' });
 
@@ -487,6 +538,25 @@ describe('OrgUnitsService — splitUnit', () => {
         service.splitUnit('src', { newUnitName: 'X', memberUserIds: [] }),
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('splitUnit with a foreign memberUserId → BadRequestException and no unit/membership writes', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'src', name: 'Source' });
+    // 'foreignUser' belongs to a different org — NOT in ORG
+    prisma.seedUser({ id: 'foreignUser', organizationId: 'org_other' });
+
+    const unitsBefore = prisma.units.length;
+
+    await expect(
+      withCtx({}, () =>
+        service.splitUnit('src', { newUnitName: 'NewUnit', memberUserIds: ['foreignUser'] }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // No new units or memberships must have been written
+    expect(prisma.units).toHaveLength(unitsBefore);
+    expect(prisma.members).toHaveLength(0);
   });
 });
 

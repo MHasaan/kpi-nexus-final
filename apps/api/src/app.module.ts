@@ -64,6 +64,7 @@ import { ApprovalsModule } from './approvals/approvals.module.js';
 import { WorkflowsModule } from './workflows/workflows.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
 import { InboundEmailModule } from './inbound-email/inbound-email.module.js';
+import { ConnectorsModule } from './connectors/connectors.module.js';
 
 @Module({
   imports: [
@@ -161,6 +162,7 @@ import { InboundEmailModule } from './inbound-email/inbound-email.module.js';
     // P8 — Integrations & Extensibility
     IntegrationsModule,
     InboundEmailModule,
+    ConnectorsModule,
     HealthModule,
   ],
 })

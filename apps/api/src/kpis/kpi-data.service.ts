@@ -133,6 +133,38 @@ export class KpiDataService {
     });
   }
 
+  /**
+   * Bulk-ingest ORG_WIDE data points (connectors, webhook ingest). Each row is
+   * recorded through the normal single-row path (so outlier/alert/workflow
+   * fan-out still fires); per-row failures are collected so the caller can mark
+   * a job PARTIAL rather than aborting the whole batch.
+   */
+  async bulkRecordOrgWide(
+    rows: Array<{ kpiId: string; value: number; recordedAt?: Date; sourceType?: 'INGESTION' | 'INTEGRATION'; sourceRef?: string }>,
+  ): Promise<{ succeeded: number; failed: number; errors: string[] }> {
+    let succeeded = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    for (const row of rows) {
+      const at = row.recordedAt ?? new Date();
+      try {
+        await this.recordForOrgWideKpi(row.kpiId, {
+          value: row.value,
+          periodStart: at,
+          periodEnd: at,
+          sourceType: row.sourceType ?? 'INGESTION',
+          sourceRef: row.sourceRef,
+          qualityFlag: 'HIGH',
+        });
+        succeeded++;
+      } catch (err) {
+        failed++;
+        if (errors.length < 50) errors.push(`${row.kpiId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return { succeeded, failed, errors };
+  }
+
   /** POST /org-units/kpi-assignments/:assignmentId/data — PER_UNIT only. */
   async recordForOrgUnitAssignment(
     assignmentId: string,

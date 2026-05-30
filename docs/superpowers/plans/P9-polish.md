@@ -24,7 +24,11 @@ The testable, self-contained scope of the polish phase is done; external/CI-boun
 
 **🎉 v1.0.0 — all 10 phases (P0–P9) complete and tagged. The KPI Nexus rebuild is shippable.**
 
-**Deferred (documented, non-blocking — post-v1 hardening)**: live SAML/OIDC exchange (WorkOS wiring; JIT logic unit-tested), Lighthouse/k6/axe CI gates + bundle budgets (CI infra), OpenAPI/Spectral + SDK gen, plugin iframe sandbox + isolated-vm FORMULA_FN, ACM cert automation. SCIM clients that send `content-type: application/json` on a bodyless DELETE get a 400 from Fastify's strict JSON parser — well-behaved clients (no content-type on empty body) work; an empty-body-tolerant parser is a small follow-up.
+**SCIM empty-body hardening (done)**: real IdPs (Okta/Azure AD) send `content-type: application/json` on bodyless DELETE/POST; Fastify's strict JSON parser used to 400. Fixed with a bootstrap `onRequest` hook that strips a stale JSON content-type from genuinely empty requests (content-length 0/absent) — non-regressive (JSON POST + Slack urlencoded verified), and the SCIM round-trip e2e now sends content-type on every request like a real IdP.
+
+**Deferred (documented, non-blocking — post-v1 hardening)**: live SAML/OIDC exchange (WorkOS wiring; JIT logic unit-tested), Lighthouse/k6/axe CI gates + bundle budgets (CI infra), OpenAPI/Spectral + SDK gen, plugin iframe sandbox + isolated-vm FORMULA_FN, ACM cert automation, connector schedule auto-runs + Postgres/MySQL runners (P8).
+
+**Full v1.0.0 test sweep (all green)**: api unit 961, web unit 15, contracts 11, packages/ai 42, ML pytest 23, plus the P2–P9 e2e suites.
 
 ## Why this phase matters
 

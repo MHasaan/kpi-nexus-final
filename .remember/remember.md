@@ -12,7 +12,10 @@ Branch `phase/p9-polish` (off p8-complete). **ALL 10 PHASES P0–P9 done+tagged.
 - **Tests**: API unit **961/961**; web unit 15/15; e2e p9-polish 4/4 + i18n-rtl 1/1.
 
 ### Deferred (documented, post-v1 hardening)
-Live SAML/OIDC (WorkOS wiring; JIT unit-tested); Lighthouse/k6/axe CI gates + bundle budgets; OpenAPI/Spectral + SDK gen; plugin iframe sandbox + isolated-vm; ACM automation; connector schedule auto-runs + Postgres/MySQL runners (P8). Known: SCIM DELETE with `content-type: application/json` + empty body → 400 (Fastify strict parser; well-behaved clients fine). Fix later via NestFactory `bodyParser:false` + manual empty-body-tolerant parser (in-bootstrap addContentTypeParser conflicts with NestFastify's own JSON parser registration).
+Live SAML/OIDC (WorkOS wiring; JIT unit-tested); Lighthouse/k6/axe CI gates + bundle budgets; OpenAPI/Spectral + SDK gen; plugin iframe sandbox + isolated-vm; ACM automation; connector schedule auto-runs + Postgres/MySQL runners (P8). **FIXED**: SCIM bodyless DELETE/POST with `content-type: application/json` (Okta) → was 400, now 204 via a bootstrap `onRequest` hook in main.ts that strips a stale JSON content-type from empty requests (NestFastify lifecycle made the addContentTypeParser override conflict; the hook avoids it). Non-regressive (JSON POST + Slack urlencoded verified); SCIM e2e sends content-type like a real IdP.
+
+## Full v1.0.0 test sweep (all green)
+api unit **961**, web unit 15, contracts 11, packages/ai 42, ML pytest 23, + P2–P9 e2e suites.
 
 ## Servers
 api :4000 (LIVE Gemini, started from `apps/api/dist/main.js`, log `.api-p9.log`), ML :8000.

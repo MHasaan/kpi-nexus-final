@@ -71,9 +71,9 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     await expect(page.getByTestId('role-row-Employee')).toBeVisible();
     await expect(page.getByTestId('role-row-Viewer')).toBeVisible();
 
-    // Admin role displays the "admin" badge + "all permissions (bypass)" hint
+    // Admin role displays the "admin" badge (the <span> with class containing accent-primary)
     const adminRow = page.getByTestId('role-row-Admin');
-    await expect(adminRow.getByText('admin')).toBeVisible();
+    await expect(adminRow.locator('span.text-accent-primary').getByText('admin', { exact: true })).toBeVisible();
 
     // Create a custom role
     const customName = `Field Engineer ${suffix()}`;
@@ -137,5 +137,36 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     );
     await page.getByRole('button', { name: /^Create role$/ }).click();
     expect((await createResp).status()).toBe(409);
+  });
+
+  test('apply VIEWER preset to Employee role → success feedback appears', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    await signInAsFreshAdmin(page);
+    await page.goto('/roles');
+
+    // Wait for the role list and preset selects to load
+    await expect(page.getByTestId('role-row-Employee')).toBeVisible();
+
+    // The preset select should appear once presets are fetched
+    const presetSelect = page.getByTestId('preset-select-Employee');
+    await expect(presetSelect).toBeVisible({ timeout: 5000 });
+
+    // Select the VIEWER preset (by value — Playwright selectOption label does not accept regex)
+    await presetSelect.selectOption({ value: 'VIEWER' });
+
+    // Click Apply and wait for the apply-preset API call
+    const applyResp = page.waitForResponse(
+      (r) => r.url().includes('/roles/') && r.url().includes('/apply-preset') && r.request().method() === 'POST',
+    );
+    await page.getByTestId('preset-apply-Employee').click();
+    const resp = await applyResp;
+    // API returns 200 or 201 depending on implementation
+    expect([200, 201]).toContain(resp.status());
+
+    // Success feedback must appear in the Employee row
+    const feedback = page.getByTestId('preset-feedback-Employee');
+    await expect(feedback).toBeVisible({ timeout: 5000 });
+    await expect(feedback).toContainText(/preset applied/i);
   });
 });

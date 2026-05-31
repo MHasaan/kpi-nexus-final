@@ -8,11 +8,14 @@ import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
 import {
   ApiError,
+  applyRolePreset,
   clearTokens,
   createRole,
   deleteRole,
   getAccessToken,
+  listPermissionPresets,
   listRoles,
+  type RolePreset,
   type RoleSummary,
 } from '../../lib/api-client';
 import {
@@ -45,12 +48,24 @@ function RolesPageInner() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Presets
+  const [presets, setPresets] = useState<RolePreset[]>([]);
+  // Per-row preset selection: roleId → selected preset key
+  const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
+  // Per-row apply in-flight
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  // Per-row success/error feedback: roleId → message
+  const [applyFeedback, setApplyFeedback] = useState<Record<string, { ok: boolean; msg: string }>>({});
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace('/login');
       return;
     }
     refresh();
+    listPermissionPresets()
+      .then(setPresets)
+      .catch(() => { /* non-fatal — preset UI degrades gracefully */ });
   }, [router]);
 
   async function refresh() {
@@ -99,6 +114,35 @@ function RolesPageInner() {
       );
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleApplyPreset(role: RoleSummary) {
+    const preset = selectedPreset[role.id];
+    if (!preset) return;
+    setApplyingId(role.id);
+    setApplyFeedback((prev) => {
+      const next = { ...prev };
+      delete next[role.id];
+      return next;
+    });
+    try {
+      await applyRolePreset(role.id, preset);
+      await refresh();
+      setApplyFeedback((prev) => ({
+        ...prev,
+        [role.id]: { ok: true, msg: `Preset applied — ${presets.find((p) => p.key === preset)?.label ?? preset}` },
+      }));
+    } catch (err) {
+      setApplyFeedback((prev) => ({
+        ...prev,
+        [role.id]: {
+          ok: false,
+          msg: err instanceof ApiError ? err.message : 'Failed to apply preset',
+        },
+      }));
+    } finally {
+      setApplyingId(null);
     }
   }
 
@@ -194,46 +238,90 @@ function RolesPageInner() {
                   className="rounded-lg border border-border bg-surface-1 p-4"
                   data-testid={`role-row-${role.name}`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-content-strong">
-                        {role.name}
-                        {role.isAdmin && (
-                          <span className="ml-2 rounded bg-accent-primary/10 px-1.5 py-0.5 text-xs font-medium text-accent-primary">
-                            admin
-                          </span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-content-strong">
+                          {role.name}
+                          {role.isAdmin && (
+                            <span className="ml-2 rounded bg-accent-primary/10 px-1.5 py-0.5 text-xs font-medium text-accent-primary">
+                              admin
+                            </span>
+                          )}
+                        </h3>
+                        {role.description && (
+                          <p className="mt-1 text-sm text-content-muted">{role.description}</p>
                         )}
-                      </h3>
-                      {role.description && (
-                        <p className="mt-1 text-sm text-content-muted">{role.description}</p>
-                      )}
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {role.permissions.length === 0 && (
-                          <span className="text-xs text-content-muted">
-                            {role.isAdmin ? 'all permissions (bypass)' : 'no permissions'}
-                          </span>
-                        )}
-                        {role.permissions.map((perm) => (
-                          <span
-                            key={perm}
-                            className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-content-default"
-                          >
-                            {perm}
-                          </span>
-                        ))}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {role.permissions.length === 0 && (
+                            <span className="text-xs text-content-muted">
+                              {role.isAdmin ? 'all permissions (bypass)' : 'no permissions'}
+                            </span>
+                          )}
+                          {role.permissions.map((perm) => (
+                            <span
+                              key={perm}
+                              className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-content-default"
+                            >
+                              {perm}
+                            </span>
+                          ))}
+                        </div>
                       </div>
+                      <PermissionGuard permission="ROLES_MANAGE">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {presets.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={selectedPreset[role.id] ?? ''}
+                              onChange={(e) =>
+                                setSelectedPreset((prev) => ({ ...prev, [role.id]: e.target.value }))
+                              }
+                              disabled={applyingId === role.id}
+                              aria-label={`Select preset for ${role.name}`}
+                              data-testid={`preset-select-${role.name}`}
+                              className="rounded-md border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <option value="">Apply preset…</option>
+                              {presets.map((p) => (
+                                <option key={p.key} value={p.key}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPreset(role)}
+                              disabled={!selectedPreset[role.id] || applyingId === role.id}
+                              aria-label={`Apply preset to ${role.name}`}
+                              data-testid={`preset-apply-${role.name}`}
+                              className="rounded-md border border-border px-3 py-1.5 text-sm text-content-default transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {applyingId === role.id ? 'Applying…' : 'Apply'}
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(role)}
+                          disabled={deletingId === role.id}
+                          className="rounded-md border border-border px-3 py-1.5 text-sm text-status-critical transition hover:bg-status-critical/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Delete ${role.name}`}
+                        >
+                          {deletingId === role.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
+                      </PermissionGuard>
                     </div>
-                    <PermissionGuard permission="ROLES_MANAGE">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(role)}
-                      disabled={deletingId === role.id}
-                      className="rounded-md border border-border px-3 py-1.5 text-sm text-status-critical transition hover:bg-status-critical/10 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={`Delete ${role.name}`}
-                    >
-                      {deletingId === role.id ? 'Deleting…' : 'Delete'}
-                    </button>
-                    </PermissionGuard>
+                    {applyFeedback[role.id] && (
+                      <p
+                        role="status"
+                        data-testid={`preset-feedback-${role.name}`}
+                        className={`text-sm ${applyFeedback[role.id]?.ok ? 'text-status-ok' : 'text-status-critical'}`}
+                      >
+                        {applyFeedback[role.id]?.msg}
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}

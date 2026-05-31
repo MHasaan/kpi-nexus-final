@@ -177,6 +177,24 @@ export async function deleteRole(id: string): Promise<void> {
   return api(`/roles/${id}`, { method: 'DELETE' });
 }
 
+export interface RolePreset {
+  key: string;
+  label: string;
+  isAdmin: boolean;
+  permissions: string[];
+}
+
+export async function listPermissionPresets(): Promise<RolePreset[]> {
+  return api('/roles/presets/list');
+}
+
+export async function applyRolePreset(roleId: string, preset: string): Promise<RoleSummary> {
+  return api(`/roles/${roleId}/apply-preset`, {
+    method: 'POST',
+    body: JSON.stringify({ preset }),
+  });
+}
+
 // =============================================================================
 // Organizations + terminology
 // =============================================================================

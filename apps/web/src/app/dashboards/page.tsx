@@ -113,15 +113,24 @@ function DashboardsListInner() {
               data. Set one as your default to land here on sign-in.
             </p>
           </div>
-          <PermissionGuard permission="DASHBOARD_MANAGE">
-          <Link
-            href="/dashboards/new"
-            data-testid="dashboards-new-link"
-            className="h-10 inline-flex items-center rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90"
-          >
-            New {terminology.dashboardLabel.toLowerCase()}
-          </Link>
-          </PermissionGuard>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboards/archive"
+              data-testid="dashboards-archive-link"
+              className="text-sm text-content-muted hover:text-content-default"
+            >
+              Archive
+            </Link>
+            <PermissionGuard permission="DASHBOARD_MANAGE">
+            <Link
+              href="/dashboards/new"
+              data-testid="dashboards-new-link"
+              className="h-10 inline-flex items-center rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90"
+            >
+              New {terminology.dashboardLabel.toLowerCase()}
+            </Link>
+            </PermissionGuard>
+          </div>
         </div>
 
         {loadError && (

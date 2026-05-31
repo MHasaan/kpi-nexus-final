@@ -737,6 +737,18 @@ export async function setDefaultDashboard(id: string): Promise<Dashboard> {
   return api(`/dashboards/${id}/set-default`, { method: 'POST' });
 }
 
+export async function listArchivedDashboards(): Promise<Dashboard[]> {
+  return api('/dashboards/archived');
+}
+
+export async function restoreDashboard(id: string): Promise<Dashboard> {
+  return api(`/dashboards/${id}/restore`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+export async function purgeDashboard(id: string): Promise<void> {
+  return api(`/dashboards/${id}/purge`, { method: 'DELETE' });
+}
+
 export async function addWidget(
   dashboardId: string,
   body: {

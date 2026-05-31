@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,11 +7,13 @@ import {
 } from '@nestjs/common';
 
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
+import { findPreset, PERMISSION_PRESETS, type PermissionPreset } from './permission-presets.js';
 
 export interface PublicRole {
   id: string;
@@ -23,6 +26,11 @@ export interface PublicRole {
   canAccessModules: string[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface RoleHierarchy {
+  roles: PublicRole[];
+  edges: Array<{ parentRoleId: string; childRoleId: string }>;
 }
 
 const roleSelect = {
@@ -44,6 +52,7 @@ export class RolesService {
     private readonly prisma: PrismaService,
     private readonly resolver: PermissionResolverService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   async list(): Promise<PublicRole[]> {
@@ -172,6 +181,165 @@ export class RolesService {
     }
     await this.prisma.roleDefinition.delete({ where: { id } });
     this.resolver.invalidateAll();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Preset methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the catalog of permission presets derived from DEFAULT_ROLES.
+   * No DB access — purely in-memory.
+   */
+  listPresets(): PermissionPreset[] {
+    return PERMISSION_PRESETS;
+  }
+
+  /**
+   * Applies a named preset to the given role — sets `permissions` (and
+   * `isAdmin` for the ADMIN preset) to the preset's values and records an
+   * audit entry with the old → new change.
+   *
+   * Throws:
+   *  - NotFoundException  if the role does not exist in the current tenant.
+   *  - BadRequestException({code:'VALIDATION_ERROR'}) on unknown presetKey.
+   */
+  async applyPreset(roleId: string, presetKey: string): Promise<PublicRole> {
+    const preset = findPreset(presetKey);
+    if (!preset) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `Unknown preset key: "${presetKey}". Valid keys are: ${PERMISSION_PRESETS.map((p) => p.key).join(', ')}`,
+      });
+    }
+
+    // Verify role belongs to this tenant
+    const existing = await this.getById(roleId);
+
+    const oldPermissions = existing.permissions;
+
+    const updated = await this.prisma.roleDefinition.update({
+      where: { id: roleId },
+      data: {
+        permissions: [...preset.permissions],
+        isAdmin: preset.isAdmin,
+      },
+      select: roleSelect,
+    });
+
+    await this.audit?.record({
+      action: 'UPDATE',
+      entityType: 'RoleDefinition',
+      entityId: roleId,
+      changes: {
+        oldPermissions,
+        newPermissions: [...preset.permissions],
+        oldIsAdmin: existing.isAdmin,
+        newIsAdmin: preset.isAdmin,
+        presetApplied: presetKey,
+      },
+    });
+
+    this.resolver.invalidateAll();
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hierarchy methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns all roles and their inheritance edges for the current tenant.
+   * Shape is suitable for rendering a tree: `{ roles, edges }`.
+   *
+   * Direction note: an edge `{ parentRoleId, childRoleId }` means the child
+   * role inherits permissions from the parent — consistent with
+   * PermissionResolverService which walks `childRoleId → parentRoleId`.
+   */
+  async getHierarchy(): Promise<RoleHierarchy> {
+    const ctx = RequestContextStore.require();
+    const [roles, inheritances] = await Promise.all([
+      this.prisma.roleDefinition.findMany({
+        where: { organizationId: ctx.organizationId },
+        select: roleSelect,
+        orderBy: [{ level: 'desc' }, { name: 'asc' }],
+      }),
+      this.prisma.roleInheritance.findMany({
+        where: { organizationId: ctx.organizationId },
+        select: { parentRoleId: true, childRoleId: true },
+      }),
+    ]);
+    return {
+      roles,
+      edges: inheritances,
+    };
+  }
+
+  /**
+   * Cycle-safe BFS over RoleInheritance within the tenant, returning the set
+   * of role IDs that are *subordinate* to (i.e. descendants of) the given role.
+   *
+   * Direction: follows `parentRoleId → childRoleId` edges. This is the
+   * inverse traversal from PermissionResolverService (which walks upward from
+   * child to parent to *inherit* permissions). Here we walk *downward* from a
+   * parent to enumerate which roles are below it in the hierarchy.
+   *
+   * The starting `roleId` itself is NOT included in the result set.
+   */
+  async resolveSubordinateRoleIds(roleId: string): Promise<Set<string>> {
+    const ctx = RequestContextStore.require();
+    const result = new Set<string>();
+    const visited = new Set<string>([roleId]);
+    const queue: string[] = [roleId];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) break;
+
+      const edges = await this.prisma.roleInheritance.findMany({
+        where: {
+          organizationId: ctx.organizationId,
+          parentRoleId: current,
+        },
+        select: { childRoleId: true },
+      });
+
+      for (const edge of edges) {
+        if (visited.has(edge.childRoleId)) continue;
+        visited.add(edge.childRoleId);
+        result.add(edge.childRoleId);
+        queue.push(edge.childRoleId);
+      }
+    }
+
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Audit methods
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the audit timeline for the given role (AuditLog rows where
+   * entityType='RoleDefinition' and entityId=roleId), newest first.
+   *
+   * Verifies the role exists in the current tenant before querying audit rows
+   * (prevents cross-tenant enumeration via audit).
+   */
+  async getAudit(roleId: string): Promise<unknown[]> {
+    // Verify role belongs to this tenant — throws NotFoundException if not.
+    await this.getById(roleId);
+
+    const ctx = RequestContextStore.require();
+    return this.prisma.auditLog.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        entityType: 'RoleDefinition',
+        entityId: roleId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
   }
 
   private isUniqueViolation(error: unknown): boolean {

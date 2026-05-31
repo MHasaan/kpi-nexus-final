@@ -1775,3 +1775,32 @@ export interface KpiVersion {
 export async function getKpiVersions(kpiId: string): Promise<KpiVersion[]> {
   return api(`/kpis/${kpiId}/versions`);
 }
+
+// =============================================================================
+// Active sessions (P9 — /me/sessions)
+// =============================================================================
+
+export interface SessionSummary {
+  id: string;
+  deviceInfo: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export async function listMySessions(): Promise<SessionSummary[]> {
+  return api('/me/sessions');
+}
+
+export async function revokeSession(id: string): Promise<void> {
+  return api(`/me/sessions/${id}`, { method: 'DELETE' });
+}
+
+export async function revokeAllOtherSessions(): Promise<{ revoked: number }> {
+  const keepCurrentRefreshToken = getRefreshToken() ?? undefined;
+  return api('/me/sessions/revoke-all', {
+    method: 'POST',
+    body: JSON.stringify({ keepCurrentRefreshToken }),
+  });
+}

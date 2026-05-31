@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
@@ -341,6 +342,20 @@ function ProfilePageInner() {
                   {disableError}
                 </p>
               )}
+
+              <div className="mt-6 border-t border-border pt-4">
+                <p className="text-sm font-medium text-content-default">Active sessions</p>
+                <p className="mt-0.5 text-sm text-content-muted">
+                  View and revoke sessions signed in on other devices.
+                </p>
+                <Link
+                  href="/me/sessions"
+                  data-testid="manage-sessions-link"
+                  className="mt-2 inline-block text-sm text-accent-primary hover:underline"
+                >
+                  Manage active sessions
+                </Link>
+              </div>
             </section>
           </>
         )}

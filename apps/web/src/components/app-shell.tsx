@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { AlertsBell } from './alerts-bell';
 import { GlobalSearch } from './global-search';
+import { HelpDrawer } from './help-drawer';
 import {
   type AuthUser,
   getAccessToken,
@@ -197,6 +198,9 @@ export function AppShell({ children }: AppShellProps) {
       </header>
 
       {children}
+
+      {/* Floating contextual-help drawer — visible on every AppShell page */}
+      <HelpDrawer />
     </main>
   );
 }

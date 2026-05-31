@@ -233,6 +233,80 @@ export class DashboardsService {
     });
   }
 
+  /** List soft-deleted (archived) dashboards in the tenant, respecting the same
+   *  owner/isShared visibility rule as list(). */
+  async listArchived(): Promise<PublicDashboard[]> {
+    const ctx = RequestContextStore.require();
+    const resolved = await this.resolver.resolveForUser(
+      ctx.organizationId,
+      ctx.userId,
+      ctx.roleId,
+    );
+
+    const where: Prisma.DashboardWhereInput = {
+      organizationId: ctx.organizationId,
+      deletedAt: { not: null },
+    };
+    if (!resolved.isAdmin) {
+      where.OR = [
+        { ownerUserId: ctx.userId },
+        { isShared: true },
+      ];
+    }
+
+    return this.prisma.dashboard.findMany({
+      where,
+      select: dashboardSelect,
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  /** Restore a soft-deleted dashboard (set deletedAt = null). Throws 404 if not
+   *  found in tenant or not currently archived. */
+  async restore(id: string): Promise<PublicDashboard> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.prisma.dashboard.findFirst({
+      where: { id, organizationId: ctx.organizationId, deletedAt: { not: null } },
+      select: { id: true, name: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Archived dashboard not found' });
+    }
+    await this.prisma.dashboard.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'Dashboard',
+      entityId: id,
+      metadata: { name: existing.name, restored: true },
+    });
+    return this.prisma.dashboard.findUniqueOrThrow({ where: { id }, select: dashboardSelect });
+  }
+
+  /** Hard-delete a soft-deleted dashboard. Related rows (widgets, snapshots,
+   *  shareLinks) cascade via FK onDelete:Cascade in the Prisma schema, so no
+   *  explicit child deletion is needed. Throws 404 if not found in tenant or not
+   *  currently archived. */
+  async purge(id: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.prisma.dashboard.findFirst({
+      where: { id, organizationId: ctx.organizationId, deletedAt: { not: null } },
+      select: { id: true, name: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Archived dashboard not found' });
+    }
+    await this.prisma.dashboard.delete({ where: { id } });
+    await this.audit.record({
+      action: 'DELETE',
+      entityType: 'Dashboard',
+      entityId: id,
+      metadata: { name: existing.name, purged: true },
+    });
+  }
+
   /**
    * Mark a dashboard as the current user's default. Per-user default is
    * modelled as `isDefault = true` AND `ownerUserId = me`. Clears any

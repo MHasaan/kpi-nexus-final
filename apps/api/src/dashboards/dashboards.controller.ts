@@ -85,6 +85,15 @@ export class DashboardsController {
     return this.shareLinks.revoke(linkId);
   }
 
+  // Archive endpoints — declare @Get('archived') BEFORE @Get(':id') so the
+  // static segment is not captured as an id parameter.
+
+  @Get('archived')
+  @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
+  listArchived(): Promise<PublicDashboard[]> {
+    return this.dashboards.listArchived();
+  }
+
   @Get(':id')
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
   async getById(@Param('id') id: string): Promise<PublicDashboard> {
@@ -117,6 +126,19 @@ export class DashboardsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
     return this.dashboards.remove(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  restore(@Param('id') id: string): Promise<PublicDashboard> {
+    return this.dashboards.restore(id);
+  }
+
+  @Delete(':id/purge')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  purge(@Param('id') id: string): Promise<void> {
+    return this.dashboards.purge(id);
   }
 
   @Post(':id/set-default')

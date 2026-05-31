@@ -52,6 +52,11 @@ class FakePrisma {
       const d = this.store.find((d) => this.matches(d, where));
       return d ? this.materialize(d) : null;
     }),
+    findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => {
+      const d = this.store.find((row) => row.id === where.id);
+      if (!d) throw new Error(`Record not found: ${where.id}`);
+      return this.materialize(d);
+    }),
     create: vi.fn(async ({ data }: { data: Partial<FakeDashboard> }) => {
       const created: FakeDashboard = {
         id: `dash_${this.nextId++}`,
@@ -103,6 +108,13 @@ class FakePrisma {
         return { count };
       },
     ),
+    delete: vi.fn(async ({ where }: { where: { id: string } }) => {
+      const idx = this.store.findIndex((d) => d.id === where.id);
+      if (idx === -1) throw new Error(`Record not found for delete: ${where.id}`);
+      const removed = this.store[idx]!;
+      this.store.splice(idx, 1);
+      return this.materialize(removed);
+    }),
   };
 
   $transaction = vi.fn(async (fn: (tx: FakePrisma) => Promise<unknown>) => {
@@ -112,7 +124,18 @@ class FakePrisma {
   private matches(d: FakeDashboard, where: Record<string, unknown>): boolean {
     if (where.id && d.id !== where.id) return false;
     if (where.organizationId && d.organizationId !== where.organizationId) return false;
-    if ('deletedAt' in where && where.deletedAt === null && d.deletedAt !== null) return false;
+    if ('deletedAt' in where) {
+      const cond = where.deletedAt;
+      if (cond === null && d.deletedAt !== null) return false;
+      // Handle { not: null } — match only rows where deletedAt IS set
+      if (
+        cond !== null &&
+        typeof cond === 'object' &&
+        'not' in (cond as Record<string, unknown>) &&
+        (cond as Record<string, unknown>).not === null &&
+        d.deletedAt === null
+      ) return false;
+    }
     if (where.ownerUserId && d.ownerUserId !== where.ownerUserId) return false;
     if (typeof where.isShared === 'boolean' && d.isShared !== where.isShared) return false;
     if (typeof where.isDefault === 'boolean' && d.isDefault !== where.isDefault) return false;
@@ -348,6 +371,142 @@ describe('DashboardsService.remove', () => {
     await withCtx({ userId: 'u1' }, () => service.remove('d1'));
     expect(prisma.store[0]!.deletedAt).not.toBeNull();
     expect(prisma.store[0]!.deletedById).toBe('u1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// archive / restore / purge
+// ---------------------------------------------------------------------------
+
+describe('DashboardsService.listArchived', () => {
+  test('returns only soft-deleted dashboards in tenant', async () => {
+    const { service, prisma, resolver } = makeService();
+    resolver.isAdmin = true;
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }),
+      makeRow({ id: 'd2', ownerUserId: 'u1', deletedAt: null }),
+      makeRow({ id: 'd3', ownerUserId: 'other', deletedAt: new Date() }),
+    );
+    const result = await withCtx({ userId: 'u1' }, () => service.listArchived());
+    expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd3']);
+  });
+
+  test('non-admin sees only own or shared archived dashboards', async () => {
+    const { service, prisma } = makeService();
+    // resolver.isAdmin stays false
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date(), isShared: false }),
+      makeRow({ id: 'd2', ownerUserId: 'other', deletedAt: new Date(), isShared: true }),
+      makeRow({ id: 'd3', ownerUserId: 'other', deletedAt: new Date(), isShared: false }),
+    );
+    const result = await withCtx({ userId: 'u1' }, () => service.listArchived());
+    // d1 (own), d2 (shared) — d3 invisible
+    expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
+  });
+
+  test('excludes dashboards from another tenant', async () => {
+    const { service, prisma, resolver } = makeService();
+    resolver.isAdmin = true;
+    prisma.store.push(
+      makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1', deletedAt: new Date() }),
+      makeRow({ id: 'd2', ownerUserId: 'u1', deletedAt: new Date() }),
+    );
+    const result = await withCtx({ userId: 'u1', organizationId: ORG }, () =>
+      service.listArchived(),
+    );
+    // d1 belongs to another tenant — must NOT appear
+    expect(result.map((d) => d.id)).toEqual(['d2']);
+  });
+
+  test('non-deleted dashboards are excluded', async () => {
+    const { service, prisma, resolver } = makeService();
+    resolver.isAdmin = true;
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: null }));
+    const result = await withCtx({ userId: 'u1' }, () => service.listArchived());
+    expect(result).toEqual([]);
+  });
+});
+
+describe('DashboardsService.restore', () => {
+  test('clears deletedAt on an archived dashboard', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
+    await withCtx({ userId: 'u1' }, () => service.restore('d1'));
+    expect(prisma.store[0]!.deletedAt).toBeNull();
+  });
+
+  test('restore returns the restored dashboard', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
+    const result = await withCtx({ userId: 'u1' }, () => service.restore('d1'));
+    expect(result.id).toBe('d1');
+    expect(result.deletedAt).toBeNull();
+  });
+
+  test('restore on a non-archived dashboard throws 404', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: null }));
+    await expect(
+      withCtx({ userId: 'u1' }, () => service.restore('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('restore on a cross-tenant id throws 404 (no side-effect)', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(
+      makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1', deletedAt: new Date() }),
+    );
+    await expect(
+      withCtx({ userId: 'u1', organizationId: ORG }, () => service.restore('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // Confirm the row was NOT mutated
+    expect(prisma.store[0]!.deletedAt).not.toBeNull();
+  });
+
+  test('restore records an audit entry', async () => {
+    const { service, prisma, audit } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
+    await withCtx({ userId: 'u1' }, () => service.restore('d1'));
+    expect(audit.records.some((r) => r['action'] === 'UPDATE' && r['entityId'] === 'd1')).toBe(true);
+  });
+});
+
+describe('DashboardsService.purge', () => {
+  test('hard-deletes an archived dashboard', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
+    await withCtx({ userId: 'u1' }, () => service.purge('d1'));
+    expect(prisma.store.find((d) => d.id === 'd1')).toBeUndefined();
+  });
+
+  test('purge on non-archived dashboard throws 404', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: null }));
+    await expect(
+      withCtx({ userId: 'u1' }, () => service.purge('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // Row must still exist
+    expect(prisma.store).toHaveLength(1);
+  });
+
+  test('purge on cross-tenant id throws 404 (no side-effect)', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(
+      makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1', deletedAt: new Date() }),
+    );
+    await expect(
+      withCtx({ userId: 'u1', organizationId: ORG }, () => service.purge('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.store).toHaveLength(1);
+  });
+
+  test('purge records an audit DELETE entry', async () => {
+    const { service, prisma, audit } = makeService();
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
+    await withCtx({ userId: 'u1' }, () => service.purge('d1'));
+    expect(
+      audit.records.some((r) => r['action'] === 'DELETE' && r['entityId'] === 'd1'),
+    ).toBe(true);
   });
 });
 

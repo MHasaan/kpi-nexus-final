@@ -387,6 +387,46 @@ export async function removeOrgUnitMember(unitId: string, userId: string): Promi
   return api(`/org-units/${unitId}/members/${userId}`, { method: 'DELETE' });
 }
 
+export async function renameOrgUnit(id: string, newName: string): Promise<OrgUnitSummary> {
+  return api(`/org-units/${id}/rename`, { method: 'POST', body: JSON.stringify({ name: newName }) });
+}
+
+export async function moveOrgUnitUsers(body: {
+  userIds: string[];
+  fromUnitId?: string;
+  toUnitId?: string;
+}): Promise<{ moved: number }> {
+  return api('/org-units/move-users', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function mergeOrgUnit(id: string, targetId: string): Promise<void> {
+  return api(`/org-units/${id}/merge-into`, { method: 'POST', body: JSON.stringify({ targetId }) });
+}
+
+export interface SplitResult {
+  original: OrgUnitSummary;
+  newUnit: OrgUnitSummary;
+}
+
+export async function splitOrgUnit(
+  id: string,
+  body: { newUnitName: string; memberUserIds: string[] },
+): Promise<SplitResult> {
+  return api(`/org-units/${id}/split`, { method: 'POST', body: JSON.stringify(body) });
+}
+
+export interface OrgUnitNameHistoryEntry {
+  id: string;
+  oldName: string;
+  newName: string;
+  changedAt: string;
+  changedById: string | null;
+}
+
+export async function getOrgUnitNameHistory(id: string): Promise<OrgUnitNameHistoryEntry[]> {
+  return api(`/org-units/${id}/name-history`);
+}
+
 // =============================================================================
 // MFA
 // =============================================================================

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
+import { OrgUnitReorg } from '../../components/org-unit-reorg';
 import {
   addOrgUnitMember,
   ApiError,
@@ -496,6 +497,26 @@ function OrgUnitsPageInner() {
                           </p>
                         )}
                         </PermissionGuard>
+
+                        {unitMembers && (
+                          <OrgUnitReorg
+                            unit={unit}
+                            allUnits={units ?? []}
+                            members={unitMembers}
+                            onRefresh={async () => {
+                              await refresh();
+                              // Re-load members for the currently expanded unit
+                              if (expandedUnitId) {
+                                try {
+                                  const refreshed = await listOrgUnitMembers(expandedUnitId);
+                                  setUnitMembers(refreshed);
+                                } catch {
+                                  // ignore
+                                }
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                   </li>

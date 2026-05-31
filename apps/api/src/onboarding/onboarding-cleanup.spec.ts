@@ -12,8 +12,6 @@ import { describe, beforeEach, it, expect, vi } from 'vitest';
 // Minimal stubs so we can test without NestJS DI / BullMQ infrastructure
 // ---------------------------------------------------------------------------
 
-const THIRTY_ONE_DAYS_MS = 31 * 24 * 60 * 60 * 1000;
-
 // ---------------------------------------------------------------------------
 // 1.  OnboardingService.cleanupStale
 // ---------------------------------------------------------------------------
@@ -57,11 +55,14 @@ describe('OnboardingService.cleanupStale', () => {
     // Must target only in_progress rows
     expect(call.where.status).toBe('in_progress');
 
-    // The cutoff date must be in the past (before the call started)
+    // The cutoff is `serviceNow - 30 days`, where `before <= serviceNow <= after`.
+    // So it must fall within [before - 30d, after - 30d] (inclusive). Asserting a
+    // range — not `<= before - 30d` — avoids a 1ms flake when serviceNow > before.
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const cutoff = call.where.updatedAt.lt;
     expect(cutoff).toBeInstanceOf(Date);
-    expect(cutoff.getTime()).toBeLessThanOrEqual(before - 30 * 24 * 60 * 60 * 1000);
-    expect(cutoff.getTime()).toBeGreaterThan(before - THIRTY_ONE_DAYS_MS - 1000 /* 1 s slack */);
+    expect(cutoff.getTime()).toBeGreaterThanOrEqual(before - THIRTY_DAYS_MS);
+    expect(cutoff.getTime()).toBeLessThanOrEqual(after - THIRTY_DAYS_MS);
 
     // Must transition to 'archived'
     expect(call.data.status).toBe('archived');

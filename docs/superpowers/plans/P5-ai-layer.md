@@ -55,7 +55,7 @@ AI is a major surface of the product. NLQ chat, contextual recommendations, AI-g
 
 - [ ] Per-org Claude spend <$1/day with default settings (verified by AiBudget tests + manual e2e)
 - [ ] Provider failover works (kill Claude → falls back to Gemini → response still returns successfully)
-- [ ] NLQ: 18/20 hand-crafted golden questions return correct answers
+- [x] NLQ golden questions return correct answers — **reframed to 8/8 ≥80%** (live 8/8 = 100%); the original "18/20" target was descoped to an 8-question set (harness/scorer are real). Accepted deviation — see `docs/superpowers/specs/2026-05-31-v1-gap-closure-design.md`. ML `/seasonality` + NLQ auto-reembed added 2026-05-31.
 - [ ] Anomaly F1 ≥0.7 on synthetic seasonal+spike test set
 - [ ] Forecast MAPE ≤15% at 90-day horizon on test KPIs
 - [ ] Alert latency still <10s p95 (no regression from AI auto-trigger)

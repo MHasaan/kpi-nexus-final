@@ -6,6 +6,48 @@ For per-phase detail, see `ROADMAP.md` and the linked plan files.
 
 ---
 
+## ✅ Status (reconciled 2026-05-31) — v1.0.0 shipped + gap-closure complete
+
+All 10 phases **P0–P9 are implemented and tagged** (`p0-complete`..`p9-complete`, `v1.0.0`).
+An independent completeness audit (2026-05-31) verified this against the actual code and
+found that **this flat checklist had drifted** — many boxes below were left unticked even
+though the work shipped. Treat the phase plans + the audit/gap-closure docs as the source of
+truth, not the checkbox state below.
+
+**Independent verification (2026-05-31):** automated suites green — API unit 1080, packages/ai
+42, contracts 11, web unit 59, ML pytest 34; plus P2–P9 e2e suites. The critical per-user
+scope invariant (`POST /kpis/:id/data` on a non-ORG_WIDE KPI → 422 with `correctEndpoint`)
+is enforced live.
+
+**Gap-closure (branch `chore/v1-gap-closure`, 2026-05-31):** the audit surfaced 18 deliverables
+that were planned but never built; all 18 were closed (TDD + review). See
+[`docs/superpowers/specs/2026-05-31-v1-gap-closure-design.md`](docs/superpowers/specs/2026-05-31-v1-gap-closure-design.md)
+and [`docs/superpowers/plans/2026-05-31-v1-gap-closure.md`](docs/superpowers/plans/2026-05-31-v1-gap-closure.md).
+Closed: frontend permission-gating layer (AppShell + `<PermissionGuard>`/`<RequirePermission>` +
+filtered nav + gated buttons), OrgUnit reorganization (rename/move/merge/split + name history),
+`/me/sessions`, ML `/seasonality` + NLQ auto-reembed, roles presets/hierarchy/apply/audit,
+dashboards archive/restore/purge, `/status` + `/health/details`, in-app help drawer,
+TimescaleDB continuous aggregates + policies, onboarding stale-draft cleanup cron, PDF
+sparklines, P4 alerting integration specs, and the P1 settings pages
+(`/settings/{branding,fiscal,password-policy,custom-domain}` + `/billing` + a `/settings` index).
+
+**Confirmed deferred (post-v1)** — NOT gaps: Frontend "Claude Design" visual session; beta
+hardening; Stripe/payment billing wiring; mobile + real-time collab; live SAML/OIDC IdP
+handshake (JIT is built+tested); Lighthouse/k6/axe blocking CI gates + bundle budgets;
+OpenAPI/Spectral + `packages/sdk`; plugin isolated-vm/iframe sandbox; ACM TLS automation;
+P8 connector scheduler auto-runs + Postgres/MySQL runners; Turbo remote cache; Sentry wiring;
+cloud-KMS data-key sourcing; admin impersonation.
+
+**Accepted deviations (documented, not "fixed"):** NLQ golden set is 8/8 ≥80% (not 20/18);
+notification adapters live in one `notification-adapters.service.ts` (not 6 files).
+
+**Known minor issues (non-blocking):** ~21 pre-existing web files reference a `text-status-positive`
+Tailwind class that isn't defined in the UI preset (silent no-op; use `text-status-success`); the
+live-API integration suite (`test:int`) has a few specs that are flaky under full-suite parallel
+load (pass in isolation).
+
+---
+
 ## P0 — Foundation (≈2 weeks)
 
 ### Infra

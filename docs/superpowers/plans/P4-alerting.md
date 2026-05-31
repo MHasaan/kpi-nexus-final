@@ -213,7 +213,7 @@ model ApiKey {
   - On success: status=SENT + sentAt
   - On failure: status=FAILED + error (truncated); auto-schedule retry attempt #1
 - [x] `NotificationDispatcherService.dispatchExisting(deliveryId)` — re-uses existing row (for retries)
-- [x] **Adapters** (each is a single file in `adapters/`):
+- [x] **Adapters** — **accepted deviation:** all six kinds live in one `notification-adapters.service.ts` (switch dispatch), not six separate `adapters/*.ts` files. All six work; SMS is a documented dev stub. See `docs/superpowers/specs/2026-05-31-v1-gap-closure-design.md`. The six kinds:
   - `EmailAdapter.send(channel, payload)` — uses Resend API (`RESEND_API_KEY` env); falls back to console log when unset (dev mode)
   - `SlackAdapter.send(channel, payload)` — POST to webhook URL with severity emojis (🔴 HIGH, 🟡 MEDIUM, 🔵 LOW)
   - `TeamsAdapter.send(channel, payload)` — POST adaptive card to webhook

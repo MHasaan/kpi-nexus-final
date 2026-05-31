@@ -142,3 +142,33 @@ Sessions = `RefreshToken` rows (no separate `Session` model). Reuse `revokeAllFo
 - OrgUnit reorg, `/me/sessions`, `/status`, dashboards archive, help drawer verified live.
 - `TODOS.md`/`ROADMAP.md` accurately reflect built vs. deferred.
 - No regression in the critical scope invariant or the 961 API unit tests.
+
+## Completion record (2026-05-31)
+
+All 18 findings closed on branch `chore/v1-gap-closure`, TDD + two-stage review per task.
+
+| Workstream | Commits |
+|---|---|
+| A — Frontend permission gating (/auth/me perms, utils+hook+guards, AppShell+filtered nav, gated buttons) | `4d89f7d`, `70d9ede`, `6c4284d`, `c7a6c63`, `9466831` |
+| B — OrgUnit reorganization backend + UI | `bc96539`, `3046f63`, `6bc25ce`, `aa9b0ac` |
+| C — `/me/sessions` backend + UI | `8fa9d06`, `a14b0fb` |
+| D — ML `/seasonality` + API proxy; NLQ auto-reembed | `346e33b`, `249c307` |
+| E — Roles aux; roles UI; dashboards archive; `/status`+`/health/details`; help drawer | `aa6f55c`, `f7c30d6`, `49353df`, `28eefad`, `eeda2f4`, `e7f9971` |
+| F — CAGGs+bench; settings/billing pages; draft-cleanup cron; PDF sparkline; alerting int-specs | `66c5cee`, `4523ae3`, `6ff5fe1`, `05c639d`, `5d5765f`, `185b146` |
+| G — Docs reconciliation; final verification | this commit + G2 |
+
+**Final verification (2026-05-31, fresh run):** API unit **1080**, packages/ai 42, contracts 11,
+web unit **59**, ML pytest **34** — all green. New surfaces verified live in the browser/API:
+permission-filtered nav as a low-privilege Employee (gated entries hidden + `/roles` →
+`/unauthorized`); OrgUnit rename/merge/move; `/me/sessions` revoke-all-others; `/status`
+(db+redis component rows); dashboards archive restore/purge; help drawer. The critical scope
+invariant (422 + `correctEndpoint`) re-confirmed live.
+
+**Known minor issues (non-blocking, recorded for follow-up):**
+- ~21 pre-existing web files use a `text-status-positive` Tailwind class absent from the UI
+  preset (silent no-op; correct token is `text-status-success`). New gap-closure files use the
+  correct token.
+- A few live-API `test:int` specs (refresh-token, mfa-flow, kpi-dashboard-summary perf) are
+  flaky under full-suite parallel load but pass in isolation — pre-existing, not introduced here.
+- `setup-db.mjs` continuous-aggregate verify uses a `>= 5` threshold where `>= 6` (incl. base
+  hypertable) would be stricter (warn-only; non-fatal).

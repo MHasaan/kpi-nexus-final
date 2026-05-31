@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   UnprocessableEntityException,
@@ -11,6 +12,7 @@ import type { Prisma } from '@kpi-nexus/db';
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { BillingService } from '../billing/billing.service.js';
+import { ReembedProducer } from '../nlq/reembed.producer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -57,12 +59,15 @@ export type PublicKpi = Prisma.KPIGetPayload<{ select: typeof kpiSelect }>;
 
 @Injectable()
 export class KpisService {
+  private readonly logger = new Logger(KpisService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
     private readonly billing: BillingService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
+    @Optional() private readonly reembedProducer?: ReembedProducer,
   ) {}
 
   async list(): Promise<PublicKpi[]> {
@@ -227,6 +232,15 @@ export class KpisService {
         metadata: { name: created.name, scope: created.scope },
       });
 
+      // Fire-and-forget: errors must not fail the KPI write.
+      if (this.reembedProducer) {
+        try {
+          await this.reembedProducer.enqueueKpi(ctx.organizationId, created.id);
+        } catch (err) {
+          this.logger.warn(`reembed enqueue failed after KPI create ${created.id}: ${String(err)}`);
+        }
+      }
+
       return created;
     } catch (error) {
       if (this.isUniqueViolation(error)) {
@@ -304,6 +318,18 @@ export class KpisService {
         entityId: updated.id,
         metadata: { name: updated.name, version: updated.version },
       });
+
+      // Enqueue re-embedding only when semantic catalog fields change. A
+      // pure status/threshold/target update does not change the NLQ source
+      // text, so we skip the queue to avoid unnecessary AI token spend.
+      if (this.reembedProducer && needsReembed(existing, dto)) {
+        const { organizationId } = RequestContextStore.require();
+        try {
+          await this.reembedProducer.enqueueKpi(organizationId, updated.id);
+        } catch (err) {
+          this.logger.warn(`reembed enqueue failed after KPI update ${updated.id}: ${String(err)}`);
+        }
+      }
 
       return updated;
     } catch (error) {
@@ -557,4 +583,22 @@ export class KpisService {
 function isStatusOnlyKpiPatch(dto: UpdateKpiDto): boolean {
   const definedKeys = Object.keys(dto).filter((k) => (dto as Record<string, unknown>)[k] !== undefined);
   return definedKeys.length > 0 && definedKeys.every((k) => k === 'status');
+}
+
+/**
+ * Returns true when any of the fields that contribute to the NLQ catalog
+ * source text (name, description, tags, unit) have changed. These are the
+ * same fields that `sourceTextForKpi` in embedding-helpers.ts concatenates.
+ */
+function needsReembed(existing: PublicKpi, dto: UpdateKpiDto): boolean {
+  if (dto.name !== undefined && dto.name !== existing.name) return true;
+  if (dto.description !== undefined && dto.description !== existing.description) return true;
+  if (dto.unit !== undefined && dto.unit !== existing.unit) return true;
+  if (dto.tags !== undefined) {
+    // Compare tag arrays by value (order-independent via sorted join).
+    const oldTags = [...(existing.tags ?? [])].sort().join(',');
+    const newTags = [...dto.tags].sort().join(',');
+    if (oldTags !== newTags) return true;
+  }
+  return false;
 }

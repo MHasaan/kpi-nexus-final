@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { NlqReembedQueueModule } from '../nlq/nlq-reembed-queue.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
 import { AiBudgetService } from './ai-budget.service.js';
@@ -19,7 +20,7 @@ import { ByoKeyService } from './byo/byo-key.service.js';
  * logic stays decoupled from Nest DI (and unit-testable with fakes).
  */
 @Module({
-  imports: [PrismaModule, RbacModule],
+  imports: [PrismaModule, RbacModule, NlqReembedQueueModule],
   controllers: [AiConfigsController, ByoController],
   providers: [
     AiBudgetService,

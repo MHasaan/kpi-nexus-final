@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ALL_AI_FEATURES, type AiFeature, type AiProviderKey } from '@kpi-nexus/contracts';
 
+import { ReembedProducer } from '../nlq/reembed.producer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DEFAULT_FYP_CONFIG, type FeatureRoute } from './default-fyp-config.js';
@@ -27,7 +28,12 @@ export interface UpsertConfigInput {
  */
 @Injectable()
 export class AiConfigsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AiConfigsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly reembedProducer?: ReembedProducer,
+  ) {}
 
   /** The route the router should use for a feature (override or default). */
   async resolve(feature: AiFeature): Promise<FeatureRoute> {
@@ -72,6 +78,14 @@ export class AiConfigsService {
 
   async upsertConfig(feature: AiFeature, input: UpsertConfigInput): Promise<FeatureConfigView> {
     const ctx = RequestContextStore.require();
+
+    // Read the existing provider before writing so we can detect a change.
+    const existing = await this.prisma.aiFeatureConfig.findUnique({
+      where: { organizationId_feature: { organizationId: ctx.organizationId, feature } },
+      select: { providerId: true },
+    });
+    const previousProvider = existing?.providerId ?? null;
+
     await this.prisma.aiFeatureConfig.upsert({
       where: { organizationId_feature: { organizationId: ctx.organizationId, feature } },
       create: {
@@ -91,6 +105,24 @@ export class AiConfigsService {
         perFeatureCapUsd: input.perFeatureCapUsd ?? null,
       },
     });
+
+    // When the EMBEDDINGS provider switches, all existing catalog vectors are
+    // stale (different model → different vector space). Enqueue a whole-org
+    // re-embed. Fire-and-forget — a queue hiccup must not fail the config write.
+    if (
+      feature === 'EMBEDDINGS' &&
+      previousProvider !== input.providerId &&
+      this.reembedProducer
+    ) {
+      try {
+        await this.reembedProducer.enqueueOrg(ctx.organizationId);
+      } catch (err) {
+        this.logger.warn(
+          `reembed org enqueue failed after provider switch (${previousProvider} → ${input.providerId}): ${String(err)}`,
+        );
+      }
+    }
+
     return {
       feature,
       provider: input.providerId,

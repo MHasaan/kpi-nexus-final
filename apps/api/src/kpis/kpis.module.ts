@@ -5,6 +5,7 @@ import { ApprovalGateModule } from '../approvals/approval-gate.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { BillingModule } from '../billing/billing.module.js';
 import { CalculationEngineModule } from '../calculation-engine/calculation-engine.module.js';
+import { NlqReembedQueueModule } from '../nlq/nlq-reembed-queue.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
 import { WorkflowsModule } from '../workflows/workflows.module.js';
@@ -16,7 +17,17 @@ import { KpisController } from './kpis.controller.js';
 import { KpisService } from './kpis.service.js';
 
 @Module({
-  imports: [AuditModule, BillingModule, RbacModule, RealtimeModule, AlertEngineModule, CalculationEngineModule, ApprovalGateModule, WorkflowsModule],
+  imports: [
+    AuditModule,
+    BillingModule,
+    RbacModule,
+    RealtimeModule,
+    AlertEngineModule,
+    CalculationEngineModule,
+    ApprovalGateModule,
+    WorkflowsModule,
+    NlqReembedQueueModule, // provides ReembedProducer for KpisService trigger
+  ],
   controllers: [KpisController, KpiDataController],
   providers: [KpisService, KpiDataService, CascadeService, KpiImportService],
   exports: [KpisService, KpiDataService, CascadeService],

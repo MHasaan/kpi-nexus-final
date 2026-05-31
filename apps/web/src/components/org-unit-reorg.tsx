@@ -136,13 +136,14 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
 
   async function handleMove(e: FormEvent) {
     e.preventDefault();
+    if (!moveTargetId) return;
     setMoveLoading(true);
     setMoveError(null);
     try {
       await moveOrgUnitUsers({
         userIds: [...moveMemberIds],
         fromUnitId: unit.id,
-        toUnitId: moveTargetId || undefined,
+        toUnitId: moveTargetId,
       });
       setMoving(false);
       setMoveMemberIds(new Set());
@@ -188,15 +189,16 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
   const errorCls = 'mt-1 text-xs text-status-critical';
 
   return (
-    <PermissionGuard permission="GROUPS_MANAGE">
-      <div
-        className="mt-4 rounded-md border border-border bg-surface-2 p-3"
-        data-testid={`reorg-panel-${unit.name}`}
-      >
-        <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">
-          Reorganize
-        </h5>
+    <div
+      className="mt-4 rounded-md border border-border bg-surface-2 p-3"
+      data-testid={`reorg-panel-${unit.name}`}
+    >
+      <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-muted">
+        Reorganize
+      </h5>
 
+      {/* ---- Mutation controls (GROUPS_MANAGE only) ---- */}
+      <PermissionGuard permission="GROUPS_MANAGE">
         <div className="flex flex-wrap gap-2">
           {/* Rename trigger */}
           <button
@@ -243,16 +245,6 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
               Move members…
             </button>
           )}
-
-          {/* Name history toggle */}
-          <button
-            type="button"
-            onClick={() => void handleShowHistory()}
-            data-testid={`reorg-history-toggle-${unit.name}`}
-            className={btnCls}
-          >
-            {showHistory ? 'Hide history' : 'Name history'}
-          </button>
         </div>
 
         {/* ---- Rename form ---- */}
@@ -398,15 +390,16 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
               ))}
             </ul>
             <label className="mt-2 block">
-              <span className="text-xs font-medium text-content-default">Move to</span>
+              <span className="text-xs font-medium text-content-default">Move to (required)</span>
               <select
+                required
                 value={moveTargetId}
                 onChange={(e) => setMoveTargetId(e.target.value)}
                 disabled={moveLoading}
                 data-testid={`move-target-select-${unit.name}`}
                 className={`mt-1 ${inputCls} w-full`}
               >
-                <option value="">(no new unit — just remove from this one)</option>
+                <option value="">(select destination unit)</option>
                 {otherUnits.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
@@ -417,7 +410,7 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
             <div className="mt-2 flex gap-2">
               <button
                 type="submit"
-                disabled={moveLoading || moveMemberIds.size === 0}
+                disabled={moveLoading || moveMemberIds.size === 0 || !moveTargetId}
                 data-testid={`move-confirm-${unit.name}`}
                 className={primaryBtnCls}
               >
@@ -430,8 +423,18 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
             {moveError && <p role="alert" className={`mt-1 ${errorCls}`}>{moveError}</p>}
           </form>
         )}
+      </PermissionGuard>
 
-        {/* ---- Name history ---- */}
+      {/* ---- Name history (visible to any GROUPS_VIEW user) ---- */}
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => void handleShowHistory()}
+          data-testid={`reorg-history-toggle-${unit.name}`}
+          className={btnCls}
+        >
+          {showHistory ? 'Hide history' : 'Name history'}
+        </button>
         {showHistory && (
           <div className="mt-3" data-testid={`name-history-${unit.name}`}>
             {historyLoading && <p className="text-xs text-content-muted">Loading history…</p>}
@@ -456,6 +459,6 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
           </div>
         )}
       </div>
-    </PermissionGuard>
+    </div>
   );
 }

@@ -394,8 +394,8 @@ export async function renameOrgUnit(id: string, newName: string): Promise<OrgUni
 export async function moveOrgUnitUsers(body: {
   userIds: string[];
   fromUnitId?: string;
-  toUnitId?: string;
-}): Promise<{ moved: number }> {
+  toUnitId: string;
+}): Promise<void> {
   return api('/org-units/move-users', { method: 'POST', body: JSON.stringify(body) });
 }
 

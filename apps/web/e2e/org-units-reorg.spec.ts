@@ -124,6 +124,67 @@ test.describe('/org-units reorganization UI', () => {
     await expect(page.getByTestId(`unit-row-${nameB}`)).toBeVisible();
   });
 
+  test('move member from unit A to unit B via UI — member appears under B, not A', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    const reg = await registerAdmin(page, stamp);
+
+    await page.goto('/org-units');
+    await expect(page.getByTestId('org-units-heading')).toBeVisible();
+
+    // 1. Create unit A
+    const nameA = `MoveFrom ${stamp}`;
+    await page.getByTestId('unit-name-input').fill(nameA);
+    await page.getByTestId('unit-submit-button').click();
+    await expect(page.getByTestId(`unit-row-${nameA}`)).toBeVisible({ timeout: 10000 });
+
+    // 2. Create unit B
+    const nameB = `MoveTo ${stamp}`;
+    await page.getByTestId('unit-name-input').fill(nameB);
+    await page.getByTestId('unit-submit-button').click();
+    await expect(page.getByTestId(`unit-row-${nameB}`)).toBeVisible({ timeout: 10000 });
+
+    // 3. Expand unit A and add the admin user as a member
+    await page.getByTestId(`expand-unit-${nameA}`).click();
+    const membersPanelA = page.getByTestId(`members-panel-${nameA}`);
+    await expect(membersPanelA).toBeVisible({ timeout: 10000 });
+
+    await page.getByTestId('add-member-select').selectOption(reg.user.id);
+    await page.getByTestId('add-member-button').click();
+    await expect(page.getByTestId(`unit-member-${reg.user.id}`)).toBeVisible({ timeout: 10000 });
+
+    // 4. Open the reorg panel for unit A and use Move members
+    await expect(page.getByTestId(`reorg-panel-${nameA}`)).toBeVisible({ timeout: 10000 });
+    await page.getByTestId(`reorg-move-toggle-${nameA}`).click();
+    await expect(page.getByTestId(`move-form-${nameA}`)).toBeVisible({ timeout: 5000 });
+
+    // 5. Select the admin member checkbox
+    await page.getByTestId(`move-member-check-${reg.user.id}`).check();
+
+    // 6. Confirm Move button is disabled until destination selected
+    const moveConfirmBtn = page.getByTestId(`move-confirm-${nameA}`);
+    await expect(moveConfirmBtn).toBeDisabled();
+
+    // 7. Select unit B as destination
+    await page.getByTestId(`move-target-select-${nameA}`).selectOption({ label: nameB });
+    await expect(moveConfirmBtn).toBeEnabled();
+
+    // 8. Submit the move
+    await moveConfirmBtn.click();
+
+    // 9. After move, the form closes and data refreshes.
+    // Unit A should no longer show the member
+    await expect(page.getByTestId(`move-form-${nameA}`)).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(`unit-member-${reg.user.id}`)).not.toBeVisible({ timeout: 5000 });
+
+    // 10. Expand unit B and verify the member now appears there
+    await page.getByTestId(`expand-unit-${nameB}`).click();
+    const membersPanelB = page.getByTestId(`members-panel-${nameB}`);
+    await expect(membersPanelB).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId(`unit-member-${reg.user.id}`)).toBeVisible({ timeout: 10000 });
+  });
+
   test('name history panel renders (empty before any rename)', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
 

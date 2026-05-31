@@ -1,10 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { AppShell } from '../../../components/app-shell';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   ApiError,
   deleteCustomDomain,
@@ -74,15 +75,9 @@ export default function CustomDomainSettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-3xl items-center gap-6 px-6 py-4">
-          <Link href="/settings" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Custom domain</span>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-3xl px-6 py-8">
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
+        <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold text-content-strong" data-testid="custom-domain-heading">Custom domain</h1>
         <p className="mt-1 text-sm text-content-muted">
           Serve KPI Nexus from your own domain. Add a domain, then create the DNS TXT record we generate and click Verify.
@@ -175,7 +170,8 @@ export default function CustomDomainSettingsPage() {
             </p>
           )}
         </div>
-      </div>
-    </main>
+        </div>
+      </RequirePermission>
+    </AppShell>
   );
 }

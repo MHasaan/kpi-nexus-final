@@ -1834,3 +1834,24 @@ export async function revokeAllOtherSessions(): Promise<{ revoked: number }> {
     body: JSON.stringify({ keepCurrentRefreshToken }),
   });
 }
+
+// =============================================================================
+// Health details (operational status page)
+// =============================================================================
+
+export interface ComponentStatus {
+  name: string;
+  status: 'ok' | 'down';
+  latencyMs: number;
+}
+
+export interface HealthDetails {
+  status: 'ok' | 'degraded';
+  components: ComponentStatus[];
+  uptimeSeconds: number;
+  timestamp: string;
+}
+
+export async function getHealthDetails(): Promise<HealthDetails> {
+  return api('/health/details', { auth: false });
+}

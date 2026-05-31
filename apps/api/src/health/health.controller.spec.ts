@@ -41,3 +41,64 @@ describe('HealthController', () => {
     });
   });
 });
+
+describe('HealthController /health/details', () => {
+  test('overall status is ok when both components are up', async () => {
+    const result = await makeController(true, true).details();
+
+    expect(result.status).toBe('ok');
+    expect(result.components).toHaveLength(2);
+
+    const db = result.components.find((c) => c.name === 'database');
+    const redis = result.components.find((c) => c.name === 'redis');
+    expect(db?.status).toBe('ok');
+    expect(redis?.status).toBe('ok');
+    expect(typeof db?.latencyMs).toBe('number');
+    expect(typeof redis?.latencyMs).toBe('number');
+  });
+
+  test('overall status is degraded when database is down', async () => {
+    const result = await makeController(false, true).details();
+
+    expect(result.status).toBe('degraded');
+    const db = result.components.find((c) => c.name === 'database');
+    const redis = result.components.find((c) => c.name === 'redis');
+    expect(db?.status).toBe('down');
+    expect(redis?.status).toBe('ok');
+    expect(typeof db?.latencyMs).toBe('number');
+  });
+
+  test('overall status is degraded when redis is down', async () => {
+    const result = await makeController(true, false).details();
+
+    expect(result.status).toBe('degraded');
+    const db = result.components.find((c) => c.name === 'database');
+    const redis = result.components.find((c) => c.name === 'redis');
+    expect(db?.status).toBe('ok');
+    expect(redis?.status).toBe('down');
+    expect(typeof redis?.latencyMs).toBe('number');
+  });
+
+  test('overall status is degraded when all components are down', async () => {
+    const result = await makeController(false, false).details();
+
+    expect(result.status).toBe('degraded');
+    for (const c of result.components) {
+      expect(c.status).toBe('down');
+      expect(typeof c.latencyMs).toBe('number');
+    }
+  });
+
+  test('response includes uptimeSeconds and a valid ISO timestamp', async () => {
+    const before = Date.now();
+    const result = await makeController(true, true).details();
+    const after = Date.now();
+
+    expect(typeof result.uptimeSeconds).toBe('number');
+    expect(result.uptimeSeconds).toBeGreaterThanOrEqual(0);
+
+    const ts = new Date(result.timestamp).getTime();
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(after);
+  });
+});

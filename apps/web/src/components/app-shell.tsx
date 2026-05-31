@@ -45,7 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/roles', label: 'Roles', permission: 'ROLES_MANAGE' },
   { href: '/alerts', label: 'Alerts', permission: 'ALERTS_VIEW' },
   { href: '/profile', label: 'Profile' },
-  { href: '/settings/organization', label: 'Settings', permission: 'ORG_SETTINGS' },
+  { href: '/settings', label: 'Settings', permission: 'ORG_SETTINGS' },
 ];
 
 // ---------------------------------------------------------------------------

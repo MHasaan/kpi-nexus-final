@@ -199,15 +199,35 @@ export async function applyRolePreset(roleId: string, preset: string): Promise<R
 // Organizations + terminology
 // =============================================================================
 
+export interface PasswordPolicy {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireDigit: boolean;
+  requireSpecial: boolean;
+  maxAgeDays: number;
+}
+
 export interface OrganizationSettings {
   id: string;
   name: string;
   slug: string;
   industry: string | null;
+  type: string | null;
+  sizeTier: 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE' | null;
+  // Branding
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  // Locale + fiscal
   timezone: string;
   currency: string;
   locale: string;
+  dateFormat: string | null;
+  numberFormat: string | null;
   weekStartsOn: number;
+  fiscalCalendar: Record<string, unknown> | null;
   // Terminology
   roleLabel: string;
   groupLabel: string;
@@ -217,6 +237,11 @@ export interface OrganizationSettings {
   scorecardLabel: string;
   objectiveLabel: string;
   taskLabel: string;
+  // Compliance + policy
+  dataResidency: 'US' | 'EU' | 'APAC' | 'OTHER' | null;
+  complianceProfile: string[] | null;
+  passwordPolicy: PasswordPolicy | null;
+  planKey: string;
 }
 
 export interface Terminology {
@@ -1854,4 +1879,57 @@ export interface HealthDetails {
 
 export async function getHealthDetails(): Promise<HealthDetails> {
   return api('/health/details', { auth: false });
+}
+
+// =============================================================================
+// Billing (P1 — /billing)
+// =============================================================================
+
+export interface BillingQuota {
+  key: string;
+  limit: number;
+  current: number;
+}
+
+export interface BillingStatus {
+  planKey: string;
+  displayName: string;
+  features: string[];
+  quotas: BillingQuota[];
+}
+
+export async function getBilling(): Promise<BillingStatus> {
+  return api('/billing');
+}
+
+// =============================================================================
+// Custom domains (P9 — /custom-domains)
+// =============================================================================
+
+export interface CustomDomain {
+  id: string;
+  organizationId: string;
+  domain: string;
+  txtChallengeKey: string;
+  txtChallengeValue: string;
+  verifiedAt: string | null;
+  lastCheckedAt: string | null;
+  lastCheckError: string | null;
+  createdAt: string;
+}
+
+export async function listCustomDomains(): Promise<CustomDomain[]> {
+  return api('/custom-domains');
+}
+
+export async function registerCustomDomain(domain: string): Promise<CustomDomain> {
+  return api('/custom-domains', { method: 'POST', body: JSON.stringify({ domain }) });
+}
+
+export async function verifyCustomDomain(id: string): Promise<CustomDomain> {
+  return api(`/custom-domains/${id}/verify`, { method: 'POST' });
+}
+
+export async function deleteCustomDomain(id: string): Promise<void> {
+  return api(`/custom-domains/${id}`, { method: 'DELETE' });
 }

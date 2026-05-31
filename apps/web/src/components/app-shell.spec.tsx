@@ -47,7 +47,7 @@ describe('NAV_ITEMS config', () => {
       '/roles',
       '/alerts',
       '/profile',
-      '/settings/organization',
+      '/settings',
     ]);
   });
 
@@ -78,7 +78,7 @@ describe('visibleNavItems', () => {
     expect(visible).toContain('/alerts');
     // Admin-only entries are excluded.
     expect(visible).not.toContain('/roles');
-    expect(visible).not.toContain('/settings/organization');
+    expect(visible).not.toContain('/settings');
     expect(visible).not.toContain('/users');
     expect(visible).not.toContain('/org-units');
   });

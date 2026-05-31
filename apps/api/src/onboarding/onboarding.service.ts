@@ -91,6 +91,26 @@ export class OnboardingService {
   }
 
   /**
+   * System maintenance: archive all in_progress onboarding sessions that have
+   * not been updated for `olderThanDays` days.  Runs cross-tenant (no org
+   * filter) because it is called from a scheduled BullMQ job, not from an HTTP
+   * request — there is no RequestContext here by design.
+   *
+   * Returns the number of sessions archived.
+   */
+  async cleanupStale(olderThanDays = 30): Promise<{ cleaned: number }> {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.onboardingSession.updateMany({
+      where: {
+        status: 'in_progress',
+        updatedAt: { lt: cutoff },
+      },
+      data: { status: 'archived' },
+    });
+    return { cleaned: result.count };
+  }
+
+  /**
    * Materialize the draft into a real org in one atomic transaction: org +
    * roles + admin user + positions + unit hierarchy + categories + KPIs. Issues
    * a JWT pair. Rolls back entirely on any failure.

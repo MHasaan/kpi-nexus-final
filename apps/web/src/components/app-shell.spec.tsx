@@ -18,7 +18,9 @@ import {
   visibleNavItems,
 } from './app-shell';
 
-// The 18 canonical permission keys an admin holds.
+// The 25 canonical permission keys an admin holds (18 base + ADR-001's 7 carved
+// capabilities). The nav now gates Integrations→INTEGRATIONS_MANAGE and
+// Audit→AUDIT_VIEW, so those must be present for "admin sees every item".
 const ADMIN_PERMISSIONS = [
   'KPI_VIEW',
   'KPI_CREATE',
@@ -38,6 +40,14 @@ const ADMIN_PERMISSIONS = [
   'ANALYTICS_VIEW',
   'INSIGHTS_VIEW',
   'ORG_SETTINGS',
+  // ADR-001 carved capabilities
+  'KPI_IMPORT',
+  'REPORTS_MANAGE',
+  'ANALYTICS_FORECAST',
+  'EXPORTS',
+  'AUDIT_VIEW',
+  'INTEGRATIONS_MANAGE',
+  'BILLING_MANAGE',
 ];
 
 function hrefs(items: { href: string }[]): string[] {
@@ -63,13 +73,15 @@ describe('NAV config', () => {
   });
 
   test('every MUST-KEEP testid resolves to a leaf with the right route', () => {
-    const byTestId = new Map(NAV_ITEMS.map((i) => [navTestId(i.href), i.href]));
+    // Mirror the component's resolution: an explicit testId override wins over
+    // the href-derived slug (Audit keeps nav-audit despite its /settings/audit route).
+    const byTestId = new Map(NAV_ITEMS.map((i) => [i.testId ?? navTestId(i.href), i.href]));
     expect(byTestId.get('nav-dashboard')).toBe('/dashboard');
     expect(byTestId.get('nav-kpis')).toBe('/kpis');
     expect(byTestId.get('nav-reports')).toBe('/reports');
     expect(byTestId.get('nav-roles')).toBe('/roles');
     expect(byTestId.get('nav-positions')).toBe('/positions');
-    expect(byTestId.get('nav-audit')).toBe('/audit');
+    expect(byTestId.get('nav-audit')).toBe('/settings/audit');
     expect(byTestId.get('nav-settings')).toBe('/settings');
   });
 
@@ -105,7 +117,8 @@ describe('visibleNavItems', () => {
     expect(visible).not.toContain('/users');
     expect(visible).not.toContain('/org-units');
     expect(visible).not.toContain('/positions');
-    expect(visible).not.toContain('/audit');
+    expect(visible).not.toContain('/settings/audit');
+    expect(visible).not.toContain('/integrations');
   });
 
   test('empty permission set still shows the no-permission items', () => {

@@ -6,9 +6,13 @@ import {
   Optional,
 } from '@nestjs/common';
 
+import type { Prisma } from '@kpi-nexus/db';
+import type { ScopeConfig } from '@kpi-nexus/contracts';
+
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
@@ -24,6 +28,7 @@ export interface PublicRole {
   level: number;
   color: string | null;
   canAccessModules: string[];
+  scopeConfig: ScopeConfig | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,26 +47,42 @@ const roleSelect = {
   level: true,
   color: true,
   canAccessModules: true,
+  scopeConfig: true,
   createdAt: true,
   updatedAt: true,
 } as const;
+
+type RoleRow = Prisma.RoleDefinitionGetPayload<{ select: typeof roleSelect }>;
+
+/** Narrow Prisma's JsonValue `scopeConfig` to the typed `ScopeConfig` for the API. */
+function toPublicRole(row: RoleRow): PublicRole {
+  return { ...row, scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null };
+}
 
 @Injectable()
 export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
     @Optional() private readonly audit?: AuditService,
   ) {}
 
+  /** Invalidate the per-request permission + access caches after a role change. */
+  private invalidateCaches(): void {
+    this.resolver.invalidateAll();
+    this.accessContext.invalidateAll();
+  }
+
   async list(): Promise<PublicRole[]> {
     const ctx = RequestContextStore.require();
-    return this.prisma.roleDefinition.findMany({
+    const rows = await this.prisma.roleDefinition.findMany({
       where: { organizationId: ctx.organizationId },
       select: roleSelect,
       orderBy: [{ level: 'desc' }, { name: 'asc' }],
     });
+    return rows.map(toPublicRole);
   }
 
   async getById(id: string): Promise<PublicRole> {
@@ -73,7 +94,7 @@ export class RolesService {
     if (!role) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'role not found' });
     }
-    return role;
+    return toPublicRole(role);
   }
 
   async create(dto: CreateRoleDto): Promise<PublicRole> {
@@ -92,8 +113,8 @@ export class RolesService {
         },
         select: roleSelect,
       });
-      this.resolver.invalidateAll();
-      return created;
+      this.invalidateCaches();
+      return toPublicRole(created);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         throw new ConflictException({
@@ -133,11 +154,12 @@ export class RolesService {
           level: dto.level,
           color: dto.color,
           canAccessModules: dto.canAccessModules,
+          scopeConfig: dto.scopeConfig ?? undefined,
         },
         select: roleSelect,
       });
-      this.resolver.invalidateAll();
-      return updated;
+      this.invalidateCaches();
+      return toPublicRole(updated);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         throw new ConflictException({
@@ -183,7 +205,7 @@ export class RolesService {
       }
     }
     await this.prisma.roleDefinition.delete({ where: { id } });
-    this.resolver.invalidateAll();
+    this.invalidateCaches();
   }
 
   // ---------------------------------------------------------------------------
@@ -243,8 +265,8 @@ export class RolesService {
       },
     });
 
-    this.resolver.invalidateAll();
-    return updated;
+    this.invalidateCaches();
+    return toPublicRole(updated);
   }
 
   // ---------------------------------------------------------------------------
@@ -273,7 +295,7 @@ export class RolesService {
       }),
     ]);
     return {
-      roles,
+      roles: roles.map(toPublicRole),
       edges: inheritances,
     };
   }

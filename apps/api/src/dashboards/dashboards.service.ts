@@ -8,6 +8,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
@@ -72,32 +73,30 @@ export class DashboardsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /**
    * List dashboards visible to the current principal:
    *   - Admin sees all (non-deleted)
-   *   - Otherwise: owner OR isShared = true
+   *   - Otherwise: always own dashboards; shared dashboards are included unless the
+   *     principal's DASHBOARDS scope is SELF (Phase 2 — granular scope narrowing).
    * Role-based sharing (ownerRoleId) lands when the broader role-share
    * UI ships; the column is recorded but not yet filtered on.
    */
   async list(): Promise<PublicDashboard[]> {
     const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForUser(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.roleId,
-    );
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
 
     const where: Prisma.DashboardWhereInput = {
       organizationId: ctx.organizationId,
       deletedAt: null,
     };
-    if (!resolved.isAdmin) {
-      where.OR = [
-        { ownerUserId: ctx.userId },
-        { isShared: true },
-      ];
+    if (!profile.isAdmin) {
+      const seeShared = profile.scopeByDomain.DASHBOARDS !== 'SELF';
+      where.OR = seeShared
+        ? [{ ownerUserId: ctx.userId }, { isShared: true }]
+        : [{ ownerUserId: ctx.userId }];
     }
 
     return this.prisma.dashboard.findMany({

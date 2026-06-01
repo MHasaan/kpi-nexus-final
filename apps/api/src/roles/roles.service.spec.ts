@@ -9,6 +9,7 @@ import { PermissionKey } from '@kpi-nexus/contracts';
 
 import { DEFAULT_ROLES } from '../auth/services/default-roles.js';
 import type { AuditService } from '../audit/audit.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import type { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
@@ -29,6 +30,7 @@ interface FakeRole {
   level: number;
   color: string | null;
   canAccessModules: string[];
+  scopeConfig?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -162,13 +164,17 @@ function makeService() {
   const resolver: Pick<PermissionResolverService, 'invalidateAll'> = {
     invalidateAll: vi.fn(),
   };
+  const accessContext: Pick<AccessContextService, 'invalidateAll'> = {
+    invalidateAll: vi.fn(),
+  };
   const service = new RolesService(
     prisma as unknown as PrismaService,
     resolver as unknown as PermissionResolverService,
+    accessContext as unknown as AccessContextService,
     undefined, // approvalGate
     audit as unknown as AuditService,
   );
-  return { service, prisma, audit };
+  return { service, prisma, audit, resolver, accessContext };
 }
 
 function makeRole(overrides: Partial<FakeRole> = {}): FakeRole {
@@ -495,5 +501,34 @@ describe('RolesService.getAudit', () => {
     const result = await withCtx(BASE_CTX, () => service.getAudit('role_1'));
 
     expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// update — scopeConfig (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('RolesService.update — scopeConfig', () => {
+  test('persists scopeConfig and invalidates both caches', async () => {
+    const { service, prisma, resolver, accessContext } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () =>
+      service.update('role_1', { scopeConfig: { KPIS: 'SELF', DASHBOARDS: 'ORG' } }),
+    );
+
+    expect(result.scopeConfig).toEqual({ KPIS: 'SELF', DASHBOARDS: 'ORG' });
+    expect(prisma.roles[0]!.scopeConfig).toEqual({ KPIS: 'SELF', DASHBOARDS: 'ORG' });
+    expect(resolver.invalidateAll).toHaveBeenCalled();
+    expect(accessContext.invalidateAll).toHaveBeenCalled();
+  });
+
+  test('a non-scope update leaves scopeConfig null in the projection', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
+
+    expect(result.scopeConfig).toBeNull();
   });
 });

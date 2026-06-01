@@ -16,6 +16,7 @@ import { NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import { DashboardsService, buildDashboardEtag, parseIfMatch } from './dashboards.service.js';
@@ -168,6 +169,19 @@ class FakeResolver {
   }));
 }
 
+class FakeAccessContext {
+  isAdmin = false;
+  dashboardsScope: 'SELF' | 'DIRECT_REPORTS' | 'UNITS' | 'ORG' = 'UNITS';
+  resolveForCurrentPrincipal = vi.fn(async () => ({
+    isAdmin: this.isAdmin,
+    capabilities: [],
+    scopeByDomain: { DASHBOARDS: this.dashboardsScope },
+    dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+    dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: [] },
+  }));
+}
+
 const ORG = 'org_alpha';
 
 function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Promise<T> | T {
@@ -185,16 +199,19 @@ function makeService(): {
   prisma: FakePrisma;
   audit: FakeAudit;
   resolver: FakeResolver;
+  accessContext: FakeAccessContext;
 } {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
   const resolver = new FakeResolver();
+  const accessContext = new FakeAccessContext();
   const service = new DashboardsService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     resolver as unknown as PermissionResolverService,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, audit, resolver };
+  return { service, prisma, audit, resolver, accessContext };
 }
 
 describe('parseIfMatch', () => {
@@ -220,8 +237,8 @@ describe('buildDashboardEtag', () => {
 
 describe('DashboardsService.list', () => {
   test('admin sees all non-deleted dashboards in the org', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(
       makeRow({ id: 'd1', ownerUserId: 'someone_else' }),
       makeRow({ id: 'd2', ownerUserId: 'u1' }),
@@ -231,7 +248,7 @@ describe('DashboardsService.list', () => {
     expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2', 'd3']);
   });
 
-  test('non-admin sees only owned or shared dashboards', async () => {
+  test('non-admin at default (UNITS) scope sees owned or shared dashboards', async () => {
     const { service, prisma } = makeService();
     prisma.store.push(
       makeRow({ id: 'd1', ownerUserId: 'u1', isShared: false }),
@@ -242,9 +259,20 @@ describe('DashboardsService.list', () => {
     expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
   });
 
+  test('SELF scope narrows to own dashboards only (shared excluded)', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.dashboardsScope = 'SELF';
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'u1', isShared: false }),
+      makeRow({ id: 'd2', ownerUserId: 'someone_else', isShared: true }),
+    );
+    const result = await withCtx({ userId: 'u1' }, () => service.list());
+    expect(result.map((d) => d.id)).toEqual(['d1']);
+  });
+
   test('does not leak deleted rows', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }));
     const result = await withCtx({ userId: 'u1' }, () => service.list());
     expect(result).toEqual([]);

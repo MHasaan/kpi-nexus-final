@@ -279,7 +279,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [summary, setSummary] = useState<DashboardSummaryRow[]>([]);
   const [state, setState] = useState<LoadState>('loading');
-  const [range, setRange] = useState<RangeDays>('30');
+  const [range, setRange] = useState<RangeDays>('90');
   const [rangeBusy, setRangeBusy] = useState(false);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityState, setActivityState] = useState<ActivityState>('loading');
@@ -299,7 +299,7 @@ export default function DashboardPage() {
       router.replace('/login');
       return;
     }
-    Promise.all([meRequest(), getDashboardSummary(rangeWindow('30'))])
+    Promise.all([meRequest(), getDashboardSummary(rangeWindow('90'))])
       .then(([meRes, rows]) => {
         if (cancelled) return;
         setUser(meRes.user);

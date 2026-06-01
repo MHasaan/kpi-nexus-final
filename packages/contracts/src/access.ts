@@ -29,6 +29,14 @@ export type Domain = z.infer<typeof DomainSchema>;
 export const ScopeSchema = z.enum(['SELF', 'DIRECT_REPORTS', 'UNITS', 'ORG']);
 export type Scope = z.infer<typeof ScopeSchema>;
 
+/**
+ * Layer-2 configuration carried on a role (later a per-user override): a partial
+ * per-domain scope map. An unset domain falls back to the derived default
+ * (`UNITS` for non-admins). Stored as JSON on `RoleDefinition.scopeConfig`.
+ */
+export const ScopeConfigSchema = z.record(DomainSchema, ScopeSchema);
+export type ScopeConfig = z.infer<typeof ScopeConfigSchema>;
+
 /** Layer 3 — restrict to specific data types (null = all; [] = none; [ids] = only). */
 export const DataTypeFiltersSchema = z.object({
   kpiCategoryIds: z.array(z.string()).nullable(),

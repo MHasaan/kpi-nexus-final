@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { AccessProfileSchema, DomainSchema, ScopeSchema } from './access.js';
+import { AccessProfileSchema, DomainSchema, ScopeConfigSchema, ScopeSchema } from './access.js';
 
 describe('AccessProfile contract', () => {
   const valid = {
@@ -29,5 +29,12 @@ describe('AccessProfile contract', () => {
   test('Domain + Scope enums expose the expected members', () => {
     expect(DomainSchema.options).toContain('KPIS');
     expect(ScopeSchema.options).toEqual(['SELF', 'DIRECT_REPORTS', 'UNITS', 'ORG']);
+  });
+
+  test('ScopeConfig parses a partial per-domain map and rejects bad scopes', () => {
+    expect(ScopeConfigSchema.safeParse({ KPIS: 'SELF', DASHBOARDS: 'ORG' }).success).toBe(true);
+    expect(ScopeConfigSchema.safeParse({}).success).toBe(true);
+    expect(ScopeConfigSchema.safeParse({ KPIS: 'EVERYTHING' }).success).toBe(false);
+    expect(ScopeConfigSchema.safeParse({ NOPE: 'SELF' }).success).toBe(false);
   });
 });

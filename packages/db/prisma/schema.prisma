@@ -364,6 +364,9 @@ model RoleDefinition {
   level            Int          @default(0)
   color            String?
   canAccessModules String[]
+  // Layer-2 granular access: partial Domain→Scope map (Zod ScopeConfig in contracts).
+  // null/absent ⇒ derived default (UNITS for non-admins) ⇒ behavioural parity.
+  scopeConfig      Json?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

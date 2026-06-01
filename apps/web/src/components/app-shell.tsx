@@ -71,6 +71,11 @@ export interface NavItem {
    * visible to everyone (admin holds all 18 keys, so they always see all).
    */
   permission?: string;
+  /**
+   * Override for the derived `data-testid`. Use when the route doesn't map
+   * cleanly to the legacy testid (e.g. `/settings/audit` must keep `nav-audit`).
+   */
+  testId?: string;
 }
 
 export interface NavGroup {
@@ -131,7 +136,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/org-units', label: 'Org units', icon: Building2, permission: 'GROUPS_VIEW' },
       { href: '/integrations', label: 'Integrations', icon: Plug, permission: 'ORG_SETTINGS' },
       { href: '/activity', label: 'Activity', icon: History },
-      { href: '/audit', label: 'Audit', icon: ShieldCheck, permission: 'ORG_SETTINGS' },
+      { href: '/settings/audit', label: 'Audit', icon: ShieldCheck, permission: 'ORG_SETTINGS', testId: 'nav-audit' },
       { href: '/settings', label: 'Settings', icon: Settings, permission: 'ORG_SETTINGS' },
     ],
   },
@@ -425,7 +430,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    data-testid={navTestId(item.href)}
+                    data-testid={item.testId ?? navTestId(item.href)}
                     aria-current={active ? 'page' : undefined}
                     title={collapsed ? item.label : undefined}
                     className={cn(

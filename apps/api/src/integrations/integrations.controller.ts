@@ -12,7 +12,7 @@ import {
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreateIntegrationDtoSchema } from './dto/integration.dto.js';
 import { IntegrationsService, type PublicIntegrationConnection } from './integrations.service.js';
 
@@ -29,7 +29,8 @@ const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
 };
 
 @Controller('integrations')
-@RequirePermissions(PermissionKey.ORG_SETTINGS)
+// ADR-001: manageable via INTEGRATIONS_MANAGE; ORG_SETTINGS kept for parity.
+@RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
 export class IntegrationsController {
   constructor(private readonly integrations: IntegrationsService) {}
 

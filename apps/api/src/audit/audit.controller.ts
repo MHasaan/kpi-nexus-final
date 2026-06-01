@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import type { AuditAction } from '@kpi-nexus/db';
 import { PermissionKey } from '@kpi-nexus/contracts';
 
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { AuditService, type PublicAuditLog } from './audit.service.js';
 
 @Controller('audit')
@@ -10,7 +10,8 @@ export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
   @Get()
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  // ADR-001: AUDIT_VIEW grants compliance read without full ORG_SETTINGS; ORG_SETTINGS kept for parity.
+  @RequireAnyPermission(PermissionKey.AUDIT_VIEW, PermissionKey.ORG_SETTINGS)
   list(
     @Query('entityType') entityType?: string,
     @Query('entityId') entityId?: string,

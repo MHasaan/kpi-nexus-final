@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common
 import { PermissionKey } from '@kpi-nexus/contracts';
 import { z } from 'zod';
 
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { BillingService, type BillingStatus } from './billing.service.js';
 
 const SetPlanSchema = z.object({ planKey: z.string().trim().min(1) }).strict();
@@ -12,13 +12,13 @@ export class BillingController {
   constructor(private readonly billing: BillingService) {}
 
   @Get()
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.BILLING_MANAGE, PermissionKey.ORG_SETTINGS)
   status(): Promise<BillingStatus> {
     return this.billing.getStatus();
   }
 
   @Post('plan')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.BILLING_MANAGE, PermissionKey.ORG_SETTINGS)
   setPlan(@Body() body: unknown): Promise<BillingStatus> {
     const parsed = SetPlanSchema.safeParse(body);
     if (!parsed.success) {

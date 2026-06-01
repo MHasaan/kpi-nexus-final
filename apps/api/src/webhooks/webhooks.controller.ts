@@ -14,7 +14,7 @@ import { PermissionKey } from '@kpi-nexus/contracts';
 import { z } from 'zod';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { WEBHOOK_EVENT_CATALOG } from './webhook-events.js';
 import { type PublicWebhook, WebhooksService } from './webhooks.service.js';
 
@@ -45,40 +45,40 @@ export class WebhooksController {
   constructor(private readonly webhooks: WebhooksService) {}
 
   @Get()
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   list(): Promise<PublicWebhook[]> {
     return this.webhooks.list();
   }
 
   /** Catalog of dispatchable events for the subscription event picker. */
   @Get('events')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   events(): { events: readonly string[] } {
     return { events: WEBHOOK_EVENT_CATALOG };
   }
 
   @Post()
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
   create(@Body() body: unknown): Promise<{ webhook: PublicWebhook; secret: string }> {
     return this.webhooks.create(parse(CreateWebhookDtoSchema, body));
   }
 
   @Patch(':id')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicWebhook> {
     const { isActive } = parse(UpdateWebhookDtoSchema, body);
     return this.webhooks.setActive(id, isActive);
   }
 
   @Post(':id/rotate-secret')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   rotateSecret(@Param('id') id: string): Promise<{ webhook: PublicWebhook; secret: string }> {
     return this.webhooks.rotateSecret(id);
   }
 
   @Post(':id/test')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.ACCEPTED)
   async test(@Param('id') id: string): Promise<{ queued: boolean }> {
     await this.webhooks.test(id);
@@ -86,7 +86,7 @@ export class WebhooksController {
   }
 
   @Delete(':id')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
     return this.webhooks.remove(id);

@@ -13,7 +13,7 @@ import {
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { type ConnectorRunResult, ConnectorsService, type PublicConnector } from './connectors.service.js';
 import { CreateConnectorDtoSchema, UpdateConnectorDtoSchema } from './dto/connector.dto.js';
 
@@ -26,7 +26,8 @@ const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
 };
 
 @Controller('connectors')
-@RequirePermissions(PermissionKey.ORG_SETTINGS)
+// ADR-001: manageable via INTEGRATIONS_MANAGE; ORG_SETTINGS kept for parity.
+@RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
 export class ConnectorsController {
   constructor(private readonly connectors: ConnectorsService) {}
 

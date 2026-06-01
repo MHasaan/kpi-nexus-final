@@ -6,3 +6,6 @@ export type { LineChartProps, LineSeries, ForecastBand, Anomaly } from './line-c
 
 export { BarChart } from './bar-chart';
 export type { BarChartProps, BarDatum } from './bar-chart';
+
+export { Donut } from './donut';
+export type { DonutProps, DonutDatum } from './donut';

@@ -30,6 +30,12 @@ interface FakeUser {
 class FakePrisma {
   memberships: FakeMembership[] = [];
   users: FakeUser[] = [];
+  /** scopeConfig returned by roleDefinition.findUnique (null ⇒ derived defaults). */
+  roleScopeConfig: unknown = null;
+
+  roleDefinition = {
+    findUnique: vi.fn(async () => ({ scopeConfig: this.roleScopeConfig })),
+  };
 
   orgUnitMember = {
     findMany: vi.fn(
@@ -135,7 +141,7 @@ describe('AccessContextService', () => {
     expect(profile.scopeByDomain.KPIS).toBe('UNITS');
   });
 
-  test('individual with no managed units ⇒ DIRECT_REPORTS default scope', async () => {
+  test('non-admin default scope is UNITS for every domain (parity baseline)', async () => {
     const prisma = new FakePrisma();
     prisma.memberships = [
       { userId: 'm1', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
@@ -148,7 +154,37 @@ describe('AccessContextService', () => {
     const profile = await run(() => svc.resolveForCurrentPrincipal());
 
     expect(profile.context.managedOrgUnitIds).toEqual([]);
-    expect(profile.scopeByDomain.KPIS).toBe('DIRECT_REPORTS');
+    expect(profile.scopeByDomain.KPIS).toBe('UNITS');
+    expect(profile.scopeByDomain.DASHBOARDS).toBe('UNITS');
+  });
+
+  test('role scopeConfig overrides the default per domain', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleScopeConfig = { KPIS: 'SELF', DASHBOARDS: 'ORG' };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    expect(profile.scopeByDomain.KPIS).toBe('SELF'); // narrowed by config
+    expect(profile.scopeByDomain.DASHBOARDS).toBe('ORG'); // widened by config
+    expect(profile.scopeByDomain.ALERTS).toBe('UNITS'); // unset ⇒ default
+  });
+
+  test('admin ignores scopeConfig (always ORG)', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleScopeConfig = { KPIS: 'SELF' };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    expect(profile.scopeByDomain.KPIS).toBe('ORG');
+    expect(prisma.roleDefinition.findUnique).not.toHaveBeenCalled();
   });
 
   test('caches per org:user — a second resolve does not re-query; invalidate clears it', async () => {

@@ -22,7 +22,7 @@
  * change them.
  */
 
-import type { AccessProfile } from '@kpi-nexus/contracts';
+import type { AccessProfile, Scope } from '@kpi-nexus/contracts';
 
 export type KpiScope = 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
 
@@ -30,6 +30,13 @@ export interface KpiVisibilityContext {
   organizationId: string;
   userId: string;
   isAdmin: boolean;
+  /**
+   * The principal's configured "whose data" scope for the KPIS domain. Drives how
+   * wide the row filter is: `ORG` (all) ⊃ `UNITS` (units + reports) ⊃
+   * `DIRECT_REPORTS` (reports, no units) ⊃ `SELF` (self only). `UNITS` is the
+   * non-admin default and reproduces the legacy behaviour.
+   */
+  scope: Scope;
   /** orgUnitIds the user manages (memberRole MANAGER or LEAD). */
   managedOrgUnitIds: readonly string[];
   /** userIds that report (directly or indirectly) to this user. */
@@ -64,24 +71,27 @@ export type KpiVisibilityOrBranch =
     };
 
 export function buildKpiVisibilityWhere(ctx: KpiVisibilityContext): KpiVisibilityWhere {
-  if (ctx.isAdmin) {
-    // Admins see every KPI in the tenant — no scope branches.
+  // Admin, or a principal scoped to ORG, sees every KPI in the tenant — no branches.
+  if (ctx.isAdmin || ctx.scope === 'ORG') {
     return { organizationId: ctx.organizationId };
   }
 
+  // ORG_WIDE KPIs are always visible regardless of scope.
   const branches: KpiVisibilityOrBranch[] = [{ scope: 'ORG_WIDE' }];
 
-  // PER_UNIT — managed + member, deduped
-  const orgUnitIds = uniq([...ctx.managedOrgUnitIds, ...ctx.memberOrgUnitIds]);
-  if (orgUnitIds.length > 0) {
-    branches.push({
-      scope: 'PER_UNIT',
-      orgUnitAssignments: { some: { orgUnitId: { in: orgUnitIds } } },
-    });
+  // PER_UNIT (managed ∪ member units) — only at UNITS scope; narrower scopes drop it.
+  if (ctx.scope === 'UNITS') {
+    const orgUnitIds = uniq([...ctx.managedOrgUnitIds, ...ctx.memberOrgUnitIds]);
+    if (orgUnitIds.length > 0) {
+      branches.push({
+        scope: 'PER_UNIT',
+        orgUnitAssignments: { some: { orgUnitId: { in: orgUnitIds } } },
+      });
+    }
   }
 
-  // PER_USER — self + direct reports (manager); Employee/Viewer only see self
-  const userIds = uniq([ctx.userId, ...ctx.directReportIds]);
+  // PER_USER — SELF sees only self; UNITS/DIRECT_REPORTS add direct + indirect reports.
+  const userIds = ctx.scope === 'SELF' ? [ctx.userId] : uniq([ctx.userId, ...ctx.directReportIds]);
   branches.push({
     scope: 'PER_USER',
     userAssignments: { some: { userId: { in: userIds } } },
@@ -114,6 +124,7 @@ export function kpiContextFromProfile(
     organizationId,
     userId,
     isAdmin: profile.isAdmin,
+    scope: profile.scopeByDomain.KPIS ?? 'UNITS',
     managedOrgUnitIds: profile.context.managedOrgUnitIds,
     memberOrgUnitIds: profile.context.memberOrgUnitIds,
     directReportIds: profile.context.directReportIds,

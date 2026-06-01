@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
-import type { AccessProfile, Domain, Scope } from '@kpi-nexus/contracts';
+import { ALL_PERMISSIONS, ScopeConfigSchema } from '@kpi-nexus/contracts';
+import type { AccessProfile, Domain, Scope, ScopeConfig } from '@kpi-nexus/contracts';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
@@ -77,16 +77,15 @@ export class AccessContextService {
       directReportIds = await this.resolveReportsRecursive(ctx.organizationId, ctx.userId);
     }
 
-    // Phase-1 derived default scope = today's behaviour. Admin ⇒ ORG everywhere;
-    // a manager (managed units) ⇒ UNITS; an individual ⇒ DIRECT_REPORTS (covers self +
-    // reports for PER_USER). Later phases replace this with role/user scopeConfig.
-    const defaultScope: Scope = isAdmin
-      ? 'ORG'
-      : managedOrgUnitIds.length > 0
-        ? 'UNITS'
-        : 'DIRECT_REPORTS';
+    // Derived default scope. Admin ⇒ ORG everywhere. For a non-admin the default is
+    // UNITS — its visibility mapping (managed∪member units + self∪reports) reproduces
+    // today's behaviour exactly, so an unset scopeConfig stays at parity. Phase 2:
+    // the role's per-domain scopeConfig overrides this default; narrower values
+    // (DIRECT_REPORTS/SELF) actually restrict, ORG widens.
+    const defaultScope: Scope = isAdmin ? 'ORG' : 'UNITS';
+    const roleScope = await this.loadRoleScopeConfig(isAdmin, ctx.roleId);
     const scopeByDomain = Object.fromEntries(
-      DOMAINS.map((d) => [d, isAdmin ? 'ORG' : defaultScope]),
+      DOMAINS.map((d) => [d, isAdmin ? 'ORG' : (roleScope[d] ?? defaultScope)]),
     ) as Record<Domain, Scope>;
 
     const profile: AccessProfile = {
@@ -99,6 +98,20 @@ export class AccessContextService {
     };
     this.cache.set(key, { profile, at: Date.now() });
     return profile;
+  }
+
+  /**
+   * The direct role's `scopeConfig` (Phase 2). Admins skip it (always ORG). Inherited-
+   * role scope merge is deferred (Phase 5). Invalid/absent JSON ⇒ `{}` ⇒ defaults.
+   */
+  private async loadRoleScopeConfig(isAdmin: boolean, roleId: string | null): Promise<ScopeConfig> {
+    if (isAdmin || !roleId) return {};
+    const role = await this.prisma.roleDefinition.findUnique({
+      where: { id: roleId },
+      select: { scopeConfig: true },
+    });
+    const parsed = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
+    return parsed.success ? parsed.data : {};
   }
 
   /** Direct + indirect reports via the managerId chain (cycle-safe, depth-capped). */
@@ -121,5 +134,10 @@ export class AccessContextService {
 
   invalidate(organizationId: string, userId: string): void {
     this.cache.delete(`${organizationId}:${userId}`);
+  }
+
+  /** Clear every cached profile — call when a role's config/permissions change. */
+  invalidateAll(): void {
+    this.cache.clear();
   }
 }

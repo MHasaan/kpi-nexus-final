@@ -16,15 +16,19 @@ const ADMIN: KpiVisibilityContext = {
   organizationId: ORG,
   userId: 'u_admin',
   isAdmin: true,
+  scope: 'ORG',
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: [],
 };
 
+// The default non-admin scope is UNITS — its mapping reproduces legacy behaviour,
+// so the 12-case matrix below is unchanged (parity).
 const MANAGER: KpiVisibilityContext = {
   organizationId: ORG,
   userId: 'u_manager',
   isAdmin: false,
+  scope: 'UNITS',
   managedOrgUnitIds: ['unit_sales_us', 'unit_sales_emea'],
   directReportIds: ['u_rep1', 'u_rep2', 'u_rep3'],
   memberOrgUnitIds: ['unit_sales_global'],
@@ -34,6 +38,7 @@ const EMPLOYEE: KpiVisibilityContext = {
   organizationId: ORG,
   userId: 'u_employee',
   isAdmin: false,
+  scope: 'UNITS',
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: ['unit_sales_us'],
@@ -43,6 +48,7 @@ const VIEWER: KpiVisibilityContext = {
   organizationId: ORG,
   userId: 'u_viewer',
   isAdmin: false,
+  scope: 'UNITS',
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: ['unit_sales_us'],
@@ -161,6 +167,7 @@ describe('buildKpiVisibilityWhere — 12-case matrix (spec §5.5 + §6)', () => 
         organizationId: ORG,
         userId: 'u_solo',
         isAdmin: false,
+        scope: 'UNITS',
         managedOrgUnitIds: [],
         directReportIds: [],
         memberOrgUnitIds: [],
@@ -174,6 +181,7 @@ describe('buildKpiVisibilityWhere — 12-case matrix (spec §5.5 + §6)', () => 
         organizationId: ORG,
         userId: 'u_pm',
         isAdmin: false,
+        scope: 'UNITS',
         managedOrgUnitIds: ['team_a'],
         directReportIds: ['u_x'],
         memberOrgUnitIds: ['team_a'],
@@ -194,7 +202,7 @@ describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)
     return {
       isAdmin: ctx.isAdmin,
       capabilities: [],
-      scopeByDomain: {},
+      scopeByDomain: { KPIS: ctx.scope },
       dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
       dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
       context: {
@@ -213,4 +221,65 @@ describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)
       expect(buildKpiVisibilityWhere(bridged)).toEqual(buildKpiVisibilityWhere(ctx));
     });
   }
+});
+
+describe('buildKpiVisibilityWhere — scope ladder enforcement (Phase 2)', () => {
+  // A configurable manager: managed unit + a member unit + reports.
+  const base = {
+    organizationId: ORG,
+    userId: 'u_mgr',
+    isAdmin: false,
+    managedOrgUnitIds: ['unit_a'],
+    memberOrgUnitIds: ['unit_b'],
+    directReportIds: ['u_r1', 'u_r2'],
+  } as const;
+
+  test('ORG ⇒ whole tenant, no scope branches', () => {
+    const where = buildKpiVisibilityWhere({ ...base, scope: 'ORG' });
+    expect(where.OR).toBeUndefined();
+    expect(where.organizationId).toBe(ORG);
+  });
+
+  test('UNITS ⇒ units (managed∪member) + self∪reports (= legacy)', () => {
+    const where = buildKpiVisibilityWhere({ ...base, scope: 'UNITS' });
+    expect(getPerUnitBranch(where.OR)?.orgUnitAssignments.some.orgUnitId.in).toEqual([
+      'unit_a',
+      'unit_b',
+    ]);
+    expect(getPerUserBranch(where.OR)?.userAssignments.some.userId.in).toEqual([
+      'u_mgr',
+      'u_r1',
+      'u_r2',
+    ]);
+  });
+
+  test('DIRECT_REPORTS ⇒ no PER_UNIT branch, still sees self∪reports', () => {
+    const where = buildKpiVisibilityWhere({ ...base, scope: 'DIRECT_REPORTS' });
+    expect(getPerUnitBranch(where.OR)).toBeUndefined();
+    expect(getOrgWideBranch(where.OR)).toBeDefined();
+    expect(getPerUserBranch(where.OR)?.userAssignments.some.userId.in).toEqual([
+      'u_mgr',
+      'u_r1',
+      'u_r2',
+    ]);
+  });
+
+  test('SELF ⇒ no PER_UNIT branch, PER_USER is self only', () => {
+    const where = buildKpiVisibilityWhere({ ...base, scope: 'SELF' });
+    expect(getPerUnitBranch(where.OR)).toBeUndefined();
+    expect(getOrgWideBranch(where.OR)).toBeDefined();
+    expect(getPerUserBranch(where.OR)?.userAssignments.some.userId.in).toEqual(['u_mgr']);
+  });
+
+  test('narrowing is monotonic — each step sees a subset of the previous', () => {
+    const userIdsAt = (s: 'UNITS' | 'DIRECT_REPORTS' | 'SELF') =>
+      new Set(getPerUserBranch(buildKpiVisibilityWhere({ ...base, scope: s }).OR)
+        ?.userAssignments.some.userId.in ?? []);
+    const units = userIdsAt('UNITS');
+    const reports = userIdsAt('DIRECT_REPORTS');
+    const self = userIdsAt('SELF');
+    expect([...self].every((u) => reports.has(u))).toBe(true);
+    expect([...reports].every((u) => units.has(u))).toBe(true);
+    expect(self.size).toBeLessThanOrEqual(reports.size);
+  });
 });

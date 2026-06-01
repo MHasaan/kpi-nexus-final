@@ -1,0 +1,4 @@
+﻿polling
+Docker engine READY after 0s
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+DONE

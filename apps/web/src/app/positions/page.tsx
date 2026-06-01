@@ -1,9 +1,27 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Briefcase, Plus } from 'lucide-react';
 
+import { AppShell } from '../../components/app-shell';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  PageHeader,
+  Select,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui';
 import {
   ApiError,
   clearTokens,
@@ -19,6 +37,19 @@ import {
   TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+
+const TRACK_ORDER: Array<PositionTrack | 'OTHER'> = [
+  'EXECUTIVE',
+  'MANAGEMENT',
+  'IC',
+  'OTHER',
+];
+const TRACK_LABEL: Record<PositionTrack | 'OTHER', string> = {
+  EXECUTIVE: 'Executive',
+  MANAGEMENT: 'Management',
+  IC: 'Individual contributor',
+  OTHER: 'Other',
+};
 
 export default function PositionsPage() {
   return (
@@ -65,9 +96,7 @@ function PositionsPageInner() {
         router.replace('/login');
         return;
       }
-      setLoadError(
-        err instanceof ApiError ? err.message : 'Failed to load positions',
-      );
+      setLoadError(err instanceof ApiError ? err.message : 'Failed to load positions');
     }
   }
 
@@ -91,9 +120,7 @@ function PositionsPageInner() {
       setNewPayGrade('');
       await refresh();
     } catch (err) {
-      setCreateError(
-        err instanceof ApiError ? err.message : 'Failed to create position',
-      );
+      setCreateError(err instanceof ApiError ? err.message : 'Failed to create position');
     } finally {
       setCreating(false);
     }
@@ -107,234 +134,229 @@ function PositionsPageInner() {
       await refresh();
     } catch (err) {
       setDeleteError(
-        err instanceof ApiError
-          ? err.message
-          : `Failed to delete ${position.name}`,
+        err instanceof ApiError ? err.message : `Failed to delete ${position.name}`,
       );
     } finally {
       setDeletingId(null);
     }
   }
 
-  return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
-                Dashboard
-              </Link>
-              <Link href="/users" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.memberLabel)}
-              </Link>
-              <Link href="/roles" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link
-                href="/positions"
-                className="font-medium text-accent-primary"
-                data-testid="nav-positions"
-              >
-                Positions
-              </Link>
-              <Link
-                href="/settings/organization"
-                className="text-content-muted hover:text-content-strong"
-              >
-                Settings
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+  const grouped = useMemo(() => {
+    const map = new Map<PositionTrack | 'OTHER', PositionSummary[]>();
+    for (const p of positions ?? []) {
+      const key = (p.track ?? 'OTHER') as PositionTrack | 'OTHER';
+      const bucket = map.get(key) ?? [];
+      bucket.push(p);
+      map.set(key, bucket);
+    }
+    for (const bucket of map.values()) bucket.sort((a, b) => b.level - a.level);
+    return map;
+  }, [positions]);
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8">
-          <h1
-            className="text-2xl font-semibold text-content-strong"
-            data-testid="positions-heading"
-          >
-            Positions
-          </h1>
-          <p className="mt-1 text-sm text-content-muted">
-            Job titles in the organization. Used by performance reviews,
-            compensation bands, and KPI assignments later. Positions are
-            independent of {pluralize(terminology.roleLabel.toLowerCase())} —
-            two people with the same position can have different permissions.
-          </p>
-        </div>
+  return (
+    <AppShell title="Positions" crumbs={['People', 'Positions']}>
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Positions"
+          titleTestId="positions-heading"
+          subtitle={
+            <>
+              Job positions used across the org structure. Positions are independent of{' '}
+              {pluralize(terminology.roleLabel.toLowerCase())} — two people with the same
+              position can have different permissions.
+            </>
+          }
+          actions={
+            <Button
+              leftIcon={<Plus aria-hidden className="h-4 w-4" />}
+              onClick={() => document.getElementById('position-name-input')?.focus()}
+            >
+              New position
+            </Button>
+          }
+        />
 
         {loadError && (
           <div
             role="alert"
             data-testid="positions-load-error"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
+            className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
             {loadError}
           </div>
         )}
-
-        <section
-          className="mb-8 rounded-lg border border-border bg-surface-1 p-6"
-          data-testid="create-position-section"
-        >
-          <h2 className="text-lg font-semibold text-content-strong">
-            Create a position
-          </h2>
-          <p className="mt-1 text-sm text-content-muted">
-            Level orders positions in the hierarchy (higher = more senior).
-          </p>
-          <form
-            onSubmit={handleCreate}
-            className="mt-4 grid gap-4 sm:grid-cols-[1.5fr_0.5fr_1fr_1fr_auto] sm:items-end"
-          >
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Name</span>
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                disabled={creating}
-                data-testid="position-name-input"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="Senior Engineer"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Level</span>
-              <input
-                required
-                type="number"
-                min={0}
-                max={100}
-                value={newLevel}
-                onChange={(e) => setNewLevel(e.target.value)}
-                disabled={creating}
-                data-testid="position-level-input"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Track</span>
-              <select
-                value={newTrack}
-                onChange={(e) => setNewTrack(e.target.value as PositionTrack | '')}
-                disabled={creating}
-                data-testid="position-track-select"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-              >
-                <option value="">(none)</option>
-                <option value="IC">IC</option>
-                <option value="MANAGEMENT">Management</option>
-                <option value="EXECUTIVE">Executive</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Pay grade</span>
-              <input
-                value={newPayGrade}
-                onChange={(e) => setNewPayGrade(e.target.value)}
-                disabled={creating}
-                data-testid="position-paygrade-input"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="(optional)"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={creating}
-              data-testid="position-submit-button"
-              className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {creating ? 'Creating…' : 'Create'}
-            </button>
-          </form>
-          {createError && (
-            <p
-              role="alert"
-              data-testid="position-error"
-              className="mt-3 text-sm text-status-critical"
-            >
-              {createError}
-            </p>
-          )}
-        </section>
-
         {deleteError && (
           <div
             role="alert"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
+            className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
             {deleteError}
           </div>
         )}
 
-        <section data-testid="positions-list-section">
-          {positions === null && !loadError && (
-            <p className="text-sm text-content-muted">Loading positions…</p>
-          )}
-          {positions && positions.length === 0 && (
-            <p className="text-sm text-content-muted">No positions yet.</p>
-          )}
-          {positions && positions.length > 0 && (
-            <ul className="space-y-3" data-testid="positions-list">
-              {positions.map((position) => (
-                <li
-                  key={position.id}
-                  className="rounded-lg border border-border bg-surface-1 p-4"
-                  data-testid={`position-row-${position.name}`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-content-strong">
-                        {position.name}
-                        <span
-                          className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content-default"
-                          data-testid={`position-level-${position.name}`}
-                        >
-                          L{position.level}
-                        </span>
-                        {position.track && (
-                          <span className="ml-1.5 rounded bg-accent-primary/10 px-1.5 py-0.5 text-xs font-medium text-accent-primary">
-                            {position.track}
-                          </span>
-                        )}
-                      </h3>
-                      {position.payGrade && (
-                        <p className="mt-1 text-sm text-content-muted">
-                          Pay grade: {position.payGrade}
-                        </p>
-                      )}
-                      {position.description && (
-                        <p className="mt-1 text-sm text-content-muted">
-                          {position.description}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(position)}
-                      disabled={deletingId === position.id}
-                      data-testid={`delete-position-${position.name}`}
-                      className="rounded-md border border-border px-3 py-1.5 text-sm text-status-critical transition hover:bg-status-critical/10 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={`Delete ${position.name}`}
-                    >
-                      {deletingId === position.id ? 'Deleting…' : 'Delete'}
-                    </button>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
+          <Card data-testid="create-position-section" className="lg:sticky lg:top-2">
+            <div className="border-b border-border-divider px-4 py-3.5">
+              <h2 className="text-sm font-semibold text-content-strong">New position</h2>
+              <p className="mt-1 text-xs text-content-muted">
+                Level orders positions in the hierarchy (higher = more senior).
+              </p>
+            </div>
+            <form onSubmit={handleCreate} className="flex flex-col gap-3 p-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="position-name-input" required>
+                  Name
+                </Label>
+                <Input
+                  id="position-name-input"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={creating}
+                  data-testid="position-name-input"
+                  placeholder="Senior Engineer"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="position-track-select">Track</Label>
+                  <Select
+                    id="position-track-select"
+                    value={newTrack}
+                    onChange={(e) => setNewTrack(e.target.value as PositionTrack | '')}
+                    disabled={creating}
+                    data-testid="position-track-select"
+                  >
+                    <option value="">(none)</option>
+                    <option value="IC">IC</option>
+                    <option value="MANAGEMENT">Management</option>
+                    <option value="EXECUTIVE">Executive</option>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="position-level-input" required>
+                    Level
+                  </Label>
+                  <Input
+                    id="position-level-input"
+                    required
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={newLevel}
+                    onChange={(e) => setNewLevel(e.target.value)}
+                    disabled={creating}
+                    data-testid="position-level-input"
+                    className="tabular-nums"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="position-paygrade-input">Pay grade</Label>
+                <Input
+                  id="position-paygrade-input"
+                  value={newPayGrade}
+                  onChange={(e) => setNewPayGrade(e.target.value)}
+                  disabled={creating}
+                  data-testid="position-paygrade-input"
+                  placeholder="(optional)"
+                />
+              </div>
+              <Button type="submit" isLoading={creating} data-testid="position-submit-button" className="w-full">
+                {creating ? 'Creating…' : 'Add position'}
+              </Button>
+              {createError && (
+                <p role="alert" data-testid="position-error" className="text-sm text-status-critical">
+                  {createError}
+                </p>
+              )}
+            </form>
+          </Card>
+
+          <section data-testid="positions-list-section">
+            {positions === null && !loadError ? (
+              <Card>
+                <div className="flex flex-col gap-3 p-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              </Card>
+            ) : positions && positions.length === 0 ? (
+              <Card>
+                <EmptyState
+                  icon={Briefcase}
+                  title="No positions yet"
+                  description="Create your first position with the form on the left."
+                />
+                <span data-testid="positions-list" className="sr-only" />
+              </Card>
+            ) : positions ? (
+              <div className="flex flex-col gap-5" data-testid="positions-list">
+                {TRACK_ORDER.filter((t) => (grouped.get(t)?.length ?? 0) > 0).map((track) => (
+                  <div key={track}>
+                    <div className="kn-eyebrow mb-2">{TRACK_LABEL[track]}</div>
+                    <Card className="overflow-hidden p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead>Position</TableHead>
+                            <TableHead>Level</TableHead>
+                            <TableHead>Pay grade</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(grouped.get(track) ?? []).map((position) => (
+                            <TableRow
+                              key={position.id}
+                              data-testid={`position-row-${position.name}`}
+                            >
+                              <TableCell>
+                                <span className="font-semibold">{position.name}</span>
+                                {position.description && (
+                                  <p className="mt-0.5 text-xs text-content-muted">
+                                    {position.description}
+                                  </p>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  tone="neutral"
+                                  className="font-mono tabular-nums"
+                                  data-testid={`position-level-${position.name}`}
+                                >
+                                  L{position.level}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-content-muted">
+                                {position.payGrade ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(position)}
+                                  disabled={deletingId === position.id}
+                                  data-testid={`delete-position-${position.name}`}
+                                  className="text-status-critical hover:bg-status-critical/10"
+                                  aria-label={`Delete ${position.name}`}
+                                >
+                                  {deletingId === position.id ? 'Deleting…' : 'Delete'}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Card>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -41,6 +42,12 @@ export interface PublicOrganization {
 
 export type RegisterResponse = AuthPair & { user: PublicUser; organization: PublicOrganization };
 export type LoginResponse = AuthPair & { user: PublicUser };
+
+export interface InvitationPreview {
+  email: string;
+  organizationName: string;
+  expiresAt: string | null;
+}
 
 @Injectable()
 export class AuthService {
@@ -332,6 +339,51 @@ export class AuthService {
       });
 
       return { ...pair, user: this.publicUser(user) };
+    });
+  }
+
+  /**
+   * Preview an invitation before accepting — resolves the (hashed) invitation
+   * token to its pending user + organization and returns only the invitee
+   * email, the org name, and the token expiry. Any invalid / consumed / expired
+   * / already-active token surfaces as a generic NotFoundException so callers
+   * cannot probe which tokens exist. Returns nothing sensitive.
+   */
+  async previewInvitation(args: { token: string }): Promise<InvitationPreview> {
+    return RequestContextStore.runWithBypass('previewInvitation', async () => {
+      const notFound = new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Invitation not found',
+      });
+
+      const hashedToken = createHash('sha256').update(args.token).digest('hex');
+      const record = await this.prisma.emailVerificationToken.findUnique({
+        where: { hashedToken },
+      });
+      if (!record || record.consumedAt !== null || record.expiresAt.getTime() < Date.now()) {
+        throw notFound;
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: record.userId },
+        select: {
+          email: true,
+          passwordHash: true,
+          status: true,
+          organization: { select: { name: true } },
+        },
+      });
+      // Token already consumed via an accepted invitation manifests as an
+      // active user with a password set — treat as not found.
+      if (!user || (user.status === 'ACTIVE' && user.passwordHash !== null)) {
+        throw notFound;
+      }
+
+      return {
+        email: user.email,
+        organizationName: user.organization.name,
+        expiresAt: record.expiresAt.toISOString(),
+      };
     });
   }
 

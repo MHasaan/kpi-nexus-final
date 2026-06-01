@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../lib/api-client';
 import { PermissionGuard } from '../../components/auth/permission-guard';
+import { AppShell } from '../../components/app-shell';
+import { Skeleton } from '../../components/ui';
 import {
   type Connector,
   type ConnectorType,
@@ -20,6 +22,7 @@ export default function ConnectorsPage() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Create form (REST/GraphQL minimal)
   const [name, setName] = useState('');
@@ -34,6 +37,8 @@ export default function ConnectorsPage() {
       setConnectors(await listConnectors());
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load connectors');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -82,19 +87,21 @@ export default function ConnectorsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Connectors</span>
-          <Link href="/integrations" className="ml-auto text-sm text-content-muted hover:text-accent-primary">Integrations</Link>
-          <Link href="/plugins" className="text-sm text-content-muted hover:text-accent-primary">Plugins</Link>
+    <AppShell
+      title="Connectors"
+      crumbs={[{ label: 'Integrations', href: '/integrations' }, { label: 'Connectors' }]}
+    >
+      <div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-content-strong">Data connectors</h1>
+            <p className="mt-1 text-sm text-content-muted">Pull external data into a KPI on a schedule or on demand.</p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/integrations" className="text-content-muted hover:text-accent-primary">Integrations</Link>
+            <Link href="/plugins" className="text-content-muted hover:text-accent-primary">Plugins</Link>
+          </div>
         </div>
-      </header>
-
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Data connectors</h1>
-        <p className="mt-1 text-sm text-content-muted">Pull external data into a KPI on a schedule or on demand.</p>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="connectors-error">{error}</p>}
 
         <PermissionGuard permission="ORG_SETTINGS">
@@ -115,6 +122,15 @@ export default function ConnectorsPage() {
         </div>
         </PermissionGuard>
 
+        {loading && (
+          <div className="mt-6 space-y-2" data-testid="connectors-loading">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 rounded-lg" />
+            ))}
+          </div>
+        )}
+
+        {!loading && (
         <div className="mt-6 space-y-2" data-testid="connector-list">
           {connectors.map((c) => (
             <div key={c.id} data-testid={`connector-${c.id}`} className="flex items-center justify-between rounded-lg border border-border bg-surface-1 p-4">
@@ -136,7 +152,8 @@ export default function ConnectorsPage() {
           ))}
           {connectors.length === 0 && <p className="rounded-lg border border-border bg-surface-1 p-8 text-center text-content-muted" data-testid="connectors-empty">No connectors yet.</p>}
         </div>
+        )}
       </div>
-    </main>
+    </AppShell>
   );
 }

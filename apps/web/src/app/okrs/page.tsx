@@ -3,32 +3,59 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Flag } from 'lucide-react';
 
 import { ApiError, getAccessToken, meRequest } from '../../lib/api-client';
 import { type Objective, createObjective, listObjectives } from '../../lib/collab-client';
+import { cn } from '../../lib/cn';
+import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
+import {
+  PageHeader,
+  Card,
+  CardContent,
+  Input,
+  Button,
+  Badge,
+  EmptyState,
+  Skeleton,
+  type BadgeTone,
+} from '../../components/ui';
 
-const STATUS_COLOR: Record<string, string> = {
-  DRAFT: 'text-content-muted',
-  ACTIVE: 'text-accent-primary',
-  AT_RISK: 'text-status-warning',
-  ACHIEVED: 'text-status-positive',
-  MISSED: 'text-status-critical',
-  ARCHIVED: 'text-content-muted',
+const STATUS_TONE: Record<string, BadgeTone> = {
+  DRAFT: 'neutral',
+  ACTIVE: 'info',
+  AT_RISK: 'warning',
+  ACHIEVED: 'success',
+  MISSED: 'error',
+  ARCHIVED: 'neutral',
 };
+
+function barColor(status: string): string {
+  if (status === 'AT_RISK') return 'bg-status-warning';
+  if (status === 'ACHIEVED') return 'bg-status-success';
+  if (status === 'MISSED') return 'bg-status-critical';
+  return 'bg-accent-primary';
+}
 
 export default function OkrsPage() {
   const router = useRouter();
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [userId, setUserId] = useState('');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       setObjectives(await listObjectives());
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load objectives');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -45,7 +72,6 @@ export default function OkrsPage() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      // Resolve the owner inline if the me-request hasn't landed yet.
       let owner = userId;
       if (!owner) {
         owner = (await meRequest()).user.id;
@@ -69,63 +95,98 @@ export default function OkrsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">OKRs</span>
-          <Link href="/tasks" className="ml-auto text-sm text-content-muted hover:text-accent-primary">Tasks</Link>
-        </div>
-      </header>
+    <AppShell title="Objectives" crumbs={[{ label: 'OKRs' }]}>
+      <PageHeader
+        title="Objectives"
+        subtitle="Goals that frame your KPIs — progress rolls up from key results"
+      />
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Objectives</h1>
-        {error && <p className="mt-2 text-sm text-status-critical" data-testid="okrs-error">{error}</p>}
+      <PermissionGuard permission="KPI_CREATE">
+        <Card className="mb-6">
+          <CardContent className="flex flex-wrap items-center gap-2">
+            <Input
+              data-testid="objective-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="New objective name"
+              className="min-w-[220px] flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void create();
+              }}
+            />
+            <Button data-testid="create-objective" onClick={create} isLoading={creating} disabled={creating}>
+              {creating ? 'Creating…' : 'Create objective'}
+            </Button>
+          </CardContent>
+        </Card>
+      </PermissionGuard>
 
-        <div className="mt-4 flex gap-2">
-          <input
-            data-testid="objective-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New objective name"
-            className="flex-1 rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong"
-          />
-          <button
-            type="button"
-            data-testid="create-objective"
-            onClick={create}
-            disabled={creating}
-            className="rounded bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {creating ? 'Creating…' : 'Create objective'}
-          </button>
-        </div>
+      {error && (
+        <p
+          className="mb-4 rounded-lg border border-status-critical-bg bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          role="alert"
+          data-testid="okrs-error"
+        >
+          {error}
+        </p>
+      )}
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2" data-testid="objective-grid">
-          {objectives.map((o) => (
-            <Link
-              key={o.id}
-              href={`/okrs/${o.id}`}
-              data-testid={`objective-${o.id}`}
-              className="block rounded-lg border border-border bg-surface-1 p-5 hover:border-accent-primary"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-content-strong">{o.name}</h2>
-                <span className={`text-xs font-semibold ${STATUS_COLOR[o.status] ?? 'text-content-muted'}`}>{o.status}</span>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-bg">
-                <div className="h-full bg-accent-primary" style={{ width: `${Math.round(o.progress * 100)}%` }} />
-              </div>
-              <p className="mt-1 text-xs text-content-muted">{Math.round(o.progress * 100)}% complete</p>
-            </Link>
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+                <Skeleton className="h-4 w-24" />
+              </CardContent>
+            </Card>
           ))}
-          {objectives.length === 0 && (
-            <p className="rounded-lg border border-border bg-surface-1 p-8 text-center text-content-muted sm:col-span-2" data-testid="okrs-empty">
-              No objectives yet.
-            </p>
-          )}
         </div>
-      </div>
-    </main>
+      ) : objectives.length === 0 ? (
+        <EmptyState
+          icon={Flag}
+          data-testid="okrs-empty"
+          title="No objectives yet"
+          description="Create your first objective to start framing KPIs into measurable goals."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="objective-grid">
+          {objectives.map((o) => {
+            const pct = Math.round(o.progress * 100);
+            return (
+              <Link
+                key={o.id}
+                href={`/okrs/${o.id}`}
+                data-testid={`objective-${o.id}`}
+                className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Card className={cn('kn-card-hover', 'h-full')}>
+                  <CardContent className="flex h-full flex-col gap-3">
+                    <div className="flex items-start gap-2">
+                      <Flag className="mt-0.5 h-4 w-4 shrink-0 text-content-muted" aria-hidden />
+                      <h2 className="flex-1 text-sm font-semibold leading-snug text-content-strong">{o.name}</h2>
+                      <Badge tone={STATUS_TONE[o.status] ?? 'neutral'}>{o.status}</Badge>
+                    </div>
+                    <div>
+                      <div className="mb-1.5 flex items-baseline justify-between">
+                        <span className="text-xs text-content-muted">Progress</span>
+                        <span className="text-lg font-bold tabular-nums text-content-strong">{pct}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                        <div className={`h-full rounded-full ${barColor(o.status)}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </AppShell>
   );
 }

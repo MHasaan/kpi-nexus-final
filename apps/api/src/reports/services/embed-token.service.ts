@@ -14,6 +14,13 @@ interface EmbedTokenPayload {
   orgId: string;
   /** Unix epoch seconds — expiry time. */
   exp: number;
+  /**
+   * Per-KPI embed token version (KPI.embedTokenVersion). Bumping the KPI's
+   * version via revoke() invalidates every previously-minted token. Tokens
+   * minted before this field existed omit it; resolve() treats a missing v
+   * as version 0 for graceful backward compatibility.
+   */
+  v?: number;
 }
 
 /** Public snapshot returned by resolve(). */
@@ -54,18 +61,49 @@ export class EmbedTokenService {
   /**
    * Mint a compact stateless HMAC embed token for the given KPI.
    * Format: `base64url(JSON payload) + '.' + base64url(HMAC-SHA256 signature)`
-   * The token is valid for 30 days.
+   * The token is valid for 30 days and carries the KPI's current
+   * embedTokenVersion so revoke() can invalidate it later.
    */
-  mint(kpiId: string): string {
+  async mint(kpiId: string): Promise<string> {
     const ctx = RequestContextStore.require();
+    const kpi = await this.prisma.kPI.findFirst({
+      where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
+      select: { embedTokenVersion: true },
+    });
+    if (!kpi) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found or no longer exists' });
+    }
     const payload: EmbedTokenPayload = {
       kpiId,
       orgId: ctx.organizationId,
       exp: Math.floor(Date.now() / 1000) + DEFAULT_TTL_SECONDS,
+      v: kpi.embedTokenVersion,
     };
     const payloadB64 = b64urlEncode(JSON.stringify(payload));
     const sig = hmacSign(payloadB64);
     return `${payloadB64}.${sig}`;
+  }
+
+  /**
+   * Revoke all previously-minted embed tokens for a KPI by bumping its
+   * embedTokenVersion. Org-scoped. Returns the new version.
+   * Throws NotFoundException (404) if the KPI does not exist in this org.
+   */
+  async revoke(kpiId: string): Promise<{ embedTokenVersion: number }> {
+    const ctx = RequestContextStore.require();
+    const kpi = await this.prisma.kPI.findFirst({
+      where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!kpi) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found or no longer exists' });
+    }
+    const updated = await this.prisma.kPI.update({
+      where: { id: kpi.id },
+      data: { embedTokenVersion: { increment: 1 } },
+      select: { embedTokenVersion: true },
+    });
+    return { embedTokenVersion: updated.embedTokenVersion };
   }
 
   /**
@@ -127,10 +165,21 @@ export class EmbedTokenService {
           warningThreshold: true,
           criticalThreshold: true,
           direction: true,
+          embedTokenVersion: true,
         },
       });
 
       if (!kpi) {
+        throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found or no longer exists' });
+      }
+
+      // Reject revoked tokens: a token's version must match the KPI's current
+      // embedTokenVersion. Tokens minted before this field existed omit v and
+      // are treated as version 0. Bumping the version via revoke() invalidates
+      // all previously-minted tokens. Reuse the existing not-found error so the
+      // public path does not leak that the KPI still exists.
+      const tokenVersion = payload.v ?? 0;
+      if (tokenVersion !== kpi.embedTokenVersion) {
         throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found or no longer exists' });
       }
 

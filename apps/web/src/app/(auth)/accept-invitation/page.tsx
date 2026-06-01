@@ -1,13 +1,21 @@
 'use client';
 
+import { Building2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
 
 import {
   acceptInvitation,
   ApiError,
+  previewInvitation,
   setTokens,
 } from '../../../lib/api-client';
+
+type InvitePreview = {
+  email: string;
+  organizationName: string;
+  expiresAt: string | null;
+};
 
 export default function AcceptInvitationPage() {
   return (
@@ -27,9 +35,30 @@ function AcceptInvitationInner() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [tokenMissing, setTokenMissing] = useState(false);
+  const [preview, setPreview] = useState<InvitePreview | null>(null);
 
   useEffect(() => {
     setTokenMissing(token.trim().length === 0);
+  }, [token]);
+
+  useEffect(() => {
+    const trimmed = token.trim();
+    if (trimmed.length === 0) {
+      setPreview(null);
+      return;
+    }
+    let active = true;
+    previewInvitation(trimmed)
+      .then((res) => {
+        if (active) setPreview(res);
+      })
+      .catch(() => {
+        // 404 / expired / any error: silently render nothing — the form still works.
+        if (active) setPreview(null);
+      });
+    return () => {
+      active = false;
+    };
   }, [token]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -80,6 +109,37 @@ function AcceptInvitationInner() {
       <p className="mt-1 text-sm text-content-muted">
         Set a password to finish creating your account.
       </p>
+
+      {preview && (
+        <div className="mt-6 rounded-md border border-border bg-surface-2 px-4 py-3">
+          <p
+            className="text-sm font-medium text-content-strong"
+            data-testid="invite-preview-email"
+          >
+            {preview.email}
+          </p>
+          <p
+            className="mt-0.5 flex items-center gap-1.5 text-sm text-content-muted"
+            data-testid="invite-preview-org"
+          >
+            <Building2 className="h-4 w-4 shrink-0 text-content-muted" aria-hidden="true" />
+            <span>
+              Joining{' '}
+              <span className="font-medium text-content-default">
+                {preview.organizationName}
+              </span>
+            </span>
+          </p>
+          {preview.expiresAt && (
+            <p className="mt-1 text-xs text-content-muted">
+              Invitation expires{' '}
+              <time dateTime={preview.expiresAt}>
+                {new Date(preview.expiresAt).toLocaleString()}
+              </time>
+            </p>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <Field

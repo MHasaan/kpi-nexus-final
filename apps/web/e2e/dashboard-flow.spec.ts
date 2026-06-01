@@ -129,8 +129,9 @@ test.describe('/dashboard page — KPI summary cards', () => {
     await expect(page.getByTestId(`dashboard-card-value-${kpiName1}`)).toContainText('750');
     await expect(page.getByTestId(`dashboard-card-value-${kpiName1}`)).toContainText('USD');
 
-    // 6. Sign out → back to /login
-    await page.getByTestId('dashboard-signout-button').click();
+    // 6. Sign out → back to /login (sign-out lives in the app-shell user menu)
+    await page.getByTestId('appshell-user-menu').click();
+    await page.getByTestId('appshell-signout-button').click();
     await expect(page).toHaveURL(/\/login$/);
   });
 

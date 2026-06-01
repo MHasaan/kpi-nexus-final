@@ -46,6 +46,7 @@ interface FakeKpi {
   warningThreshold: number | null;
   criticalThreshold: number | null;
   direction: string;
+  embedTokenVersion: number;
   deletedAt: Date | null;
 }
 
@@ -71,6 +72,20 @@ class FakePrisma {
               k.deletedAt === null,
           ) ?? null
         );
+      },
+    ),
+    update: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { embedTokenVersion: { increment: number } };
+      }) => {
+        const kpi = this.kpiStore.find((k) => k.id === where.id);
+        if (!kpi) throw new Error('KPI not found');
+        kpi.embedTokenVersion += data.embedTokenVersion.increment;
+        return kpi;
       },
     ),
   };
@@ -108,6 +123,7 @@ describe('EmbedTokenService', () => {
       warningThreshold: 500,
       criticalThreshold: 200,
       direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
       deletedAt: null,
     });
     prisma.dataPointStore.push({
@@ -132,6 +148,18 @@ describe('EmbedTokenService', () => {
 
   test('tampered signature → UnauthorizedException', async () => {
     const prisma = new FakePrisma();
+    prisma.kpiStore.push({
+      id: KPI_ID,
+      organizationId: ORG,
+      name: 'Revenue',
+      unit: 'USD',
+      targetValue: 1000,
+      warningThreshold: 500,
+      criticalThreshold: 200,
+      direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
+      deletedAt: null,
+    });
     const service = makeService(prisma);
 
     const token = await withCtx({}, () => service.mint(KPI_ID));
@@ -159,12 +187,36 @@ describe('EmbedTokenService', () => {
 
   test('KPI deleted → NotFoundException', async () => {
     const prisma = new FakePrisma();
-    // No KPI in store → findFirst returns null.
+    prisma.kpiStore.push({
+      id: KPI_ID,
+      organizationId: ORG,
+      name: 'Revenue',
+      unit: 'USD',
+      targetValue: 1000,
+      warningThreshold: 500,
+      criticalThreshold: 200,
+      direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
+      deletedAt: null,
+    });
     const service = makeService(prisma);
 
-    const token = await withCtx({}, () => service.mint('nonexistent-kpi'));
-    // Token is valid but KPI does not exist.
+    // Mint while the KPI exists, then soft-delete it so resolve cannot find it.
+    const token = await withCtx({}, () => service.mint(KPI_ID));
+    prisma.kpiStore[0]!.deletedAt = new Date();
+
+    // Token is valid but KPI no longer exists.
     await expect(service.resolve(token)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('mint requires an existing KPI → NotFoundException for unknown KPI', async () => {
+    const prisma = new FakePrisma();
+    // No KPI in store → mint must reject (it fetches the version first).
+    const service = makeService(prisma);
+
+    await expect(
+      withCtx({}, () => service.mint('nonexistent-kpi')),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   test('threshold status: HIGHER_IS_BETTER — critical when below critical threshold', async () => {
@@ -178,6 +230,7 @@ describe('EmbedTokenService', () => {
       warningThreshold: 60,
       criticalThreshold: 30,
       direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
       deletedAt: null,
     });
     prisma.dataPointStore.push({
@@ -204,6 +257,7 @@ describe('EmbedTokenService', () => {
       warningThreshold: 60,
       criticalThreshold: 30,
       direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
       deletedAt: null,
     });
     prisma.dataPointStore.push({
@@ -230,6 +284,7 @@ describe('EmbedTokenService', () => {
       warningThreshold: 60,
       criticalThreshold: 30,
       direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
       deletedAt: null,
     });
     prisma.dataPointStore.push({
@@ -243,5 +298,74 @@ describe('EmbedTokenService', () => {
     const token = await withCtx({}, () => service.mint(KPI_ID));
     const snapshot = await service.resolve(token);
     expect(snapshot.thresholdStatus).toBe('ok');
+  });
+
+  // ── Revocation via embedTokenVersion ────────────────────────────────────────
+
+  function pushRevocableKpi(prisma: FakePrisma) {
+    prisma.kpiStore.push({
+      id: KPI_ID,
+      organizationId: ORG,
+      name: 'Revenue',
+      unit: 'USD',
+      targetValue: 1000,
+      warningThreshold: 500,
+      criticalThreshold: 200,
+      direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
+      deletedAt: null,
+    });
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: KPI_ID,
+      recordedAt: new Date('2026-05-01'),
+      value: 750,
+    });
+  }
+
+  test('revoke bumps embedTokenVersion and returns the new version', async () => {
+    const prisma = new FakePrisma();
+    pushRevocableKpi(prisma);
+    const service = makeService(prisma);
+
+    const result = await withCtx({}, () => service.revoke(KPI_ID));
+    expect(result.embedTokenVersion).toBe(1);
+    expect(prisma.kpiStore[0]!.embedTokenVersion).toBe(1);
+  });
+
+  test('revoke on unknown KPI → NotFoundException', async () => {
+    const prisma = new FakePrisma();
+    const service = makeService(prisma);
+
+    await expect(withCtx({}, () => service.revoke('nonexistent-kpi'))).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  test('revoke invalidates a previously-minted token (old token → NotFoundException)', async () => {
+    const prisma = new FakePrisma();
+    pushRevocableKpi(prisma);
+    const service = makeService(prisma);
+
+    // Mint a token at version 0, then revoke (bump to version 1).
+    const oldToken = await withCtx({}, () => service.mint(KPI_ID));
+    await withCtx({}, () => service.revoke(KPI_ID));
+
+    // Old token's v (0) no longer matches the KPI's version (1).
+    await expect(service.resolve(oldToken)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('a freshly-minted token after revoke resolves OK', async () => {
+    const prisma = new FakePrisma();
+    pushRevocableKpi(prisma);
+    const service = makeService(prisma);
+
+    // Revoke first (version → 1), then mint a new token carrying v = 1.
+    await withCtx({}, () => service.revoke(KPI_ID));
+    const freshToken = await withCtx({}, () => service.mint(KPI_ID));
+
+    const snapshot = await service.resolve(freshToken);
+    expect(snapshot.kpiId).toBe(KPI_ID);
+    expect(snapshot.latestValue).toBe(750);
   });
 });

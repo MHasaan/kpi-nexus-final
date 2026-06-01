@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +11,19 @@ import {
   restoreKpi,
   type KpiSummary,
 } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import { Badge, Button, Card, EmptyState, ScopeBadge, Skeleton } from '../../../components/ui';
+
+const PURGE_WINDOW_DAYS = 30;
+
+function daysUntilPurge(deletedAt: string | null): number | null {
+  if (!deletedAt) return null;
+  const deleted = new Date(deletedAt).getTime();
+  const purgeAt = deleted + PURGE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const remaining = Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000));
+  return Math.max(0, remaining);
+}
 
 export default function ArchivePage() {
   const router = useRouter();
@@ -43,34 +55,90 @@ export default function ArchivePage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Archive</span>
+    <RequirePermission permission="KPI_VIEW">
+    <AppShell
+      title="Archive"
+      crumbs={[
+        { label: 'Home', href: '/' },
+        { label: 'KPIs', href: '/kpis' },
+        { label: 'Archive' },
+      ]}
+    >
+      <div className="space-y-5">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-content-strong">Archived KPIs</h1>
+          <p className="text-sm text-content-muted">
+            Soft-deleted KPIs are kept for {PURGE_WINDOW_DAYS} days. Restore brings them back; purge deletes
+            permanently.
+          </p>
         </div>
-      </header>
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Archived KPIs</h1>
-        <p className="mt-1 text-sm text-content-muted">Soft-deleted KPIs. Restore brings them back; purge deletes permanently.</p>
-        {error && <p className="mt-4 text-sm text-status-critical">{error}</p>}
 
-        <div className="mt-6 rounded-lg border border-border bg-surface-1" data-testid="archive-list">
-          {(kpis ?? []).map((k) => (
-            <div key={k.id} className="flex items-center justify-between border-b border-border px-5 py-3 last:border-0">
-              <div>
-                <span className="text-content-strong">{k.name}</span>
-                <span className="ml-2 text-xs text-content-muted">{k.scope} · archived {k.deletedAt ? new Date(k.deletedAt).toLocaleDateString() : ''}</span>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => onRestore(k.id)} className="text-sm text-accent-primary hover:underline" data-testid={`restore-${k.id}`}>Restore</button>
-                <button onClick={() => onPurge(k.id)} className="text-sm text-status-critical hover:underline" data-testid={`purge-${k.id}`}>Purge</button>
-              </div>
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          >
+            {error}
+          </div>
+        )}
+
+        {kpis === null && !error && (
+          <Card className="p-4">
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
-          ))}
-          {kpis && kpis.length === 0 && <p className="px-5 py-8 text-center text-content-muted" data-testid="archive-empty">Nothing archived.</p>}
-        </div>
+          </Card>
+        )}
+
+        <Card className="overflow-hidden p-0" data-testid="archive-list">
+          {(kpis ?? []).map((k) => {
+            const remaining = daysUntilPurge(k.deletedAt);
+            return (
+              <div
+                key={k.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-border-divider px-5 py-3 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <ScopeBadge scope={k.scope} />
+                  <div>
+                    <span className="font-medium text-content-strong">{k.name}</span>
+                    <span className="ml-2 text-xs text-content-muted">
+                      archived {k.deletedAt ? new Date(k.deletedAt).toLocaleDateString() : ''}
+                    </span>
+                  </div>
+                  {remaining !== null && (
+                    <Badge tone={remaining <= 5 ? 'warning' : 'neutral'}>
+                      {remaining} day{remaining === 1 ? '' : 's'} until purge
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => onRestore(k.id)} data-testid={`restore-${k.id}`}>
+                    Restore
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onPurge(k.id)}
+                    data-testid={`purge-${k.id}`}
+                    className="text-status-critical hover:bg-status-critical-bg"
+                  >
+                    Purge now
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {kpis && kpis.length === 0 && (
+            <div data-testid="archive-empty">
+              <EmptyState title="Nothing archived" description="Deleted KPIs will appear here for 30 days." />
+            </div>
+          )}
+        </Card>
       </div>
-    </main>
+    </AppShell>
+    </RequirePermission>
   );
 }

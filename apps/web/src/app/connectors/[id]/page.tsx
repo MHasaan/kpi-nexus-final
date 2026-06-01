@@ -1,10 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import { Skeleton } from '../../../components/ui';
 import {
   type Connector,
   getConnector,
@@ -28,6 +29,7 @@ export default function ConnectorDetailPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -36,6 +38,8 @@ export default function ConnectorDetailPage() {
       setRuns(r);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load connector');
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
@@ -60,17 +64,24 @@ export default function ConnectorDetailPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-3xl items-center gap-6 px-6 py-4">
-          <Link href="/connectors" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Connector</span>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        {error && <p className="mb-3 text-sm text-status-critical">{error}</p>}
-        {connector && (
+    <AppShell
+      title={connector?.name ?? 'Connector'}
+      crumbs={[
+        { label: 'Integrations', href: '/integrations' },
+        { label: 'Connectors', href: '/connectors' },
+        { label: connector?.name ?? 'Connector' },
+      ]}
+    >
+      <div className="mx-auto max-w-3xl">
+        {error && <p className="mb-3 text-sm text-status-critical" role="alert" data-testid="connector-error">{error}</p>}
+        {loading && (
+          <div className="space-y-3" data-testid="connector-loading">
+            <Skeleton className="h-8 w-1/2 rounded-lg" />
+            <Skeleton className="h-24 rounded-lg" />
+            <Skeleton className="h-16 rounded-lg" />
+          </div>
+        )}
+        {!loading && connector && (
           <>
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-semibold text-content-strong" data-testid="connector-heading">{connector.name}</h1>
@@ -94,6 +105,6 @@ export default function ConnectorDetailPage() {
           </>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }

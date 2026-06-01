@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { MessageSquare, X } from 'lucide-react';
 
 import { ApiError, type UserSummary, listUsers } from '../lib/api-client';
 import {
@@ -9,6 +10,7 @@ import {
   createComment,
   listComments,
 } from '../lib/collab-client';
+import { Button, Avatar, Textarea, EmptyState, Skeleton } from './ui';
 
 /**
  * Slide-out comments panel for any entity (KPI, dashboard, alert, task,
@@ -26,21 +28,37 @@ export function CommentsDrawer({
   const [comments, setComments] = useState<Comment[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [body, setBody] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [cs, us] = await Promise.all([listComments(entityType, entityId), listUsers().catch(() => [])]);
       setComments(cs);
       setUsers(us);
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load comments');
+    } finally {
+      setLoading(false);
     }
   }, [entityType, entityId]);
 
   useEffect(() => {
     if (open) void load();
   }, [open, load]);
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   // Resolve @handle → userId by matching email local-part or fullName slug.
   const resolveMentions = (text: string): string[] => {
@@ -58,12 +76,15 @@ export function CommentsDrawer({
 
   const submit = async () => {
     if (!body.trim()) return;
+    setSubmitting(true);
     try {
       await createComment({ entityType, entityId, body: body.trim(), mentionedUserIds: resolveMentions(body) });
       setBody('');
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not post comment');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -73,49 +94,98 @@ export function CommentsDrawer({
         type="button"
         data-testid="comments-trigger"
         onClick={() => setOpen((o) => !o)}
-        className="rounded-full border border-border bg-surface-1 px-3 py-1 text-sm text-content-muted hover:text-accent-primary"
+        className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-bg px-3 py-1.5 text-sm text-content-muted transition-colors hover:bg-surface-hover hover:text-accent-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        💬 Comments{comments.length > 0 ? ` (${comments.length})` : ''}
+        <MessageSquare className="h-4 w-4" aria-hidden />
+        Comments{comments.length > 0 ? ` (${comments.length})` : ''}
       </button>
 
       {open && (
-        <div
-          data-testid="comments-drawer"
-          className="fixed right-0 top-0 z-40 flex h-full w-[380px] flex-col border-l border-border bg-surface-bg shadow-xl"
-        >
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h2 className="text-sm font-semibold text-content-strong">Comments</h2>
-            <button type="button" aria-label="Close" data-testid="comments-close" onClick={() => setOpen(false)} className="text-content-muted hover:text-content-strong">
-              ×
-            </button>
-          </div>
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" aria-hidden onClick={() => setOpen(false)} />
+          <div
+            data-testid="comments-drawer"
+            role="dialog"
+            aria-label="Comments"
+            className="fixed bottom-0 right-0 top-0 z-50 flex w-[380px] max-w-full flex-col border-l border-border bg-surface-bg shadow-lg"
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h2 className="text-base font-semibold text-content-strong">Comments</h2>
+              <button
+                type="button"
+                aria-label="Close"
+                data-testid="comments-close"
+                onClick={() => setOpen(false)}
+                className="rounded-md p-1 text-content-muted transition-colors hover:bg-surface-hover hover:text-content-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
 
-          {error && <p className="px-4 py-2 text-xs text-status-critical">{error}</p>}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {error && (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-lg border border-status-critical-bg bg-status-critical-bg px-3 py-2 text-sm text-status-critical"
+                >
+                  {error}
+                </p>
+              )}
 
-          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3" data-testid="comments-list">
-            {comments.map((c) => (
-              <div key={c.id} data-testid={`comment-${c.id}`} className="rounded-lg border border-border bg-surface-1 p-3 text-sm">
-                <p className="whitespace-pre-wrap text-content-strong">{c.body}</p>
-                <p className="mt-1 text-[10px] text-content-muted">{new Date(c.createdAt).toLocaleString()}</p>
+              {loading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <Skeleton className="h-6 w-6 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="mt-2 h-3 w-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : comments.length === 0 ? (
+                <EmptyState
+                  title="No comments yet"
+                  description="Be the first to start the conversation."
+                  className="px-4 py-10"
+                />
+              ) : (
+                <div className="space-y-4" data-testid="comments-list">
+                  {comments.map((c) => {
+                    const author = users.find((u) => u.id === c.authorId)?.fullName ?? 'Unknown user';
+                    return (
+                      <div key={c.id} data-testid={`comment-${c.id}`} className="flex items-start gap-3">
+                        <Avatar name={author} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-content-strong">{author}</p>
+                          <p className="mt-0.5 whitespace-pre-wrap text-sm text-content-strong">{c.body}</p>
+                          <p className="mt-1 text-xs tabular-nums text-content-muted">{new Date(c.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border px-5 py-4">
+              <Textarea
+                data-testid="comment-body"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Add a comment… use @name to mention"
+                rows={3}
+              />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-content-muted">@ mention to notify · markdown ok</span>
+                <Button data-testid="comment-submit" onClick={submit} isLoading={submitting} disabled={submitting}>
+                  Post comment
+                </Button>
               </div>
-            ))}
-            {comments.length === 0 && <p className="text-sm text-content-muted">No comments yet.</p>}
+            </div>
           </div>
-
-          <div className="border-t border-border p-3">
-            <textarea
-              data-testid="comment-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Add a comment… use @name to mention"
-              rows={3}
-              className="w-full rounded border border-border bg-surface-1 px-2 py-1.5 text-sm text-content-strong"
-            />
-            <button type="button" data-testid="comment-submit" onClick={submit} className="mt-2 w-full rounded bg-accent-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
-              Post comment
-            </button>
-          </div>
-        </div>
+        </>
       )}
     </>
   );

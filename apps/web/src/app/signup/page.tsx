@@ -115,17 +115,23 @@ export default function SignupPage() {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <button type="button" data-testid="entry-quick" onClick={() => pickQuickOrFull('quick')} disabled={busy} className="rounded-lg border border-border bg-surface-1 p-6 text-left hover:border-accent-primary disabled:opacity-50">
+          <button type="button" data-testid="entry-quick" onClick={() => pickQuickOrFull('quick')} disabled={busy} className="rounded-lg border border-border bg-surface-1 p-6 text-left transition-colors duration-150 hover:border-accent-primary disabled:opacity-50">
             <h3 className="text-sm font-semibold text-content-strong">Quick start</h3>
             <p className="mt-1 text-xs text-content-muted">5–10 minutes. Minimal setup, add detail later.</p>
+            <EffortDots level={1} label="Lowest effort, fastest" />
           </button>
-          <button type="button" data-testid="entry-full" onClick={() => pickQuickOrFull('full')} disabled={busy} className="rounded-lg border border-border bg-surface-1 p-6 text-left hover:border-accent-primary disabled:opacity-50">
-            <h3 className="text-sm font-semibold text-content-strong">Full setup</h3>
+          <button type="button" data-testid="entry-full" onClick={() => pickQuickOrFull('full')} disabled={busy} className="rounded-lg border border-accent-primary bg-surface-1 p-6 text-left ring-2 ring-accent-primary/40 transition-colors duration-150 hover:border-accent-primary disabled:opacity-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-content-strong">Full setup</h3>
+              <span className="rounded-full bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-primary">Recommended</span>
+            </div>
             <p className="mt-1 text-xs text-content-muted">Express your full org depth with the AI co-pilot.</p>
+            <EffortDots level={3} label="Most effort, deepest setup" />
           </button>
-          <button type="button" data-testid="entry-template" onClick={openGallery} disabled={busy} className="rounded-lg border border-border bg-surface-1 p-6 text-left hover:border-accent-primary disabled:opacity-50">
+          <button type="button" data-testid="entry-template" onClick={openGallery} disabled={busy} className="rounded-lg border border-border bg-surface-1 p-6 text-left transition-colors duration-150 hover:border-accent-primary disabled:opacity-50">
             <h3 className="text-sm font-semibold text-content-strong">Template gallery</h3>
             <p className="mt-1 text-xs text-content-muted">Start from a ready-made org and customize.</p>
+            <EffortDots level={2} label="Medium effort, ready-made start" />
           </button>
         </div>
 
@@ -152,5 +158,20 @@ export default function SignupPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function EffortDots({ level, label }: { level: 1 | 2 | 3; label: string }) {
+  return (
+    <div className="mt-4 flex items-center gap-1.5" aria-label={label} title={label}>
+      {[1, 2, 3].map((i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 rounded-full ${i <= level ? 'bg-accent-primary' : 'bg-surface-2'}`}
+        />
+      ))}
+      <span className="sr-only">{label}</span>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { ApprovalEntityType, Prisma } from '@kpi-nexus/db';
+import { Prisma } from '@kpi-nexus/db';
+import type { ApprovalEntityType } from '@kpi-nexus/db';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
@@ -8,6 +9,11 @@ import { ApprovalRequiredException } from './approval-required.exception.js';
 export interface RequireApprovalOptions {
   /** When true, skip the gate entirely (internal replay via ApprovalApplyService). */
   bypassApproval?: boolean;
+  /**
+   * Snapshot of the entity's state BEFORE the proposed change so the approver UI
+   * can render a before→after diff. Undefined (e.g. on creates) is stored as null.
+   */
+  currentPayload?: unknown;
 }
 
 /**
@@ -44,6 +50,11 @@ export class ApprovalGateService {
         entityId,
         requesterUserId: ctx.userId,
         proposedPayload: proposedPayload as Prisma.InputJsonValue,
+        // BEFORE-state snapshot for the approver diff; undefined (creates) → null.
+        currentPayload:
+          opts.currentPayload === undefined
+            ? Prisma.JsonNull
+            : (opts.currentPayload as Prisma.InputJsonValue),
       },
       select: { id: true },
     });

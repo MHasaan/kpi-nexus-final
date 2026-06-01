@@ -83,6 +83,13 @@ export default function PluginsPage() {
       <div className="mx-auto max-w-4xl px-6 py-8">
         <h1 className="text-2xl font-semibold text-content-strong">Plugins</h1>
         <p className="mt-1 text-sm text-content-muted">Install custom widgets, templates, and formula functions. Sandboxed rendering arrives in a later release.</p>
+        <div
+          role="note"
+          data-testid="plugins-warning"
+          className="mt-3 rounded-lg border border-status-warning-bg bg-status-warning-bg px-4 py-3 text-sm text-status-warning"
+        >
+          Catalog only — sandboxed execution is post-v1; external entry URLs are unverified, so review each plugin before enabling.
+        </div>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="plugins-error">{error}</p>}
 
         <div className="mt-5 rounded-lg border border-border bg-surface-1 p-5">

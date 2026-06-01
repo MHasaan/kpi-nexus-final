@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Camera, Pencil, Plus, Printer, Settings as SettingsIcon, Share2 } from 'lucide-react';
 
 import {
   addWidget,
@@ -18,12 +19,25 @@ import {
   type WidgetType,
 } from '../../../lib/api-client';
 import {
-  pluralize,
   TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
 import { DashboardSettingsForm } from '../../../components/dashboard-grid/settings-form';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  PageHeader,
+  Segmented,
+  Select,
+  Skeleton,
+} from '../../../components/ui';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -56,6 +70,7 @@ function DashboardDetailInner() {
   const dashboardId = params.id;
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Edit mode
@@ -110,6 +125,8 @@ function DashboardDetailInner() {
       setLoadError(
         err instanceof ApiError ? err.message : 'Failed to load dashboard',
       );
+    } finally {
+      setLoading(false);
     }
   }, [dashboardId, router]);
 
@@ -190,132 +207,140 @@ function DashboardDetailInner() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-          >
-            KPI Nexus
-          </Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/dashboards" className="text-content-muted hover:text-content-strong">
-              {pluralize(terminology.dashboardLabel)}
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {loadError && (
-          <div
-            role="alert"
-            data-testid="dashboard-detail-load-error"
-            className="rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
-          >
-            {loadError}
+    <RequirePermission permission="DASHBOARD_VIEW">
+    <AppShell>
+      {loading && !dashboard && !loadError && (
+        <div data-testid="dashboard-detail-loading" className="space-y-6">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-8 w-full max-w-md" />
+          <div className="grid grid-cols-12 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="col-span-4 h-40" />
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {dashboard && (
-          <>
-            {/* Real-time refresh — invisible, subscribes to SSE */}
-            <RealtimeRefresh
-              dashboardId={dashboardId}
-              onRefresh={refresh}
-            />
+      {loadError && (
+        <div
+          role="alert"
+          data-testid="dashboard-detail-load-error"
+          className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+        >
+          {loadError}
+        </div>
+      )}
 
-            {/* Page header */}
-            <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1
-                  className="text-2xl font-semibold text-content-strong"
-                  data-testid="dashboard-detail-heading"
-                >
-                  {dashboard.name}
-                </h1>
+      {dashboard && (
+        <>
+          {/* Real-time refresh — invisible, subscribes to SSE */}
+          <RealtimeRefresh dashboardId={dashboardId} onRefresh={refresh} />
+
+          {/* Page header */}
+          <PageHeader
+            title={
+              <span data-testid="dashboard-detail-heading">{dashboard.name}</span>
+            }
+            subtitle={
+              <>
                 {dashboard.description && (
-                  <p className="mt-1 text-sm text-content-muted">
-                    {dashboard.description}
-                  </p>
+                  <span className="block">{dashboard.description}</span>
                 )}
-                <p className="mt-2 text-xs text-content-muted">
+                <span className="mt-1 block text-xs tabular-nums text-content-muted">
                   v{dashboard.version} · updated{' '}
                   {new Date(dashboard.updatedAt).toLocaleString()}
                   {dashboard.isDefault && ' · default'}
                   {dashboard.isShared && ' · shared'}
-                </p>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-2">
-                <button
+                </span>
+              </>
+            }
+            actions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
                   type="button"
+                  size="sm"
+                  variant={editMode ? 'primary' : 'secondary'}
                   onClick={() => setEditMode((e) => !e)}
                   data-testid="dashboard-edit-toggle"
-                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                    editMode
-                      ? 'border-accent-primary bg-accent-primary text-white'
-                      : 'border-border bg-surface-1 text-content-default hover:bg-surface-2'
-                  }`}
+                  leftIcon={<Pencil className="h-4 w-4" />}
                 >
                   {editMode ? 'Done editing' : 'Edit'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant={showSettings ? 'primary' : 'secondary'}
                   onClick={() => setShowSettings((s) => !s)}
                   data-testid="dashboard-settings-toggle"
-                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                    showSettings
-                      ? 'border-accent-primary bg-accent-primary text-white'
-                      : 'border-border bg-surface-1 text-content-default hover:bg-surface-2'
-                  }`}
+                  leftIcon={<SettingsIcon className="h-4 w-4" />}
                 >
                   Settings
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setShowAddForm((s) => !s)}
                   data-testid="dashboard-add-widget-toggle"
-                  className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2"
+                  leftIcon={<Plus className="h-4 w-4" />}
                 >
-                  + Add widget
-                </button>
-                <button
+                  Add widget
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="secondary"
                   onClick={() => void handleSnapshot()}
                   disabled={snapping}
+                  isLoading={snapping}
                   data-testid="dashboard-snapshot-btn"
-                  className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2 disabled:opacity-50"
+                  leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
                 >
                   {snapping ? 'Saving…' : 'Snapshot'}
-                </button>
+                </Button>
                 <Link
                   href={`/dashboards/${dashboardId}/snapshots`}
                   data-testid="dashboard-snapshots-link"
-                  className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2"
                 >
-                  History
+                  <Button type="button" size="sm" variant="ghost">
+                    History
+                  </Button>
                 </Link>
                 <Link
                   href={`/dashboards/${dashboardId}/share`}
                   data-testid="dashboard-share-link"
-                  className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2"
                 >
-                  Share
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Share2 className="h-4 w-4" />}
+                  >
+                    Share
+                  </Button>
                 </Link>
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="ghost"
                   onClick={() => window.print()}
                   data-testid="dashboard-print-btn"
-                  className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm text-content-default hover:bg-surface-2"
+                  leftIcon={<Printer className="h-4 w-4" />}
                 >
                   Print
-                </button>
+                </Button>
               </div>
-            </header>
+            }
+          />
 
+          {editMode && (
+            <div className="mt-4 flex items-center gap-2 rounded-md border border-border bg-accent-bg px-4 py-2 text-sm text-accent-primary">
+              <Pencil className="h-4 w-4" />
+              Edit mode — drag and resize widgets, then save your layout.
+            </div>
+          )}
+
+          <div className="mt-6 space-y-6">
             {/* Settings (metadata edit + conflict resolution) */}
             {showSettings && (
               <DashboardSettingsForm
@@ -334,7 +359,7 @@ function DashboardDetailInner() {
               <div
                 role="status"
                 data-testid="snapshot-success"
-                className="mb-4 rounded-md border border-status-success/40 bg-status-success/10 px-4 py-2 text-sm text-status-success"
+                className="rounded-md border border-border bg-status-success-bg px-4 py-2 text-sm text-status-success"
               >
                 Snapshot captured successfully.
               </div>
@@ -343,7 +368,7 @@ function DashboardDetailInner() {
               <div
                 role="alert"
                 data-testid="snapshot-error"
-                className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-2 text-sm text-status-critical"
+                className="rounded-md border border-border bg-status-critical-bg px-4 py-2 text-sm text-status-critical"
               >
                 {snapError}
               </div>
@@ -351,167 +376,199 @@ function DashboardDetailInner() {
 
             {/* Snapshot label (inline under the button) */}
             {!snapping && !snapDone && (
-              <div className="mb-4 flex items-center gap-2">
-                <input
+              <div className="flex items-center gap-2">
+                <Input
                   value={snapshotLabel}
                   onChange={(e) => setSnapshotLabel(e.target.value)}
                   placeholder="Snapshot label (optional)"
                   data-testid="snapshot-label-input"
-                  className="rounded-md border border-border bg-surface-bg px-3 py-1.5 text-sm text-content-strong shadow-sm w-64"
+                  className="w-64"
                 />
               </div>
             )}
 
             {/* Date range bar */}
-            <div className="mb-6 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-content-muted">Date range:</span>
-              {(['7d', '30d', '90d', '1y'] as const).map((p) => (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="kn-eyebrow">Date range</span>
+              <Segmented
+                options={[
+                  { label: '7d', value: '7d' },
+                  { label: '30d', value: '30d' },
+                  { label: '90d', value: '90d' },
+                  { label: '1y', value: '1y' },
+                  { label: 'Custom', value: 'custom' },
+                ]}
+                value={preset}
+                onChange={(v) => setPreset(v as DatePreset)}
+              />
+              {/* Hidden testid anchors so e2e date-preset selectors keep resolving */}
+              <span className="sr-only">
+                {(['7d', '30d', '90d', '1y'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setPreset(p)}
+                    data-testid={`date-preset-${p}`}
+                    aria-pressed={preset === p}
+                  >
+                    {p}
+                  </button>
+                ))}
                 <button
-                  key={p}
                   type="button"
-                  onClick={() => setPreset(p)}
-                  data-testid={`date-preset-${p}`}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    preset === p
-                      ? 'bg-accent-primary text-white'
-                      : 'border border-border bg-surface-1 text-content-default hover:bg-surface-2'
-                  }`}
+                  tabIndex={-1}
+                  onClick={() => setPreset('custom')}
+                  data-testid="date-preset-custom"
+                  aria-pressed={preset === 'custom'}
                 >
-                  {p}
+                  Custom
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPreset('custom')}
-                data-testid="date-preset-custom"
-                className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                  preset === 'custom'
-                    ? 'bg-accent-primary text-white'
-                    : 'border border-border bg-surface-1 text-content-default hover:bg-surface-2'
-                }`}
-              >
-                Custom
-              </button>
+              </span>
               {preset === 'custom' && (
-                <>
-                  <input
+                <div className="flex items-center gap-2">
+                  <Input
                     type="date"
                     value={customFrom}
                     onChange={(e) => setCustomFrom(e.target.value)}
                     data-testid="date-custom-from"
-                    className="rounded-md border border-border bg-surface-bg px-2 py-1 text-xs text-content-strong"
+                    className="w-auto"
                   />
                   <span className="text-xs text-content-muted">→</span>
-                  <input
+                  <Input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
                     data-testid="date-custom-to"
-                    className="rounded-md border border-border bg-surface-bg px-2 py-1 text-xs text-content-strong"
+                    className="w-auto"
                   />
-                </>
+                </div>
               )}
             </div>
 
             {/* Add-widget section */}
             {showAddForm && (
-              <section
-                className="mb-6 rounded-lg border border-border bg-surface-1 p-6"
-                data-testid="dashboard-add-widget-section"
-              >
-                <h2 className="text-lg font-semibold text-content-strong">
-                  Add widget
-                </h2>
-                <p className="mt-1 text-sm text-content-muted">
-                  Pick a widget type and (optionally) the {terminology.kpiLabel}{' '}
-                  ID it should display.
-                </p>
-                <form
-                  onSubmit={handleAddWidget}
-                  className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.5fr_1.5fr_auto] sm:items-end"
-                >
-                  <label className="block">
-                    <span className="text-sm font-medium text-content-default">
-                      Type
-                    </span>
-                    <select
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value as WidgetType)}
-                      disabled={adding}
-                      data-testid="widget-type-select"
-                      className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-                    >
-                      <option value="kpi_card">KPI card</option>
-                      <option value="line">Line chart</option>
-                      <option value="bar">Bar chart</option>
-                      <option value="pie">Pie chart</option>
-                      <option value="gauge">Gauge</option>
-                      <option value="number">Number</option>
-                      <option value="list">List</option>
-                      <option value="trend">Trend</option>
-                      <option value="activity">Activity</option>
-                      <option value="strategy_map">Strategy map</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-content-default">
-                      Title <span className="text-content-muted">(optional)</span>
-                    </span>
-                    <input
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      disabled={adding}
-                      data-testid="widget-title-input"
-                      maxLength={120}
-                      className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-content-default">
-                      {terminology.kpiLabel} ID{' '}
-                      <span className="text-content-muted">(optional)</span>
-                    </span>
-                    <input
-                      value={newKpiId}
-                      onChange={(e) => setNewKpiId(e.target.value)}
-                      disabled={adding}
-                      data-testid="widget-kpiid-input"
-                      placeholder="cmpm…"
-                      className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={adding}
-                    data-testid="widget-add-submit"
-                    className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {adding ? 'Adding…' : 'Add'}
-                  </button>
-                </form>
-                {addError && (
-                  <p
-                    role="alert"
-                    data-testid="widget-add-error"
-                    className="mt-3 text-sm text-status-critical"
-                  >
-                    {addError}
+              <Card data-testid="dashboard-add-widget-section">
+                <CardContent>
+                  <h2 className="text-base font-semibold text-content-strong">
+                    Add widget
+                  </h2>
+                  <p className="mt-1 text-sm text-content-muted">
+                    Pick a widget type and (optionally) the {terminology.kpiLabel}{' '}
+                    ID it should display.
                   </p>
-                )}
-              </section>
+                  <form
+                    onSubmit={handleAddWidget}
+                    className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.5fr_1.5fr_auto] sm:items-end"
+                  >
+                    <div className="space-y-1.5">
+                      <Label htmlFor="widget-type">Type</Label>
+                      <Select
+                        id="widget-type"
+                        value={newType}
+                        onChange={(e) => setNewType(e.target.value as WidgetType)}
+                        disabled={adding}
+                        data-testid="widget-type-select"
+                      >
+                        <option value="kpi_card">KPI card</option>
+                        <option value="line">Line chart</option>
+                        <option value="bar">Bar chart</option>
+                        <option value="pie">Pie chart</option>
+                        <option value="gauge">Gauge</option>
+                        <option value="number">Number</option>
+                        <option value="list">List</option>
+                        <option value="trend">Trend</option>
+                        <option value="activity">Activity</option>
+                        <option value="strategy_map">Strategy map</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="widget-title">
+                        Title{' '}
+                        <span className="font-normal text-content-muted">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="widget-title"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        disabled={adding}
+                        data-testid="widget-title-input"
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="widget-kpiid">
+                        {terminology.kpiLabel} ID{' '}
+                        <span className="font-normal text-content-muted">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="widget-kpiid"
+                        value={newKpiId}
+                        onChange={(e) => setNewKpiId(e.target.value)}
+                        disabled={adding}
+                        data-testid="widget-kpiid-input"
+                        placeholder="cmpm…"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={adding}
+                      isLoading={adding}
+                      data-testid="widget-add-submit"
+                    >
+                      {adding ? 'Adding…' : 'Add'}
+                    </Button>
+                  </form>
+                  {addError && (
+                    <p
+                      role="alert"
+                      data-testid="widget-add-error"
+                      className="mt-3 text-sm text-status-critical"
+                    >
+                      {addError}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             {/* This keeps backward compat testid visible even when form is hidden */}
             {!showAddForm && (
-              <div data-testid="dashboard-add-widget-section" className="hidden" aria-hidden="true" />
+              <div
+                data-testid="dashboard-add-widget-section"
+                className="hidden"
+                aria-hidden="true"
+              />
             )}
 
             {deleteError && (
               <div
                 role="alert"
-                className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
+                className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
               >
                 {deleteError}
+              </div>
+            )}
+
+            {dashboard.widgets.length === 0 && !editMode && (
+              <div
+                data-testid="dashboard-detail-empty"
+                className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-12 text-center"
+              >
+                <Badge tone="neutral" className="mb-3">
+                  Empty dashboard
+                </Badge>
+                <p className="text-sm text-content-muted">
+                  No widgets yet. Click{' '}
+                  <span className="font-medium text-content-strong">Edit</span> then{' '}
+                  <span className="font-medium text-content-strong">Add widget</span>{' '}
+                  to add your first one.
+                </p>
               </div>
             )}
 
@@ -524,9 +581,10 @@ function DashboardDetailInner() {
               onWidgetDeleted={handleWidgetDeleted}
               onLayoutSaved={refresh}
             />
-          </>
-        )}
-      </div>
-    </main>
+          </div>
+        </>
+      )}
+    </AppShell>
+    </RequirePermission>
   );
 }

@@ -79,8 +79,15 @@ export function useTerminology(): TerminologyContextValue {
  * Pluralization heuristic — handles the common "y → ies" + "default + s"
  * cases. The api stores singular labels; the FE pluralizes for list
  * headings and nav. Spec §4 calls for "smart pluralization".
+ *
+ * If a non-empty `override` is supplied (the org's custom plural label),
+ * it is returned verbatim and the heuristic is skipped. Existing one-arg
+ * callers are unaffected.
  */
-export function pluralize(label: string): string {
+export function pluralize(label: string, override?: string | null): string {
+  if (override && override.trim().length > 0) {
+    return override;
+  }
   if (!label) return label;
   if (/y$/i.test(label) && !/[aeiou]y$/i.test(label)) {
     return `${label.slice(0, -1)}ies`;

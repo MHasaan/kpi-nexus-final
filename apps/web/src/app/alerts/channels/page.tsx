@@ -2,8 +2,32 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Inbox, Power, PowerOff, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Input,
+  Label,
+  PageHeader,
+  Select,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/ui';
 import {
   ApiError,
   clearTokens,
@@ -12,6 +36,7 @@ import {
   getAccessToken,
   listNotificationChannels,
   testNotificationChannel,
+  updateNotificationChannel,
   type NotificationChannel,
 } from '../../../lib/api-client';
 
@@ -119,100 +144,250 @@ export default function ChannelsPage() {
     }
   }
 
+  async function handleToggle(id: string, next: boolean) {
+    setBusyId(id);
+    setLoadError(null);
+    // Optimistic flip so the badge updates immediately.
+    setChannels((prev) =>
+      prev ? prev.map((c) => (c.id === id ? { ...c, isActive: next } : c)) : prev,
+    );
+    try {
+      await updateNotificationChannel(id, { isActive: next });
+      await refresh();
+    } catch (err) {
+      // Roll back the optimistic flip, then reconcile with the server.
+      setChannels((prev) =>
+        prev ? prev.map((c) => (c.id === id ? { ...c, isActive: !next } : c)) : prev,
+      );
+      setLoadError(err instanceof ApiError ? err.message : 'Failed to update channel');
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/alerts" className="text-content-muted hover:text-content-strong">Alerts</Link>
-            <Link href="/alerts/channels" className="font-medium text-content-strong">Channels</Link>
-          </nav>
-        </div>
-      </header>
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
+      <PageHeader
+        title="Notification channels"
+        subtitle="Configure where alerts go — email, Slack, Teams, webhooks, or SMS."
+        actions={
+          <Link
+            href="/alerts"
+            className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Back to alerts
+          </Link>
+        }
+      />
+      <h1 data-testid="channels-heading" className="sr-only">
+        Notification channels
+      </h1>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <h1 className="mb-6 text-2xl font-semibold text-content-strong" data-testid="channels-heading">
-          Notification channels
-        </h1>
-
-        {/* Create form */}
-        <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
-          <h2 className="text-lg font-semibold text-content-strong">Add channel</h2>
-          <form onSubmit={handleCreate} className="mt-4 grid gap-4" data-testid="channel-create-form">
+      {/* Create form */}
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>Add channel</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleCreate} className="grid gap-4" data-testid="channel-create-form">
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-medium text-content-default">Name</span>
-                <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} data-testid="channel-name-input" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-content-default">Kind</span>
-                <select value={kind} onChange={(e) => setKind(e.target.value as Kind)} data-testid="channel-kind-select" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong">
+              <div className="grid gap-2">
+                <Label htmlFor="channel-name" required>
+                  Name
+                </Label>
+                <Input
+                  id="channel-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  minLength={2}
+                  data-testid="channel-name-input"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="channel-kind">Kind</Label>
+                <Select
+                  id="channel-kind"
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as Kind)}
+                  data-testid="channel-kind-select"
+                >
                   <option value="EMAIL">Email</option>
                   <option value="SLACK">Slack</option>
                   <option value="TEAMS">Teams</option>
                   <option value="WEBHOOK">Webhook</option>
                   <option value="SMS">SMS</option>
                   <option value="IN_APP">In-app</option>
-                </select>
-              </label>
+                </Select>
+              </div>
             </div>
             {kind === 'EMAIL' && (
-              <label className="block">
-                <span className="text-sm font-medium text-content-default">Recipients <span className="text-content-muted">(comma-separated)</span></span>
-                <input value={recipients} onChange={(e) => setRecipients(e.target.value)} data-testid="channel-recipients-input" placeholder="ops@acme.com, oncall@acme.com" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-              </label>
+              <div className="grid gap-2">
+                <Label htmlFor="channel-recipients">
+                  Recipients <span className="font-normal text-content-muted">(comma-separated)</span>
+                </Label>
+                <Input
+                  id="channel-recipients"
+                  value={recipients}
+                  onChange={(e) => setRecipients(e.target.value)}
+                  data-testid="channel-recipients-input"
+                  placeholder="ops@acme.com, oncall@acme.com"
+                />
+              </div>
             )}
             {(kind === 'SLACK' || kind === 'TEAMS' || kind === 'WEBHOOK') && (
-              <label className="block">
-                <span className="text-sm font-medium text-content-default">URL</span>
-                <input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} type="url" data-testid="channel-url-input" placeholder="https://…" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-              </label>
+              <div className="grid gap-2">
+                <Label htmlFor="channel-url">URL</Label>
+                <Input
+                  id="channel-url"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  type="url"
+                  data-testid="channel-url-input"
+                  placeholder="https://…"
+                />
+              </div>
             )}
             {kind === 'SMS' && (
-              <label className="block">
-                <span className="text-sm font-medium text-content-default">From number</span>
-                <input value={fromNumber} onChange={(e) => setFromNumber(e.target.value)} data-testid="channel-fromnumber-input" placeholder="+15551234567" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-              </label>
+              <div className="grid gap-2">
+                <Label htmlFor="channel-fromnumber">From number</Label>
+                <Input
+                  id="channel-fromnumber"
+                  value={fromNumber}
+                  onChange={(e) => setFromNumber(e.target.value)}
+                  data-testid="channel-fromnumber-input"
+                  placeholder="+15551234567"
+                />
+              </div>
             )}
-            {createError && <p role="alert" data-testid="channel-create-error" className="text-sm text-status-critical">{createError}</p>}
+            {createError && (
+              <p role="alert" data-testid="channel-create-error" className="text-sm text-status-critical">
+                {createError}
+              </p>
+            )}
             <div>
-              <button type="submit" disabled={creating} data-testid="channel-create-submit" className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:opacity-50">
+              <Button type="submit" isLoading={creating} data-testid="channel-create-submit">
                 {creating ? 'Adding…' : 'Add channel'}
-              </button>
+              </Button>
             </div>
           </form>
-        </section>
+        </CardContent>
+      </Card>
 
-        {testMsg && <div role="status" data-testid="channel-test-msg" className="mb-4 rounded-md border border-status-success/40 bg-status-success/10 px-4 py-2 text-sm text-status-success">{testMsg}</div>}
-        {loadError && <div role="alert" data-testid="channels-error" className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical">{loadError}</div>}
+      {testMsg && (
+        <div
+          role="status"
+          data-testid="channel-test-msg"
+          className="mt-4 rounded-lg border border-status-success/40 bg-status-success-bg px-4 py-2 text-sm text-status-success"
+        >
+          {testMsg}
+        </div>
+      )}
+      {loadError && (
+        <div
+          role="alert"
+          data-testid="channels-error"
+          className="mt-4 rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+        >
+          {loadError}
+        </div>
+      )}
 
-        {channels && channels.length === 0 && (
-          <div data-testid="channels-empty" className="rounded-lg border border-dashed border-border bg-surface-1 p-8 text-center text-sm text-content-muted">No channels yet.</div>
-        )}
-        {channels && channels.length > 0 && (
-          <div className="overflow-hidden rounded-lg border border-border bg-surface-1" data-testid="channels-table">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-surface-2 text-left text-xs uppercase text-content-muted">
-                <tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Kind</th><th className="px-4 py-2">Active</th><th className="px-4 py-2 text-right">Actions</th></tr>
-              </thead>
-              <tbody>
-                {channels.map((c) => (
-                  <tr key={c.id} data-testid={`channel-row-${c.id}`} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 text-content-strong">{c.name}</td>
-                    <td className="px-4 py-3 text-content-muted">{c.kind}</td>
-                    <td className="px-4 py-3">{c.isActive ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button type="button" onClick={() => void handleTest(c.id)} disabled={busyId === c.id} data-testid={`channel-test-${c.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-content-default hover:bg-surface-2 disabled:opacity-50">Test</button>
-                      <button type="button" onClick={() => void handleDelete(c.id)} disabled={busyId === c.id} data-testid={`channel-delete-${c.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {!channels && !loadError && (
+        <Card className="mt-4 p-2">
+          <div className="space-y-2 p-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-11 w-full" />
+            ))}
           </div>
-        )}
-      </div>
-    </main>
+        </Card>
+      )}
+
+      {channels && channels.length === 0 && (
+        <div className="mt-4" data-testid="channels-empty">
+          <EmptyState
+            icon={Inbox}
+            title="No channels yet"
+            description="Add a channel above so escalation policies have somewhere to deliver alerts."
+          />
+        </div>
+      )}
+
+      {channels && channels.length > 0 && (
+        <Card className="mt-4 overflow-hidden p-0" data-testid="channels-table">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {channels.map((c) => (
+                <TableRow key={c.id} data-testid={`channel-row-${c.id}`}>
+                  <TableCell className="font-medium text-content-strong">{c.name}</TableCell>
+                  <TableCell>
+                    <Badge tone="neutral">{c.kind}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge tone={c.isActive ? 'success' : 'neutral'}>
+                      {c.isActive ? 'Active' : 'Disabled'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <PermissionGuard permission="ORG_SETTINGS">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          isLoading={busyId === c.id}
+                          onClick={() => void handleToggle(c.id, !c.isActive)}
+                          data-testid={`channel-toggle-${c.id}`}
+                          leftIcon={
+                            c.isActive ? (
+                              <PowerOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Power className="h-3.5 w-3.5" />
+                            )
+                          }
+                        >
+                          {c.isActive ? 'Disable' : 'Enable'}
+                        </Button>
+                      </PermissionGuard>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={busyId === c.id}
+                        onClick={() => void handleTest(c.id)}
+                        data-testid={`channel-test-${c.id}`}
+                        leftIcon={<Send className="h-3.5 w-3.5" />}
+                      >
+                        Test
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        isLoading={busyId === c.id}
+                        onClick={() => void handleDelete(c.id)}
+                        data-testid={`channel-delete-${c.id}`}
+                        className="text-status-critical hover:bg-status-critical-bg"
+                        leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+      </RequirePermission>
+    </AppShell>
   );
 }

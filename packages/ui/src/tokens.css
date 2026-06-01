@@ -1,36 +1,43 @@
 /*
- * KPI Nexus design tokens.
+ * KPI Nexus design tokens — source of truth.
  *
- * HSL components (h s% l%) so Tailwind's `<alpha-value>` channel works. Token
- * names are locked per spec §12.3; values are retunable in a Claude Design
- * session. Status colors are reserved for status only — never communicate
- * meaning with color alone.
+ * Token NAMES are locked per spec §12.3; VALUES were retuned in the Claude
+ * Design session (2026-05-31): accent moved indigo → sky/azure, and the token
+ * set was expanded to the full system the design prototypes depend on
+ * (finished --c-* colors, tinted status backgrounds, elevation, spacing, the
+ * modular type scale, radii, and motion). Status colors are reserved for
+ * status only — never communicate meaning with color alone.
+ *
+ * Color values are stored as raw HSL channels ("h s% l%") so Tailwind's
+ * `<alpha-value>` channel works AND you can compose alpha by hand with
+ * hsl(var(--token) / 0.5). The --c-* variables wrap them as finished hsl()
+ * colors for direct use in inline styles / non-Tailwind contexts.
+ *
+ * Two modes ship for every token: light (:root) and dark (.dark /
+ * [data-theme='dark']). next-themes toggles the `.dark` class.
  */
 
 :root {
-  /* Surfaces (page → cards → hover/pressed) */
+  /* ---- Raw channels (compose alpha: hsl(var(--surface-1) / .6)) ---------- */
   --surface-bg: 0 0% 100%;
   --surface-1: 240 6% 97%;
   --surface-2: 240 6% 95%;
   --surface-hover: 240 6% 93%;
   --surface-pressed: 240 6% 90%;
 
-  /* Content (text on surface) — percent in name reflects contrast tier */
   --content-strong: 240 10% 10%;
   --content-default: 240 6% 25%;
   --content-muted: 240 5% 45%;
   --content-disabled: 240 4% 65%;
 
-  /* Borders */
   --border-default: 240 6% 88%;
   --border-strong: 240 6% 75%;
   --border-divider: 240 6% 92%;
 
-  /* Accents */
-  --accent-primary: 243 75% 59%;
-  --accent-secondary: 262 83% 58%;
+  /* Accent — sky → azure (retuned 2026-05-31) */
+  --accent-primary: 200 98% 39%;
+  --accent-secondary: 199 89% 48%;
 
-  /* Status — semantic only */
   --status-success: 142 71% 40%;
   --status-warning: 38 92% 50%;
   --status-critical: 0 84% 55%;
@@ -48,53 +55,155 @@
   --chart-8: 0 0% 49%;
   --chart-9: 51 73% 51%;
   --chart-10: 184 56% 47%;
-  --chart-11: 243 75% 59%;
+  --chart-11: 200 98% 39%;
   --chart-12: 173 80% 36%;
 
-  /* Focus ring + radius */
-  --ring: 243 75% 59%;
-  --radius: 0.5rem;
+  --ring: 200 98% 39%;
+  --radius: 0.5rem; /* 8px */
 
-  /* Typography stacks */
-  --font-sans:
-    'Inter', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    Roboto, sans-serif;
-  --font-mono:
-    'JetBrains Mono', 'Geist Mono', 'SF Mono', Consolas, 'Liberation Mono',
-    monospace;
+  /* ---- Finished colors (use directly in inline styles) ------------------- */
+  --c-surface-bg: hsl(var(--surface-bg));
+  --c-surface-1: hsl(var(--surface-1));
+  --c-surface-2: hsl(var(--surface-2));
+  --c-surface-hover: hsl(var(--surface-hover));
+  --c-surface-pressed: hsl(var(--surface-pressed));
+
+  --c-strong: hsl(var(--content-strong));
+  --c-default: hsl(var(--content-default));
+  --c-muted: hsl(var(--content-muted));
+  --c-disabled: hsl(var(--content-disabled));
+
+  --c-border: hsl(var(--border-default));
+  --c-border-strong: hsl(var(--border-strong));
+  --c-divider: hsl(var(--border-divider));
+
+  --c-accent: hsl(var(--accent-primary));
+  --c-accent-2: hsl(var(--accent-secondary));
+  --c-on-accent: #ffffff;
+
+  --c-success: hsl(var(--status-success));
+  --c-warning: hsl(var(--status-warning));
+  --c-critical: hsl(var(--status-critical));
+  --c-info: hsl(var(--status-info));
+  --c-neutral: hsl(var(--status-neutral));
+
+  /* Tinted status backgrounds (for badges / banners) */
+  --c-success-bg: hsl(var(--status-success) / 0.12);
+  --c-warning-bg: hsl(var(--status-warning) / 0.14);
+  --c-critical-bg: hsl(var(--status-critical) / 0.12);
+  --c-info-bg: hsl(var(--status-info) / 0.12);
+  --c-accent-bg: hsl(var(--accent-primary) / 0.12);
+
+  /* Signature sky → azure brand gradient (use sparingly: logo + 1 CTA) */
+  --gradient-brand: linear-gradient(
+    135deg,
+    hsl(var(--accent-primary)) 0%,
+    hsl(var(--accent-secondary)) 100%
+  );
+  --gradient-brand-soft: linear-gradient(
+    135deg,
+    hsl(var(--accent-primary) / 0.14) 0%,
+    hsl(var(--accent-secondary) / 0.14) 100%
+  );
+
+  /* ---- Elevation / shadow system ---------------------------------------- */
+  /* Subtle border + light shadow — never both heavy (spec §12.5). */
+  --shadow-xs: 0 1px 2px hsl(240 10% 10% / 0.04);
+  --shadow-sm: 0 1px 2px hsl(240 10% 10% / 0.05), 0 1px 3px hsl(240 10% 10% / 0.06);
+  --shadow-md: 0 2px 4px hsl(240 10% 10% / 0.05), 0 4px 12px hsl(240 10% 10% / 0.08);
+  --shadow-lg: 0 8px 24px hsl(240 10% 10% / 0.10), 0 2px 6px hsl(240 10% 10% / 0.06);
+  --shadow-pop: 0 12px 40px hsl(240 10% 10% / 0.16);
+  /* Glass / frosted card on busy backgrounds */
+  --glass-bg: hsl(0 0% 100% / 0.7);
+  --glass-border: hsl(0 0% 100% / 0.6);
+  --glass-blur: blur(16px) saturate(140%);
+  /* Inset (neumorphic) — for pressed wells, sliders, segmented tracks */
+  --shadow-inset: inset 0 1px 2px hsl(240 10% 10% / 0.08);
+
+  /* ---- Radii ------------------------------------------------------------- */
+  --radius-sm: calc(var(--radius) - 4px); /* 4px */
+  --radius-md: calc(var(--radius) - 2px); /* 6px */
+  --radius-lg: var(--radius);             /* 8px */
+  --radius-xl: 0.75rem;                   /* 12px — cards */
+  --radius-2xl: 1rem;                     /* 16px — modals/feature cards */
+  --radius-full: 9999px;
+
+  /* ---- Spacing (8px base grid; 4px for tight inline) --------------------- */
+  --space-0_5: 0.125rem; /* 2 */
+  --space-1: 0.25rem;    /* 4 */
+  --space-2: 0.5rem;     /* 8 */
+  --space-3: 0.75rem;    /* 12 */
+  --space-4: 1rem;       /* 16 */
+  --space-5: 1.25rem;    /* 20 */
+  --space-6: 1.5rem;     /* 24 */
+  --space-8: 2rem;       /* 32 */
+  --space-10: 2.5rem;    /* 40 */
+  --space-12: 3rem;      /* 48 */
+  --space-16: 4rem;      /* 64 */
+
+  /* ---- Type stacks ------------------------------------------------------- */
+  /* next/font injects --font-inter / --font-jetbrains-mono on <html>. */
+  --font-sans: var(--font-inter), 'Inter', 'Geist', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', 'Geist Mono',
+    'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+  /* ---- Modular type scale (ratio 1.25, base 16) ------------------------- */
+  --text-xs: 0.75rem;    /* 12 */
+  --text-sm: 0.875rem;   /* 14 */
+  --text-base: 1rem;     /* 16 */
+  --text-lg: 1.125rem;   /* 18 */
+  --text-xl: 1.25rem;    /* 20 */
+  --text-2xl: 1.5rem;    /* 24 */
+  --text-3xl: 1.875rem;  /* 30 */
+  --text-4xl: 2.25rem;   /* 36 */
+  --text-5xl: 3rem;      /* 48 — marketing only */
+
+  --leading-tight: 1.2;  /* headings */
+  --leading-normal: 1.5; /* body */
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Motion — calm, fast (spec §12.1): ≤200ms ease-out ---------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
 }
 
-.dark {
-  /* Surfaces */
+/* ============================ DARK MODE ==================================== */
+.dark,
+[data-theme='dark'] {
   --surface-bg: 240 10% 4%;
   --surface-1: 240 6% 10%;
   --surface-2: 240 6% 14%;
   --surface-hover: 240 6% 18%;
   --surface-pressed: 240 6% 22%;
 
-  /* Content */
   --content-strong: 0 0% 98%;
   --content-default: 0 0% 85%;
   --content-muted: 0 0% 65%;
   --content-disabled: 0 0% 45%;
 
-  /* Borders */
   --border-default: 240 6% 22%;
   --border-strong: 240 6% 38%;
   --border-divider: 240 6% 16%;
 
-  /* Accents — lifted lightness for dark surfaces */
-  --accent-primary: 243 75% 70%;
-  --accent-secondary: 262 83% 70%;
+  --accent-primary: 200 90% 55%;
+  --accent-secondary: 199 89% 62%;
 
-  /* Status */
   --status-success: 142 71% 55%;
   --status-warning: 38 92% 60%;
   --status-critical: 0 84% 65%;
   --status-info: 217 91% 65%;
   --status-neutral: 240 5% 60%;
 
-  /* Chart palette (lightness lifted ~10% for legibility on dark) */
   --chart-1: 207 84% 60%;
   --chart-2: 32 91% 60%;
   --chart-3: 121 41% 55%;
@@ -105,8 +214,27 @@
   --chart-8: 0 0% 65%;
   --chart-9: 51 73% 62%;
   --chart-10: 184 56% 60%;
-  --chart-11: 243 75% 70%;
+  --chart-11: 200 90% 55%;
   --chart-12: 173 80% 50%;
 
-  --ring: 243 75% 70%;
+  --ring: 200 90% 55%;
+
+  /* Shadows go deeper in dark */
+  --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.3);
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4), 0 1px 3px hsl(0 0% 0% / 0.3);
+  --shadow-md: 0 2px 4px hsl(0 0% 0% / 0.4), 0 4px 12px hsl(0 0% 0% / 0.45);
+  --shadow-lg: 0 8px 24px hsl(0 0% 0% / 0.55), 0 2px 6px hsl(0 0% 0% / 0.4);
+  --shadow-pop: 0 12px 40px hsl(0 0% 0% / 0.7);
+  --shadow-inset: inset 0 1px 2px hsl(0 0% 0% / 0.5);
+
+  --glass-bg: hsl(240 6% 12% / 0.6);
+  --glass-border: hsl(0 0% 100% / 0.08);
+
+  --c-on-accent: hsl(240 10% 6%);
+
+  --c-success-bg: hsl(var(--status-success) / 0.16);
+  --c-warning-bg: hsl(var(--status-warning) / 0.16);
+  --c-critical-bg: hsl(var(--status-critical) / 0.16);
+  --c-info-bg: hsl(var(--status-info) / 0.16);
+  --c-accent-bg: hsl(var(--accent-primary) / 0.18);
 }

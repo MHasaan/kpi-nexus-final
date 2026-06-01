@@ -165,6 +165,8 @@ export interface ApprovalRequest {
   entityId: string;
   requesterUserId: string;
   proposedPayload: unknown;
+  /** Entity state BEFORE the proposed change (null for creates) — for before→after diffs. */
+  currentPayload?: unknown;
   status: ApprovalRequestStatus;
   decisions: Array<{ userId: string; decision: string; comment?: string; decidedAt: string }>;
   createdAt: string;

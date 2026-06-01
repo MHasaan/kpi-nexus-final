@@ -34,6 +34,14 @@ const orgSelect = {
   scorecardLabel: true,
   objectiveLabel: true,
   taskLabel: true,
+  roleLabelPlural: true,
+  groupLabelPlural: true,
+  memberLabelPlural: true,
+  kpiLabelPlural: true,
+  dashboardLabelPlural: true,
+  scorecardLabelPlural: true,
+  objectiveLabelPlural: true,
+  taskLabelPlural: true,
   dataResidency: true,
   complianceProfile: true,
   passwordPolicy: true,
@@ -74,6 +82,14 @@ export class OrganizationsService {
     scorecardLabel: string;
     objectiveLabel: string;
     taskLabel: string;
+    roleLabelPlural: string | null;
+    groupLabelPlural: string | null;
+    memberLabelPlural: string | null;
+    kpiLabelPlural: string | null;
+    dashboardLabelPlural: string | null;
+    scorecardLabelPlural: string | null;
+    objectiveLabelPlural: string | null;
+    taskLabelPlural: string | null;
   }> {
     const ctx = RequestContextStore.require();
     const org = await this.prisma.organization.findUnique({
@@ -87,6 +103,14 @@ export class OrganizationsService {
         scorecardLabel: true,
         objectiveLabel: true,
         taskLabel: true,
+        roleLabelPlural: true,
+        groupLabelPlural: true,
+        memberLabelPlural: true,
+        kpiLabelPlural: true,
+        dashboardLabelPlural: true,
+        scorecardLabelPlural: true,
+        objectiveLabelPlural: true,
+        taskLabelPlural: true,
       },
     });
     if (!org) {

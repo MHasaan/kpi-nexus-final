@@ -1,29 +1,62 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Activity, X } from 'lucide-react';
 
 import { ApiError, getAccessToken } from '../../lib/api-client';
-import { type Workflow, createWorkflow, deleteWorkflow, listWorkflows } from '../../lib/collab-client';
+import {
+  type Workflow,
+  createWorkflow,
+  deleteWorkflow,
+  listWorkflows,
+} from '../../lib/collab-client';
+import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Input,
+  Select,
+  Label,
+  Button,
+  EmptyState,
+  Skeleton,
+} from '../../components/ui';
+
+function summarizeRule(rule: unknown): string | null {
+  if (!rule || typeof rule !== 'object') return null;
+  const r = rule as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof r.kpiId === 'string' && r.kpiId) parts.push(`KPI ${r.kpiId}`);
+  if (typeof r.operator === 'string' && r.operator) parts.push(r.operator);
+  if (typeof r.threshold === 'number') parts.push(String(r.threshold));
+  return parts.length ? parts.join(' ') : null;
+}
 
 export default function WorkflowsPage() {
   const router = useRouter();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Create form
   const [name, setName] = useState('');
   const [kpiId, setKpiId] = useState('');
-  const [operator, setOperator] = useState('>');
+  const [op, setOp] = useState('GT');
   const [value, setValue] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       setWorkflows(await listWorkflows());
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load workflows');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -36,14 +69,13 @@ export default function WorkflowsPage() {
   }, [load, router]);
 
   const create = async () => {
-    if (!name.trim() || !taskTitle.trim()) return;
+    if (!name.trim() || !kpiId.trim()) return;
     try {
       await createWorkflow({
         name: name.trim(),
-        triggers: ['kpi_changed'],
-        rule: kpiId ? { kind: 'kpi_value', kpiId, operator, value: Number(value) || 0 } : null,
-        action: { kind: 'create_task', title: taskTitle.trim() },
-        isActive: true,
+        triggers: ['KPI_CHANGE'],
+        rule: { kpiId: kpiId.trim(), operator: op, threshold: Number(value) || 0 },
+        action: { type: 'CREATE_TASK', taskTitle: taskTitle.trim() || 'Follow up' },
       });
       setName('');
       setKpiId('');
@@ -55,9 +87,9 @@ export default function WorkflowsPage() {
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (wfId: string) => {
     try {
-      await deleteWorkflow(id);
+      await deleteWorkflow(wfId);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not delete workflow');
@@ -65,51 +97,107 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Automations</span>
-        </div>
-      </header>
+    <AppShell title="Automations" crumbs={[{ label: 'Automation' }, { label: 'Workflows' }]}>
+      <PageHeader
+        title="Automations"
+        subtitle="When a KPI changes and a rule matches, run an action"
+      />
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Workflow automations</h1>
-        <p className="mt-1 text-sm text-content-muted">If a KPI changes and the rule matches, run an action.</p>
-        {error && <p className="mt-2 text-sm text-status-critical" data-testid="workflows-error">{error}</p>}
+      {error && (
+        <p
+          className="mb-4 rounded-lg border border-status-critical-bg bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          role="alert"
+          data-testid="workflows-error"
+        >
+          {error}
+        </p>
+      )}
 
-        <div className="mt-5 rounded-lg border border-border bg-surface-1 p-5">
-          <h2 className="text-sm font-semibold text-content-strong">New automation</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <input data-testid="wf-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-            <input data-testid="wf-task-title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Task title to create" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-            <input data-testid="wf-kpi-id" value={kpiId} onChange={(e) => setKpiId(e.target.value)} placeholder="KPI id (rule)" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-            <div className="flex gap-2">
-              <select data-testid="wf-operator" value={operator} onChange={(e) => setOperator(e.target.value)} className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong">
-                {['>', '<', '>=', '<=', '==', '!='].map((op) => <option key={op} value={op}>{op}</option>)}
-              </select>
-              <input data-testid="wf-value" value={value} onChange={(e) => setValue(e.target.value)} placeholder="value" type="number" className="flex-1 rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-            </div>
-          </div>
-          <button type="button" data-testid="wf-create" onClick={create} className="mt-3 rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">Create automation</button>
-        </div>
-
-        <div className="mt-6 space-y-2" data-testid="workflow-list">
-          {workflows.map((w) => (
-            <div key={w.id} data-testid={`wf-${w.id}`} className="flex items-center justify-between rounded-lg border border-border bg-surface-1 p-4">
+      <div className="grid items-start gap-6 lg:grid-cols-[340px_1fr]">
+        <PermissionGuard permission="ORG_SETTINGS">
+          <Card>
+            <CardHeader>
+              <CardTitle>New automation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
               <div>
-                <p className="font-medium text-content-strong">{w.name}</p>
-                <p className="text-xs text-content-muted">
-                  {w.triggers.join(', ')} · {w.isActive ? 'active' : 'inactive'}
-                  {w.lastRunAt ? ` · last run ${new Date(w.lastRunAt).toLocaleString()}` : ''}
-                </p>
+                <Label htmlFor="wf-name-input">Name</Label>
+                <Input id="wf-name-input" data-testid="wf-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Workflow name" />
               </div>
-              <button type="button" aria-label="Delete" onClick={() => remove(w.id)} className="text-content-muted hover:text-status-critical">×</button>
-            </div>
-          ))}
-          {workflows.length === 0 && <p className="rounded-lg border border-border bg-surface-1 p-8 text-center text-content-muted" data-testid="workflows-empty">No automations yet.</p>}
+              <div className="kn-eyebrow pt-1">Trigger → condition → action</div>
+              <div className="flex gap-2">
+                <Input data-testid="wf-kpi-id" value={kpiId} onChange={(e) => setKpiId(e.target.value)} placeholder="KPI id" className="flex-1" />
+                <Select data-testid="wf-operator" value={op} onChange={(e) => setOp(e.target.value)} className="w-20">
+                  <option value="GT">&gt;</option>
+                  <option value="LT">&lt;</option>
+                  <option value="GTE">≥</option>
+                  <option value="LTE">≤</option>
+                  <option value="EQ">=</option>
+                </Select>
+                <Input data-testid="wf-value" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value" className="w-24" />
+              </div>
+              <div>
+                <Label htmlFor="wf-task-title-input">Then create task titled…</Label>
+                <Input id="wf-task-title-input" data-testid="wf-task-title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Follow up" />
+              </div>
+              <Button data-testid="wf-create" onClick={create} className="w-full">
+                Create automation
+              </Button>
+            </CardContent>
+          </Card>
+        </PermissionGuard>
+
+        <div>
+          <div className="kn-eyebrow mb-3">Active automations</div>
+          <div className="space-y-3" data-testid="workflow-list">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent>
+                    <Skeleton className="h-4 w-56" />
+                    <Skeleton className="mt-2 h-3 w-32" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : workflows.length === 0 ? (
+              <EmptyState
+                icon={Activity}
+                data-testid="workflows-empty"
+                title="No automations yet"
+                description="Create a rule like “When MRR > 100000, create task 'Celebrate'”."
+              />
+            ) : (
+              workflows.map((wf) => (
+                <Card key={wf.id} data-testid={`workflow-${wf.id}`}>
+                  <CardContent className="flex items-center gap-3">
+                    <Activity className="h-4 w-4 shrink-0 text-accent-primary" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-content-strong">{wf.name}</div>
+                      <p className="truncate text-xs text-content-muted">
+                        {[
+                          wf.triggers.length ? wf.triggers.join(', ') : null,
+                          summarizeRule(wf.rule),
+                          wf.lastRunAt ? `last run ${new Date(wf.lastRunAt).toLocaleDateString()}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || (wf.isActive ? 'Active' : 'Inactive')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => remove(wf.id)}
+                      className="shrink-0 rounded p-1 text-content-muted transition-colors hover:text-status-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Delete workflow"
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </button>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

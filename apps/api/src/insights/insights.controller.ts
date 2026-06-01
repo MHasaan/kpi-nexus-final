@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { KPIInsight } from '@kpi-nexus/db';
 import { z } from 'zod';
@@ -28,11 +28,13 @@ export class InsightsController {
     @Query('kpiId') kpiId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('includeDismissed') includeDismissed?: string,
   ): Promise<KPIInsight[]> {
     return this.insights.list({
       kpiId: kpiId || undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
+      includeDismissed: includeDismissed === 'true',
     });
   }
 
@@ -50,6 +52,12 @@ export class InsightsController {
     const parsed = BatchSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid batch request', details: parsed.error.flatten() });
     return { insights: await this.insights.generateBatch(parsed.data) };
+  }
+
+  @Post(':id/dismiss')
+  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  dismiss(@Param('id') id: string): Promise<KPIInsight> {
+    return this.insights.dismiss(id);
   }
 
   @Post('schedule-daily')

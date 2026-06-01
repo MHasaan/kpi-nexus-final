@@ -264,7 +264,10 @@ export class KpisService {
     // transition) is captured by an active KPI_DEFINITION workflow, this throws
     // 202 and records a pending request instead of mutating.
     if (this.approvalGate && !opts.bypassApproval && !isStatusOnlyKpiPatch(dto)) {
-      await this.approvalGate.requireApprovalIfActive('KPI_DEFINITION', id, dto, opts);
+      await this.approvalGate.requireApprovalIfActive('KPI_DEFINITION', id, dto, {
+        ...opts,
+        currentPayload: existing,
+      });
     }
 
     if (dto.scope && dto.scope !== existing.scope) {

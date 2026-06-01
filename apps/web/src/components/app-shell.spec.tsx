@@ -2,13 +2,21 @@
  * Unit tests for the AppShell nav-filtering logic.
  *
  * The web vitest config runs in environment: 'node' (no jsdom), so we test the
- * pure `visibleNavItems` / `filterNav` functions directly rather than rendering
- * the component. That keeps the filtering logic — the security-relevant part —
- * deterministically covered.
+ * pure `visibleNavItems` / `filterNav` / `filterNavGroups` functions directly
+ * rather than rendering the component. That keeps the filtering logic — the
+ * security-relevant part — deterministically covered after the sidebar
+ * redesign (flat top-header → grouped sidebar).
  */
 import { describe, expect, test } from 'vitest';
 
-import { NAV_ITEMS, filterNav, visibleNavItems } from './app-shell';
+import {
+  NAV_GROUPS,
+  NAV_ITEMS,
+  filterNav,
+  filterNavGroups,
+  navTestId,
+  visibleNavItems,
+} from './app-shell';
 
 // The 18 canonical permission keys an admin holds.
 const ADMIN_PERMISSIONS = [
@@ -36,26 +44,43 @@ function hrefs(items: { href: string }[]): string[] {
   return items.map((i) => i.href);
 }
 
-describe('NAV_ITEMS config', () => {
-  test('includes the nine primary nav targets in order', () => {
-    expect(hrefs(NAV_ITEMS)).toEqual([
-      '/dashboard',
-      '/dashboards',
-      '/kpis',
-      '/users',
-      '/org-units',
-      '/roles',
-      '/alerts',
-      '/profile',
-      '/settings',
+// Items that have no required permission and are therefore always visible.
+const PUBLIC_HREFS = ['/dashboard', '/okrs', '/tasks', '/approvals', '/activity'];
+
+describe('NAV config', () => {
+  test('groups are the four design sections plus the top Workspace entry', () => {
+    expect(NAV_GROUPS.map((g) => g.group)).toEqual([
+      'Workspace',
+      'Measure',
+      'Intelligence',
+      'Execute',
+      'Organize',
     ]);
   });
 
-  test('Dashboard and Profile have no required permission', () => {
+  test('NAV_ITEMS is the flattened set of every group item', () => {
+    expect(NAV_ITEMS).toEqual(NAV_GROUPS.flatMap((g) => g.items));
+  });
+
+  test('every MUST-KEEP testid resolves to a leaf with the right route', () => {
+    const byTestId = new Map(NAV_ITEMS.map((i) => [navTestId(i.href), i.href]));
+    expect(byTestId.get('nav-dashboard')).toBe('/dashboard');
+    expect(byTestId.get('nav-kpis')).toBe('/kpis');
+    expect(byTestId.get('nav-reports')).toBe('/reports');
+    expect(byTestId.get('nav-roles')).toBe('/roles');
+    expect(byTestId.get('nav-positions')).toBe('/positions');
+    expect(byTestId.get('nav-audit')).toBe('/audit');
+    expect(byTestId.get('nav-settings')).toBe('/settings');
+  });
+
+  test('navTestId derives the slug from the href', () => {
+    expect(navTestId('/org-units')).toBe('nav-org-units');
+    expect(navTestId('/dashboard')).toBe('nav-dashboard');
+  });
+
+  test('Dashboard has no required permission', () => {
     const dashboard = NAV_ITEMS.find((i) => i.href === '/dashboard');
-    const profile = NAV_ITEMS.find((i) => i.href === '/profile');
     expect(dashboard?.permission).toBeUndefined();
-    expect(profile?.permission).toBeUndefined();
   });
 });
 
@@ -64,42 +89,40 @@ describe('visibleNavItems', () => {
     expect(hrefs(visibleNavItems(ADMIN_PERMISSIONS))).toEqual(hrefs(NAV_ITEMS));
   });
 
-  test('a viewer lacking ROLES_MANAGE/ORG_SETTINGS/USERS_VIEW/GROUPS_VIEW hides those gated entries', () => {
-    // Typical low-privilege "Employee/Viewer": can see KPIs, dashboards, alerts.
+  test('a low-privilege viewer hides gated admin entries but keeps allowed ones', () => {
     const viewer = ['KPI_VIEW', 'DASHBOARD_VIEW', 'ALERTS_VIEW'];
     const visible = hrefs(visibleNavItems(viewer));
 
     // Always-visible (no permission) entries present.
     expect(visible).toContain('/dashboard');
-    expect(visible).toContain('/profile');
     // Broadly-viewable gated entries the viewer DOES hold.
-    expect(visible).toContain('/dashboards');
     expect(visible).toContain('/kpis');
+    expect(visible).toContain('/dashboards');
     expect(visible).toContain('/alerts');
     // Admin-only entries are excluded.
     expect(visible).not.toContain('/roles');
     expect(visible).not.toContain('/settings');
     expect(visible).not.toContain('/users');
     expect(visible).not.toContain('/org-units');
+    expect(visible).not.toContain('/positions');
+    expect(visible).not.toContain('/audit');
   });
 
   test('empty permission set still shows the no-permission items', () => {
-    const visible = hrefs(visibleNavItems([]));
-    expect(visible).toEqual(['/dashboard', '/profile']);
+    expect(hrefs(visibleNavItems([]))).toEqual(PUBLIC_HREFS);
   });
 });
 
 describe('filterNav (ready gating)', () => {
   test('while not ready, shows only the no-permission items (avoids empty-nav flash)', () => {
-    const visible = hrefs(filterNav(NAV_ITEMS, [], false));
-    expect(visible).toEqual(['/dashboard', '/profile']);
+    expect(hrefs(filterNav(NAV_ITEMS, [], false))).toEqual(PUBLIC_HREFS);
   });
 
   test('while not ready, gated items stay hidden even if cache happens to have them', () => {
     // Defensive: until ready, we do not reveal gated items based on a partial cache.
     const visible = hrefs(filterNav(NAV_ITEMS, ['ROLES_MANAGE'], false));
     expect(visible).not.toContain('/roles');
-    expect(visible).toEqual(['/dashboard', '/profile']);
+    expect(visible).toEqual(PUBLIC_HREFS);
   });
 
   test('once ready, gated items appear for held permissions', () => {
@@ -111,5 +134,38 @@ describe('filterNav (ready gating)', () => {
     expect(hrefs(filterNav(NAV_ITEMS, ADMIN_PERMISSIONS, true))).toEqual(
       hrefs(NAV_ITEMS),
     );
+  });
+});
+
+describe('filterNavGroups', () => {
+  test('admin sees all five groups intact', () => {
+    const groups = filterNavGroups(NAV_GROUPS, ADMIN_PERMISSIONS, true);
+    expect(groups.map((g) => g.group)).toEqual([
+      'Workspace',
+      'Measure',
+      'Intelligence',
+      'Execute',
+      'Organize',
+    ]);
+  });
+
+  test('drops groups whose items are all gated away', () => {
+    // Only KPI_VIEW → Measure keeps KPIs; Intelligence is fully gated and dropped.
+    const groups = filterNavGroups(NAV_GROUPS, ['KPI_VIEW'], true);
+    const names = groups.map((g) => g.group);
+    expect(names).toContain('Workspace');
+    expect(names).toContain('Measure');
+    expect(names).toContain('Execute'); // OKRs/Tasks/Approvals are public
+    expect(names).not.toContain('Intelligence'); // all items need INSIGHTS_VIEW/ANALYTICS_VIEW
+  });
+
+  test('while not ready, only groups with at least one public item survive', () => {
+    const groups = filterNavGroups(NAV_GROUPS, ADMIN_PERMISSIONS, false);
+    // Pre-ready, only no-permission items show. Workspace (Dashboard), Execute
+    // (OKRs/Tasks/Approvals) and Organize (Activity) each keep a public item;
+    // Measure and Intelligence are fully gated → dropped.
+    expect(groups.map((g) => g.group)).toEqual(['Workspace', 'Execute', 'Organize']);
+    const organize = groups.find((g) => g.group === 'Organize');
+    expect(organize?.items.map((i) => i.href)).toEqual(['/activity']);
   });
 });

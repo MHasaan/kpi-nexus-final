@@ -37,6 +37,7 @@ const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
  * POST /reports/generate         — on-demand report (CSV/Excel/PDF), streams binary.
  * GET  /reports/board-pack       — JSON board-pack summary.
  * POST /reports/kpis/:id/embed-token — mint a public embed token for a KPI.
+ * POST /reports/kpis/:id/embed-token/revoke — revoke all embed tokens for a KPI.
  */
 @Controller('reports')
 export class ReportsController {
@@ -91,7 +92,22 @@ export class ReportsController {
   @Post('kpis/:id/embed-token')
   @RequirePermissions(PermissionKey.KPI_VIEW)
   @HttpCode(HttpStatus.CREATED)
-  mintEmbedToken(@Param('id') id: string): { token: string } {
-    return { token: this.embedTokens.mint(id) };
+  async mintEmbedToken(@Param('id') id: string): Promise<{ token: string }> {
+    return { token: await this.embedTokens.mint(id) };
+  }
+
+  /**
+   * POST /reports/kpis/:id/embed-token/revoke
+   *
+   * Revoke all previously-minted embed tokens for a KPI by bumping its
+   * embedTokenVersion. Existing public embed URLs stop resolving immediately.
+   * Requires KPI_VIEW — same gate as minting.
+   * Returns { embedTokenVersion } (the new version).
+   */
+  @Post('kpis/:id/embed-token/revoke')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  @HttpCode(HttpStatus.OK)
+  async revokeEmbedToken(@Param('id') id: string): Promise<{ embedTokenVersion: number }> {
+    return this.embedTokens.revoke(id);
   }
 }

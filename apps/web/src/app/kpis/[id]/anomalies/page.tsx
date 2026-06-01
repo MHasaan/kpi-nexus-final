@@ -2,9 +2,32 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 
-import { SeriesChart } from '../../../../components/series-chart';
+import { AppShell } from '../../../../components/app-shell';
+import { RequirePermission } from '../../../../components/auth/require-permission';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  Badge,
+  Label,
+  Select,
+  Input,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Skeleton,
+  EmptyState,
+} from '../../../../components/ui';
+import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 
 interface DataPoint {
@@ -25,6 +48,43 @@ interface Anomaly {
   detectedAt: string;
 }
 
+// Shared analytics navigation strip — lets users move between the KPI's
+// analytics surfaces and back to the detail page.
+function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
+  const links: Array<{ key: string; label: string; href: string }> = [
+    { key: 'detail', label: 'Overview', href: `/kpis/${kpiId}` },
+    { key: 'forecast', label: 'Forecast', href: `/kpis/${kpiId}/forecast` },
+    { key: 'anomalies', label: 'Anomalies', href: `/kpis/${kpiId}/anomalies` },
+    { key: 'whatif', label: 'What-if', href: `/kpis/${kpiId}/whatif` },
+    { key: 'embed', label: 'Embed', href: `/kpis/${kpiId}/embed` },
+  ];
+  return (
+    <nav
+      aria-label="KPI analytics"
+      data-testid="analytics-nav"
+      className="mt-4 flex flex-wrap gap-1 rounded-lg border border-border bg-surface-1 p-1"
+    >
+      {links.map((l) => {
+        const isActive = l.key === active;
+        return (
+          <Link
+            key={l.key}
+            href={l.href}
+            aria-current={isActive ? 'page' : undefined}
+            className={
+              isActive
+                ? 'rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white'
+                : 'rounded-md px-3 py-1.5 text-sm font-medium text-content-muted hover:bg-surface-2 hover:text-content-strong'
+            }
+          >
+            {l.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function AnomaliesPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -35,12 +95,25 @@ export default function AnomaliesPage() {
   const [threshold, setThreshold] = useState('3');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<DataPoint[]>(`/kpis/${id}/data?limit=365`)
-      .then((rows) => setSeries([...rows].reverse().map((r) => r.value)))
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load series'));
-    api<Anomaly[]>(`/kpis/${id}/anomalies`).then(setSaved).catch(() => undefined);
+    setLoading(true);
+    Promise.allSettled([
+      api<DataPoint[]>(`/kpis/${id}/data?limit=365`),
+      api<Anomaly[]>(`/kpis/${id}/anomalies`),
+    ])
+      .then(([dataRes, savedRes]) => {
+        if (dataRes.status === 'fulfilled') {
+          setSeries([...dataRes.value].reverse().map((r) => r.value));
+        } else {
+          setError(
+            dataRes.reason instanceof ApiError ? dataRes.reason.message : 'Failed to load series',
+          );
+        }
+        if (savedRes.status === 'fulfilled') setSaved(savedRes.value);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -70,88 +143,218 @@ export default function AnomaliesPage() {
 
   const confirm = async (anomalyId: string) => {
     try {
-      await api(`/kpis/${id}/anomalies/${anomalyId}/confirm`, { method: 'PATCH', body: JSON.stringify({}) });
+      await api(`/kpis/${id}/anomalies/${anomalyId}/confirm`, {
+        method: 'PATCH',
+        body: JSON.stringify({}),
+      });
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Confirm failed');
     }
   };
 
-  const markers = (detected ?? []).map((a) => a.index);
+  const anomalyMarkers = useMemo(
+    () =>
+      (detected ?? []).map((a) => ({
+        index: a.index,
+        value: series[a.index] ?? 0,
+        label: `Score ${a.score.toFixed(2)}`,
+      })),
+    [detected, series],
+  );
+
+  const crumbs = useMemo(() => ['KPIs', 'Anomalies'], []);
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
-          <Link href={`/kpis/${id}`} className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">Anomalies</span>
-        </div>
-      </header>
+    <AppShell title="Anomalies" crumbs={crumbs}>
+     <RequirePermission permission="ANALYTICS_VIEW">
+      <PageHeader
+        title="Anomaly detection"
+        subtitle="Surface anomalous data points with shape + colour markers and persist confirmed anomalies."
+      />
 
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Anomaly detection</h1>
-        {error && <p className="text-sm text-status-critical" data-testid="anom-error">{error}</p>}
+      <AnalyticsNav kpiId={id} active="anomalies" />
 
-        <SeriesChart values={series} markers={markers} testId="anom-chart" />
+      {error && (
+        <p role="alert" data-testid="anom-error" className="mt-4 rounded-md border border-status-critical-bg bg-status-critical-bg px-3 py-2 text-sm text-status-critical">
+          {error}
+        </p>
+      )}
 
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface-1 p-4">
-          <label className="text-xs text-content-muted">
-            Method
-            <select
-              data-testid="anom-method"
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-              className="mt-1 block rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong"
-            >
-              {['ensemble', 'zscore', 'ewma', 'isolation_forest'].map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs text-content-muted">
-            Threshold
-            <input
-              data-testid="anom-threshold"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              className="mt-1 block w-20 rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong"
-            />
-          </label>
-          <button type="button" data-testid="anom-detect" onClick={() => detect(false)} disabled={busy} className="rounded bg-surface-2 px-3 py-1.5 text-sm text-content-strong hover:bg-surface-2/80 disabled:opacity-50">
-            {busy ? '…' : 'Detect'}
-          </button>
-          <button type="button" data-testid="anom-detect-persist" onClick={() => detect(true)} disabled={busy} className="rounded bg-accent-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-            Detect & save
-          </button>
-        </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Detection controls</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="anom-method">Method</Label>
+              <Select
+                id="anom-method"
+                data-testid="anom-method"
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+              >
+                {['ensemble', 'zscore', 'ewma', 'isolation_forest'].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="anom-threshold">Threshold</Label>
+              <Input
+                id="anom-threshold"
+                data-testid="anom-threshold"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                data-testid="anom-detect"
+                onClick={() => detect(false)}
+                isLoading={busy}
+              >
+                Detect
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                data-testid="anom-detect-persist"
+                onClick={() => detect(true)}
+                isLoading={busy}
+              >
+                Detect &amp; save
+              </Button>
+            </div>
+            <p className="text-xs text-content-muted">
+              Markers are shape + colour (never colour-only). Tooltip shows the anomaly score.
+            </p>
+          </CardContent>
+        </Card>
 
-        {detected && (
-          <div data-testid="anom-detected" className="rounded-lg border border-border bg-surface-1 p-4 text-sm text-content-strong">
-            Detected <strong>{detected.length}</strong> anomal{detected.length === 1 ? 'y' : 'ies'} (live).
-          </div>
-        )}
+        {/* Results */}
+        <div className="space-y-6" data-testid="anom-detected">
+          <Card>
+            <CardHeader>
+              <CardTitle>KPI trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-[220px] w-full" data-testid="anom-chart" />
+              ) : series.length === 0 ? (
+                <div data-testid="anom-chart">
+                  <EmptyState
+                    title="No data to analyse"
+                    description="Record KPI values before running anomaly detection."
+                  />
+                </div>
+              ) : (
+                <div data-testid="anom-chart">
+                  <LineChart
+                    series={[{ data: series }]}
+                    anomalies={anomalyMarkers}
+                    height={220}
+                    aria-label="KPI trend with anomaly markers"
+                    className="text-chart-1"
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        <section>
-          <h2 className="text-sm font-semibold text-content-strong">Saved anomalies</h2>
-          <div className="mt-2 space-y-2" data-testid="anom-saved">
-            {saved.map((a) => (
-              <div key={a.id} data-testid={`anom-row-${a.id}`} className="flex items-center justify-between rounded border border-border bg-surface-1 p-3 text-sm">
-                <span className="text-content-strong">score {a.score.toFixed(2)} · {a.method}</span>
-                {a.isConfirmed ? (
-                  <span className="text-xs text-status-positive" data-testid={`anom-confirmed-${a.id}`}>Confirmed</span>
+          {detected && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Live detection</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {detected.length === 0 ? (
+                  <p className="flex items-center gap-2 text-sm text-status-success">
+                    <ShieldCheck aria-hidden className="h-4 w-4" />
+                    No anomalies detected — the series looks healthy.
+                  </p>
                 ) : (
-                  <button type="button" data-testid={`anom-confirm-${a.id}`} onClick={() => confirm(a.id)} className="rounded bg-status-warning px-3 py-1 text-xs font-medium text-white hover:opacity-90">
-                    Confirm
-                  </button>
+                  <p className="text-sm text-content">
+                    Detected{' '}
+                    <span className="font-semibold tabular-nums text-content-strong">
+                      {detected.length}
+                    </span>{' '}
+                    anomal{detected.length === 1 ? 'y' : 'ies'} in the current series.
+                  </p>
                 )}
-              </div>
-            ))}
-            {saved.length === 0 && <p className="text-sm text-content-muted">None saved yet.</p>}
-          </div>
-        </section>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Saved anomalies</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="space-y-2 p-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : saved.length === 0 ? (
+                <div data-testid="anom-saved">
+                  <EmptyState
+                    icon={ShieldCheck}
+                    title="No anomalies detected"
+                    description="Saved detections will appear here once you persist a run."
+                  />
+                </div>
+              ) : (
+                <Table data-testid="anom-saved">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead className="text-right">State</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {saved.map((a) => (
+                      <TableRow key={a.id} data-testid={`anom-row-${a.id}`}>
+                        <TableCell className="tabular-nums text-content-strong">
+                          {a.score.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-content-muted">
+                          {a.method}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {a.isConfirmed ? (
+                            <Badge tone="success" data-testid={`anom-confirmed-${a.id}`}>
+                              Confirmed
+                            </Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              data-testid={`anom-confirm-${a.id}`}
+                              onClick={() => confirm(a.id)}
+                            >
+                              Confirm
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </main>
+     </RequirePermission>
+    </AppShell>
   );
 }

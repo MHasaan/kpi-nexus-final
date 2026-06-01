@@ -11,10 +11,20 @@ import {
   getAccessToken,
 } from '../../../lib/api-client';
 import {
-  pluralize,
   TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import {
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  PageHeader,
+  Textarea,
+} from '../../../components/ui';
 
 export default function NewDashboardPage() {
   return (
@@ -57,127 +67,118 @@ function NewDashboardInner() {
         return;
       }
       setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Failed to create dashboard',
+        err instanceof ApiError ? err.message : 'Failed to create dashboard',
       );
       setSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-          >
-            KPI Nexus
-          </Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/dashboards" className="text-content-muted hover:text-content-strong">
-              {pluralize(terminology.dashboardLabel)}
-            </Link>
-          </nav>
-        </div>
-      </header>
+    <RequirePermission permission="DASHBOARD_MANAGE">
+    <AppShell>
+      <PageHeader
+        title={
+          <span data-testid="dashboards-new-heading">
+            New {terminology.dashboardLabel.toLowerCase()}
+          </span>
+        }
+        subtitle="A dashboard is your container for widgets. You can add widgets after creating it."
+      />
 
-      <div className="mx-auto max-w-2xl px-6 py-10">
-        <h1
-          className="text-2xl font-semibold text-content-strong"
-          data-testid="dashboards-new-heading"
-        >
-          New {terminology.dashboardLabel.toLowerCase()}
-        </h1>
-        <p className="mt-1 text-sm text-content-muted">
-          A dashboard is your container for widgets. You can add widgets after
-          creating it.
-        </p>
-
-        <form
-          onSubmit={handleSubmit}
-          data-testid="dashboards-new-form"
-          className="mt-8 space-y-5 rounded-lg border border-border bg-surface-1 p-6"
-        >
-          <label className="block">
-            <span className="text-sm font-medium text-content-default">Name</span>
-            <input
-              required
-              minLength={2}
-              maxLength={120}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={submitting}
-              data-testid="dashboards-new-name"
-              className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-              placeholder="Executive overview"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-content-default">
-              Description <span className="text-content-muted">(optional)</span>
-            </span>
-            <textarea
-              maxLength={2000}
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={submitting}
-              data-testid="dashboards-new-description"
-              className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-              placeholder="What this dashboard is for"
-            />
-          </label>
-
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              checked={isShared}
-              onChange={(e) => setIsShared(e.target.checked)}
-              disabled={submitting}
-              data-testid="dashboards-new-shared"
-              className="mt-1"
-            />
-            <span className="text-sm text-content-default">
-              <span className="font-medium">Share with the organization</span>
-              <br />
-              <span className="text-content-muted">
-                When enabled, all org members can view this dashboard. You can
-                still change this later.
-              </span>
-            </span>
-          </label>
-
-          {error && (
-            <p
-              role="alert"
-              data-testid="dashboards-new-error"
-              className="text-sm text-status-critical"
+      <div className="mt-6 max-w-2xl">
+        <Card>
+          <CardContent>
+            <form
+              onSubmit={handleSubmit}
+              data-testid="dashboards-new-form"
+              className="space-y-5"
             >
-              {error}
-            </p>
-          )}
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-name" required>
+                  Name
+                </Label>
+                <Input
+                  id="dashboard-name"
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={submitting}
+                  data-testid="dashboards-new-name"
+                  placeholder="Executive overview"
+                />
+              </div>
 
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={submitting || name.trim().length < 2}
-              data-testid="dashboards-new-submit"
-              className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? 'Creating…' : 'Create dashboard'}
-            </button>
-            <Link
-              href="/dashboards"
-              className="h-10 inline-flex items-center rounded-md border border-border px-4 text-sm text-content-default hover:bg-surface-2"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-description">
+                  Description{' '}
+                  <span className="font-normal text-content-muted">(optional)</span>
+                </Label>
+                <Textarea
+                  id="dashboard-description"
+                  maxLength={2000}
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={submitting}
+                  data-testid="dashboards-new-description"
+                  placeholder="What this dashboard is for"
+                />
+              </div>
+
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={isShared}
+                  onChange={(e) => setIsShared(e.target.checked)}
+                  disabled={submitting}
+                  data-testid="dashboards-new-shared"
+                  className="mt-1 h-4 w-4 rounded border-border text-accent-primary focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <span className="text-sm text-content">
+                  <span className="font-medium text-content-strong">
+                    Share with the organization
+                  </span>
+                  <br />
+                  <span className="text-content-muted">
+                    When enabled, all org members can view this dashboard. You can
+                    still change this later.
+                  </span>
+                </span>
+              </label>
+
+              {error && (
+                <p
+                  role="alert"
+                  data-testid="dashboards-new-error"
+                  className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+                >
+                  {error}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={submitting || name.trim().length < 2}
+                  isLoading={submitting}
+                  data-testid="dashboards-new-submit"
+                >
+                  {submitting ? 'Creating…' : 'Create dashboard'}
+                </Button>
+                <Link href="/dashboards">
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                </Link>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
-    </main>
+    </AppShell>
+    </RequirePermission>
   );
 }

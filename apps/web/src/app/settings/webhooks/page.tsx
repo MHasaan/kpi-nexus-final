@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
@@ -10,19 +9,32 @@ import {
   createWebhook,
   deleteWebhook,
   getAccessToken,
+  listWebhookEvents,
   listWebhooks,
   rotateWebhookSecret,
   setWebhookActive,
   testWebhook,
   type WebhookSubscription,
 } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 
-const EVENT_CHOICES = ['alert_triggered', 'alert_escalated', 'data_point_added'] as const;
+// Fallback catalog used only if the live /webhooks/events fetch fails.
+const FALLBACK_EVENT_CHOICES = [
+  'data_point_added',
+  'alert_triggered',
+  'alert_escalated',
+  'task_created',
+  'approval_request_decided',
+  'connector_run_completed',
+];
 
 export default function WebhooksPage() {
   const router = useRouter();
   const [hooks, setHooks] = useState<WebhookSubscription[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [eventChoices, setEventChoices] = useState<string[]>(FALLBACK_EVENT_CHOICES);
 
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -53,6 +65,13 @@ export default function WebhooksPage() {
       return;
     }
     void refresh();
+    void listWebhookEvents()
+      .then((res) => {
+        if (res.events.length > 0) setEventChoices(res.events);
+      })
+      .catch(() => {
+        // Keep the fallback catalog if the events endpoint is unavailable.
+      });
   }, [router, refresh]);
 
   function toggleEvent(e: string) {
@@ -93,17 +112,8 @@ export default function WebhooksPage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/settings/api-keys" className="text-content-muted hover:text-content-strong">API keys</Link>
-            <Link href="/settings/webhooks" className="font-medium text-content-strong">Webhooks</Link>
-          </nav>
-        </div>
-      </header>
-
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
       <div className="mx-auto max-w-5xl px-6 py-8">
         <h1 className="mb-6 text-2xl font-semibold text-content-strong" data-testid="webhooks-heading">Webhooks</h1>
 
@@ -118,6 +128,7 @@ export default function WebhooksPage() {
           </div>
         )}
 
+        <PermissionGuard permission="ORG_SETTINGS">
         <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
           <h2 className="text-lg font-semibold text-content-strong">Add webhook</h2>
           <form onSubmit={handleCreate} className="mt-4 grid gap-4" data-testid="webhook-create-form">
@@ -134,7 +145,7 @@ export default function WebhooksPage() {
             <div>
               <span className="text-sm font-medium text-content-default">Events</span>
               <div className="mt-1 flex flex-wrap gap-3">
-                {EVENT_CHOICES.map((e) => (
+                {eventChoices.map((e) => (
                   <label key={e} className="flex items-center gap-1 text-xs">
                     <input type="checkbox" checked={events.includes(e)} onChange={() => toggleEvent(e)} data-testid={`webhook-event-${e}`} />
                     {e}
@@ -150,6 +161,7 @@ export default function WebhooksPage() {
             </div>
           </form>
         </section>
+        </PermissionGuard>
 
         {statusMsg && <div role="status" data-testid="webhook-status-msg" className="mb-4 rounded-md border border-status-success/40 bg-status-success/10 px-4 py-2 text-sm text-status-success">{statusMsg}</div>}
         {loadError && <div role="alert" data-testid="webhooks-error" className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical">{loadError}</div>}
@@ -170,9 +182,9 @@ export default function WebhooksPage() {
                     <td className="px-4 py-3 text-content-muted">{h.lastStatus ?? '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <button type="button" onClick={() => void withBusy(h.id, async () => { await testWebhook(h.id); setStatusMsg('Test delivery queued.'); })} disabled={busyId === h.id} data-testid={`webhook-test-${h.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Test</button>
-                      <button type="button" onClick={() => void withBusy(h.id, async () => { const r = await rotateWebhookSecret(h.id); setSecret(r.secret); })} disabled={busyId === h.id} data-testid={`webhook-rotate-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Rotate</button>
-                      <button type="button" onClick={() => void withBusy(h.id, async () => { await setWebhookActive(h.id, !h.isActive); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-toggle-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">{h.isActive ? 'Disable' : 'Enable'}</button>
-                      <button type="button" onClick={() => void withBusy(h.id, async () => { await deleteWebhook(h.id); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-delete-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button>
+                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { const r = await rotateWebhookSecret(h.id); setSecret(r.secret); })} disabled={busyId === h.id} data-testid={`webhook-rotate-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Rotate</button></PermissionGuard>
+                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { await setWebhookActive(h.id, !h.isActive); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-toggle-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">{h.isActive ? 'Disable' : 'Enable'}</button></PermissionGuard>
+                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { await deleteWebhook(h.id); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-delete-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button></PermissionGuard>
                     </td>
                   </tr>
                 ))}
@@ -181,6 +193,7 @@ export default function WebhooksPage() {
           </div>
         )}
       </div>
-    </main>
+      </RequirePermission>
+    </AppShell>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,15 +60,35 @@ export default function LoginPage() {
           onChange={(v) => setEmail(v)}
           disabled={submitting}
         />
-        <Field
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(v) => setPassword(v)}
-          disabled={submitting}
-        />
+        <label className="block">
+          <span className="text-sm font-medium text-content-default">Password</span>
+          <div className="relative mt-1">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={submitting}
+              className="w-full rounded-md border border-border bg-surface-bg px-3 py-2 pr-10 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              disabled={submitting}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+              data-testid="login-password-toggle"
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-content-muted transition hover:text-content-strong focus:outline-none focus-visible:text-accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </label>
         {mfaRequired && (
           <Field
             label="Authenticator code"

@@ -11,12 +11,270 @@
   }
 
   body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+  }
+
+  ::selection {
+    background: hsl(var(--accent-primary) / 0.22);
+  }
+
+  /* Custom scrollbars — quiet, rounded */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong) / 0.7);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--c-muted);
   }
 }
 
+/* ============================================================================
+   SEMANTIC TYPE ROLES — apply directly as classes (mirror tokens scale)
+   ============================================================================ */
+@layer components {
+  .kn-display {
+    font-family: var(--font-sans);
+    font-size: var(--text-5xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    font-weight: var(--weight-bold);
+    color: var(--c-strong);
+  }
+  .kn-h1 {
+    font-family: var(--font-sans);
+    font-size: var(--text-4xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    font-weight: var(--weight-bold);
+    color: var(--c-strong);
+  }
+  .kn-h2 {
+    font-family: var(--font-sans);
+    font-size: var(--text-2xl);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-snug);
+    font-weight: var(--weight-semibold);
+    color: var(--c-strong);
+  }
+  .kn-h3 {
+    font-family: var(--font-sans);
+    font-size: var(--text-lg);
+    line-height: 1.3;
+    letter-spacing: var(--tracking-snug);
+    font-weight: var(--weight-semibold);
+    color: var(--c-strong);
+  }
+  .kn-body {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    font-weight: var(--weight-normal);
+    color: var(--c-default);
+  }
+  .kn-body-lg {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--c-default);
+  }
+  .kn-muted {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--c-muted);
+  }
+  /* Eyebrow / section label — uppercase, tracked, muted */
+  .kn-eyebrow {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-muted);
+  }
+  /* Metric — big number; ALWAYS tabular */
+  .kn-metric {
+    font-family: var(--font-sans);
+    font-size: var(--text-4xl);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    font-weight: var(--weight-semibold);
+    color: var(--c-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .kn-code,
+  .kn-mono {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--c-default);
+  }
+  /* Any element showing numbers should opt into tabular figures */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ============================================================================
+   MOTION + INTERACTION — calm entrances, hover affordances, accent aura
+   ============================================================================ */
+@keyframes knFadeUp {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes knFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes knPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes knPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes knBreathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.08);
+  }
+}
+
+.kn-view {
+  animation: knFadeUp var(--dur-slow) var(--ease-out) both;
+}
+.kn-stagger > * {
+  animation: knFadeUp var(--dur-slow) var(--ease-out) both;
+}
+.kn-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.kn-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.kn-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.kn-stagger > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.kn-stagger > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.kn-stagger > *:nth-child(6) {
+  animation-delay: 200ms;
+}
+.kn-pop {
+  animation: knPop var(--dur-base) var(--ease-out) forwards;
+}
+.kn-pulse {
+  animation: knPulse 1.8s ease-in-out infinite;
+}
+
+/* Card with hover lift — accent border glow on hover */
+.kn-card-hover {
+  transition:
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+.kn-card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: hsl(var(--accent-primary) / 0.35);
+}
+
+/* Quiet icon button + nav item hover */
+.kn-iconbtn:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-strong);
+}
+.kn-navitem:hover {
+  background: var(--c-surface-hover);
+}
+
+/* Soft accent aura behind focal elements (brand mark, AI avatar, primary CTA) */
+.kn-aura {
+  position: relative;
+  isolation: isolate;
+}
+.kn-aura::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    closest-side,
+    hsl(var(--accent-primary) / 0.45),
+    transparent 70%
+  );
+  filter: blur(14px);
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+.kn-aura-on::before {
+  opacity: 1;
+}
+.kn-aura-soft::before {
+  opacity: 0.55;
+}
+.kn-aura-breathe::before {
+  opacity: 0.5;
+  animation: knBreathe 3.2s var(--ease-in-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================================
+   PRINT — hide chrome, stretch content (reports / board packs)
+   ============================================================================ */
 @media print {
-  /* Hide non-content elements */
   .no-print,
   header,
   nav,
@@ -25,7 +283,6 @@
     display: none !important;
   }
 
-  /* Stretch main content to full width */
   main {
     width: 100% !important;
     max-width: 100% !important;
@@ -38,15 +295,15 @@
     color: black !important;
   }
 
-  /* Ensure colors print accurately */
   * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
 
-  /* Remove shadows and borders that don't print well */
   .shadow-sm,
-  .shadow {
+  .shadow,
+  .shadow-md,
+  .shadow-lg {
     box-shadow: none !important;
   }
 }

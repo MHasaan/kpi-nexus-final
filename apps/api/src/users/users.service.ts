@@ -78,6 +78,82 @@ export class UsersService {
   }
 
   /**
+   * Suspend an ACTIVE/INVITED user — blocks sign-in without losing their data
+   * or org links (reversible via reactivate). Refuses self-suspension and any
+   * user already in a terminal/offboarded state (ARCHIVED/DELETED/PURGED).
+   */
+  async suspend(userId: string): Promise<PublicUser> {
+    const ctx = RequestContextStore.require();
+    if (userId === ctx.userId) {
+      throw new BadRequestException({ code: 'SELF_SUSPEND', message: 'You cannot suspend yourself' });
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true, status: true },
+    });
+    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (user.status === 'ARCHIVED' || user.status === 'DELETED' || user.status === 'PURGED') {
+      throw new BadRequestException({
+        code: 'NOT_SUSPENDABLE',
+        message: `User is ${user.status} and cannot be suspended`,
+        details: { status: user.status },
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { status: 'SUSPENDED' },
+        select: userSelect,
+      });
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      return u;
+    });
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { suspend: true, fromStatus: user.status },
+    });
+    return updated;
+  }
+
+  /**
+   * Reactivate a SUSPENDED user — restores status to ACTIVE. NotFound if the
+   * user isn't in the org; BadRequest if the user isn't currently SUSPENDED.
+   */
+  async reactivate(userId: string): Promise<PublicUser> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true, status: true },
+    });
+    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (user.status !== 'SUSPENDED') {
+      throw new BadRequestException({
+        code: 'NOT_SUSPENDED',
+        message: `User is ${user.status}, not SUSPENDED`,
+        details: { status: user.status },
+      });
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: 'ACTIVE' },
+      select: userSelect,
+    });
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { reactivate: true },
+    });
+    return updated;
+  }
+
+  /**
    * GDPR hard-purge: requires the user already be ARCHIVED (offboard first).
    * Redacts PII to a deterministic, non-reversible handle, drops all auth
    * tokens, and nulls the user's recorded-by data-point references. Audited

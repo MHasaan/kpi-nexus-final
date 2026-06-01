@@ -1,0 +1,20 @@
+﻿
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\api\.env ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\api\.env.example ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\ml\.env ===
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\ml\.env.example ===
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\web\.env ===
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\web\.env.example ===
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\worker\.env ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\apps\worker\.env.example ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\packages\db\.env ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\.env ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+=== C:\work\FYP\khan\KPI_NEXUS_Final\.env.example ===
+DATABASE_URL=postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus
+PROBE_COMPLETE

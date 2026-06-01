@@ -101,17 +101,22 @@ export default function RegisterPage() {
           onChange={(v) => setAdminEmail(v)}
           disabled={submitting}
         />
-        <Field
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={adminPassword}
-          onChange={(v) => setAdminPassword(v)}
-          disabled={submitting}
-          helperText="At least 8 characters."
-        />
+        <div>
+          <Field
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={8}
+            value={adminPassword}
+            onChange={(v) => setAdminPassword(v)}
+            disabled={submitting}
+            helperText="At least 8 characters."
+          />
+          {adminPassword.length > 0 && (
+            <PasswordStrengthMeter password={adminPassword} />
+          )}
+        </div>
 
         {error && (
           <div
@@ -140,6 +145,61 @@ export default function RegisterPage() {
           Sign in
         </Link>
       </p>
+    </div>
+  );
+}
+
+type StrengthLevel = 0 | 1 | 2 | 3 | 4;
+
+const STRENGTH_META: Record<
+  Exclude<StrengthLevel, 0>,
+  { label: string; bar: string; text: string }
+> = {
+  1: { label: 'Weak', bar: 'bg-status-critical', text: 'text-status-critical' },
+  2: { label: 'Fair', bar: 'bg-status-warning', text: 'text-status-warning' },
+  3: { label: 'Good', bar: 'bg-accent-primary', text: 'text-accent-primary' },
+  4: { label: 'Strong', bar: 'bg-status-positive', text: 'text-status-positive' },
+};
+
+/**
+ * Lightweight client-side heuristic — purely advisory. The backend password
+ * policy remains the source of truth for acceptance.
+ */
+function scorePassword(password: string): StrengthLevel {
+  if (password.length === 0) return 0;
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((re) =>
+    re.test(password),
+  ).length;
+  if (classes >= 2) score += 1;
+  if (classes >= 3) score += 1;
+  return Math.min(4, Math.max(1, score)) as StrengthLevel;
+}
+
+function PasswordStrengthMeter({ password }: { password: string }) {
+  const level = scorePassword(password);
+  if (level === 0) return null;
+  const meta = STRENGTH_META[level];
+  return (
+    <div className="mt-2" data-testid="register-password-strength">
+      <div className="flex gap-1" aria-hidden="true">
+        {[1, 2, 3, 4].map((segment) => (
+          <span
+            key={segment}
+            className={`h-1.5 flex-1 rounded-full ${
+              segment <= level ? meta.bar : 'bg-surface-2'
+            }`}
+          />
+        ))}
+      </div>
+      <span
+        className={`mt-1 block text-xs font-medium ${meta.text}`}
+        data-testid="register-password-strength-label"
+      >
+        Password strength: {meta.label}
+      </span>
     </div>
   );
 }

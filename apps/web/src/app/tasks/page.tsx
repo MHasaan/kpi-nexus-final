@@ -1,40 +1,93 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { X } from 'lucide-react';
 
-import { ApiError, getAccessToken } from '../../lib/api-client';
+import { ApiError, getAccessToken, listUsers, type UserSummary } from '../../lib/api-client';
 import {
   type Task,
   type TaskStatus,
+  type TaskPriority,
   createTask,
   deleteTask,
   listTasks,
   updateTask,
 } from '../../lib/collab-client';
+import { AppShell } from '../../components/app-shell';
+import { PageHeader, Input, Select, Label, Badge, Skeleton, type BadgeTone } from '../../components/ui';
 
-const COLUMNS: Array<{ status: TaskStatus; label: string }> = [
-  { status: 'TODO', label: 'To do' },
-  { status: 'IN_PROGRESS', label: 'In progress' },
+const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+const COLUMNS: { status: TaskStatus; label: string }[] = [
+  { status: 'TODO', label: 'To Do' },
+  { status: 'IN_PROGRESS', label: 'In Progress' },
   { status: 'BLOCKED', label: 'Blocked' },
   { status: 'DONE', label: 'Done' },
   { status: 'CANCELLED', label: 'Cancelled' },
 ];
 
+const PRIORITY_TONE: Record<string, BadgeTone> = {
+  LOW: 'neutral',
+  MEDIUM: 'info',
+  HIGH: 'warning',
+  URGENT: 'error',
+};
+
+/** Per-column quick-add: type a title + Enter to create a task directly in that column. */
+function QuickAdd({
+  status,
+  onAdd,
+}: {
+  status: TaskStatus;
+  onAdd: (status: TaskStatus, title: string) => void | Promise<void>;
+}) {
+  const [value, setValue] = useState('');
+  return (
+    <Input
+      data-testid={`quick-add-${status}`}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      placeholder="Add task…"
+      aria-label={`Add task to ${status}`}
+      className="h-8 text-[13px]"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && value.trim()) {
+          void onAdd(status, value.trim());
+          setValue('');
+        }
+      }}
+    />
+  );
+}
+
 export default function TasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<TaskStatus | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('');
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      setTasks(await listTasks());
+      setTasks(
+        await listTasks({
+          ...(priorityFilter ? { priority: priorityFilter } : {}),
+          ...(assigneeFilter ? { assigneeUserId: assigneeFilter } : {}),
+        }),
+      );
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load tasks');
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [priorityFilter, assigneeFilter]);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -44,119 +97,174 @@ export default function TasksPage() {
     void load();
   }, [load, router]);
 
-  const onDrop = async (taskId: string, status: TaskStatus) => {
-    const prev = tasks;
-    // Optimistic flip.
-    setTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, status } : t)));
-    try {
-      await updateTask(taskId, { status });
-    } catch (e) {
-      setTasks(prev); // rollback
-      setError(e instanceof ApiError ? e.message : 'Could not move task');
-    }
-  };
+  useEffect(() => {
+    listUsers()
+      .then(setUsers)
+      .catch(() => setUsers([]));
+  }, []);
 
-  const quickCreate = async (status: TaskStatus) => {
-    const title = (drafts[status] ?? '').trim();
-    if (!title) return;
-    setDrafts((d) => ({ ...d, [status]: '' }));
+  const addTaskTo = async (status: TaskStatus, value: string) => {
+    if (!value.trim()) return;
     try {
-      const created = await createTask({ title, status });
-      setTasks((ts) => [...ts, created]);
+      await createTask({ title: value.trim(), status, priority: 'MEDIUM' });
+      await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not create task');
     }
   };
 
-  const remove = async (id: string) => {
-    const prev = tasks;
-    setTasks((ts) => ts.filter((t) => t.id !== id));
+  const onDrop = async (status: TaskStatus) => {
+    setOverCol(null);
+    if (!draggedId) return;
     try {
-      await deleteTask(id);
+      await updateTask(draggedId, { status });
+      setDraggedId(null);
+      await load();
     } catch (e) {
-      setTasks(prev);
+      setError(e instanceof ApiError ? e.message : 'Could not move task');
+    }
+  };
+
+  const removeTask = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      await load();
+    } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not delete task');
     }
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Tasks</span>
-          <Link href="/okrs" className="ml-auto text-sm text-content-muted hover:text-accent-primary">OKRs</Link>
-          <Link href="/approvals" className="text-sm text-content-muted hover:text-accent-primary">Approvals</Link>
+    <AppShell title="Tasks" crumbs={[{ label: 'Tasks' }]}>
+      <PageHeader
+        title="Tasks"
+        subtitle="Drag cards across the lifecycle — moves are optimistic"
+      />
+
+      {error && (
+        <p
+          className="mb-4 rounded-lg border border-status-critical-bg bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          role="alert"
+          data-testid="tasks-error"
+        >
+          {error}
+        </p>
+      )}
+
+      <div className="mb-4 flex flex-wrap items-end gap-3" data-testid="task-filters">
+        <div className="w-40">
+          <Label htmlFor="task-priority-filter">Priority</Label>
+          <Select
+            id="task-priority-filter"
+            data-testid="filter-priority"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value as TaskPriority | '')}
+          >
+            <option value="">All priorities</option>
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
         </div>
-      </header>
+        {users.length > 0 && (
+          <div className="w-56">
+            <Label htmlFor="task-assignee-filter">Assignee</Label>
+            <Select
+              id="task-assignee-filter"
+              data-testid="filter-assignee"
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+            >
+              <option value="">All assignees</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </div>
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Task board</h1>
-        {error && <p className="mt-2 text-sm text-status-critical" data-testid="tasks-error">{error}</p>}
-
-        <div className="mt-6 grid gap-4 md:grid-cols-5" data-testid="kanban">
-          {COLUMNS.map((col) => (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="kanban">
+        {COLUMNS.map((col) => {
+          const colTasks = tasks.filter((t) => t.status === col.status);
+          const isOver = overCol === col.status && draggedId !== null;
+          return (
             <div
               key={col.status}
               data-testid={`column-${col.status}`}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
+              onDragOver={(e) => {
                 e.preventDefault();
-                const id = e.dataTransfer.getData('text/plain');
-                if (id) void onDrop(id, col.status);
+                if (overCol !== col.status) setOverCol(col.status);
               }}
-              className="flex min-h-[200px] flex-col rounded-lg border border-border bg-surface-1 p-3"
+              onDragLeave={(e) => {
+                if (e.currentTarget === e.target) setOverCol((c) => (c === col.status ? null : c));
+              }}
+              onDrop={() => onDrop(col.status)}
+              className={`flex min-h-[200px] flex-col gap-2 rounded-xl border p-3 transition-colors duration-fast ${
+                isOver ? 'border-accent-primary bg-accent-bg' : 'border-border bg-surface-1'
+              }`}
             >
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-content-muted">
-                {col.label} ({tasks.filter((t) => t.status === col.status).length})
-              </h2>
-
-              <div className="mt-3 flex-1 space-y-2">
-                {tasks
-                  .filter((t) => t.status === col.status)
-                  .map((t) => (
-                    <div
-                      key={t.id}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData('text/plain', t.id)}
-                      data-testid={`task-${t.id}`}
-                      className="group cursor-grab rounded-md border border-border bg-surface-bg p-2 text-sm text-content-strong shadow-sm"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span data-testid="task-title">{t.title}</span>
-                        <button
-                          type="button"
-                          aria-label="Delete task"
-                          onClick={() => void remove(t.id)}
-                          className="opacity-0 transition group-hover:opacity-100 text-content-muted hover:text-status-critical"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <span className="mt-1 inline-block text-[10px] uppercase text-content-muted">{t.priority}</span>
-                    </div>
-                  ))}
+              <div className="flex items-center gap-2 px-0.5">
+                <span className="text-sm font-semibold text-content-strong">{col.label}</span>
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium tabular-nums text-content-muted">
+                  {colTasks.length}
+                </span>
               </div>
 
-              <form
-                className="mt-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void quickCreate(col.status);
-                }}
-              >
-                <input
-                  data-testid={`quick-add-${col.status}`}
-                  value={drafts[col.status] ?? ''}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [col.status]: e.target.value }))}
-                  placeholder="+ Add task"
-                  className="w-full rounded border border-border bg-surface-bg px-2 py-1 text-xs text-content-strong placeholder:text-content-muted"
-                />
-              </form>
+              <QuickAdd status={col.status} onAdd={addTaskTo} />
+
+              {loading ? (
+                <Skeleton className="h-16 w-full rounded-lg" />
+              ) : (
+                <>
+                  {colTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      data-testid={`task-${task.id}`}
+                      draggable
+                      onDragStart={() => setDraggedId(task.id)}
+                      onDragEnd={() => {
+                        setDraggedId(null);
+                        setOverCol(null);
+                      }}
+                      className="group cursor-grab rounded-lg border border-border bg-surface-bg p-3 shadow-xs active:cursor-grabbing"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span
+                          className={`text-sm font-medium text-content-strong ${col.status === 'DONE' ? 'line-through opacity-70' : ''}`}
+                          data-testid="task-title"
+                        >
+                          {task.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeTask(task.id)}
+                          className="shrink-0 rounded p-0.5 text-content-muted opacity-0 transition-opacity hover:text-status-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          aria-label="Delete task"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                      <div className="mt-2">
+                        <Badge tone={PRIORITY_TONE[task.priority] ?? 'neutral'}>{task.priority}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                  {colTasks.length === 0 && (
+                    <div className="flex h-14 items-center justify-center rounded-lg border border-dashed border-border text-xs text-content-disabled">
+                      Drop here
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
-    </main>
+    </AppShell>
   );
 }

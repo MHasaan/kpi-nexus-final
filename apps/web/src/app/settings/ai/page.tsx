@@ -1,10 +1,30 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertTriangle, OctagonAlert } from 'lucide-react';
 
 import { ApiError, api, getAccessToken } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  Badge,
+  Input,
+  Label,
+  Metric,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '../../../components/ui';
 
 interface Budget {
   dailySpend: number;
@@ -27,12 +47,73 @@ interface ByoProvider {
   configured: boolean;
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/** Spend tile: eyebrow label + large tabular value + sub-line cap. */
+function SpendTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-surface-1 p-4">
-      <p className="text-xs text-content-muted">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-content-strong">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-content-muted">{sub}</p>}
+    <Card>
+      <CardContent>
+        <Metric label={label} value={value} size="sm" />
+        {sub && <p className="mt-1 text-xs tabular-nums text-content-muted">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Budget usage meter: a clamped 0–100% progress bar tinted by accent / warning /
+ * critical thresholds, with an always-visible numeric "$spend / $cap" label
+ * (never colour-only) and an icon+label status when at/over the warning line.
+ */
+function BudgetMeter({
+  label,
+  spend,
+  cap,
+  testId,
+}: {
+  label: string;
+  spend: number;
+  cap: number;
+  testId: string;
+}) {
+  const hasCap = cap > 0;
+  const rawPct = hasCap ? (spend / cap) * 100 : 0;
+  const pct = Math.max(0, Math.min(100, Math.round(rawPct)));
+  const over = hasCap && rawPct >= 100;
+  const warn = hasCap && rawPct >= 80 && rawPct < 100;
+  const barTone = over ? 'bg-status-critical' : warn ? 'bg-status-warning' : 'bg-accent-primary';
+
+  return (
+    <div data-testid={testId}>
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-content-strong">{label}</span>
+        <span className="tabular-nums text-content-muted" data-testid={`${testId}-label`}>
+          ${spend.toFixed(2)} / ${cap.toFixed(2)}
+        </span>
+      </div>
+      <div className="mt-1.5 h-2 w-full overflow-hidden rounded bg-surface-2">
+        <div
+          className={`h-full transition-[width] duration-200 ${barTone}`}
+          style={{ width: `${pct}%` }}
+          data-testid={`${testId}-bar`}
+        />
+      </div>
+      {(warn || over) && (
+        <div
+          className={`mt-1.5 flex items-center gap-1.5 text-xs font-medium ${
+            over ? 'text-status-critical' : 'text-status-warning'
+          }`}
+          data-testid={`${testId}-status`}
+        >
+          {over ? (
+            <OctagonAlert className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          <span className="tabular-nums">
+            {over ? `Cap reached (${pct}%)` : `Near cap (${pct}%)`}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -98,126 +179,183 @@ export default function AiSettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">AI Settings</span>
-        </div>
-      </header>
+    <RequirePermission permission="ORG_SETTINGS">
+      <AppShell>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Settings"
+          title="AI Settings"
+          subtitle="Control AI spend, per-feature model routing, and your own provider keys."
+        />
 
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">AI Settings</h1>
-        {error && <p className="text-sm text-status-critical" data-testid="ai-settings-error">{error}</p>}
+        {error && (
+          <div
+            role="alert"
+            data-testid="ai-settings-error"
+            className="rounded-lg border border-status-critical bg-status-critical-bg px-4 py-3 text-sm font-medium text-status-critical"
+          >
+            {error}
+          </div>
+        )}
 
         {/* Budget */}
-        <section data-testid="ai-budget-section">
+        <section className="space-y-3" data-testid="ai-budget-section">
           <h2 className="text-sm font-semibold text-content-strong">Spend budget</h2>
           {budget && (
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Tile label="Today" value={`$${budget.dailySpend.toFixed(2)}`} sub={`cap $${budget.dailyCapUsd}`} />
-              <Tile label="This month" value={`$${budget.monthlySpend.toFixed(2)}`} sub={`cap $${budget.monthlyCapUsd}`} />
-              <Tile label="Circuit breaker" value={budget.circuitBreaker} />
-              <div className="rounded-lg border border-border bg-surface-1 p-4">
-                <label className="text-xs text-content-muted" htmlFor="daily-cap">Daily cap (USD)</label>
-                <input
-                  id="daily-cap"
-                  data-testid="ai-daily-cap-input"
-                  value={dailyCap}
-                  onChange={(e) => setDailyCap(e.target.value)}
-                  className="mt-1 w-full rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong"
-                />
-                <button
-                  type="button"
-                  data-testid="ai-save-cap"
-                  onClick={saveCap}
-                  className="mt-2 w-full rounded bg-accent-primary px-2 py-1 text-xs font-medium text-white hover:opacity-90"
-                >
-                  Save
-                </button>
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <SpendTile
+                label="Today"
+                value={`$${budget.dailySpend.toFixed(2)}`}
+                sub={`cap $${budget.dailyCapUsd}`}
+              />
+              <SpendTile
+                label="This month"
+                value={`$${budget.monthlySpend.toFixed(2)}`}
+                sub={`cap $${budget.monthlyCapUsd}`}
+              />
+              <Card>
+                <CardContent className="flex flex-col gap-1">
+                  <span className="kn-eyebrow">Circuit breaker</span>
+                  <Badge tone={budget.circuitBreaker === 'FAIL_CLOSED' ? 'warning' : 'info'}>
+                    {budget.circuitBreaker === 'FAIL_CLOSED' ? 'Fail closed' : 'Fallback'}
+                  </Badge>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="space-y-2">
+                  <Label htmlFor="daily-cap">Daily cap (USD)</Label>
+                  <Input
+                    id="daily-cap"
+                    data-testid="ai-daily-cap-input"
+                    value={dailyCap}
+                    onChange={(e) => setDailyCap(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full"
+                    data-testid="ai-save-cap"
+                    onClick={saveCap}
+                  >
+                    Save
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
+          )}
+
+          {budget && (
+            <Card data-testid="ai-budget-meters">
+              <CardContent className="space-y-4">
+                <BudgetMeter
+                  label="Daily spend"
+                  spend={budget.dailySpend}
+                  cap={budget.dailyCapUsd}
+                  testId="ai-budget-meter-daily"
+                />
+                <BudgetMeter
+                  label="Monthly spend"
+                  spend={budget.monthlySpend}
+                  cap={budget.monthlyCapUsd}
+                  testId="ai-budget-meter-monthly"
+                />
+                <p className="text-xs text-content-muted" data-testid="ai-budget-resets">
+                  Daily usage resets 00:00 UTC.
+                </p>
+              </CardContent>
+            </Card>
           )}
         </section>
 
         {/* Per-feature config */}
-        <section data-testid="ai-configs-section">
+        <section className="space-y-3" data-testid="ai-configs-section">
           <h2 className="text-sm font-semibold text-content-strong">Feature routing</h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-2 text-left text-xs text-content-muted">
-                <tr>
-                  <th className="px-4 py-2">Feature</th>
-                  <th className="px-4 py-2">Provider</th>
-                  <th className="px-4 py-2">Model</th>
-                  <th className="px-4 py-2">Source</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Feature</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Source</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {configs.map((c) => (
-                  <tr key={c.feature} className="border-t border-border bg-surface-1" data-testid={`ai-config-${c.feature}`}>
-                    <td className="px-4 py-2 text-content-strong">{c.feature}</td>
-                    <td className="px-4 py-2 text-content-muted">{c.provider}</td>
-                    <td className="px-4 py-2 text-content-muted">{c.model}</td>
-                    <td className="px-4 py-2 text-xs text-content-muted">{c.isOverride ? 'override' : 'default'}</td>
-                  </tr>
+                  <TableRow key={c.feature} data-testid={`ai-config-${c.feature}`}>
+                    <TableCell className="font-medium">{c.feature}</TableCell>
+                    <TableCell className="text-content-muted">{c.provider}</TableCell>
+                    <TableCell className="font-mono text-content-muted">{c.model}</TableCell>
+                    <TableCell>
+                      <Badge tone={c.isOverride ? 'info' : 'neutral'}>
+                        {c.isOverride ? 'Override' : 'Default'}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
         </section>
 
         {/* BYO keys */}
-        <section data-testid="ai-byo-section">
-          <h2 className="text-sm font-semibold text-content-strong">Bring your own keys</h2>
-          <div className="mt-3 space-y-2">
-            {byo.map((p) => (
-              <div
-                key={p.key}
-                data-testid={`ai-byo-${p.key}`}
-                className="flex items-center gap-3 rounded-lg border border-border bg-surface-1 p-3"
-              >
-                <span className="w-40 text-sm text-content-strong">{p.displayName}</span>
-                {p.configured ? (
-                  <>
-                    <span className="text-xs text-status-positive" data-testid={`ai-byo-${p.key}-configured`}>Configured</span>
-                    <button
-                      type="button"
-                      data-testid={`ai-byo-${p.key}-clear`}
-                      onClick={() => clearKey(p.key)}
-                      className="ml-auto rounded border border-border px-3 py-1 text-xs text-content-muted hover:bg-surface-2"
-                    >
-                      Clear
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <input
-                      data-testid={`ai-byo-${p.key}-input`}
-                      value={keyInputs[p.key] ?? ''}
-                      onChange={(e) => setKeyInputs((s) => ({ ...s, [p.key]: e.target.value }))}
-                      placeholder={p.key === 'OLLAMA' ? 'local — no key' : 'Paste API key'}
-                      disabled={p.key === 'OLLAMA'}
-                      className="flex-1 rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong"
-                    />
-                    <button
-                      type="button"
-                      data-testid={`ai-byo-${p.key}-save`}
-                      onClick={() => saveKey(p.key)}
-                      disabled={p.key === 'OLLAMA'}
-                      className="rounded bg-accent-primary px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+        <section className="space-y-3" data-testid="ai-byo-section">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bring your own keys</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {byo.map((p) => (
+                <div
+                  key={p.key}
+                  data-testid={`ai-byo-${p.key}`}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-surface-1 p-3"
+                >
+                  <span className="w-40 text-sm font-medium text-content-strong">{p.displayName}</span>
+                  {p.configured ? (
+                    <>
+                      <Badge tone="success" data-testid={`ai-byo-${p.key}-configured`}>
+                        Configured
+                      </Badge>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="ml-auto"
+                        data-testid={`ai-byo-${p.key}-clear`}
+                        onClick={() => clearKey(p.key)}
+                      >
+                        Clear
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        data-testid={`ai-byo-${p.key}-input`}
+                        value={keyInputs[p.key] ?? ''}
+                        onChange={(e) => setKeyInputs((s) => ({ ...s, [p.key]: e.target.value }))}
+                        placeholder={p.key === 'OLLAMA' ? 'local — no key' : 'Paste API key'}
+                        disabled={p.key === 'OLLAMA'}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        data-testid={`ai-byo-${p.key}-save`}
+                        onClick={() => saveKey(p.key)}
+                        disabled={p.key === 'OLLAMA'}
+                      >
+                        Save
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </section>
       </div>
-    </main>
+      </AppShell>
+    </RequirePermission>
   );
 }

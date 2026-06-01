@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Archive } from 'lucide-react';
 
 import { AppShell } from '../../../components/app-shell';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
@@ -14,6 +15,13 @@ import {
   restoreDashboard,
   type Dashboard,
 } from '../../../lib/api-client';
+import {
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  Skeleton,
+} from '../../../components/ui';
 
 export default function DashboardArchivePage() {
   const router = useRouter();
@@ -47,62 +55,88 @@ export default function DashboardArchivePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6 flex items-center gap-4">
-          <Link href="/dashboards" className="text-sm text-content-muted hover:text-content-default">
-            ← Dashboards
+      <PageHeader
+        title="Archived Dashboards"
+        subtitle="Soft-deleted dashboards. Restore brings them back; purge deletes permanently."
+        actions={
+          <Link href="/dashboards">
+            <Button variant="ghost" size="sm">
+              Back to dashboards
+            </Button>
           </Link>
-        </div>
-        <h1 className="text-2xl font-semibold text-content-strong">Archived Dashboards</h1>
-        <p className="mt-1 text-sm text-content-muted">
-          Soft-deleted dashboards. Restore brings them back; purge deletes permanently.
-        </p>
+        }
+      />
 
+      <div className="mt-6 max-w-4xl space-y-4">
         {error && (
-          <p className="mt-4 text-sm text-status-critical" role="alert">
+          <p
+            role="alert"
+            className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          >
             {error}
           </p>
         )}
 
-        <div className="mt-6 rounded-lg border border-border bg-surface-1" data-testid="dashboard-archive-list">
-          {(dashboards ?? []).map((d) => (
-            <div
-              key={d.id}
-              className="flex items-center justify-between border-b border-border px-5 py-3 last:border-0"
-              data-testid={`dashboard-archive-row-${d.id}`}
-            >
-              <div>
-                <span className="text-content-strong">{d.name}</span>
-                <span className="ml-2 text-xs text-content-muted">
-                  archived {d.deletedAt ? new Date(d.deletedAt).toLocaleDateString() : ''}
-                </span>
+        {dashboards === null && !error && (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
+
+        {dashboards && dashboards.length > 0 && (
+          <Card data-testid="dashboard-archive-list" className="divide-y divide-border-divider">
+            {dashboards.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-center justify-between gap-4 px-5 py-4"
+                data-testid={`dashboard-archive-row-${d.id}`}
+              >
+                <div className="min-w-0">
+                  <span className="font-medium text-content-strong">{d.name}</span>
+                  <span className="ml-2 text-xs tabular-nums text-content-muted">
+                    archived {d.deletedAt ? new Date(d.deletedAt).toLocaleDateString() : ''}
+                  </span>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <PermissionGuard permission="DASHBOARD_MANAGE">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onRestore(d.id)}
+                      data-testid={`restore-${d.id}`}
+                    >
+                      Restore
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      onClick={() => onPurge(d.id)}
+                      data-testid={`purge-${d.id}`}
+                    >
+                      Purge
+                    </Button>
+                  </PermissionGuard>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <PermissionGuard permission="DASHBOARD_MANAGE">
-                  <button
-                    onClick={() => onRestore(d.id)}
-                    className="text-sm text-accent-primary hover:underline"
-                    data-testid={`restore-${d.id}`}
-                  >
-                    Restore
-                  </button>
-                  <button
-                    onClick={() => onPurge(d.id)}
-                    className="text-sm text-status-critical hover:underline"
-                    data-testid={`purge-${d.id}`}
-                  >
-                    Purge
-                  </button>
-                </PermissionGuard>
-              </div>
+            ))}
+          </Card>
+        )}
+
+        {dashboards && dashboards.length === 0 && (
+          <Card>
+            <div data-testid="dashboard-archive-empty">
+              <EmptyState
+                icon={Archive}
+                title="Nothing archived"
+                description="Dashboards you archive will appear here, ready to restore."
+              />
             </div>
-          ))}
-          {dashboards && dashboards.length === 0 && (
-            <p className="px-5 py-8 text-center text-content-muted" data-testid="dashboard-archive-empty">
-              Nothing archived.
-            </p>
-          )}
-        </div>
+          </Card>
+        )}
       </div>
     </AppShell>
   );

@@ -15,6 +15,7 @@ const requestSelect = {
   entityId: true,
   requesterUserId: true,
   proposedPayload: true,
+  currentPayload: true,
   status: true,
   decisions: true,
   resolvedAt: true,

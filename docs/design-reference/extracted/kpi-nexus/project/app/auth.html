@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI Nexus — Auth & Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: var(--font-sans); background: var(--c-surface-bg); color: var(--c-default); -webkit-font-smoothing: antialiased; font-feature-settings: 'cv02','cv03','cv04','cv11','ss01'; }
+  #root { height: 100vh; }
+  ::selection { background: hsl(var(--accent-primary) / 0.22); }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: hsl(var(--border-strong) / 0.7); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  .kn-btn:hover { filter: brightness(0.96); }
+  .kn-btn-secondary:hover, .kn-btn-ghost:hover { background: var(--c-surface-hover) !important; filter: none; }
+  .kn-card-hover { transition: box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
+  .kn-card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); border-color: hsl(var(--accent-primary) / 0.35); }
+  @keyframes knFadeUp { from { transform: translateY(8px); } to { transform: none; } }
+  .kn-view { animation: knFadeUp var(--dur-slow) var(--ease-out) both; }
+  .kn-aura { position: relative; isolation: isolate; }
+  .kn-aura::before { content: ''; position: absolute; inset: -40%; z-index: -1; border-radius: inherit; background: radial-gradient(closest-side, hsl(var(--accent-primary) / 0.45), transparent 70%); filter: blur(14px); opacity: 0; transition: opacity var(--dur-slow) var(--ease-out); }
+  .kn-aura-soft::before { opacity: 0.55; }
+  @keyframes knBreathe { 0%,100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.08); } }
+  .kn-aura-breathe::before { opacity: 0.5; animation: knBreathe 3.2s var(--ease-in-out) infinite; }
+  @keyframes knSheen { 0% { background-position: -120% 0; } 60%,100% { background-position: 220% 0; } }
+  .kn-sheen { position: relative; overflow: hidden; }
+  .kn-sheen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, hsl(0 0% 100% / 0.35) 50%, transparent 70%); background-size: 220% 100%; animation: knSheen 6s var(--ease-in-out) infinite; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="lib.jsx"></script>
+  <script type="text/babel" src="widgets.jsx"></script>
+  <script type="text/babel" src="auth.jsx"></script>
+</body>
+</html>

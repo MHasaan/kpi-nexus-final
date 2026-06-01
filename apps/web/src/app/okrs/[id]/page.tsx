@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { RefreshCw } from 'lucide-react';
 
 import { ApiError, getAccessToken } from '../../../lib/api-client';
 import {
@@ -14,28 +14,44 @@ import {
   syncObjectiveFromKpis,
   updateKeyResult,
 } from '../../../lib/collab-client';
+import { AppShell } from '../../../components/app-shell';
+import { CommentsDrawer } from '../../../components/comments-drawer';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Input,
+  Label,
+  Button,
+  EmptyState,
+  Skeleton,
+} from '../../../components/ui';
 
 export default function ObjectiveDetailPage() {
-  const router = useRouter();
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params.id;
-
   const [objective, setObjective] = useState<Objective | null>(null);
   const [krs, setKrs] = useState<KeyResult[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Add-KR form
   const [krName, setKrName] = useState('');
-  const [target, setTarget] = useState('');
-  const [baseline, setBaseline] = useState('');
+  const [krBaseline, setKrBaseline] = useState('');
+  const [krTarget, setKrTarget] = useState('');
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const [obj, list] = await Promise.all([getObjective(id), listKeyResults(id)]);
+      const [obj, krList] = await Promise.all([getObjective(id), listKeyResults(id)]);
       setObjective(obj);
-      setKrs(list);
+      setKrs(krList);
+      setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load objective');
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
@@ -48,25 +64,25 @@ export default function ObjectiveDetailPage() {
   }, [load, router]);
 
   const addKr = async () => {
-    if (!krName.trim() || !target) return;
+    if (!krName.trim()) return;
     try {
       await createKeyResult(id, {
         name: krName.trim(),
-        targetValue: Number(target),
-        baselineValue: baseline ? Number(baseline) : undefined,
+        baselineValue: Number(krBaseline) || 0,
+        targetValue: Number(krTarget) || 0,
       });
       setKrName('');
-      setTarget('');
-      setBaseline('');
+      setKrBaseline('');
+      setKrTarget('');
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not add key result');
     }
   };
 
-  const setCurrent = async (krId: string, value: number) => {
+  const updateCurrent = async (krId: string, value: string) => {
     try {
-      await updateKeyResult(id, krId, { currentValue: value });
+      await updateKeyResult(id, krId, { currentValue: Number(value) || 0 });
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not update key result');
@@ -78,79 +94,153 @@ export default function ObjectiveDetailPage() {
       await syncObjectiveFromKpis(id);
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Sync failed');
+      setError(e instanceof ApiError ? e.message : 'Could not sync from KPIs');
     }
   };
 
-  const pct = objective ? Math.round(objective.progress * 100) : 0;
+  const overall = objective ? Math.round(objective.progress * 100) : 0;
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-3xl items-center gap-6 px-6 py-4">
-          <Link href="/okrs" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Objective</span>
-        </div>
-      </header>
+    <AppShell
+      title={objective?.name ?? 'Objective'}
+      crumbs={[{ label: 'OKRs', href: '/okrs' }, { label: objective?.name ?? 'Objective' }]}
+    >
+      {error && (
+        <p
+          className="mb-4 rounded-lg border border-status-critical-bg bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          role="alert"
+          data-testid="okr-error"
+        >
+          {error}
+        </p>
+      )}
 
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        {error && <p className="mb-3 text-sm text-status-critical" data-testid="okr-error">{error}</p>}
-        {objective && (
-          <>
-            <h1 className="text-2xl font-semibold text-content-strong" data-testid="objective-heading">{objective.name}</h1>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface-1">
-                <div className="h-full bg-accent-primary transition-all" style={{ width: `${pct}%` }} />
-              </div>
-              <span className="text-sm font-semibold text-content-strong" data-testid="objective-progress">{pct}%</span>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-content-strong">Key results</h2>
-              <button type="button" data-testid="sync-kpis" onClick={sync} className="text-xs text-accent-primary hover:underline">
-                Sync from linked KPIs
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-2" data-testid="kr-list">
-              {krs.map((kr) => (
-                <div key={kr.id} data-testid={`kr-${kr.id}`} className="rounded-lg border border-border bg-surface-1 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-content-strong">{kr.name}</span>
-                    <span className="text-sm font-semibold text-content-strong" data-testid="kr-progress">{Math.round(kr.progress * 100)}%</span>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-xs text-content-muted">
-                    <span>{kr.baselineValue ?? '—'} → {kr.targetValue}</span>
-                    <label className="ml-auto flex items-center gap-1">
-                      Current:
-                      <input
-                        type="number"
-                        data-testid={`kr-current-${kr.id}`}
-                        defaultValue={kr.currentValue ?? ''}
-                        onBlur={(e) => e.target.value !== '' && void setCurrent(kr.id, Number(e.target.value))}
-                        className="w-24 rounded border border-border bg-surface-bg px-2 py-1 text-content-strong"
-                      />
-                    </label>
-                  </div>
+      {loading && !objective ? (
+        <div>
+          <Skeleton className="mb-6 h-8 w-64" />
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Card>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-4 w-full" />
+                  ))}
                 </div>
-              ))}
-              {krs.length === 0 && <p className="text-sm text-content-muted" data-testid="kr-empty">No key results yet.</p>}
-            </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-4 w-full" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : !objective ? (
+        <EmptyState title="Objective not found" description="This objective may have been removed." />
+      ) : (
+        <>
+          <PageHeader
+            title={<span data-testid="objective-heading">{objective.name}</span>}
+            subtitle="Progress rolls up from your key results"
+            actions={
+              <CommentsDrawer entityType="objective" entityId={objective.id} />
+            }
+          />
 
-            <div className="mt-5 rounded-lg border border-border bg-surface-1 p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-content-muted">Add key result</h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                <input data-testid="kr-name" value={krName} onChange={(e) => setKrName(e.target.value)} placeholder="Name" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-                <input data-testid="kr-baseline" value={baseline} onChange={(e) => setBaseline(e.target.value)} placeholder="Baseline" type="number" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-                <input data-testid="kr-target" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Target" type="number" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-              </div>
-              <button type="button" data-testid="add-kr" onClick={addKr} className="mt-3 rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
-                Add key result
-              </button>
+          <div className="grid items-start gap-6 lg:grid-cols-[2fr_1fr]">
+            <Card data-testid="kr-list">
+              <CardHeader className="flex items-center justify-between gap-2">
+                <CardTitle>Key results</CardTitle>
+                <Button variant="secondary" size="sm" data-testid="sync-kpis" onClick={sync} leftIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden />}>
+                  Sync from linked KPIs
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {krs.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-content-muted" data-testid="kr-empty">
+                    No key results yet.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border-divider">
+                    {krs.map((kr) => {
+                      const pct = Math.round(kr.progress * 100);
+                      return (
+                        <div key={kr.id} data-testid={`kr-${kr.id}`} className="px-4 py-4">
+                          <div className="mb-2 flex items-center gap-3">
+                            <span className="flex-1 text-sm font-medium text-content-strong">{kr.name}</span>
+                            <span className="font-mono text-xs text-content-muted">
+                              {kr.baselineValue ?? 0} → {kr.targetValue}
+                            </span>
+                            <span className="w-12 text-right text-sm font-bold tabular-nums text-content-strong">
+                              {pct}% <span data-testid="kr-progress" />
+                            </span>
+                          </div>
+                          <div className="mb-2 h-2 overflow-hidden rounded-full bg-surface-2">
+                            <div className="h-full rounded-full bg-accent-primary" style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-content-muted">
+                            <span>Current</span>
+                            <Input
+                              data-testid={`kr-current-${kr.id}`}
+                              defaultValue={kr.currentValue ?? ''}
+                              onBlur={(e) => updateCurrent(kr.id, e.target.value)}
+                              className="h-8 w-28"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="bg-gradient-brand-soft">
+                <CardContent className="text-center">
+                  <div className="kn-eyebrow mb-1">Overall progress</div>
+                  <div className="text-4xl font-bold tabular-nums text-content-strong" data-testid="objective-progress">
+                    {overall}%
+                  </div>
+                  <div className="mx-auto mt-3 h-2 max-w-[220px] overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full bg-accent-primary" style={{ width: `${overall}%` }} />
+                  </div>
+                  <p className="mt-3 text-xs text-content-muted">weighted across {krs.length} key results</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add key result</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label htmlFor="kr-name-input">Name</Label>
+                    <Input id="kr-name-input" data-testid="kr-name" value={krName} onChange={(e) => setKrName(e.target.value)} placeholder="Key result name" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label htmlFor="kr-baseline-input">Baseline</Label>
+                      <Input id="kr-baseline-input" data-testid="kr-baseline" value={krBaseline} onChange={(e) => setKrBaseline(e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="kr-target-input">Target</Label>
+                      <Input id="kr-target-input" data-testid="kr-target" value={krTarget} onChange={(e) => setKrTarget(e.target.value)} placeholder="0" />
+                    </div>
+                  </div>
+                  <Button data-testid="add-kr" onClick={addKr} className="w-full">
+                    Add key result
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
-          </>
-        )}
-      </div>
-    </main>
+          </div>
+        </>
+      )}
+    </AppShell>
   );
 }

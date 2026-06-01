@@ -33,7 +33,11 @@ export interface ActivityPage {
   nextCursor: string | null;
 }
 export function listActivity(params: { cursor?: string; entityType?: string; limit?: number } = {}): Promise<ActivityPage> {
-  const q = new URLSearchParams(params as Record<string, string>).toString();
+  const sp = new URLSearchParams();
+  if (params.entityType) sp.set('entityType', params.entityType);
+  if (params.cursor) sp.set('cursor', params.cursor);
+  if (typeof params.limit === 'number') sp.set('limit', String(params.limit));
+  const q = sp.toString();
   return api(`/activity${q ? `?${q}` : ''}`);
 }
 

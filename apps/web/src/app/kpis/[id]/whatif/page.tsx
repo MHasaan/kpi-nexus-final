@@ -2,14 +2,74 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 
-import { SeriesChart } from '../../../../components/series-chart';
+import { AppShell } from '../../../../components/app-shell';
+import { RequirePermission } from '../../../../components/auth/require-permission';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  Label,
+  Select,
+  Input,
+  Metric,
+  Delta,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  EmptyState,
+} from '../../../../components/ui';
+import { BarChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 
 interface WhatIfResult {
   baseline: number[];
   scenarios: Array<{ values: number[]; aggregateLift: number; aggregateLiftPct: number }>;
+}
+
+// Shared analytics navigation strip — lets users move between the KPI's
+// analytics surfaces and back to the detail page.
+function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
+  const links: Array<{ key: string; label: string; href: string }> = [
+    { key: 'detail', label: 'Overview', href: `/kpis/${kpiId}` },
+    { key: 'forecast', label: 'Forecast', href: `/kpis/${kpiId}/forecast` },
+    { key: 'anomalies', label: 'Anomalies', href: `/kpis/${kpiId}/anomalies` },
+    { key: 'whatif', label: 'What-if', href: `/kpis/${kpiId}/whatif` },
+    { key: 'embed', label: 'Embed', href: `/kpis/${kpiId}/embed` },
+  ];
+  return (
+    <nav
+      aria-label="KPI analytics"
+      data-testid="analytics-nav"
+      className="mt-4 flex flex-wrap gap-1 rounded-lg border border-border bg-surface-1 p-1"
+    >
+      {links.map((l) => {
+        const isActive = l.key === active;
+        return (
+          <Link
+            key={l.key}
+            href={l.href}
+            aria-current={isActive ? 'page' : undefined}
+            className={
+              isActive
+                ? 'rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white'
+                : 'rounded-md px-3 py-1.5 text-sm font-medium text-content-muted hover:bg-surface-2 hover:text-content-strong'
+            }
+          >
+            {l.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 }
 
 export default function WhatIfPage() {
@@ -47,70 +107,153 @@ export default function WhatIfPage() {
 
   const sc = result?.scenarios[0];
 
+  const beforeAfter = useMemo(() => {
+    if (!result || !sc) return [];
+    const baseSum = result.baseline.reduce((a, b) => a + b, 0);
+    const scSum = sc.values.reduce((a, b) => a + b, 0);
+    return [
+      { label: 'Before', value: baseSum, color: 'hsl(var(--chart-2))' },
+      { label: 'After', value: scSum, color: 'hsl(var(--accent-primary))' },
+    ];
+  }, [result, sc]);
+
+  const crumbs = useMemo(() => ['KPIs', 'What-if'], []);
+
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
-          <Link href={`/kpis/${id}`} className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">What-if</span>
-        </div>
-      </header>
+    <AppShell title="What-if" crumbs={crumbs}>
+     <RequirePermission permission="ANALYTICS_VIEW">
+      <PageHeader
+        title="What-if simulator"
+        subtitle="Explore how changing a driver moves this KPI. Assumes a linear relationship between driver and outcome."
+      />
 
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">What-if simulator</h1>
-        {error && <p className="text-sm text-status-critical" data-testid="wi-error">{error}</p>}
+      <AnalyticsNav kpiId={id} active="whatif" />
 
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface-1 p-4">
-          <label className="text-xs text-content-muted">
-            Mechanic
-            <select data-testid="wi-mechanic" value={mechanic} onChange={(e) => setMechanic(e.target.value as 'additive' | 'multiplicative')} className="mt-1 block rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong">
-              <option value="multiplicative">multiplicative (%)</option>
-              <option value="additive">additive (absolute)</option>
-            </select>
-          </label>
-          <label className="text-xs text-content-muted">
-            {mechanic === 'multiplicative' ? 'Delta %' : 'Delta (absolute)'}
-            <input data-testid="wi-delta" value={delta} onChange={(e) => setDelta(e.target.value)} className="mt-1 block w-24 rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong" />
-          </label>
-          <button type="button" data-testid="wi-run" onClick={run} disabled={busy} className="rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-            {busy ? 'Simulating…' : 'Simulate'}
-          </button>
-        </div>
+      {error && (
+        <p role="alert" data-testid="wi-error" className="mt-4 rounded-md border border-status-critical-bg bg-status-critical-bg px-3 py-2 text-sm text-status-critical">
+          {error}
+        </p>
+      )}
 
-        {result && sc && (
-          <>
-            <SeriesChart values={sc.values} testId="wi-chart" />
-            <div className="grid grid-cols-2 gap-3" data-testid="wi-result">
-              <div className="rounded-lg border border-border bg-surface-1 p-4">
-                <p className="text-xs text-content-muted">Aggregate lift</p>
-                <p className="mt-1 text-lg font-semibold text-content-strong">{sc.aggregateLift.toFixed(2)}</p>
-              </div>
-              <div className="rounded-lg border border-border bg-surface-1 p-4">
-                <p className="text-xs text-content-muted">Lift %</p>
-                <p className="mt-1 text-lg font-semibold text-content-strong" data-testid="wi-lift-pct">{sc.aggregateLiftPct.toFixed(1)}%</p>
-              </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Scenario</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="wi-mechanic">Mechanic</Label>
+              <Select
+                id="wi-mechanic"
+                data-testid="wi-mechanic"
+                value={mechanic}
+                onChange={(e) => setMechanic(e.target.value as 'additive' | 'multiplicative')}
+              >
+                <option value="multiplicative">multiplicative (%)</option>
+                <option value="additive">additive (absolute)</option>
+              </Select>
             </div>
-            <div className="overflow-hidden rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-2 text-left text-xs text-content-muted">
-                  <tr><th className="px-4 py-2">#</th><th className="px-4 py-2">Baseline</th><th className="px-4 py-2">Scenario</th></tr>
-                </thead>
-                <tbody>
-                  {result.baseline.map((b, i) => (
-                    <tr key={i} className="border-t border-border bg-surface-1">
-                      <td className="px-4 py-2 text-content-muted">{i + 1}</td>
-                      <td className="px-4 py-2 text-content-strong">{b.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-content-strong">{sc.values[i]?.toFixed(2) ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-1.5">
+              <Label htmlFor="wi-delta">
+                {mechanic === 'multiplicative' ? 'Delta %' : 'Delta (absolute)'}
+              </Label>
+              <Input
+                id="wi-delta"
+                data-testid="wi-delta"
+                value={delta}
+                onChange={(e) => setDelta(e.target.value)}
+              />
             </div>
-          </>
-        )}
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full"
+              data-testid="wi-run"
+              onClick={run}
+              isLoading={busy}
+            >
+              Simulate
+            </Button>
+            <p className="text-xs text-content-muted">Assumes a linear relationship.</p>
+          </CardContent>
+        </Card>
+
+        {/* Result */}
+        <div className="space-y-6">
+          {result && sc ? (
+            <div data-testid="wi-result" className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <Metric label="Aggregate lift" value={sc.aggregateLift.toFixed(2)} size="md" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="flex flex-col gap-1 p-4">
+                    <span className="kn-eyebrow">Lift %</span>
+                    <span data-testid="wi-lift-pct">
+                      <Delta value={sc.aggregateLiftPct} pct={sc.aggregateLiftPct} />
+                    </span>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Before → after</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div data-testid="wi-chart">
+                    <BarChart data={beforeAfter} aria-label="Aggregate before vs after the scenario" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Per-period projection</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead className="text-right">Baseline</TableHead>
+                        <TableHead className="text-right">Scenario</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.baseline.map((b, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="tabular-nums text-content-muted">{i + 1}</TableCell>
+                          <TableCell className="text-right tabular-nums text-content-strong">
+                            {b.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-content-strong">
+                            {sc.values[i]?.toFixed(2) ?? '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card>
+              <CardContent>
+                <EmptyState
+                  icon={SlidersHorizontal}
+                  title="No simulation yet"
+                  description="Set a mechanic and delta, then run a simulation to see the projected impact."
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </main>
+     </RequirePermission>
+    </AppShell>
   );
 }

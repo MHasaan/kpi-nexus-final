@@ -148,6 +148,15 @@ model Organization {
   scorecardLabel      String        @default("Scorecard")
   objectiveLabel      String        @default("Objective")
   taskLabel           String        @default("Task")
+  // Optional plural overrides (null → the UI auto-pluralizes the singular label)
+  roleLabelPlural      String?
+  groupLabelPlural     String?
+  memberLabelPlural    String?
+  kpiLabelPlural       String?
+  dashboardLabelPlural String?
+  scorecardLabelPlural String?
+  objectiveLabelPlural String?
+  taskLabelPlural      String?
   // Compliance
   dataResidency       DataResidency @default(US)
   complianceProfile   String[]
@@ -733,6 +742,8 @@ model KPI {
   frequency         KPIFrequency      @default(MONTHLY)
   aggregationMethod AggregationMethod @default(LAST)
   status            KPIStatus         @default(DRAFT)
+  // Bumped to revoke all previously-minted public embed tokens for this KPI.
+  embedTokenVersion Int               @default(0)
   // Legacy single-target fields kept for simple cases — KPITarget model
   // (lands in P2.2) is the authoritative source for tiered/dynamic targets.
   targetValue       Float?
@@ -1585,17 +1596,24 @@ enum RecommendationStatus {
 
 // An AI-generated narrative about a KPI's recent trend. Scalar FK (org-scoped).
 model KPIInsight {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   organizationId   String
   kpiId            String
   narrative        String
   model            String
-  promptTokens     Int      @default(0)
-  completionTokens Int      @default(0)
-  generatedAt      DateTime @default(now())
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  // Derived 0..1 confidence (data volume + recency + change magnitude).
+  confidence       Float     @default(0.5)
+  generatedAt      DateTime  @default(now())
+  // Lifecycle: ACTIVE by default; an operator can DISMISS an insight to hide it.
+  status           String    @default("ACTIVE")
+  dismissedAt      DateTime?
+  dismissedById    String?
 
   @@index([organizationId, generatedAt])
   @@index([kpiId, generatedAt])
+  @@index([organizationId, status])
 }
 
 // An AI recommendation triggered by an alert/anomaly or requested manually.
@@ -1967,6 +1985,9 @@ model ApprovalRequest {
   entityId        String
   requesterUserId String
   proposedPayload Json
+  // Snapshot of the entity's state BEFORE the proposed change (null for creates)
+  // so the approver UI can render a before→after diff.
+  currentPayload  Json?
   status          ApprovalRequestStatus @default(PENDING)
   decisions       Json                  @default("[]")
   resolvedAt      DateTime?

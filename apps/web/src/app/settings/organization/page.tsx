@@ -14,6 +14,7 @@ import {
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import {
+  pluralize,
   TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
@@ -49,6 +50,17 @@ function OrganizationSettingsInner() {
     objectiveLabel: 'Objective',
     taskLabel: 'Task',
   });
+  // Optional plural overrides — '' means "use the auto-pluralize heuristic".
+  const [plurals, setPlurals] = useState({
+    roleLabel: '',
+    groupLabel: '',
+    memberLabel: '',
+    kpiLabel: '',
+    dashboardLabel: '',
+    scorecardLabel: '',
+    objectiveLabel: '',
+    taskLabel: '',
+  });
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -71,6 +83,16 @@ function OrganizationSettingsInner() {
           scorecardLabel: data.scorecardLabel,
           objectiveLabel: data.objectiveLabel,
           taskLabel: data.taskLabel,
+        });
+        setPlurals({
+          roleLabel: data.roleLabelPlural ?? '',
+          groupLabel: data.groupLabelPlural ?? '',
+          memberLabel: data.memberLabelPlural ?? '',
+          kpiLabel: data.kpiLabelPlural ?? '',
+          dashboardLabel: data.dashboardLabelPlural ?? '',
+          scorecardLabel: data.scorecardLabelPlural ?? '',
+          objectiveLabel: data.objectiveLabelPlural ?? '',
+          taskLabel: data.taskLabelPlural ?? '',
         });
       })
       .catch((err) => {
@@ -95,6 +117,15 @@ function OrganizationSettingsInner() {
         currency,
         locale,
         ...labels,
+        // Send '' as null so blank inputs clear the override and restore auto-pluralization.
+        roleLabelPlural: plurals.roleLabel.trim() || null,
+        groupLabelPlural: plurals.groupLabel.trim() || null,
+        memberLabelPlural: plurals.memberLabel.trim() || null,
+        kpiLabelPlural: plurals.kpiLabel.trim() || null,
+        dashboardLabelPlural: plurals.dashboardLabel.trim() || null,
+        scorecardLabelPlural: plurals.scorecardLabel.trim() || null,
+        objectiveLabelPlural: plurals.objectiveLabel.trim() || null,
+        taskLabelPlural: plurals.taskLabel.trim() || null,
       });
       setOrg(updated);
       await refreshTerminology();
@@ -155,9 +186,10 @@ function OrganizationSettingsInner() {
               </legend>
               <p className="mb-4 text-sm text-content-muted">
                 Replace built-in labels with your team's preferred terms.
-                Pluralization is automatic.
+                Pluralization is automatic — set an optional plural override
+                only when the heuristic gets it wrong.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2">
                 {(
                   [
                     ['roleLabel', 'Role'],
@@ -169,15 +201,33 @@ function OrganizationSettingsInner() {
                     ['objectiveLabel', 'Objective'],
                     ['taskLabel', 'Task'],
                   ] as const
-                ).map(([key, defaultValue]) => (
-                  <Field
-                    key={key}
-                    label={defaultValue}
-                    value={labels[key]}
-                    onChange={(v) => setLabels({ ...labels, [key]: v })}
-                    testId={`label-${key}`}
-                  />
-                ))}
+                ).map(([key, defaultValue]) => {
+                  const singular = labels[key];
+                  const override = plurals[key];
+                  return (
+                    <div key={key} className="space-y-2">
+                      <Field
+                        label={defaultValue}
+                        value={singular}
+                        onChange={(v) => setLabels({ ...labels, [key]: v })}
+                        testId={`label-${key}`}
+                      />
+                      <Field
+                        label="Plural (optional)"
+                        value={override}
+                        onChange={(v) => setPlurals({ ...plurals, [key]: v })}
+                        placeholder={pluralize(singular)}
+                        testId={`label-${key}-plural`}
+                      />
+                      <p
+                        className="text-xs text-content-muted tabular-nums"
+                        data-testid={`label-${key}-preview`}
+                      >
+                        1 {singular} · 2 {pluralize(singular, override)}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </fieldset>
 

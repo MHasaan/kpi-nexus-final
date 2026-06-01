@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
@@ -13,6 +12,8 @@ import {
   revokeApiKey,
   type ApiKey,
 } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 
 // Curated scope choices (subset of the 18 canonical permissions).
@@ -96,17 +97,8 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/settings/api-keys" className="font-medium text-content-strong">API keys</Link>
-            <Link href="/settings/webhooks" className="text-content-muted hover:text-content-strong">Webhooks</Link>
-          </nav>
-        </div>
-      </header>
-
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
       <div className="mx-auto max-w-5xl px-6 py-8">
         <h1 className="mb-6 text-2xl font-semibold text-content-strong" data-testid="apikeys-heading">API keys</h1>
 
@@ -180,6 +172,7 @@ export default function ApiKeysPage() {
           </div>
         )}
       </div>
-    </main>
+      </RequirePermission>
+    </AppShell>
   );
 }

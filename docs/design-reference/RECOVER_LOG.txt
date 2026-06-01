@@ -1,0 +1,4 @@
+=== candidate sizes/types ===
+/tmp/body1.html : 361238 bytes : /tmp/body1.html: gzip compressed data, original size modulo 2^32 974848
+/tmp/body2.html : 361262 bytes : /tmp/body2.html: gzip compressed data, original size modulo 2^32 974848
+/c/Users/hasaa/.claude/projects/C--work-FYP-khan-KPI-NEXUS-Final/837d1fef-4753-47d2-b50d-218d17a50522/tool-results/webfetch-1780220353697-qs5scx.bin : 361260 bytes : /c/Users/hasaa/.claude/projects/C--work-FYP-khan-KPI-NEXUS-Final/837d1fef-4753-47d2-b50d-218d17a50522/tool-results/webfetch-1780220353697-qs5scx.bin: gzip compressed data, original size modulo 2^32 974848

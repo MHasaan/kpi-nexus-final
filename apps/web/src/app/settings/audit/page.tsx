@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -12,11 +11,8 @@ import {
   type AuditAction,
   type AuditEntry,
 } from '../../../lib/api-client';
-import {
-  pluralize,
-  TerminologyProvider,
-  useTerminology,
-} from '../../../lib/terminology-context';
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
 
 const ACTION_OPTIONS: AuditAction[] = [
   'CREATE',
@@ -34,15 +30,10 @@ const ACTION_OPTIONS: AuditAction[] = [
 ];
 
 export default function AuditPage() {
-  return (
-    <TerminologyProvider>
-      <AuditPageInner />
-    </TerminologyProvider>
-  );
+  return <AuditPageInner />;
 }
 
 function AuditPageInner() {
-  const { terminology } = useTerminology();
   const router = useRouter();
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -79,47 +70,8 @@ function AuditPageInner() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="text-content-muted hover:text-content-strong">
-                Dashboard
-              </Link>
-              <Link href="/users" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.memberLabel)}
-              </Link>
-              <Link href="/roles" className="text-content-muted hover:text-content-strong">
-                {pluralize(terminology.roleLabel)}
-              </Link>
-              <Link href="/positions" className="text-content-muted hover:text-content-strong">
-                Positions
-              </Link>
-              <Link
-                href="/settings/organization"
-                className="text-content-muted hover:text-content-strong"
-              >
-                Settings
-              </Link>
-              <Link
-                href="/settings/audit"
-                className="font-medium text-accent-primary"
-                data-testid="nav-audit"
-              >
-                Audit log
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
-
+    <AppShell>
+      <RequirePermission permission="ORG_SETTINGS">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
           <h1
@@ -265,6 +217,7 @@ function AuditPageInner() {
           )}
         </section>
       </div>
-    </main>
+      </RequirePermission>
+    </AppShell>
   );
 }

@@ -1,0 +1,11 @@
+=== download ===
+HTTP 404 | text/plain; charset=utf-8 | 10 bytes
+=== file type ===
+bundle.gz: ASCII text
+=== try tar.gz extract ===
+NOT tar.gz; try gunzip
+
+gzip: bundle_copy.gz: not in gzip format
+bundle_copy: cannot open `bundle_copy' (No such file or directory)
+--- maybe bundle_copy is a tar ---
+=== extracted tree (first 60) ===

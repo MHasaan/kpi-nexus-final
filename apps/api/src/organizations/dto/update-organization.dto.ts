@@ -49,6 +49,16 @@ export const UpdateOrganizationDtoSchema = z.object({
   objectiveLabel: z.string().trim().min(1).max(40).optional(),
   taskLabel: z.string().trim().min(1).max(40).optional(),
 
+  // Terminology — optional plural overrides (nullable: pass null to clear).
+  roleLabelPlural: z.string().trim().max(40).nullish(),
+  groupLabelPlural: z.string().trim().max(40).nullish(),
+  memberLabelPlural: z.string().trim().max(40).nullish(),
+  kpiLabelPlural: z.string().trim().max(40).nullish(),
+  dashboardLabelPlural: z.string().trim().max(40).nullish(),
+  scorecardLabelPlural: z.string().trim().max(40).nullish(),
+  objectiveLabelPlural: z.string().trim().max(40).nullish(),
+  taskLabelPlural: z.string().trim().max(40).nullish(),
+
   // Compliance
   dataResidency: z.enum(['US', 'EU', 'APAC', 'OTHER']).optional(),
   complianceProfile: z.array(z.string()).optional(),

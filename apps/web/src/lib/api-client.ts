@@ -237,6 +237,15 @@ export interface OrganizationSettings {
   scorecardLabel: string;
   objectiveLabel: string;
   taskLabel: string;
+  // Optional plural overrides for terminology labels.
+  roleLabelPlural?: string | null;
+  groupLabelPlural?: string | null;
+  memberLabelPlural?: string | null;
+  kpiLabelPlural?: string | null;
+  dashboardLabelPlural?: string | null;
+  scorecardLabelPlural?: string | null;
+  objectiveLabelPlural?: string | null;
+  taskLabelPlural?: string | null;
   // Compliance + policy
   dataResidency: 'US' | 'EU' | 'APAC' | 'OTHER' | null;
   complianceProfile: string[] | null;
@@ -253,6 +262,15 @@ export interface Terminology {
   scorecardLabel: string;
   objectiveLabel: string;
   taskLabel: string;
+  // Optional plural overrides (null/undefined → the UI auto-pluralizes the singular).
+  roleLabelPlural?: string | null;
+  groupLabelPlural?: string | null;
+  memberLabelPlural?: string | null;
+  kpiLabelPlural?: string | null;
+  dashboardLabelPlural?: string | null;
+  scorecardLabelPlural?: string | null;
+  objectiveLabelPlural?: string | null;
+  taskLabelPlural?: string | null;
 }
 
 export const DEFAULT_TERMINOLOGY: Terminology = {
@@ -317,6 +335,27 @@ export async function inviteUser(body: {
   return api('/users', { method: 'POST', body: JSON.stringify(body) });
 }
 
+/**
+ * User lifecycle (all USERS_MANAGE). Suspend/reactivate flip sign-in access
+ * reversibly; offboard archives the user (reassigning ownership); purge
+ * GDPR-redacts a previously-archived user. Callers should refetch the list after.
+ */
+export async function suspendUser(id: string): Promise<UserSummary> {
+  return api(`/users/${id}/suspend`, { method: 'POST' });
+}
+export async function reactivateUser(id: string): Promise<UserSummary> {
+  return api(`/users/${id}/reactivate`, { method: 'POST' });
+}
+export async function offboardUser(
+  id: string,
+  body: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  return api(`/users/${id}/offboard`, { method: 'POST', body: JSON.stringify(body) });
+}
+export async function purgeUser(id: string): Promise<{ handle: string }> {
+  return api(`/users/${id}/purge`, { method: 'POST' });
+}
+
 export async function acceptInvitation(body: {
   token: string;
   password: string;
@@ -324,6 +363,17 @@ export async function acceptInvitation(body: {
   return api('/auth/accept-invitation', {
     method: 'POST',
     body: JSON.stringify(body),
+    auth: false,
+  });
+}
+
+/** Public preview of an invitation (invitee email + org name) by token, for /accept-invitation. */
+export async function previewInvitation(
+  token: string,
+): Promise<{ email: string; organizationName: string; expiresAt: string | null }> {
+  return api('/auth/invitation-preview', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
     auth: false,
   });
 }
@@ -1225,6 +1275,11 @@ export async function mintEmbedToken(kpiId: string): Promise<{ token: string }> 
   return api(`/reports/kpis/${kpiId}/embed-token`, { method: 'POST', body: JSON.stringify({}) });
 }
 
+/** Revoke ALL previously-minted embed tokens for a KPI (bumps its embedTokenVersion). */
+export async function revokeEmbedToken(kpiId: string): Promise<{ embedTokenVersion: number }> {
+  return api(`/reports/kpis/${kpiId}/embed-token/revoke`, { method: 'POST', body: JSON.stringify({}) });
+}
+
 // Share links (authenticated)
 
 export async function listShareLinks(dashboardId: string): Promise<ShareLink[]> {
@@ -1351,6 +1406,11 @@ export async function listAlertRules(kpiId?: string): Promise<AlertRule[]> {
   return api(`/alert-rules${q}`);
 }
 
+/** Fetch a single alert rule (incl. its escalationRule.levels) — used for the escalation trail. */
+export async function getAlertRule(id: string): Promise<AlertRule> {
+  return api(`/alert-rules/${id}`);
+}
+
 export async function createAlertRule(body: {
   kpiId: string;
   name: string;
@@ -1415,6 +1475,28 @@ export async function deleteNotificationChannel(id: string): Promise<void> {
 
 export async function testNotificationChannel(id: string): Promise<{ sent: boolean }> {
   return api(`/notification-channels/${id}/test`, { method: 'POST' });
+}
+
+/** Enable/disable (or rename) a notification channel. */
+export async function updateNotificationChannel(
+  id: string,
+  body: { name?: string; isActive?: boolean; config?: Record<string, unknown> },
+): Promise<NotificationChannel> {
+  return api(`/notification-channels/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+/**
+ * Delivery records for one alert (the "what actually fired" trail). The
+ * `/notification-deliveries` endpoint is org-scoped (no server alertId filter)
+ * and requires ORG_SETTINGS, so we fetch + filter client-side; callers should
+ * treat a 403 as "no delivery history available" and fall back to the rule's
+ * configured escalation levels.
+ */
+export async function listNotificationDeliveriesForAlert(
+  alertId: string,
+): Promise<NotificationDelivery[]> {
+  const all = await api<NotificationDelivery[]>('/notification-deliveries');
+  return all.filter((d) => d.alertId === alertId);
 }
 
 // =============================================================================
@@ -1495,6 +1577,11 @@ export async function deleteWebhook(id: string): Promise<void> {
 
 export async function testWebhook(id: string): Promise<{ queued: boolean }> {
   return api(`/webhooks/${id}/test`, { method: 'POST' });
+}
+
+/** Catalog of dispatchable webhook events for the subscription event picker. */
+export async function listWebhookEvents(): Promise<{ events: string[] }> {
+  return api('/webhooks/events');
 }
 
 // =============================================================================

@@ -1,7 +1,10 @@
 'use client';
 
+import { Eye } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
+
+import { BarChart } from '../../../components/charts';
 
 import {
   ApiError,
@@ -9,6 +12,7 @@ import {
   submitPublicDashboardPassword,
   type PublicDashboardPayload,
   type PublicKpiValue,
+  type PublicWidget,
 } from '../../../lib/api-client';
 
 type PageState =
@@ -35,7 +39,7 @@ function KpiValueCard({ kv }: { kv: PublicKpiValue }) {
         {kv.name}
       </p>
       {kv.latestValue !== null ? (
-        <p className={`mt-1 text-2xl font-bold ${statusColor(kv.thresholdStatus)}`}>
+        <p className={`mt-1 text-2xl font-bold tabular-nums ${statusColor(kv.thresholdStatus)}`}>
           {kv.latestValue.toLocaleString()}
           {kv.unit && (
             <span className="ml-1 text-sm font-normal text-content-muted">{kv.unit}</span>
@@ -48,6 +52,74 @@ function KpiValueCard({ kv }: { kv: PublicKpiValue }) {
         <p className="mt-1 text-xs text-content-muted">
           {new Date(kv.latestRecordedAt).toLocaleDateString()}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Resolve the captured KPI value a widget points at, if any.
+ * Widget `config` may hold `{ kpiId }` (see dashboard add-widget form). The
+ * public payload carries no per-widget series, so the captured value is the
+ * only honest data available for a visual.
+ */
+function resolveWidgetValue(
+  widget: PublicWidget,
+  kpiValues: PublicKpiValue[],
+): PublicKpiValue | null {
+  const kpiId = widget.config?.['kpiId'];
+  if (typeof kpiId !== 'string') return null;
+  return kpiValues.find((kv) => kv.kpiId === kpiId) ?? null;
+}
+
+function ShareWidgetCard({
+  widget,
+  kpiValues,
+}: {
+  widget: PublicWidget;
+  kpiValues: PublicKpiValue[];
+}) {
+  const kv = resolveWidgetValue(widget, kpiValues);
+  const value = kv?.latestValue ?? null;
+  const typeLabel = widget.widgetType.replace(/_/g, ' ');
+
+  return (
+    <div
+      className="rounded-lg border border-border bg-surface-1 p-4"
+      data-testid={`share-widget-${widget.id}`}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-content-default">
+          {widget.title ?? kv?.name ?? typeLabel}
+        </p>
+        <p className="text-xs text-content-muted capitalize">{typeLabel}</p>
+      </div>
+
+      {value !== null ? (
+        <>
+          {/* A single captured value: render a number for most types, and a
+              minimal single-bar visual for bar/line/trend types. */}
+          {widget.widgetType === 'bar' ||
+          widget.widgetType === 'line' ||
+          widget.widgetType === 'trend' ? (
+            <div className="mt-3">
+              <BarChart
+                data={[{ label: kv?.name ?? typeLabel, value }]}
+                width={240}
+                height={64}
+                aria-label={`${kv?.name ?? typeLabel}: ${value}`}
+              />
+            </div>
+          ) : null}
+          <p className={`mt-2 text-2xl font-bold tabular-nums ${statusColor(kv?.thresholdStatus ?? null)}`}>
+            {value.toLocaleString()}
+            {kv?.unit && (
+              <span className="ml-1 text-sm font-normal text-content-muted">{kv.unit}</span>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-content-muted">No data</p>
       )}
     </div>
   );
@@ -223,9 +295,18 @@ export default function PublicSharePage() {
     >
       <header className="border-b border-border bg-surface-1 px-6 py-4">
         <div className="mx-auto max-w-6xl">
-          <h1 className="text-xl font-semibold text-content-strong">
-            {payload.dashboard.name}
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-xl font-semibold text-content-strong">
+              {payload.dashboard.name}
+            </h1>
+            <span
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-surface-bg px-2 py-0.5 text-xs font-medium text-content-muted"
+              data-testid="share-readonly-badge"
+            >
+              <Eye aria-hidden className="h-3 w-3" />
+              Shared · read-only
+            </span>
+          </div>
           {payload.dashboard.description && (
             <p className="mt-0.5 text-sm text-content-muted">{payload.dashboard.description}</p>
           )}
@@ -256,24 +337,15 @@ export default function PublicSharePage() {
               </section>
             )}
 
-            {/* Widget placeholders (read-only, no data fetching from public page) */}
-            {payload.widgets.length > 0 && payload.kpiValues.length === 0 && (
+            {/* Widgets (read-only). Rendered whenever widgets exist — alongside
+                KPI values when both are present. Each widget shows a minimal
+                visual built from its captured KPI value. */}
+            {payload.widgets.length > 0 && (
               <section data-testid="share-widgets">
                 <h2 className="mb-4 text-lg font-semibold text-content-strong">Widgets</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {payload.widgets.map((w) => (
-                    <div
-                      key={w.id}
-                      className="rounded-lg border border-border bg-surface-1 p-4"
-                      data-testid={`share-widget-${w.id}`}
-                    >
-                      <p className="text-sm font-medium text-content-default">
-                        {w.title ?? w.widgetType}
-                      </p>
-                      <p className="mt-1 text-xs text-content-muted capitalize">
-                        {w.widgetType.replace(/_/g, ' ')}
-                      </p>
-                    </div>
+                    <ShareWidgetCard key={w.id} widget={w} kpiValues={payload.kpiValues} />
                   ))}
                 </div>
               </section>

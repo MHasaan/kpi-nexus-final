@@ -1,9 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { AppShell } from '../../../components/app-shell';
+import { RequirePermission } from '../../../components/auth/require-permission';
+import {
+  Button,
+  Card,
+  Input,
+  Label,
+  Select,
+} from '../../../components/ui';
 import {
   ApiError,
   clearTokens,
@@ -133,172 +142,241 @@ export default function NewAlertRulePage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-3xl items-center gap-6 px-6 py-4">
-          <Link href="/alerts" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            ← Alerts
-          </Link>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <h1 className="mb-6 text-2xl font-semibold text-content-strong" data-testid="new-rule-heading">
+    <RequirePermission permission="ALERTS_VIEW">
+    <AppShell>
+      <div className="mx-auto max-w-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-content-strong" data-testid="new-rule-heading">
           New alert rule
         </h1>
+        <p className="mt-1 text-sm text-content-muted">
+          Define a condition on a KPI and an optional escalation policy.
+        </p>
 
-        <form onSubmit={handleSubmit} className="grid gap-5" data-testid="new-rule-form">
-          <label className="block">
-            <span className="text-sm font-medium text-content-default">Name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              minLength={2}
-              data-testid="rule-name-input"
-              className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-            />
-          </label>
+        <form onSubmit={handleSubmit} className="mt-6 grid gap-5" data-testid="new-rule-form">
+          <Card className="grid gap-5 p-5">
+            <div className="grid gap-2">
+              <Label htmlFor="rule-name" required>
+                Name
+              </Label>
+              <Input
+                id="rule-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                minLength={2}
+                data-testid="rule-name-input"
+                placeholder="e.g. MRR below floor"
+              />
+            </div>
 
-          <label className="block">
-            <span className="text-sm font-medium text-content-default">KPI</span>
-            <select
-              value={kpiId}
-              onChange={(e) => setKpiId(e.target.value)}
-              data-testid="rule-kpi-select"
-              className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-            >
-              {kpis.map((k) => (
-                <option key={k.id} value={k.id}>{k.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Rule type</span>
-              <select
-                value={ruleType}
-                onChange={(e) => setRuleType(e.target.value as AlertRuleType)}
-                data-testid="rule-type-select"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
+            <div className="grid gap-2">
+              <Label htmlFor="rule-kpi" required>
+                KPI
+              </Label>
+              <Select
+                id="rule-kpi"
+                value={kpiId}
+                onChange={(e) => setKpiId(e.target.value)}
+                data-testid="rule-kpi-select"
               >
-                <option value="STATIC_THRESHOLD">Static threshold</option>
-                <option value="DYNAMIC_STDDEV">Dynamic (std-dev)</option>
-                <option value="RATE_OF_CHANGE">Rate of change</option>
-                <option value="NO_DATA">No data</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Severity</span>
-              <select
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value as AlertSeverity)}
-                data-testid="rule-severity-select"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm"
-              >
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-              </select>
-            </label>
-          </div>
+                {kpis.map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="rule-type">Rule type</Label>
+                <Select
+                  id="rule-type"
+                  value={ruleType}
+                  onChange={(e) => setRuleType(e.target.value as AlertRuleType)}
+                  data-testid="rule-type-select"
+                >
+                  <option value="STATIC_THRESHOLD">Static threshold</option>
+                  <option value="DYNAMIC_STDDEV">Dynamic (std-dev)</option>
+                  <option value="RATE_OF_CHANGE">Rate of change</option>
+                  <option value="NO_DATA">No data</option>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="rule-severity">Severity</Label>
+                <Select
+                  id="rule-severity"
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value as AlertSeverity)}
+                  data-testid="rule-severity-select"
+                >
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                </Select>
+              </div>
+            </div>
+          </Card>
 
           {/* Type-specific config */}
-          <fieldset className="rounded-md border border-border p-4" data-testid="rule-config">
-            <legend className="px-1 text-xs font-semibold uppercase text-content-muted">Condition</legend>
-            {ruleType === 'STATIC_THRESHOLD' && (
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="block">
-                  <span className="text-sm text-content-default">Operator</span>
-                  <select
-                    value={operator}
-                    onChange={(e) => setOperator(e.target.value as Operator)}
-                    data-testid="rule-operator-select"
-                    className="mt-1 rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong"
-                  >
-                    {(['>', '<', '>=', '<=', '=='] as Operator[]).map((op) => (
-                      <option key={op} value={op}>{op}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-sm text-content-default">Value</span>
-                  <input
-                    type="number"
-                    step="any"
-                    value={thresholdValue}
-                    onChange={(e) => setThresholdValue(e.target.value)}
-                    data-testid="rule-threshold-input"
-                    className="mt-1 w-40 rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong"
-                  />
-                </label>
-              </div>
-            )}
-            {ruleType === 'DYNAMIC_STDDEV' && (
-              <div className="flex flex-wrap items-end gap-3 text-sm">
-                <label>σ count<input type="number" step="any" value={sigmas} onChange={(e) => setSigmas(e.target.value)} className="ml-2 w-24 rounded-md border border-border bg-surface-bg px-2 py-1" /></label>
-                <label>Window<input type="number" value={windowSize} onChange={(e) => setWindowSize(e.target.value)} className="ml-2 w-24 rounded-md border border-border bg-surface-bg px-2 py-1" /></label>
-              </div>
-            )}
-            {ruleType === 'RATE_OF_CHANGE' && (
-              <div className="flex flex-wrap items-end gap-3 text-sm">
-                <label>% change<input type="number" step="any" value={pctChange} onChange={(e) => setPctChange(e.target.value)} className="ml-2 w-24 rounded-md border border-border bg-surface-bg px-2 py-1" /></label>
-                <label>Window (min)<input type="number" value={windowMinutes} onChange={(e) => setWindowMinutes(e.target.value)} className="ml-2 w-24 rounded-md border border-border bg-surface-bg px-2 py-1" /></label>
-              </div>
-            )}
-            {ruleType === 'NO_DATA' && (
-              <label className="text-sm">Max stale (min)<input type="number" value={maxStaleMinutes} onChange={(e) => setMaxStaleMinutes(e.target.value)} className="ml-2 w-28 rounded-md border border-border bg-surface-bg px-2 py-1" /></label>
-            )}
-          </fieldset>
-
-          {/* Escalation builder */}
-          <fieldset className="rounded-md border border-border p-4" data-testid="escalation-builder">
-            <legend className="px-1 text-xs font-semibold uppercase text-content-muted">Escalation (optional)</legend>
-            {levels.map((lvl, idx) => (
-              <div key={idx} className="mb-3 rounded-md border border-border bg-surface-2 p-3" data-testid={`escalation-level-${idx}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-content-strong">Level {idx + 1}</span>
-                  <button type="button" onClick={() => setLevels((p) => p.filter((_, i) => i !== idx))} className="text-xs text-status-critical hover:underline" data-testid={`escalation-remove-${idx}`}>Remove</button>
-                </div>
-                <label className="mt-2 block text-sm">Delay (min)
-                  <input type="number" min={0} value={lvl.delayMinutes} onChange={(e) => updateLevel(idx, { delayMinutes: Number(e.target.value) })} data-testid={`escalation-delay-${idx}`} className="ml-2 w-24 rounded-md border border-border bg-surface-bg px-2 py-1" />
-                </label>
-                <div className="mt-2">
-                  <span className="text-xs text-content-muted">Channels</span>
-                  {channels.length === 0 && <p className="text-xs text-content-muted">No channels yet — create one under Channels.</p>}
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {channels.map((ch) => (
-                      <label key={ch.id} className="flex items-center gap-1 text-xs">
-                        <input type="checkbox" checked={lvl.channelIds.includes(ch.id)} onChange={() => toggleChannel(idx, ch.id)} data-testid={`escalation-${idx}-channel-${ch.id}`} />
-                        {ch.name} ({ch.kind})
-                      </label>
-                    ))}
+          <Card className="p-5">
+            <fieldset data-testid="rule-config">
+              <legend className="kn-eyebrow mb-3">Condition</legend>
+              {ruleType === 'STATIC_THRESHOLD' && (
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-operator">Operator</Label>
+                    <Select
+                      id="rule-operator"
+                      value={operator}
+                      onChange={(e) => setOperator(e.target.value as Operator)}
+                      data-testid="rule-operator-select"
+                      className="w-24"
+                    >
+                      {(['>', '<', '>=', '<=', '=='] as Operator[]).map((op) => (
+                        <option key={op} value={op}>
+                          {op}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-threshold">Value</Label>
+                    <Input
+                      id="rule-threshold"
+                      type="number"
+                      step="any"
+                      value={thresholdValue}
+                      onChange={(e) => setThresholdValue(e.target.value)}
+                      data-testid="rule-threshold-input"
+                      className="w-40"
+                    />
                   </div>
                 </div>
+              )}
+              {ruleType === 'DYNAMIC_STDDEV' && (
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-sigmas">σ count</Label>
+                    <Input id="rule-sigmas" type="number" step="any" value={sigmas} onChange={(e) => setSigmas(e.target.value)} className="w-28" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-window">Window</Label>
+                    <Input id="rule-window" type="number" value={windowSize} onChange={(e) => setWindowSize(e.target.value)} className="w-28" />
+                  </div>
+                </div>
+              )}
+              {ruleType === 'RATE_OF_CHANGE' && (
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-pct">% change</Label>
+                    <Input id="rule-pct" type="number" step="any" value={pctChange} onChange={(e) => setPctChange(e.target.value)} className="w-28" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="rule-winmin">Window (min)</Label>
+                    <Input id="rule-winmin" type="number" value={windowMinutes} onChange={(e) => setWindowMinutes(e.target.value)} className="w-28" />
+                  </div>
+                </div>
+              )}
+              {ruleType === 'NO_DATA' && (
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-stale">Max stale (min)</Label>
+                  <Input id="rule-stale" type="number" value={maxStaleMinutes} onChange={(e) => setMaxStaleMinutes(e.target.value)} className="w-40" />
+                </div>
+              )}
+            </fieldset>
+          </Card>
+
+          {/* Escalation builder */}
+          <Card className="p-5">
+            <fieldset data-testid="escalation-builder">
+              <legend className="kn-eyebrow mb-3">Escalation (optional)</legend>
+              <div className="grid gap-3">
+                {levels.map((lvl, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-border bg-surface-1 p-4"
+                    data-testid={`escalation-level-${idx}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-content-strong">Level {idx + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLevels((p) => p.filter((_, i) => i !== idx))}
+                        data-testid={`escalation-remove-${idx}`}
+                        className="text-status-critical hover:bg-status-critical-bg"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      <Label htmlFor={`escalation-delay-${idx}`}>Delay (min)</Label>
+                      <Input
+                        id={`escalation-delay-${idx}`}
+                        type="number"
+                        min={0}
+                        value={lvl.delayMinutes}
+                        onChange={(e) => updateLevel(idx, { delayMinutes: Number(e.target.value) })}
+                        data-testid={`escalation-delay-${idx}`}
+                        className="w-28"
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <span className="kn-eyebrow">Channels</span>
+                      {channels.length === 0 && (
+                        <p className="mt-1 text-xs text-content-muted">
+                          No channels yet — create one under Channels.
+                        </p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {channels.map((ch) => (
+                          <label key={ch.id} className="flex items-center gap-1.5 text-xs text-content">
+                            <input
+                              type="checkbox"
+                              checked={lvl.channelIds.includes(ch.id)}
+                              onChange={() => toggleChannel(idx, ch.id)}
+                              data-testid={`escalation-${idx}-channel-${ch.id}`}
+                              className="accent-[hsl(var(--accent-primary))]"
+                            />
+                            {ch.name} ({ch.kind})
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={addLevel}
+                    data-testid="escalation-add-level"
+                    leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Add escalation level
+                  </Button>
+                </div>
               </div>
-            ))}
-            <button type="button" onClick={addLevel} data-testid="escalation-add-level" className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-xs text-content-default hover:bg-surface-2">
-              + Add escalation level
-            </button>
-          </fieldset>
+            </fieldset>
+          </Card>
 
           {error && (
-            <p role="alert" data-testid="rule-error" className="text-sm text-status-critical">{error}</p>
+            <p role="alert" data-testid="rule-error" className="text-sm text-status-critical">
+              {error}
+            </p>
           )}
 
           <div>
-            <button
-              type="submit"
-              disabled={submitting}
-              data-testid="rule-submit"
-              className="rounded-md bg-accent-primary px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:opacity-50"
-            >
+            <Button type="submit" isLoading={submitting} data-testid="rule-submit">
               {submitting ? 'Creating…' : 'Create alert rule'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
-    </main>
+    </AppShell>
+    </RequirePermission>
   );
 }

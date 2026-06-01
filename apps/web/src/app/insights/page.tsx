@@ -3,8 +3,21 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Sparkles, EyeOff } from 'lucide-react';
 
 import { ApiError, api, getAccessToken } from '../../lib/api-client';
+import { AppShell } from '../../components/app-shell';
+import { RequirePermission } from '../../components/auth/require-permission';
+import { PermissionGuard } from '../../components/auth/permission-guard';
+import {
+  PageHeader,
+  Card,
+  CardContent,
+  Button,
+  Badge,
+  EmptyState,
+  Skeleton,
+} from '../../components/ui';
 
 interface Insight {
   id: string;
@@ -14,6 +27,8 @@ interface Insight {
   promptTokens: number;
   completionTokens: number;
   generatedAt: string;
+  status: string;
+  confidence: number;
 }
 
 export default function InsightsPage() {
@@ -49,54 +64,136 @@ export default function InsightsPage() {
     }
   };
 
+  const dismiss = async (id: string) => {
+    setError(null);
+    // Optimistically remove the row; refetch to reconcile with the server.
+    setRows((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
+    try {
+      await api(`/insights/${id}/dismiss`, { method: 'POST' });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Dismiss failed');
+    } finally {
+      load();
+    }
+  };
+
+  const loading = rows === null && !error;
+
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">Insights</span>
-        </div>
-      </header>
+    <RequirePermission permission="INSIGHTS_VIEW">
+      <AppShell>
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Intelligence"
+          title="AI Insights"
+          subtitle="Narratives about your KPIs' recent trends, generated and cited from your data."
+          actions={
+            <Button
+              type="button"
+              data-testid="insights-generate"
+              onClick={generate}
+              isLoading={busy}
+              leftIcon={!busy ? <Sparkles aria-hidden className="h-4 w-4" /> : undefined}
+            >
+              {busy ? 'Generating' : 'Generate insights'}
+            </Button>
+          }
+        />
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-content-strong">AI Insights</h1>
-            <p className="mt-1 text-sm text-content-muted">Narratives about your KPIs&apos; recent trends.</p>
-          </div>
-          <button
-            type="button"
-            data-testid="insights-generate"
-            onClick={generate}
-            disabled={busy}
-            className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        {error && (
+          <div
+            role="alert"
+            data-testid="insights-error"
+            className="rounded-lg border border-status-critical bg-status-critical-bg px-4 py-3 text-sm font-medium text-status-critical"
           >
-            {busy ? 'Generating…' : 'Generate insights'}
-          </button>
-        </div>
-        {error && <p className="mt-4 text-sm text-status-critical" data-testid="insights-error">{error}</p>}
+            {error}
+          </div>
+        )}
 
-        <div className="mt-6 space-y-3" data-testid="insights-list">
-          {(rows ?? []).map((r) => (
-            <article key={r.id} data-testid={`insight-row-${r.id}`} className="rounded-lg border border-border bg-surface-1 p-5">
-              <Link href={`/kpis/${r.kpiId}`} className="text-xs font-medium text-accent-primary hover:underline">
-                KPI {r.kpiId.slice(0, 8)}…
-              </Link>
-              <p className="mt-2 text-sm text-content-strong">{r.narrative}</p>
-              <p className="mt-3 text-xs text-content-muted">
-                {r.model} · {r.promptTokens + r.completionTokens} tokens · {new Date(r.generatedAt).toLocaleString()}
-              </p>
-            </article>
-          ))}
-          {rows && rows.length === 0 && (
-            <p className="rounded-lg border border-border bg-surface-1 p-8 text-center text-content-muted" data-testid="insights-empty">
-              No insights yet. Click &quot;Generate insights&quot; to summarize your most-changed KPIs.
-            </p>
-          )}
-        </div>
+        {loading && (
+          <div className="space-y-3" data-testid="insights-loading">
+            {[0, 1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-40" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!loading && (
+          <div className="space-y-3" data-testid="insights-list">
+            {(rows ?? []).map((r) => (
+              <Card key={r.id} data-testid={`insight-row-${r.id}`} className="kn-card-hover">
+                <CardContent className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/kpis/${r.kpiId}`}
+                      className="text-xs font-medium text-accent-primary hover:underline"
+                    >
+                      KPI {r.kpiId.slice(0, 8)}…
+                    </Link>
+                    <PermissionGuard permission="INSIGHTS_VIEW">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        data-testid={`insight-dismiss-${r.id}`}
+                        onClick={() => dismiss(r.id)}
+                        leftIcon={<EyeOff aria-hidden className="h-4 w-4" />}
+                      >
+                        Dismiss
+                      </Button>
+                    </PermissionGuard>
+                  </div>
+                  <p className="text-sm leading-relaxed text-content-strong">{r.narrative}</p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-content-muted">
+                    <Badge tone="info">{r.model}</Badge>
+                    <Badge
+                      data-testid={`insight-confidence-${r.id}`}
+                      tone={
+                        r.confidence >= 0.75 ? 'success' : r.confidence >= 0.5 ? 'info' : 'warning'
+                      }
+                    >
+                      <span className="tabular-nums">{Math.round(r.confidence * 100)}%</span>
+                      &nbsp;confident
+                    </Badge>
+                    <span className="tabular-nums">
+                      {(r.promptTokens + r.completionTokens).toLocaleString()} tokens
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className="tabular-nums">
+                      {new Date(r.generatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {rows && rows.length === 0 && (
+              <div data-testid="insights-empty">
+                <Card>
+                  <EmptyState
+                    icon={Sparkles}
+                    title="No insights yet"
+                    description={'Click "Generate insights" to summarize your most-changed KPIs.'}
+                    action={
+                      <Button type="button" onClick={generate} isLoading={busy}>
+                        {busy ? 'Generating' : 'Generate insights'}
+                      </Button>
+                    }
+                  />
+                </Card>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </main>
+      </AppShell>
+    </RequirePermission>
   );
 }

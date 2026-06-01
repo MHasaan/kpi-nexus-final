@@ -18,6 +18,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from './auth.service.js';
 import { AcceptInvitationDtoSchema } from './dto/accept-invitation.dto.js';
+import { InvitationPreviewDtoSchema } from './dto/invitation-preview.dto.js';
 import { LoginDtoSchema, RefreshDtoSchema } from './dto/login.dto.js';
 import { RegisterOrgDtoSchema } from './dto/register-org.dto.js';
 
@@ -80,6 +81,14 @@ export class AuthController {
   acceptInvitation(@Body() body: unknown) {
     const dto = parse(AcceptInvitationDtoSchema, body);
     return this.auth.acceptInvitation(dto);
+  }
+
+  @Public()
+  @Post('invitation-preview')
+  @HttpCode(HttpStatus.OK)
+  invitationPreview(@Body() body: unknown) {
+    const dto = parse(InvitationPreviewDtoSchema, body);
+    return this.auth.previewInvitation(dto);
   }
 
   @Post('logout')

@@ -1,8 +1,9 @@
 'use client';
 
+import { CircleCheck, CircleDashed, OctagonX, TriangleAlert, type LucideIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 import {
   ApiError,
@@ -12,6 +13,28 @@ import {
 
 // Recharts is client-only — use dynamic import to avoid SSR issues
 const SparklineChart = dynamic(() => import('./sparkline-chart'), { ssr: false });
+
+interface StatusLineMeta {
+  label: string;
+  Icon: LucideIcon;
+  className: string;
+}
+
+/** Map a raw threshold status to an icon + textual label (never colour-only). */
+function statusLineMeta(status: string | null): StatusLineMeta | null {
+  if (!status) return null;
+  const s = status.toUpperCase();
+  if (s === 'CRITICAL' || s === 'RED') {
+    return { label: 'Critical', Icon: OctagonX, className: 'text-status-critical' };
+  }
+  if (s === 'WARNING' || s === 'AMBER') {
+    return { label: 'Warning', Icon: TriangleAlert, className: 'text-status-warning' };
+  }
+  if (s === 'OK' || s === 'GREEN') {
+    return { label: 'On track', Icon: CircleCheck, className: 'text-status-success' };
+  }
+  return { label: 'No data', Icon: CircleDashed, className: 'text-content-muted' };
+}
 
 function statusBg(status: string | null): string {
   if (!status) return 'bg-surface-bg';
@@ -32,8 +55,27 @@ function statusTextColor(status: string | null): string {
 }
 
 export default function EmbedKpiPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full min-h-[180px] items-center justify-center bg-surface-bg p-3">
+          <p className="text-xs text-content-muted">Loading…</p>
+        </div>
+      }
+    >
+      <EmbedKpiInner />
+    </Suspense>
+  );
+}
+
+function EmbedKpiInner() {
   const params = useParams<{ token: string }>();
   const token = params.token;
+  const searchParams = useSearchParams();
+  // ?theme=light|dark — apply the matching theme class to the embed root so
+  // the iframe honours the host's requested appearance.
+  const themeParam = searchParams.get('theme');
+  const themeClass = themeParam === 'dark' ? 'dark' : themeParam === 'light' ? 'light' : '';
 
   const [snapshot, setSnapshot] = useState<EmbedKpiSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +100,7 @@ export default function EmbedKpiPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[180px] items-center justify-center bg-surface-bg p-3">
+      <div className={`flex h-full min-h-[180px] items-center justify-center bg-surface-bg p-3 ${themeClass}`}>
         <p className="text-xs text-content-muted">Loading…</p>
       </div>
     );
@@ -67,7 +109,7 @@ export default function EmbedKpiPage() {
   if (error || !snapshot) {
     return (
       <div
-        className="flex h-full min-h-[180px] items-center justify-center bg-surface-bg p-3"
+        className={`flex h-full min-h-[180px] items-center justify-center bg-surface-bg p-3 ${themeClass}`}
         data-testid="embed-kpi-error"
       >
         <p className="text-xs text-status-critical">{error ?? 'Not found'}</p>
@@ -75,9 +117,11 @@ export default function EmbedKpiPage() {
     );
   }
 
+  const status = statusLineMeta(snapshot.thresholdStatus);
+
   return (
     <div
-      className={`flex h-full min-h-[180px] flex-col justify-between p-3 ${statusBg(snapshot.thresholdStatus)}`}
+      className={`flex h-full min-h-[180px] flex-col justify-between p-3 ${statusBg(snapshot.thresholdStatus)} ${themeClass}`}
       data-testid="embed-kpi-card"
     >
       <div>
@@ -85,7 +129,7 @@ export default function EmbedKpiPage() {
           {snapshot.kpiName}
         </p>
         {snapshot.latestValue !== null ? (
-          <p className={`mt-1 text-2xl font-bold ${statusTextColor(snapshot.thresholdStatus)}`}>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${statusTextColor(snapshot.thresholdStatus)}`}>
             {snapshot.latestValue.toLocaleString()}
             {snapshot.unit && (
               <span className="ml-1 text-xs font-normal text-content-muted">{snapshot.unit}</span>
@@ -93,6 +137,15 @@ export default function EmbedKpiPage() {
           </p>
         ) : (
           <p className="mt-1 text-sm text-content-muted">No data</p>
+        )}
+        {status && (
+          <p
+            className={`mt-1 flex items-center gap-1 text-xs font-medium ${status.className}`}
+            data-testid="embed-kpi-status"
+          >
+            <status.Icon aria-hidden className="h-3 w-3" />
+            {status.label}
+          </p>
         )}
         {snapshot.latestRecordedAt && (
           <p className="mt-0.5 text-xs text-content-muted">

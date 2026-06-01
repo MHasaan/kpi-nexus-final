@@ -1,11 +1,24 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Check, Plus, ShieldCheck } from 'lucide-react';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  PageHeader,
+  Select,
+  Skeleton,
+} from '../../components/ui';
+import { cn } from '../../lib/cn';
 import {
   ApiError,
   applyRolePreset,
@@ -24,6 +37,65 @@ import {
   useTerminology,
 } from '../../lib/terminology-context';
 
+// Grouped view of the 18 canonical permissions (mirrors the design's matrix).
+const PERM_GROUPS: Array<[string, Array<[string, string]>]> = [
+  [
+    'KPIs',
+    [
+      ['View', 'KPI_VIEW'],
+      ['Create', 'KPI_CREATE'],
+      ['Edit', 'KPI_EDIT'],
+      ['Delete', 'KPI_DELETE'],
+      ['Data entry', 'KPI_DATA_ENTRY'],
+    ],
+  ],
+  [
+    'Dashboards',
+    [
+      ['View', 'DASHBOARD_VIEW'],
+      ['Manage', 'DASHBOARD_MANAGE'],
+    ],
+  ],
+  [
+    'Users & RBAC',
+    [
+      ['Users view', 'USERS_VIEW'],
+      ['Users manage', 'USERS_MANAGE'],
+      ['Roles manage', 'ROLES_MANAGE'],
+    ],
+  ],
+  [
+    'Org',
+    [
+      ['Positions', 'POSITIONS_MANAGE'],
+      ['Groups view', 'GROUPS_VIEW'],
+      ['Groups manage', 'GROUPS_MANAGE'],
+    ],
+  ],
+  [
+    'Intelligence',
+    [
+      ['Alerts', 'ALERTS_VIEW'],
+      ['Insights', 'INSIGHTS_VIEW'],
+      ['Analytics', 'ANALYTICS_VIEW'],
+      ['Reports', 'REPORTS_VIEW'],
+    ],
+  ],
+  [
+    'Admin',
+    [['Org settings', 'ORG_SETTINGS']],
+  ],
+];
+
+const ROLE_DOT = [
+  'bg-chart-2',
+  'bg-chart-3',
+  'bg-chart-4',
+  'bg-chart-5',
+  'bg-chart-6',
+  'bg-chart-7',
+];
+
 export default function RolesPage() {
   return (
     <TerminologyProvider>
@@ -37,12 +109,14 @@ function RolesPageInner() {
   const router = useRouter();
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
 
   // Create-role form state
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   // Per-row delete in-flight tracking
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -50,12 +124,11 @@ function RolesPageInner() {
 
   // Presets
   const [presets, setPresets] = useState<RolePreset[]>([]);
-  // Per-row preset selection: roleId → selected preset key
   const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
-  // Per-row apply in-flight
   const [applyingId, setApplyingId] = useState<string | null>(null);
-  // Per-row success/error feedback: roleId → message
-  const [applyFeedback, setApplyFeedback] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  const [applyFeedback, setApplyFeedback] = useState<
+    Record<string, { ok: boolean; msg: string }>
+  >({});
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -65,7 +138,9 @@ function RolesPageInner() {
     refresh();
     listPermissionPresets()
       .then(setPresets)
-      .catch(() => { /* non-fatal — preset UI degrades gracefully */ });
+      .catch(() => {
+        /* non-fatal — preset UI degrades gracefully */
+      });
   }, [router]);
 
   async function refresh() {
@@ -73,6 +148,7 @@ function RolesPageInner() {
     try {
       const data = await listRoles();
       setRoles(data);
+      setSelectedRoleId((prev) => prev ?? data[0]?.id ?? null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -94,6 +170,7 @@ function RolesPageInner() {
       });
       setNewName('');
       setNewDescription('');
+      setShowCreate(false);
       await refresh();
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Failed to create role');
@@ -107,6 +184,7 @@ function RolesPageInner() {
     setDeleteError(null);
     try {
       await deleteRole(role.id);
+      if (selectedRoleId === role.id) setSelectedRoleId(null);
       await refresh();
     } catch (err) {
       setDeleteError(
@@ -131,7 +209,10 @@ function RolesPageInner() {
       await refresh();
       setApplyFeedback((prev) => ({
         ...prev,
-        [role.id]: { ok: true, msg: `Preset applied — ${presets.find((p) => p.key === preset)?.label ?? preset}` },
+        [role.id]: {
+          ok: true,
+          msg: `Preset applied — ${presets.find((p) => p.key === preset)?.label ?? preset}`,
+        },
       }));
     } catch (err) {
       setApplyFeedback((prev) => ({
@@ -146,141 +227,208 @@ function RolesPageInner() {
     }
   }
 
+  const selectedRole = useMemo(
+    () => roles?.find((r) => r.id === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
+
   return (
-    <AppShell>
+    <AppShell title={pluralize(terminology.roleLabel)} crumbs={['People', pluralize(terminology.roleLabel)]}>
       <RequirePermission permission="ROLES_MANAGE">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8">
-          <h1
-            className="text-2xl font-semibold text-content-strong"
-            data-testid="roles-heading"
-          >
-            {pluralize(terminology.roleLabel)}
-          </h1>
-          <p className="mt-1 text-sm text-content-muted">
-            Manage who can do what. Admin bypasses all permission checks; other
-            {' '}{pluralize(terminology.roleLabel.toLowerCase())} get exactly the
-            permissions listed.
-          </p>
-        </div>
-
-        {loadError && (
-          <div
-            role="alert"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
-          >
-            {loadError}
-          </div>
-        )}
-
-        <PermissionGuard permission="ROLES_MANAGE">
-        <section className="mb-8 rounded-lg border border-border bg-surface-1 p-6">
-          <h2 className="text-lg font-semibold text-content-strong">Create a role</h2>
-          <p className="mt-1 text-sm text-content-muted">
-            Permissions can be added after creation (P1 keeps the form minimal).
-          </p>
-          <form onSubmit={handleCreate} className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Name</span>
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                disabled={creating}
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="e.g. Field Engineer"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Description</span>
-              <input
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                disabled={creating}
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="Optional"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={creating}
-              className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {creating ? 'Creating…' : 'Create role'}
-            </button>
-          </form>
-          {createError && (
-            <p role="alert" className="mt-3 text-sm text-status-critical">
-              {createError}
-            </p>
-          )}
-        </section>
-        </PermissionGuard>
-
-        {deleteError && (
-          <div
-            role="alert"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
-          >
-            {deleteError}
-          </div>
-        )}
-
-        <section>
-          {roles === null && !loadError && (
-            <p className="text-sm text-content-muted">Loading roles…</p>
-          )}
-          {roles && (
-            <ul className="space-y-3">
-              {roles.map((role) => (
-                <li
-                  key={role.id}
-                  className="rounded-lg border border-border bg-surface-1 p-4"
-                  data-testid={`role-row-${role.name}`}
+        <div className="flex flex-col gap-6">
+          <PageHeader
+            title={pluralize(terminology.roleLabel)}
+            titleTestId="roles-heading"
+            subtitle="18 canonical permissions · admin bypasses all checks · inherited shown derived"
+            actions={
+              <PermissionGuard permission="ROLES_MANAGE">
+                <Button
+                  leftIcon={<Plus aria-hidden className="h-4 w-4" />}
+                  onClick={() => setShowCreate((v) => !v)}
                 >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold text-content-strong">
-                          {role.name}
+                  New {terminology.roleLabel.toLowerCase()}
+                </Button>
+              </PermissionGuard>
+            }
+          />
+
+          {loadError && (
+            <div
+              role="alert"
+              data-testid="roles-load-error"
+              className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+            >
+              {loadError}
+            </div>
+          )}
+          {deleteError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+            >
+              {deleteError}
+            </div>
+          )}
+
+          <PermissionGuard permission="ROLES_MANAGE">
+            {showCreate && (
+              <Card>
+                <div className="border-b border-border-divider px-4 py-3.5">
+                  <h2 className="text-sm font-semibold text-content-strong">
+                    Create a {terminology.roleLabel.toLowerCase()}
+                  </h2>
+                  <p className="mt-1 text-xs text-content-muted">
+                    Permissions can be added after creation (apply a preset below).
+                  </p>
+                </div>
+                <form
+                  onSubmit={handleCreate}
+                  className="grid gap-4 p-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end"
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="role-name" required>
+                      Name
+                    </Label>
+                    <Input
+                      id="role-name"
+                      required
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      disabled={creating}
+                      placeholder="e.g. Field Engineer"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="role-desc">Description</Label>
+                    <Input
+                      id="role-desc"
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      disabled={creating}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <Button type="submit" isLoading={creating}>
+                    {creating ? 'Creating…' : 'Create'}
+                  </Button>
+                  {createError && (
+                    <p role="alert" className="text-sm text-status-critical sm:col-span-3">
+                      {createError}
+                    </p>
+                  )}
+                </form>
+              </Card>
+            )}
+          </PermissionGuard>
+
+          {roles === null && !loadError ? (
+            <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+              <Card>
+                <div className="flex flex-col gap-2 p-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              </Card>
+              <Card>
+                <Skeleton className="m-4 h-64" />
+              </Card>
+            </div>
+          ) : roles && roles.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={ShieldCheck}
+                title="No roles yet"
+                description={`Create your first ${terminology.roleLabel.toLowerCase()} above.`}
+              />
+            </Card>
+          ) : roles ? (
+            <div className="grid gap-4 lg:grid-cols-[260px_1fr] lg:items-start">
+              {/* Roles list */}
+              <Card className="p-2">
+                <ul role="list" className="flex flex-col">
+                  {roles.map((role, i) => {
+                    const active = role.id === selectedRoleId;
+                    return (
+                      <li key={role.id} data-testid={`role-row-${role.name}`}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRoleId(role.id)}
+                          className={cn(
+                            'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors',
+                            active
+                              ? 'bg-accent-bg text-accent-primary'
+                              : 'hover:bg-surface-hover',
+                          )}
+                        >
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'h-2.5 w-2.5 shrink-0 rounded-sm',
+                              ROLE_DOT[i % ROLE_DOT.length],
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              'flex-1 truncate text-sm',
+                              active ? 'font-semibold' : 'font-medium text-content-default',
+                            )}
+                          >
+                            {role.name}
+                          </span>
                           {role.isAdmin && (
-                            <span className="ml-2 rounded bg-accent-primary/10 px-1.5 py-0.5 text-xs font-medium text-accent-primary">
+                            <Badge tone="info" className="text-[10px]">
                               admin
-                            </span>
+                            </Badge>
                           )}
-                        </h3>
-                        {role.description && (
-                          <p className="mt-1 text-sm text-content-muted">{role.description}</p>
+                          <span
+                            className="text-xs tabular-nums text-content-muted"
+                            title={`${role.permissions.length} permissions`}
+                          >
+                            {role.permissions.length}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+
+              {/* Permission matrix for the selected role */}
+              {selectedRole && (
+                <Card className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-semibold text-content-strong">
+                        Permission matrix · {selectedRole.name}
+                        {selectedRole.isAdmin && (
+                          <Badge tone="info" className="ml-2 align-middle">
+                            admin
+                          </Badge>
                         )}
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {role.permissions.length === 0 && (
-                            <span className="text-xs text-content-muted">
-                              {role.isAdmin ? 'all permissions (bypass)' : 'no permissions'}
-                            </span>
-                          )}
-                          {role.permissions.map((perm) => (
-                            <span
-                              key={perm}
-                              className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-content-default"
-                            >
-                              {perm}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <PermissionGuard permission="ROLES_MANAGE">
+                      </h2>
+                      <p className="mt-1 max-w-xl text-xs text-content-muted">
+                        {selectedRole.isAdmin
+                          ? 'Admin roles bypass every permission check.'
+                          : 'Resolver order: isAdmin → resource → role → inherited → delegation → owner. Permission changes may be approval-gated.'}
+                      </p>
+                    </div>
+                    <PermissionGuard permission="ROLES_MANAGE">
                       <div className="flex flex-wrap items-center gap-2">
                         {presets.length > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <select
-                              value={selectedPreset[role.id] ?? ''}
+                          <>
+                            <Select
+                              value={selectedPreset[selectedRole.id] ?? ''}
                               onChange={(e) =>
-                                setSelectedPreset((prev) => ({ ...prev, [role.id]: e.target.value }))
+                                setSelectedPreset((prev) => ({
+                                  ...prev,
+                                  [selectedRole.id]: e.target.value,
+                                }))
                               }
-                              disabled={applyingId === role.id}
-                              aria-label={`Select preset for ${role.name}`}
-                              data-testid={`preset-select-${role.name}`}
-                              className="rounded-md border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={applyingId === selectedRole.id}
+                              aria-label={`Select preset for ${selectedRole.name}`}
+                              data-testid={`preset-select-${selectedRole.name}`}
+                              className="w-44"
                             >
                               <option value="">Apply preset…</option>
                               {presets.map((p) => (
@@ -288,47 +436,98 @@ function RolesPageInner() {
                                   {p.label}
                                 </option>
                               ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleApplyPreset(role)}
-                              disabled={!selectedPreset[role.id] || applyingId === role.id}
-                              aria-label={`Apply preset to ${role.name}`}
-                              data-testid={`preset-apply-${role.name}`}
-                              className="rounded-md border border-border px-3 py-1.5 text-sm text-content-default transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            </Select>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleApplyPreset(selectedRole)}
+                              disabled={
+                                !selectedPreset[selectedRole.id] ||
+                                applyingId === selectedRole.id
+                              }
+                              aria-label={`Apply preset to ${selectedRole.name}`}
+                              data-testid={`preset-apply-${selectedRole.name}`}
                             >
-                              {applyingId === role.id ? 'Applying…' : 'Apply'}
-                            </button>
-                          </div>
+                              {applyingId === selectedRole.id ? 'Applying…' : 'Apply'}
+                            </Button>
+                          </>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(role)}
-                          disabled={deletingId === role.id}
-                          className="rounded-md border border-border px-3 py-1.5 text-sm text-status-critical transition hover:bg-status-critical/10 disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label={`Delete ${role.name}`}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(selectedRole)}
+                          disabled={deletingId === selectedRole.id}
+                          className="text-status-critical hover:bg-status-critical/10"
+                          aria-label={`Delete ${selectedRole.name}`}
                         >
-                          {deletingId === role.id ? 'Deleting…' : 'Delete'}
-                        </button>
+                          {deletingId === selectedRole.id ? 'Deleting…' : 'Delete'}
+                        </Button>
                       </div>
-                      </PermissionGuard>
-                    </div>
-                    {applyFeedback[role.id] && (
-                      <p
-                        role="status"
-                        data-testid={`preset-feedback-${role.name}`}
-                        className={`text-sm ${applyFeedback[role.id]?.ok ? 'text-status-ok' : 'text-status-critical'}`}
-                      >
-                        {applyFeedback[role.id]?.msg}
-                      </p>
-                    )}
+                    </PermissionGuard>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+
+                  {applyFeedback[selectedRole.id] && (
+                    <p
+                      role="status"
+                      data-testid={`preset-feedback-${selectedRole.name}`}
+                      className={cn(
+                        'mt-2 text-sm',
+                        applyFeedback[selectedRole.id]?.ok
+                          ? 'text-status-success'
+                          : 'text-status-critical',
+                      )}
+                    >
+                      {applyFeedback[selectedRole.id]?.msg}
+                    </p>
+                  )}
+
+                  <div className="mt-5 flex flex-col gap-5">
+                    {PERM_GROUPS.map(([group, perms]) => (
+                      <div key={group}>
+                        <div className="kn-eyebrow mb-2.5">{group}</div>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2.5">
+                          {perms.map(([label, key]) => {
+                            const on =
+                              selectedRole.isAdmin || selectedRole.permissions.includes(key);
+                            return (
+                              <span
+                                key={key}
+                                className="inline-flex w-40 items-center gap-2"
+                              >
+                                <span
+                                  aria-hidden
+                                  className={cn(
+                                    'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded',
+                                    on
+                                      ? 'bg-accent-primary text-white'
+                                      : 'border border-border-strong bg-surface-bg text-transparent',
+                                  )}
+                                  style={{ width: 18, height: 18 }}
+                                >
+                                  <Check className="h-3 w-3" strokeWidth={3} />
+                                </span>
+                                <span className="text-sm text-content-default">{label}</span>
+                                <span className="sr-only">
+                                  {on ? 'granted' : 'not granted'}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedRole.description && (
+                    <p className="mt-5 border-t border-border-divider pt-4 text-sm text-content-muted">
+                      {selectedRole.description}
+                    </p>
+                  )}
+                </Card>
+              )}
+            </div>
+          ) : null}
+        </div>
       </RequirePermission>
     </AppShell>
   );

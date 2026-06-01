@@ -6,6 +6,7 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 import { HttpStatus } from '@nestjs/common';
+import { Prisma } from '@kpi-nexus/db';
 
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
@@ -28,6 +29,7 @@ interface FakeRequest {
   entityId: string;
   requesterUserId: string;
   proposedPayload: unknown;
+  currentPayload: unknown;
   status: string;
   decisions: unknown;
 }
@@ -55,6 +57,7 @@ class FakePrisma {
         entityId: data.entityId as string,
         requesterUserId: data.requesterUserId as string,
         proposedPayload: data.proposedPayload,
+        currentPayload: data.currentPayload,
         status: 'PENDING',
         decisions: [],
       };
@@ -109,6 +112,34 @@ describe('ApprovalGateService.requireApprovalIfActive', () => {
     expect(created.entityId).toBe('kpi_9');
     expect(created.requesterUserId).toBe('mgr');
     expect((thrown as ApprovalRequiredException).getResponse()).toMatchObject({ requestId: created.id });
+  });
+
+  test('active workflow → persists currentPayload (BEFORE state) on the request', async () => {
+    const { service, prisma } = makeService();
+    prisma.workflows.push({ id: 'wf', organizationId: ORG, entityType: 'KPI_DEFINITION', requiredApproverRoleIds: ['r1'], requireAll: false, isActive: true });
+    const before = { id: 'kpi_9', name: 'Old name', targetValue: 100 };
+    try {
+      await withCtx({ userId: 'mgr' }, () =>
+        service.requireApprovalIfActive('KPI_DEFINITION', 'kpi_9', { name: 'New' }, { currentPayload: before }),
+      );
+    } catch {
+      // ApprovalRequiredException expected — assert persistence below.
+    }
+    expect(prisma.requests).toHaveLength(1);
+    expect(prisma.requests[0]!.currentPayload).toEqual(before);
+    expect(prisma.requests[0]!.proposedPayload).toEqual({ name: 'New' });
+  });
+
+  test('active workflow with no currentPayload (create) → stores Json null, not the proposed payload', async () => {
+    const { service, prisma } = makeService();
+    prisma.workflows.push({ id: 'wf', organizationId: ORG, entityType: 'KPI_TARGET', requiredApproverRoleIds: ['r1'], requireAll: false, isActive: true });
+    try {
+      await withCtx({ userId: 'mgr' }, () => service.requireApprovalIfActive('KPI_TARGET', 'kpi_9', { kind: 'create' }));
+    } catch {
+      // ApprovalRequiredException expected.
+    }
+    expect(prisma.requests).toHaveLength(1);
+    expect(prisma.requests[0]!.currentPayload).toBe(Prisma.JsonNull);
   });
 
   test('bypass option → no-op even with active workflow', async () => {

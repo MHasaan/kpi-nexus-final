@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 
 import {
   ApiError,
@@ -11,20 +11,27 @@ import {
   getBoardPack,
   type BoardPack,
 } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
 import { PrintButton } from '../../../components/print-button';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
+
+const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'Board pack' }];
 
 const PERIOD_OPTIONS = [
-  { label: '7 days', value: 7 },
-  { label: '14 days', value: 14 },
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
+  { label: '7 days', value: '7' },
+  { label: '14 days', value: '14' },
+  { label: '30 days', value: '30' },
+  { label: '90 days', value: '90' },
 ] as const;
 
-function formatChange(change: number | null, changePct: number | null): string {
-  if (change === null) return '—';
-  const sign = change >= 0 ? '+' : '';
-  const pct = changePct !== null ? ` (${sign}${changePct.toFixed(1)}%)` : '';
-  return `${sign}${change.toLocaleString()}${pct}`;
+function quadrantTone(status: string): { cls: string; label: string } {
+  if (status === 'CRITICAL' || status === 'RED') {
+    return { cls: 'bg-status-critical-bg text-status-critical', label: status };
+  }
+  if (status === 'WARNING' || status === 'AMBER') {
+    return { cls: 'bg-status-warning-bg text-status-warning', label: status };
+  }
+  return { cls: 'bg-status-success-bg text-status-success', label: status };
 }
 
 export default function BoardPackPage() {
@@ -61,187 +68,188 @@ export default function BoardPackPage() {
     }
   }
 
-  function handlePeriodChange(days: number) {
+  function handlePeriodChange(value: string) {
+    const days = Number(value);
     setSinceDays(days);
     void load(days);
   }
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1 no-print">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-            >
-              KPI Nexus
-            </Link>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/reports" className="text-content-muted hover:text-content-strong">
-                Reports
-              </Link>
-              <span className="text-content-muted">/</span>
-              <span className="font-medium text-content-strong">Board Pack</span>
-            </nav>
+    <AppShell title="Board pack" crumbs={CRUMBS}>
+      {/* Controls (hidden in print) */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 no-print">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Keep per-period testids on equivalent radio elements */}
+          <span className="text-sm font-medium text-content-muted">Period</span>
+          <div role="radiogroup" aria-label="Period" className="inline-flex rounded-lg bg-surface-1 p-1 shadow-inset">
+            {PERIOD_OPTIONS.map((opt) => {
+              const active = String(sinceDays) === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => handlePeriodChange(opt.value)}
+                  data-testid={`board-pack-period-${opt.value}`}
+                  disabled={loading}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium tabular-nums transition-colors duration-fast disabled:opacity-50 ${
+                    active
+                      ? 'bg-surface-bg text-content-strong shadow-xs'
+                      : 'text-content-muted hover:text-content-strong'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
-          <PrintButton />
         </div>
-      </header>
+        <PrintButton />
+      </div>
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        {/* Period picker */}
-        <div className="mb-8 flex flex-wrap items-center gap-3 no-print">
-          <span className="text-sm font-medium text-content-muted">Period:</span>
-          {PERIOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handlePeriodChange(opt.value)}
-              data-testid={`board-pack-period-${opt.value}`}
-              disabled={loading}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                sinceDays === opt.value
-                  ? 'bg-accent-primary text-white'
-                  : 'border border-border bg-surface-1 text-content-default hover:bg-surface-2'
-              } disabled:opacity-50`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {loadError && (
+        <div
+          role="alert"
+          data-testid="board-pack-error"
+          className="mb-6 rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+        >
+          {loadError}
         </div>
+      )}
 
-        {loadError && (
-          <div
-            role="alert"
-            data-testid="board-pack-error"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
-          >
-            {loadError}
+      {loading && (
+        <div data-testid="board-pack-loading" className="space-y-4">
+          <span className="sr-only">Loading board pack…</span>
+          <Skeleton className="h-10 w-80" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-xl" aria-hidden />
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {loading && (
-          <p className="text-sm text-content-muted" data-testid="board-pack-loading">
-            Loading…
-          </p>
-        )}
+      {boardPack && (
+        <div data-testid="board-pack-content" className="space-y-10">
+          {/* Presentation-grade header */}
+          <header>
+            <p className="kn-eyebrow text-content-muted">Executive board pack</p>
+            <h1
+              className="mt-1 text-3xl font-bold tracking-tight text-content-strong"
+              data-testid="board-pack-heading"
+            >
+              {boardPack.org.name}
+            </h1>
+            <p className="mt-1 text-sm tabular-nums text-content-muted">
+              {boardPack.period.from} – {boardPack.period.to} ({boardPack.period.sinceDays} days)
+            </p>
+          </header>
 
-        {boardPack && (
-          <div data-testid="board-pack-content">
-            {/* Header */}
-            <header className="mb-8">
-              <h1
-                className="text-3xl font-bold text-content-strong"
-                data-testid="board-pack-heading"
-              >
-                {boardPack.org.name} — Board Pack
-              </h1>
-              <p className="mt-1 text-sm text-content-muted">
-                Period: {boardPack.period.from} to {boardPack.period.to} ({boardPack.period.sinceDays} days)
-              </p>
-            </header>
-
-            {/* Top Movers */}
-            <section className="mb-10" data-testid="board-pack-movers">
-              <h2 className="mb-4 text-xl font-semibold text-content-strong">Top Movers</h2>
-              {boardPack.topMovers.length === 0 ? (
-                <p className="text-sm text-content-muted">No data available for this period.</p>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {boardPack.topMovers.slice(0, 6).map((mover) => {
-                    const isPositive = (mover.change ?? 0) >= 0;
-                    return (
-                      <div
-                        key={mover.kpiId}
-                        className="rounded-lg border border-border bg-surface-1 p-4"
-                        data-testid={`mover-card-${mover.kpiId}`}
+          {/* Top movers */}
+          <section data-testid="board-pack-movers">
+            <h2 className="mb-4 text-xl font-semibold tracking-tight text-content-strong">
+              Top movers
+            </h2>
+            {boardPack.topMovers.length === 0 ? (
+              <p className="text-sm text-content-muted">No data available for this period.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {boardPack.topMovers.slice(0, 6).map((mover) => {
+                  const change = mover.change ?? 0;
+                  const flat = mover.change === null || change === 0;
+                  const positive = change > 0;
+                  const sign = positive ? '+' : '';
+                  const pct =
+                    mover.changePct !== null ? ` (${sign}${mover.changePct.toFixed(1)}%)` : '';
+                  const ChangeIcon = flat ? Minus : positive ? ArrowUpRight : ArrowDownRight;
+                  const changeCls = flat
+                    ? 'text-content-muted'
+                    : positive
+                      ? 'text-status-success'
+                      : 'text-status-critical';
+                  return (
+                    <Card key={mover.kpiId} data-testid={`mover-card-${mover.kpiId}`} className="p-4">
+                      <p className="truncate text-sm font-medium text-content-strong">
+                        {mover.name}
+                      </p>
+                      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-content-strong">
+                        {mover.currentValue?.toLocaleString() ?? '—'}
+                        {mover.unit && (
+                          <span className="ml-1 text-sm font-normal text-content-muted">
+                            {mover.unit}
+                          </span>
+                        )}
+                      </p>
+                      <p
+                        className={`mt-1 inline-flex items-center gap-1 text-sm font-semibold tabular-nums ${changeCls}`}
                       >
-                        <p className="truncate text-sm font-medium text-content-strong">
-                          {mover.name}
-                        </p>
-                        <p className="mt-2 text-2xl font-bold text-content-strong">
-                          {mover.currentValue?.toLocaleString() ?? '—'}
-                          {mover.unit && (
-                            <span className="ml-1 text-sm font-normal text-content-muted">
-                              {mover.unit}
-                            </span>
-                          )}
-                        </p>
-                        <p
-                          className={`mt-1 text-sm font-medium ${
-                            isPositive ? 'text-status-success' : 'text-status-critical'
-                          }`}
-                        >
-                          {formatChange(mover.change, mover.changePct)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                        <ChangeIcon className="h-4 w-4" aria-hidden />
+                        {mover.change === null
+                          ? '—'
+                          : `${sign}${change.toLocaleString()}${pct}`}
+                      </p>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-            {/* BSC Quadrants */}
-            {boardPack.quadrants.length > 0 && (
-              <section data-testid="board-pack-quadrants">
-                <h2 className="mb-4 text-xl font-semibold text-content-strong">
-                  Balanced Scorecard
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {boardPack.quadrants.map((quadrant, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-border bg-surface-1 p-4"
-                      data-testid={`quadrant-card-${idx}`}
-                    >
-                      <h3 className="mb-3 font-semibold text-content-strong">{quadrant.name}</h3>
-
-                      {/* Health distribution if present */}
+          {/* Balanced scorecard quadrants */}
+          {boardPack.quadrants.length > 0 && (
+            <section data-testid="board-pack-quadrants">
+              <h2 className="mb-4 text-xl font-semibold tracking-tight text-content-strong">
+                Balanced scorecard
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {boardPack.quadrants.map((quadrant, idx) => (
+                  <Card key={idx} data-testid={`quadrant-card-${idx}`}>
+                    <CardHeader>
+                      <CardTitle>{quadrant.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
                       {quadrant.healthDistribution && (
-                        <div className="mb-3 flex gap-2 text-xs">
-                          {Object.entries(quadrant.healthDistribution).map(([status, count]) => (
-                            <span
-                              key={status}
-                              className={`rounded px-1.5 py-0.5 font-medium ${
-                                status === 'CRITICAL' || status === 'RED'
-                                  ? 'bg-status-critical/10 text-status-critical'
-                                  : status === 'WARNING' || status === 'AMBER'
-                                    ? 'bg-status-warning/10 text-status-warning'
-                                    : 'bg-status-success/10 text-status-success'
-                              }`}
-                            >
-                              {count} {status}
-                            </span>
-                          ))}
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          {Object.entries(quadrant.healthDistribution).map(([status, count]) => {
+                            const tone = quadrantTone(status);
+                            return (
+                              <span
+                                key={status}
+                                className={`rounded-full px-2 py-0.5 font-medium tabular-nums ${tone.cls}`}
+                              >
+                                {count} {tone.label}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
 
                       {quadrant.kpis.length === 0 ? (
                         <p className="text-xs text-content-muted">No KPIs in this quadrant.</p>
                       ) : (
-                        <ul className="space-y-1.5">
+                        <ul className="divide-y divide-border-divider">
                           {quadrant.kpis.slice(0, 5).map((kpi) => (
                             <li
                               key={kpi.kpiId}
-                              className="flex items-center justify-between text-sm"
+                              className="flex items-center justify-between gap-2 py-1.5 text-sm"
                             >
-                              <span className="truncate text-content-default">{kpi.name}</span>
-                              <span className="ml-2 shrink-0 font-medium text-content-strong">
+                              <span className="truncate text-content">{kpi.name}</span>
+                              <span className="shrink-0 font-medium tabular-nums text-content-strong">
                                 {kpi.value?.toLocaleString() ?? '—'}
                               </span>
                             </li>
                           ))}
                         </ul>
                       )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-      </div>
-    </main>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+    </AppShell>
   );
 }

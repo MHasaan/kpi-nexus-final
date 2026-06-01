@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { KPIInsight } from '@kpi-nexus/db';
 
 import { AiConfigsService } from '../ai/ai-configs.service.js';
@@ -8,6 +8,20 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { type WindowStats, computeWindowStats, rankByAbsChange } from './insight-stats.js';
 
 const POINTS_WINDOW = 90;
+
+/** Clamp a number into the inclusive [lo, hi] range. */
+function clamp(value: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, value));
+}
+
+/**
+ * Derive a 0..1 confidence for an insight from the window's volume + change
+ * magnitude: more data points (capped at 10) and a large swing (|change| > 50%)
+ * raise confidence above the 0.5 baseline.
+ */
+function deriveConfidence(stats: WindowStats): number {
+  return clamp(0.5 + Math.min(stats.count, 10) / 20 + (Math.abs(stats.changePct) > 50 ? 0.2 : 0), 0, 1);
+}
 
 const SYSTEM_PROMPT = [
   'You are a data analyst. In 2-3 sentences, explain what a KPI metric did over the window and why it matters.',
@@ -77,6 +91,7 @@ export class InsightsService {
         model: route.model,
         promptTokens: result.usage.inputTokens,
         completionTokens: result.usage.outputTokens,
+        confidence: deriveConfidence(stats),
       },
     });
   }
@@ -109,11 +124,13 @@ export class InsightsService {
     return insights;
   }
 
-  async list(filter: { kpiId?: string; from?: Date; to?: Date }): Promise<KPIInsight[]> {
+  async list(filter: { kpiId?: string; from?: Date; to?: Date; includeDismissed?: boolean }): Promise<KPIInsight[]> {
     const ctx = RequestContextStore.require();
     return this.prisma.kPIInsight.findMany({
       where: {
         organizationId: ctx.organizationId,
+        // Hide dismissed insights unless the caller explicitly opts in.
+        ...(filter.includeDismissed ? {} : { status: { not: 'DISMISSED' } }),
         ...(filter.kpiId ? { kpiId: filter.kpiId } : {}),
         ...(filter.from || filter.to
           ? { generatedAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } }
@@ -121,6 +138,25 @@ export class InsightsService {
       },
       orderBy: { generatedAt: 'desc' },
       take: 100,
+    });
+  }
+
+  /** Mark an insight DISMISSED so it drops out of the default list. Org-scoped. */
+  async dismiss(insightId: string): Promise<KPIInsight> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.prisma.kPIInsight.findFirst({
+      where: { id: insightId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException({ code: 'INSIGHT_NOT_FOUND', message: 'Insight not found' });
+
+    return this.prisma.kPIInsight.update({
+      where: { id: existing.id },
+      data: {
+        status: 'DISMISSED',
+        dismissedAt: new Date(),
+        dismissedById: ctx.userId,
+      },
     });
   }
 

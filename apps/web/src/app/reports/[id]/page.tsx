@@ -1,8 +1,17 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  CircleDashed,
+  Download,
+  Loader2,
+  Play,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react';
 
 import {
   ApiError,
@@ -13,18 +22,51 @@ import {
   type ReportRun,
   type ScheduledReport,
 } from '../../../lib/api-client';
+import { AppShell } from '../../../components/app-shell';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  PageHeader,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../../components/ui';
 
-function statusClass(status: ReportRun['status']): string {
-  switch (status) {
-    case 'SUCCEEDED':
-      return 'text-status-success';
-    case 'FAILED':
-      return 'text-status-critical';
-    case 'RUNNING':
-      return 'text-status-warning';
-    default:
-      return 'text-content-muted';
+function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
+  if (status === 'SUCCEEDED') {
+    return (
+      <Badge tone="success">
+        <CheckCircle2 className="h-3 w-3" aria-hidden /> succeeded
+      </Badge>
+    );
   }
+  if (status === 'FAILED') {
+    return (
+      <Badge tone="error">
+        <XCircle className="h-3 w-3" aria-hidden /> failed
+      </Badge>
+    );
+  }
+  if (status === 'RUNNING') {
+    return (
+      <Badge tone="warning">
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> running
+      </Badge>
+    );
+  }
+  return (
+    <Badge tone="neutral">
+      <CircleDashed className="h-3 w-3" aria-hidden /> {status.toLowerCase()}
+    </Badge>
+  );
 }
 
 export default function ReportDetailPage() {
@@ -77,180 +119,174 @@ export default function ReportDetailPage() {
     }
   }
 
+  const crumbs = [
+    { label: 'Execute' },
+    { label: 'Reports', href: '/reports' },
+    { label: report?.name ?? 'Report' },
+  ];
+
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <Link
-            href="/dashboard"
-            className="text-lg font-semibold text-content-strong hover:text-accent-primary"
-          >
-            KPI Nexus
-          </Link>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/reports" className="text-content-muted hover:text-content-strong">
-              Reports
-            </Link>
-            {report && (
-              <>
-                <span className="text-content-muted">/</span>
-                <span className="font-medium text-content-strong">{report.name}</span>
-              </>
-            )}
-          </nav>
+    <AppShell title={report?.name ?? 'Report'} crumbs={crumbs}>
+      {loadError && (
+        <div
+          role="alert"
+          data-testid="report-detail-load-error"
+          className="mb-6 rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+        >
+          {loadError}
         </div>
-      </header>
+      )}
 
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        {loadError && (
-          <div
-            role="alert"
-            data-testid="report-detail-load-error"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
-          >
-            {loadError}
-          </div>
-        )}
+      {report === null && !loadError && (
+        <div className="space-y-4" aria-hidden>
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-4 w-96" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
+      )}
 
-        {report && (
-          <>
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1
-                  className="text-2xl font-semibold text-content-strong"
-                  data-testid="report-detail-heading"
-                >
-                  {report.name}
-                </h1>
-                {report.description && (
-                  <p className="mt-1 text-sm text-content-muted">{report.description}</p>
-                )}
-                <div className="mt-2 flex flex-wrap gap-3 text-xs text-content-muted">
-                  <span>
-                    Status:{' '}
-                    <span
-                      className={
-                        report.isActive ? 'text-status-success' : 'text-content-muted'
-                      }
-                    >
-                      {report.isActive ? 'active' : 'paused'}
-                    </span>
-                  </span>
-                  <span>Format: {report.format}</span>
-                  <span className="font-mono">{report.cron}</span>
-                  {report.lastRunAt && (
-                    <span>Last run: {new Date(report.lastRunAt).toLocaleString()}</span>
-                  )}
-                  {report.nextRunAt && (
-                    <span>Next run: {new Date(report.nextRunAt).toLocaleString()}</span>
-                  )}
-                </div>
-                {report.recipients.length > 0 && (
-                  <p className="mt-1 text-xs text-content-muted">
-                    Recipients: {report.recipients.join(', ')}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
+      {report && (
+        <>
+          <PageHeader
+            title={report.name}
+            titleTestId="report-detail-heading"
+            subtitle={report.description ?? undefined}
+            actions={
+              <>
+                <Button
+                  variant="secondary"
                   onClick={() => void handleTrigger()}
+                  isLoading={triggering}
                   disabled={triggering}
                   data-testid="report-detail-trigger"
-                  className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm text-content-default hover:bg-surface-2 disabled:opacity-50"
+                  leftIcon={<Play className="h-4 w-4" aria-hidden />}
                 >
                   {triggering ? 'Running…' : 'Run now'}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => void refresh()}
                   data-testid="report-detail-refresh"
-                  className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm text-content-default hover:bg-surface-2"
+                  leftIcon={<RefreshCw className="h-4 w-4" aria-hidden />}
                 >
                   Refresh
-                </button>
-              </div>
+                </Button>
+              </>
+            }
+          />
+
+          {/* Meta chips */}
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <Badge tone={report.isActive ? 'success' : 'neutral'}>
+              {report.isActive ? 'active' : 'paused'}
+            </Badge>
+            <Badge tone="info">{report.format}</Badge>
+            <span className="inline-flex items-center gap-1.5 text-xs text-content-muted">
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden />
+              <span className="font-mono tabular-nums">{report.cron}</span>
+            </span>
+            {report.lastRunAt && (
+              <span className="text-xs tabular-nums text-content-muted">
+                Last run: {new Date(report.lastRunAt).toLocaleString()}
+              </span>
+            )}
+            {report.nextRunAt && (
+              <span className="text-xs tabular-nums text-content-muted">
+                Next run: {new Date(report.nextRunAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+
+          {report.recipients.length > 0 && (
+            <p className="mb-6 text-xs text-content-muted">
+              Delivered to {report.recipients.length} recipient
+              {report.recipients.length === 1 ? '' : 's'} via email:{' '}
+              <span className="text-content">{report.recipients.join(', ')}</span>
+            </p>
+          )}
+
+          {triggered && (
+            <div
+              role="status"
+              data-testid="report-trigger-success"
+              className="mb-4 flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success-bg px-4 py-2 text-sm text-status-success"
+            >
+              <CheckCircle2 className="h-4 w-4" aria-hidden />
+              Report triggered successfully.
             </div>
+          )}
 
-            {triggered && (
-              <div
-                role="status"
-                data-testid="report-trigger-success"
-                className="mb-4 rounded-md border border-status-success/40 bg-status-success/10 px-4 py-2 text-sm text-status-success"
-              >
-                Report triggered successfully.
-              </div>
-            )}
+          {triggerError && (
+            <div
+              role="alert"
+              data-testid="report-trigger-error"
+              className="mb-4 rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-2 text-sm text-status-critical"
+            >
+              {triggerError}
+            </div>
+          )}
 
-            {triggerError && (
-              <div
-                role="alert"
-                data-testid="report-trigger-error"
-                className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-2 text-sm text-status-critical"
-              >
-                {triggerError}
-              </div>
-            )}
-
-            <section data-testid="report-runs-section">
-              <h2 className="mb-4 text-lg font-semibold text-content-strong">Run History</h2>
-
-              {report.runs.length === 0 ? (
-                <div
-                  data-testid="report-runs-empty"
-                  className="rounded-lg border border-dashed border-border bg-surface-1 p-6 text-center"
-                >
-                  <p className="text-sm text-content-muted">No runs yet. Trigger the report or wait for the schedule.</p>
-                </div>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-surface-1">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">Ran at</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">File</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-muted">Error</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border bg-surface-bg" data-testid="report-runs-table">
+          <section data-testid="report-runs-section">
+            <Card>
+              <CardHeader>
+                <CardTitle>Run history</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {report.runs.length === 0 ? (
+                  <div
+                    data-testid="report-runs-empty"
+                    className="px-6 py-10 text-center text-sm text-content-muted"
+                  >
+                    No runs yet. Trigger the report or wait for the schedule.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Ran at</TableHead>
+                        <TableHead>File</TableHead>
+                        <TableHead>Error</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody data-testid="report-runs-table">
                       {report.runs.map((run) => (
-                        <tr key={run.id} data-testid={`run-row-${run.id}`}>
-                          <td className={`px-4 py-3 font-medium capitalize ${statusClass(run.status)}`}>
-                            {run.status.toLowerCase()}
-                          </td>
-                          <td className="px-4 py-3 text-content-default">
+                        <TableRow key={run.id} data-testid={`run-row-${run.id}`}>
+                          <TableCell>
+                            <RunStatusBadge status={run.status} />
+                          </TableCell>
+                          <TableCell className="tabular-nums text-content">
                             {run.ranAt ? new Date(run.ranAt).toLocaleString() : '—'}
-                          </td>
-                          <td className="px-4 py-3">
+                          </TableCell>
+                          <TableCell>
                             {run.status === 'SUCCEEDED' && run.fileUrl ? (
                               <a
                                 href={run.fileUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 data-testid={`run-download-${run.id}`}
-                                className="text-accent-primary hover:underline"
+                                className="inline-flex items-center gap-1.5 text-accent-primary hover:underline"
                               >
+                                <Download className="h-3.5 w-3.5" aria-hidden />
                                 Download
                               </a>
                             ) : (
                               <span className="text-content-muted">—</span>
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-status-critical">
+                          </TableCell>
+                          <TableCell className="text-status-critical">
                             {run.error ?? '—'}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
-    </main>
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      )}
+    </AppShell>
   );
 }

@@ -1,0 +1,5 @@
+
+> @kpi-nexus/web@0.0.0 typecheck C:\work\FYP\khan\KPI_NEXUS_Final\apps\web
+> tsc --noEmit
+
+EXIT=0

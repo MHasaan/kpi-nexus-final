@@ -1,0 +1,10 @@
+﻿starting compose
+EXIT=1
+docker.exe : no configuration file provided: not found
+At line:1 char:175
++ ... k\FYP\khan\KPI_NEXUS_Final"; $r = & docker compose up -d 2>&1; "EXIT= ...
++                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (no configuratio...ided: not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+DONE

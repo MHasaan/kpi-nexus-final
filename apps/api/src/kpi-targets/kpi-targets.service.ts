@@ -98,7 +98,12 @@ export class KpiTargetsService {
     this.assertValid({ ...existing, ...dto } as CreateKpiTargetDto, direction);
 
     if (this.approvalGate && !opts.bypassApproval) {
-      await this.approvalGate.requireApprovalIfActive('KPI_TARGET', id, { kind: 'update', targetId: id, dto }, opts);
+      await this.approvalGate.requireApprovalIfActive(
+        'KPI_TARGET',
+        id,
+        { kind: 'update', targetId: id, dto },
+        { ...opts, currentPayload: existing },
+      );
     }
 
     const updated = await this.prisma.kPITarget.update({

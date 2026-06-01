@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KPI Nexus — Full Wireframe Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Caveat:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; height: 100%; background: #efece4; }
+  * { -webkit-font-smoothing: antialiased; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="wireframe-kit.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="homes.jsx"></script>
+<script type="text/babel" src="pages-auth.jsx"></script>
+<script type="text/babel" src="pages-kpis.jsx"></script>
+<script type="text/babel" src="pages-analytics.jsx"></script>
+<script type="text/babel" src="pages-dashboards.jsx"></script>
+<script type="text/babel" src="pages-alerts.jsx"></script>
+<script type="text/babel" src="pages-ai.jsx"></script>
+<script type="text/babel" src="pages-collab.jsx"></script>
+<script type="text/babel" src="pages-people.jsx"></script>
+<script type="text/babel" src="pages-reports.jsx"></script>
+<script type="text/babel" src="pages-integrations.jsx"></script>
+<script type="text/babel" src="pages-settings.jsx"></script>
+<script type="text/babel" src="pages-public.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "annotations": true,
+  "accent": true
+}/*EDITMODE-END*/;
+
+const SHELL = { w: 1200, h: 744 };
+
+// caption above a bordered fill — sub line hides when Annotations are off
+function Framed({ title, sub, children }) {
+  const ctx = React.useContext(WFContext);
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: 14, background: "#fff", boxSizing: "border-box" }}>
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ font: "700 15px/1.1 'Kalam', cursive", color: "#33312e" }}>{title}</div>
+        {ctx.showNotes && sub && <div style={{ font: "400 15px/1.25 'Caveat', cursive", color: "#6b6862", marginTop: 1 }}>{sub}</div>}
+      </div>
+      <div style={{ flex: 1, border: "1.5px solid #33312e", borderRadius: 12, overflow: "hidden", minHeight: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+// section data: each item = [id, label, title, sub, element, wOverride?, hOverride?]
+const SECTIONS = [
+  {
+    id: "onboarding", title: "01 · Onboarding & auth", subtitle: "Public, no app shell — reached before sign-in. Tokens land you on /dashboard.",
+    items: [
+      ["landing", "/", "Marketing landing", "Hero · tagline 'Measure what matters' · sign-in / create-org CTAs", <MarketingLanding />, 980, 620],
+      ["login", "/login", "Sign in", "Email + password · MFA step replaces password inline", <AuthLogin />, 460, 620],
+      ["register", "/register", "Create organization", "Non-wizard path · slug uniqueness · password strength", <AuthRegister />, 480, 660],
+      ["invite", "/accept-invitation", "Accept invitation", "Read-only email · set password · token-gated", <AuthInvite />, 460, 540],
+      ["splash", "/signup", "Guided entry splash", "Quick / Full-AI / Template paths · resume draft · template gallery", <SignupSplash />, 820, 640],
+      ["wizard", "/signup/wizard", "Setup wizard", "Step rail · AI co-pilot diff · review tiles · finish — draft autosaves", <SignupWizard />, 1200, 700],
+    ],
+  },
+  {
+    id: "home", title: "02 · Dashboard home (role-adaptive)", subtitle: "The most-visited screen — three structural directions explored as variants.",
+    items: [
+      ["classic", "Classic grid", "Classic grid", "Full sidebar · stat tiles + KPI card grid · checklist & activity rail (admin)", <HomeClassic />, 1200, 740],
+      ["feed", "Attention feed", "Attention feed", "Icon rail · priority feed first · KPIs demoted to a strip (manager)", <HomeFeed />, 1200, 740],
+      ["command", "Command center", "Command center", "Rail + dense scorecard + always-on AI/activity panel (power user)", <HomeCommand />, 1200, 740],
+    ],
+  },
+  {
+    id: "kpis", title: "03 · KPIs", subtitle: "The core domain — scope (ORG_WIDE / PER_UNIT / PER_USER) drives recording & visibility.",
+    items: [
+      ["list", "/kpis", "KPI catalog", "Scope-faceted data table · quick create (sheet) · quick record", <KpiList />],
+      ["detail", "/kpis/[id]", "KPI detail", "Sticky header + 9 tabs · Overview shown · trust signals · analytics links", <KpiDetail />],
+      ["categories", "/kpis/categories", "Categories", "CRUD groups · colour becomes the KPI accent", <KpiCategories />],
+      ["import", "/kpis/import", "Bulk import", "Two-phase: dry-run → commit · row-addressable errors", <KpiImport />],
+      ["tree", "/kpis/tree", "Cascade tree", "Parent → child rollups · contribution per node", <KpiTree />],
+      ["scorecard", "/kpis/scorecard", "Balanced scorecard", "Four strategy-map quadrants", <KpiScorecard />],
+      ["templates", "/kpis/templates", "Template gallery", "Curated definitions + sample formulas · one-click apply", <KpiTemplates />],
+      ["archive", "/kpis/archive", "Archive", "Soft-deleted · 30-day countdown · restore / type-to-confirm purge", <KpiArchive />],
+    ],
+  },
+  {
+    id: "analytics", title: "04 · KPI analytics", subtitle: "ML-backed, per-KPI · subroutes also linked from KPI detail · ANALYTICS_VIEW.",
+    items: [
+      ["anomalies", "…/anomalies", "Anomaly detection", "Method + threshold · markers (shape+colour) · flagged list · persist", <AnomaliesPage />, 1200, 560],
+      ["forecast", "…/forecast", "Forecast", "Model + horizon · yhat + 80/95% bands · today divider · fit metrics", <ForecastPage />, 1200, 560],
+      ["whatif", "…/whatif", "What-if simulator", "Driver + lift% slider · before → after impact", <WhatIfPage />, 1200, 560],
+      ["embed", "…/embed", "Embed generator", "Signed token · iframe snippet · live preview · copy buttons", <EmbedPage />, 1200, 560],
+    ],
+  },
+  {
+    id: "dashboards", title: "05 · Dashboards", subtitle: "Composable widget boards · drag-drop grid · SSE live refresh · snapshots & shares.",
+    items: [
+      ["list", "/dashboards", "Dashboard list", "Cards with mini previews · owner · shared badge · widget count", <DashboardsList />],
+      ["new", "/dashboards/new", "Create dashboard", "Minimal form → drop into edit mode", <DashboardNew />],
+      ["builder", "/dashboards/[id]", "Builder / view", "Edit mode · drag handles · date range · live · add-widget · concurrency", <DashboardBuilder />],
+      ["share", "…/share", "Share links", "Public links · password + expiry · revoke", <DashboardShare />],
+      ["snapshots", "…/snapshots", "Snapshots", "Immutable point-in-time captures", <DashboardSnapshots />],
+      ["drill", "…/widgets/[wid]", "Widget drill-down", "Full chart · own date range · data-quality · underlying table", <WidgetDrilldown />],
+    ],
+  },
+  {
+    id: "alerts", title: "06 · Alerts", subtitle: "Threshold/anomaly rules · multi-level escalation · multi-channel delivery.",
+    items: [
+      ["inbox", "/alerts", "Alert inbox", "Severity chips (icon+label) · status filter · bulk ack · mirrors header bell", <AlertsInbox />],
+      ["new", "/alerts/new", "Rule builder", "Progressive form · escalation levels (delay → channels → recipients) · preview", <AlertRuleBuilder />],
+      ["detail", "/alerts/[id]", "Alert detail", "Trigger value vs threshold · escalation trail · ack/resolve · comments", <AlertDetail />, 1200, 560],
+      ["channels", "/alerts/channels", "Notification channels", "Kind-specific fields · send test · last-delivery health", <AlertChannels />],
+    ],
+  },
+  {
+    id: "ai", title: "07 · AI layer", subtitle: "Multi-provider · trust signals everywhere (model · cost · confidence · sources).",
+    items: [
+      ["insights", "/insights", "Insights", "Narrative briefings · linked KPIs · confidence · provider/cost · keep/dismiss", <InsightsPage />],
+      ["recs", "/recommendations", "Recommendations", "So-what / now-what · accept spawns a task · linked KPI/alert", <RecommendationsPage />],
+      ["ask", "/ask", "Ask (NLQ chat)", "Grounded in visible data · source chips · streaming · suggested follow-ups", <AskPage />, 1200, 640],
+    ],
+  },
+  {
+    id: "collab", title: "08 · OKRs, Tasks & collaboration", subtitle: "Turning tracking into action — goals, work, governance, activity & comments.",
+    items: [
+      ["tasks", "/tasks", "Tasks (kanban)", "5-column lifecycle · drag-drop optimistic moves · quick-add · drop highlight", <TasksBoard />],
+      ["okrs", "/okrs", "Objectives", "Progress meters · status badges · period/owner filters", <OkrsGrid />],
+      ["okr", "/okrs/[id]", "Objective detail", "Weighted rollup · KR baseline→target→current · sync from KPIs", <OkrDetail />],
+      ["approvals", "/approvals", "Approvals", "Workflow config (202 gating) · pending requests w/ diff · approve/reject", <ApprovalsPage />],
+      ["workflows", "/workflows", "Automations", "Trigger → condition → action, read as a sentence · run history", <WorkflowsPage />],
+      ["activity", "/activity", "Activity feed", "Audit-backed timeline grouped by day · entity filter · cursor paging", <ActivityFeed />],
+      ["mentions", "/me/mentions", "Mentions inbox", "Unread accent (border+weight) · unread-only · mark all read", <MentionsInbox />],
+      ["comments", "CommentsDrawer", "Comments drawer", "Reusable on any entity · threaded · @mention autocomplete · markdown", <CommentsDemo />],
+    ],
+  },
+  {
+    id: "people", title: "09 · People & Org", subtitle: "Identity, RBAC & org structure — the trust backbone. 18 permissions, admin bypass.",
+    items: [
+      ["users", "/users", "User directory", "Status chips · invite (accept URL) · role · manager", <UsersDir />],
+      ["user", "/users/[id]", "User detail", "Admin view of someone's PER_USER assignments + trends", <UserDetail />],
+      ["roles", "/roles", "Roles & RBAC", "PermissionMatrix · grouped · inherited shown read-only · effective order", <RolesPage />],
+      ["positions", "/positions", "Positions", "Grouped by track · level + pay grade", <PositionsPage />],
+      ["units", "/org-units", "Org structure", "Unit tree · member roles drive PER_UNIT visibility", <OrgUnitsPage />],
+      ["team", "/team", "My team", "Direct reports' personal KPIs side-by-side · on/off track (icon+label)", <TeamPage />],
+      ["mykpis", "/my-kpis", "My KPIs", "Self-service PER_USER entry · scope-correct endpoint · optimistic", <MyKpisPage />],
+      ["profile", "/profile", "Profile & prefs", "Account · locale (RTL-safe) · MFA enrolment (QR + recovery codes)", <ProfilePage />],
+    ],
+  },
+  {
+    id: "reports", title: "10 · Reports", subtitle: "Scheduled + on-demand (CSV/XLSX/PDF) · run as creator · board pack.",
+    items: [
+      ["list", "/reports", "Report list", "Humanized cron · format chips · last-run status (icon+label)", <ReportsList />],
+      ["new", "/reports/new", "Create report", "Source + format + schedule builder (cron preview) + recipients", <ReportNew />],
+      ["detail", "/reports/[id]", "Report detail", "Trigger now · run history · per-run download + delivery status", <ReportDetail />],
+      ["board", "/reports/board-pack", "Board pack", "Print-grade exec summary · scorecard quadrants + top movers", <BoardPack />],
+    ],
+  },
+  {
+    id: "integrations", title: "11 · Integrations", subtitle: "Providers, scheduled data connectors & the plugin catalog — all admin.",
+    items: [
+      ["market", "/integrations", "Marketplace", "Provider cards · connected badge + last-sync · connect kicks off OAuth", <IntegrationsMarket />],
+      ["connectors", "/connectors", "Data connectors", "Pull external data into a KPI · last-run status · (planned 5-step wizard)", <ConnectorsPage />],
+      ["connector", "/connectors/[id]", "Connector detail", "Config · run now · ingestion history with row counts", <ConnectorDetail />],
+      ["plugins", "/plugins", "Plugin catalog", "Install widgets/templates/fns/connectors · enable toggle (label) · unverified URL warning", <PluginsPage />],
+    ],
+  },
+  {
+    id: "settings", title: "12 · Settings", subtitle: "One tabbed Settings shell · left sub-nav · consistent setting + description rows.",
+    items: [
+      ["org", "/settings/organization", "Organization", "Branding · terminology editor (re-labels app) · fiscal calendar", <SettingsOrg />],
+      ["ai", "/settings/ai", "AI & budget", "Budget meter (spend/cap) · per-feature routing + fallback · BYO keys (masked)", <SettingsAI />],
+      ["notif", "/settings/notifications", "Notifications", "Per-event channel toggles · quiet hours window", <SettingsNotifications />],
+      ["dlq", "…/notifications/dlq", "Notification DLQ", "Failed deliveries · attempts + last error · per-row / bulk retry", <SettingsDlq />],
+      ["keys", "/settings/api-keys", "API keys", "Scoped to the 18 permissions · plaintext shown once (modal)", <SettingsApiKeys />],
+      ["webhooks", "/settings/webhooks", "Webhooks", "Event picker grouped by domain · signing secret shown once · health", <SettingsWebhooks />],
+      ["retention", "/settings/retention", "Retention", "Tier presets (FREE/PRO/ENTERPRISE) · per-entity policies", <SettingsRetention />],
+      ["sso", "/settings/sso", "SSO", "SAML/OIDC · JIT + active toggles · ACS/entity URLs to paste into IdP", <SettingsSso />],
+      ["scim", "/settings/scim", "SCIM", "Mint provisioning token (shown once) · token list · SCIM base URL", <SettingsScim />],
+      ["audit", "/settings/audit", "Audit log", "Action + entity filters · dense forensic trail · action badges", <SettingsAudit />],
+    ],
+  },
+  {
+    id: "public", title: "13 · Public & embeds", subtitle: "No shell, no auth — signed-token surfaces · must fail closed & never leak.",
+    items: [
+      ["locked", "/share/[token]", "Share — password gate", "Password verified via POST · not-found / expired states too", <ShareViewerLocked />, 460, 540],
+      ["viewer", "/share/[token]", "Public dashboard viewer", "Read-only widgets · minimal brand · 'Powered by KPI Nexus' footer", <ShareViewer />, 980, 600],
+      ["embed", "/embed/kpi/[token]", "Chrome-less KPI embed", "Tiny self-contained card · honours token scope · light/dark via query", <KpiEmbed />, 420, 360],
+    ],
+  },
+];
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const ctx = { showNotes: t.annotations, accentOn: t.accent, density: "comfortable" };
+  return (
+    <WFContext.Provider value={ctx}>
+      <DesignCanvas>
+        {SECTIONS.map((sec) => (
+          <DCSection key={sec.id} id={sec.id} title={sec.title} subtitle={sec.subtitle}>
+            {sec.items.map((it) => {
+              const [id, label, title, sub, el, w, h] = it;
+              return (
+                <DCArtboard key={id} id={id} label={label} width={w || SHELL.w} height={h || SHELL.h}>
+                  <Framed title={title} sub={sub}>{el}</Framed>
+                </DCArtboard>
+              );
+            })}
+          </DCSection>
+        ))}
+      </DesignCanvas>
+
+      <TweaksPanel>
+        <TweakSection label="Wireframe" />
+        <TweakToggle label="Annotations" value={t.annotations} onChange={(v) => setTweak('annotations', v)} />
+        <TweakToggle label="Sky accent" value={t.accent} onChange={(v) => setTweak('accent', v)} />
+      </TweaksPanel>
+    </WFContext.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#0b84c6"/>
+    <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="26" y="26" width="48" height="48" rx="7"/>
+      <path d="M34 60 L44 48 L52 54 L66 36"/>
+    </g>
+  </svg>
+</template>
+</body>
+</html>

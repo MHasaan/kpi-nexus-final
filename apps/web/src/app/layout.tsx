@@ -1,8 +1,23 @@
 import type { Metadata } from 'next';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import './globals.css';
 import { Providers } from './providers';
+
+// Self-hosted via next/font; exposes the CSS vars the design tokens reference
+// (--font-inter / --font-jetbrains-mono). Both are variable fonts, so no
+// `weight` is passed.
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
 
 export const metadata: Metadata = {
   title: 'KPI Nexus',
@@ -11,7 +26,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+    >
       <body className="min-h-screen bg-surface-bg font-sans antialiased text-content-default">
         {/* a11y: skip-to-content link, visible on keyboard focus */}
         <a

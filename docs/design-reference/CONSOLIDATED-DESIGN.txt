@@ -1,0 +1,1823 @@
+
+
+========== FILE: tokens.css ==========
+
+/* ============================================================================
+   KPI Nexus — Colors & Type
+   ----------------------------------------------------------------------------
+   Source of truth: packages/ui/src/tokens.css (token NAMES are locked per
+   spec §12.3; only values are retunable). This file mirrors those tokens as
+   ready-to-use CSS custom properties for design artifacts + prototypes, and
+   adds semantic type roles (h1, h2, body, code, …).
+
+   Two modes ship for every token: light (:root) and dark (.dark / [data-theme]).
+   Accent is sky → azure (light blue). Surfaces are cool-neutral (hue 240). Status colors
+   are reserved for status ONLY — never communicate meaning with color alone.
+
+   Color values are stored as raw HSL channels ("h s% l%") so you can compose
+   alpha with hsl(var(--token) / 0.5), exactly like the production Tailwind setup.
+   Convenience --c-* variables wrap them as finished hsl() colors.
+   ============================================================================ */
+
+:root {
+  /* ---- Raw channels (compose alpha: hsl(var(--surface-1) / .6)) ---------- */
+  --surface-bg: 0 0% 100%;
+  --surface-1: 240 6% 97%;
+  --surface-2: 240 6% 95%;
+  --surface-hover: 240 6% 93%;
+  --surface-pressed: 240 6% 90%;
+
+  --content-strong: 240 10% 10%;
+  --content-default: 240 6% 25%;
+  --content-muted: 240 5% 45%;
+  --content-disabled: 240 4% 65%;
+
+  --border-default: 240 6% 88%;
+  --border-strong: 240 6% 75%;
+  --border-divider: 240 6% 92%;
+
+  --accent-primary: 200 98% 39%;
+  --accent-secondary: 199 89% 48%;
+
+  --status-success: 142 71% 40%;
+  --status-warning: 38 92% 50%;
+  --status-critical: 0 84% 55%;
+  --status-info: 217 91% 55%;
+  --status-neutral: 240 5% 50%;
+
+  --chart-1: 207 84% 41%;
+  --chart-2: 32 91% 50%;
+  --chart-3: 121 41% 42%;
+  --chart-4: 4 73% 47%;
+  --chart-5: 256 47% 52%;
+  --chart-6: 19 50% 40%;
+  --chart-7: 326 65% 67%;
+  --chart-8: 0 0% 49%;
+  --chart-9: 51 73% 51%;
+  --chart-10: 184 56% 47%;
+  --chart-11: 200 98% 39%;
+  --chart-12: 173 80% 36%;
+
+  --ring: 200 98% 39%;
+  --radius: 0.5rem; /* 8px */
+
+  /* ---- Finished colors (use directly) ----------------------------------- */
+  --c-surface-bg: hsl(var(--surface-bg));
+  --c-surface-1: hsl(var(--surface-1));
+  --c-surface-2: hsl(var(--surface-2));
+  --c-surface-hover: hsl(var(--surface-hover));
+  --c-surface-pressed: hsl(var(--surface-pressed));
+
+  --c-strong: hsl(var(--content-strong));
+  --c-default: hsl(var(--content-default));
+  --c-muted: hsl(var(--content-muted));
+  --c-disabled: hsl(var(--content-disabled));
+
+  --c-border: hsl(var(--border-default));
+  --c-border-strong: hsl(var(--border-strong));
+  --c-divider: hsl(var(--border-divider));
+
+  --c-accent: hsl(var(--accent-primary));
+  --c-accent-2: hsl(var(--accent-secondary));
+  --c-on-accent: #ffffff;
+
+  --c-success: hsl(var(--status-success));
+  --c-warning: hsl(var(--status-warning));
+  --c-critical: hsl(var(--status-critical));
+  --c-info: hsl(var(--status-info));
+  --c-neutral: hsl(var(--status-neutral));
+
+  /* Tinted status backgrounds (for badges / banners) */
+  --c-success-bg: hsl(var(--status-success) / 0.12);
+  --c-warning-bg: hsl(var(--status-warning) / 0.14);
+  --c-critical-bg: hsl(var(--status-critical) / 0.12);
+  --c-info-bg: hsl(var(--status-info) / 0.12);
+  --c-accent-bg: hsl(var(--accent-primary) / 0.12);
+
+  /* Signature sky → azure brand gradient (use sparingly: logo + 1 CTA) */
+  --gradient-brand: linear-gradient(
+    135deg,
+    hsl(var(--accent-primary)) 0%,
+    hsl(var(--accent-secondary)) 100%
+  );
+  --gradient-brand-soft: linear-gradient(
+    135deg,
+    hsl(var(--accent-primary) / 0.14) 0%,
+    hsl(var(--accent-secondary) / 0.14) 100%
+  );
+
+  /* ---- Elevation / shadow system ---------------------------------------- */
+  /* Subtle border + light shadow — never both heavy (spec §12.5). */
+  --shadow-xs: 0 1px 2px hsl(240 10% 10% / 0.04);
+  --shadow-sm: 0 1px 2px hsl(240 10% 10% / 0.05), 0 1px 3px hsl(240 10% 10% / 0.06);
+  --shadow-md: 0 2px 4px hsl(240 10% 10% / 0.05), 0 4px 12px hsl(240 10% 10% / 0.08);
+  --shadow-lg: 0 8px 24px hsl(240 10% 10% / 0.10), 0 2px 6px hsl(240 10% 10% / 0.06);
+  --shadow-pop: 0 12px 40px hsl(240 10% 10% / 0.16);
+  /* Glass / "polymorphic" surface — frosted card on busy backgrounds */
+  --glass-bg: hsl(0 0% 100% / 0.7);
+  --glass-border: hsl(0 0% 100% / 0.6);
+  --glass-blur: blur(16px) saturate(140%);
+  /* Inset (neumorphic) — for pressed wells, sliders, segmented tracks */
+  --shadow-inset: inset 0 1px 2px hsl(240 10% 10% / 0.08);
+
+  /* ---- Radii ------------------------------------------------------------- */
+  --radius-sm: calc(var(--radius) - 4px); /* 4px */
+  --radius-md: calc(var(--radius) - 2px); /* 6px */
+  --radius-lg: var(--radius);             /* 8px */
+  --radius-xl: 0.75rem;                   /* 12px — cards */
+  --radius-2xl: 1rem;                     /* 16px — modals/feature cards */
+  --radius-full: 9999px;
+
+  /* ---- Spacing (8px base grid; 4px for tight inline) --------------------- */
+  --space-0_5: 0.125rem; /* 2 */
+  --space-1: 0.25rem;    /* 4 */
+  --space-2: 0.5rem;     /* 8 */
+  --space-3: 0.75rem;    /* 12 */
+  --space-4: 1rem;       /* 16 */
+  --space-5: 1.25rem;    /* 20 */
+  --space-6: 1.5rem;     /* 24 */
+  --space-8: 2rem;       /* 32 */
+  --space-10: 2.5rem;    /* 40 */
+  --space-12: 3rem;      /* 48 */
+  --space-16: 4rem;      /* 64 */
+
+  /* ---- Type stacks ------------------------------------------------------- */
+  --font-sans: 'Inter', 'Geist', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', 'SF Mono', Consolas,
+    'Liberation Mono', monospace;
+
+  /* ---- Modular type scale (ratio 1.25, base 16) ------------------------- */
+  --text-xs: 0.75rem;    /* 12 */
+  --text-sm: 0.875rem;   /* 14 */
+  --text-base: 1rem;     /* 16 */
+  --text-lg: 1.125rem;   /* 18 */
+  --text-xl: 1.25rem;    /* 20 */
+  --text-2xl: 1.5rem;    /* 24 */
+  --text-3xl: 1.875rem;  /* 30 */
+  --text-4xl: 2.25rem;   /* 36 */
+  --text-5xl: 3rem;      /* 48 — marketing only */
+
+  --leading-tight: 1.2;  /* headings */
+  --leading-normal: 1.5; /* body */
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Motion — calm, fast (spec §12.1): ≤200ms ease-out, no spinners <300ms */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+}
+
+/* ============================ DARK MODE ==================================== */
+.dark,
+[data-theme='dark'] {
+  --surface-bg: 240 10% 4%;
+  --surface-1: 240 6% 10%;
+  --surface-2: 240 6% 14%;
+  --surface-hover: 240 6% 18%;
+  --surface-pressed: 240 6% 22%;
+
+  --content-strong: 0 0% 98%;
+  --content-default: 0 0% 85%;
+  --content-muted: 0 0% 65%;
+  --content-disabled: 0 0% 45%;
+
+  --border-default: 240 6% 22%;
+  --border-strong: 240 6% 38%;
+  --border-divider: 240 6% 16%;
+
+  --accent-primary: 200 90% 55%;
+  --accent-secondary: 199 89% 62%;
+
+  --status-success: 142 71% 55%;
+  --status-warning: 38 92% 60%;
+  --status-critical: 0 84% 65%;
+  --status-info: 217 91% 65%;
+  --status-neutral: 240 5% 60%;
+
+  --chart-1: 207 84% 60%;
+  --chart-2: 32 91% 60%;
+  --chart-3: 121 41% 55%;
+  --chart-4: 4 73% 62%;
+  --chart-5: 256 47% 65%;
+  --chart-6: 19 50% 55%;
+  --chart-7: 326 65% 75%;
+  --chart-8: 0 0% 65%;
+  --chart-9: 51 73% 62%;
+  --chart-10: 184 56% 60%;
+  --chart-11: 200 90% 55%;
+  --chart-12: 173 80% 50%;
+
+  --ring: 200 90% 55%;
+
+  /* Shadows go deeper + accent-tinted glow replaces light drop shadow */
+  --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.3);
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4), 0 1px 3px hsl(0 0% 0% / 0.3);
+  --shadow-md: 0 2px 4px hsl(0 0% 0% / 0.4), 0 4px 12px hsl(0 0% 0% / 0.45);
+  --shadow-lg: 0 8px 24px hsl(0 0% 0% / 0.55), 0 2px 6px hsl(0 0% 0% / 0.4);
+  --shadow-pop: 0 12px 40px hsl(0 0% 0% / 0.7);
+  --shadow-inset: inset 0 1px 2px hsl(0 0% 0% / 0.5);
+
+  --glass-bg: hsl(240 6% 12% / 0.6);
+  --glass-border: hsl(0 0% 100% / 0.08);
+  --glass-blur: blur(16px) saturate(140%);
+
+  --c-on-accent: hsl(240 10% 6%);
+
+  --c-success-bg: hsl(var(--status-success) / 0.16);
+  --c-warning-bg: hsl(var(--status-warning) / 0.16);
+  --c-critical-bg: hsl(var(--status-critical) / 0.16);
+  --c-info-bg: hsl(var(--status-info) / 0.16);
+  --c-accent-bg: hsl(var(--accent-primary) / 0.18);
+}
+
+/* ============================================================================
+   SEMANTIC TYPE ROLES — apply directly as classes
+   ============================================================================ */
+.kn-display {
+  font-family: var(--font-sans);
+  font-size: var(--text-5xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-bold);
+  color: var(--c-strong);
+}
+.kn-h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-bold);
+  color: var(--c-strong);
+}
+.kn-h2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-snug);
+  font-weight: var(--weight-semibold);
+  color: var(--c-strong);
+}
+.kn-h3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  letter-spacing: var(--tracking-snug);
+  font-weight: var(--weight-semibold);
+  color: var(--c-strong);
+}
+.kn-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  font-weight: var(--weight-normal);
+  color: var(--c-default);
+}
+.kn-body-lg {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--c-default);
+}
+.kn-muted {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--c-muted);
+}
+/* Eyebrow / section label — uppercase, tracked, muted */
+.kn-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+/* Metric — big number; ALWAYS tabular */
+.kn-metric {
+  font-family: var(--font-sans);
+  font-size: var(--text-4xl);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+  color: var(--c-strong);
+  font-variant-numeric: tabular-nums;
+}
+.kn-code,
+.kn-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-default);
+}
+/* Any element showing numbers should opt into tabular figures */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+========== FILE: index.html ==========
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI Nexus — Web App UI Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--c-surface-bg);
+    color: var(--c-default);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02','cv03','cv04','cv11','ss01';
+  }
+  #root { height: 100vh; }
+  ::selection { background: hsl(var(--accent-primary) / 0.22); }
+  /* scrollbars */
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: hsl(var(--border-strong) / 0.7); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  .kn-btn:hover { filter: brightness(0.96); }
+  .kn-btn-secondary:hover, .kn-btn-ghost:hover { background: var(--c-surface-hover) !important; filter: none; }
+  .kn-btn:active { transform: translateY(0.5px); }
+  .kn-iconbtn:hover { background: var(--c-surface-hover); color: var(--c-strong); }
+  .kn-card-hover { transition: box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
+  .kn-card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); border-color: hsl(var(--accent-primary) / 0.35); }
+  @keyframes knPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .kn-pulse { animation: knPulse 1.8s ease-in-out infinite; }
+  input::placeholder { color: var(--c-muted); }
+
+  /* ---- Motion: calm entrance (≤ one beat, ease-out) -------------------- */
+  /* On-load entrances are transform-only so content is NEVER gated behind
+     opacity (robust even if the animation clock is throttled). */
+  @keyframes knFadeUp { from { transform: translateY(10px); } to { transform: none; } }
+  @keyframes knFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes knPop { 0% { opacity: 0; transform: scale(0.96); } 100% { opacity: 1; transform: none; } }
+  @keyframes knSlideIn { from { transform: translateX(100%); } to { transform: none; } }
+  .kn-view { animation: knFadeUp var(--dur-slow) var(--ease-out) both; }
+  .kn-stagger > * { animation: knFadeUp var(--dur-slow) var(--ease-out) both; }
+  .kn-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .kn-stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .kn-stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .kn-stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .kn-stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .kn-stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .kn-pop { animation: knPop var(--dur-base) var(--ease-out) forwards; }
+
+  /* ---- Aura: soft accent glow on focal elements ----------------------- */
+  /* A faint conic/radial bloom — used sparingly behind the brand mark,
+     the AI avatar, the primary CTA on hover, and the active nav item. */
+  .kn-aura { position: relative; isolation: isolate; }
+  .kn-aura::before {
+    content: ''; position: absolute; inset: -40%; z-index: -1; border-radius: inherit;
+    background: radial-gradient(closest-side, hsl(var(--accent-primary) / 0.45), transparent 70%);
+    filter: blur(14px); opacity: 0.0; transition: opacity var(--dur-slow) var(--ease-out);
+  }
+  .kn-aura-on::before { opacity: 1; }
+  .kn-aura-soft::before { opacity: 0.55; }
+  /* Breathing aura for the live AI mark */
+  @keyframes knBreathe { 0%,100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.08); } }
+  .kn-aura-breathe::before { opacity: 0.5; animation: knBreathe 3.2s var(--ease-in-out) infinite; }
+  /* Primary button: aura blooms on hover */
+  .kn-btn-primary { position: relative; isolation: isolate; }
+  .kn-btn-primary::after {
+    content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit;
+    box-shadow: 0 0 0 0 hsl(var(--accent-primary) / 0.5);
+    transition: box-shadow var(--dur-slow) var(--ease-out);
+  }
+  .kn-btn-primary:hover::after { box-shadow: 0 4px 22px -2px hsl(var(--accent-primary) / 0.55); }
+
+  /* ---- Sheen sweep across the brand gradient (very slow) --------------- */
+  @keyframes knSheen { 0% { background-position: -120% 0; } 60%,100% { background-position: 220% 0; } }
+  .kn-sheen { position: relative; overflow: hidden; }
+  .kn-sheen::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, hsl(0 0% 100% / 0.35) 50%, transparent 70%);
+    background-size: 220% 100%; animation: knSheen 6s var(--ease-in-out) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Lucide (vanilla UMD) — exposes window.lucide before React renders -->
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+
+  <!-- React + Babel (pinned) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="lib.jsx"></script>
+  <script type="text/babel" src="shell.jsx"></script>
+  <script type="text/babel" src="views.jsx"></script>
+  <script type="text/babel" src="widgets.jsx"></script>
+  <script type="text/babel" src="views-intel.jsx"></script>
+  <script type="text/babel" src="views-execute.jsx"></script>
+  <script type="text/babel" src="views-org.jsx"></script>
+  <script type="text/babel" src="views-kpitabs.jsx"></script>
+  <script type="text/babel" src="views-collab.jsx"></script>
+  <script type="text/babel" src="views-extras.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
+
+
+
+========== FILE: shell.jsx ==========
+
+/* global React, Icon, Button, NAV */
+const { useState: useStateS, useEffect: useEffectS, useRef: useRefS } = React;
+
+/* ----------------------------- Sidebar ----------------------------------- */
+function Sidebar({ view, setView, collapsed }) {
+  return (
+    <aside
+      style={{
+        width: collapsed ? 64 : 256, flexShrink: 0, height: '100%',
+        background: 'var(--c-surface-1)', borderRight: '1px solid var(--c-border)',
+        display: 'flex', flexDirection: 'column', transition: 'width var(--dur-base) var(--ease-out)',
+      }}
+    >
+      {/* Brand / org switcher */}
+      <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 9, padding: collapsed ? '0 0 0 16px' : '0 14px', flexShrink: 0 }}>
+        <div className="kn-aura kn-aura-soft kn-sheen" style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+            <path d="M7 24 L15 18 L21 21 L26 9" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="7" cy="24" r="2.4" fill="#fff" /><circle cx="15" cy="18" r="2.4" fill="#fff" /><circle cx="21" cy="21" r="2.4" fill="#fff" /><circle cx="26" cy="9" r="3" fill="#fff" />
+          </svg>
+        </div>
+        {!collapsed && (
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, overflow: 'hidden' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--c-strong)', letterSpacing: '-0.01em' }}>KPI Nexus</span>
+            <span style={{ fontSize: 11, color: 'var(--c-muted)', whiteSpace: 'nowrap' }}>Northwind Inc.</span>
+          </div>
+        )}
+        {!collapsed && <Icon name="chevrons-up-down" size={14} style={{ color: 'var(--c-muted)', marginLeft: 'auto' }} />}
+      </div>
+
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 10px' }}>
+        {NAV.map((sec, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            {!collapsed && sec.group && (
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--c-muted)', padding: '6px 10px 4px' }}>{sec.group}</div>
+            )}
+            {sec.items.map((it) => {
+              const active = view === it.id;
+              return (
+                <button
+                  key={it.id}
+                  onClick={() => setView(it.id)}
+                  title={it.label}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 34,
+                    padding: collapsed ? '0' : '0 10px', justifyContent: collapsed ? 'center' : 'flex-start',
+                    marginBottom: 2, borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: active ? 'var(--c-accent-bg)' : 'transparent',
+                    color: active ? 'hsl(var(--accent-primary))' : 'var(--c-default)',
+                    fontSize: 13, fontWeight: active ? 600 : 500, fontFamily: 'var(--font-sans)',
+                    transition: 'background var(--dur-fast)',
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--c-surface-hover)'; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <Icon name={it.icon} size={17} strokeWidth={active ? 2.3 : 2} />
+                  {!collapsed && <span>{it.label}</span>}
+                  {!collapsed && it.badge && (
+                    <span style={{ marginLeft: 'auto', background: 'hsl(var(--status-critical))', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{it.badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      {/* user menu */}
+      <div style={{ borderTop: '1px solid var(--c-border)', padding: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: collapsed ? 0 : '4px 6px', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          <div style={{ width: 30, height: 30, borderRadius: 999, background: 'hsl(var(--chart-5))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>AM</div>
+          {!collapsed && (
+            <div style={{ lineHeight: 1.2, overflow: 'hidden' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--c-strong)', whiteSpace: 'nowrap' }}>Alex Morgan</div>
+              <div style={{ fontSize: 11, color: 'var(--c-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>alex@northwind.io</div>
+            </div>
+          )}
+          {!collapsed && <Icon name="ellipsis-vertical" size={15} style={{ color: 'var(--c-muted)', marginLeft: 'auto' }} />}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ----------------------------- Header ------------------------------------ */
+function Header({ title, crumbs, theme, toggleTheme, onSearch, onToggleSidebar }) {
+  return (
+    <header
+      style={{
+        height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12,
+        padding: '0 18px', borderBottom: '1px solid var(--c-border)',
+        background: 'var(--glass-bg)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+        position: 'sticky', top: 0, zIndex: 20,
+      }}
+    >
+      <button onClick={onToggleSidebar} className="kn-iconbtn" style={iconBtn}>
+        <Icon name="panel-left" size={18} />
+      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+        {crumbs && crumbs.map((c, i) => (
+          <React.Fragment key={i}>
+            <span style={{ fontSize: 13, color: 'var(--c-muted)' }}>{c}</span>
+            <Icon name="chevron-right" size={13} style={{ color: 'var(--c-disabled)' }} />
+          </React.Fragment>
+        ))}
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)', whiteSpace: 'nowrap' }}>{title}</span>
+      </div>
+
+      <button
+        onClick={onSearch}
+        style={{
+          marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 9, height: 34, width: 260,
+          padding: '0 10px 0 12px', borderRadius: 8, border: '1px solid var(--c-border)',
+          background: 'var(--c-surface-1)', boxShadow: 'var(--shadow-inset)', cursor: 'pointer',
+          color: 'var(--c-muted)', fontSize: 13, fontFamily: 'var(--font-sans)',
+        }}
+      >
+        <Icon name="search" size={15} />
+        <span>Search…</span>
+        <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--c-surface-bg)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
+      </button>
+
+      <button className="kn-iconbtn" style={iconBtn} title="Notifications">
+        <Icon name="bell" size={18} />
+        <span style={{ position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 999, background: 'hsl(var(--status-critical))', border: '1.5px solid var(--c-surface-bg)' }} />
+      </button>
+      <button className="kn-iconbtn" style={iconBtn} title="Mentions"><Icon name="at-sign" size={18} /></button>
+      <button onClick={toggleTheme} className="kn-iconbtn" style={iconBtn} title="Toggle theme">
+        <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
+      </button>
+    </header>
+  );
+}
+const iconBtn = {
+  position: 'relative', width: 34, height: 34, borderRadius: 8, border: 'none', background: 'transparent',
+  color: 'var(--c-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+  transition: 'background var(--dur-fast), color var(--dur-fast)',
+};
+
+/* -------------------------- Command palette ------------------------------ */
+function CommandPalette({ open, onClose, setView }) {
+  const [q, setQ] = useStateS('');
+  const inputRef = useRefS(null);
+  useEffectS(() => { if (open && inputRef.current) inputRef.current.focus(); if (open) setQ(''); }, [open]);
+  if (!open) return null;
+  const groups = [
+    { h: 'KPIs', items: KPIS.slice(0, 4).map((k) => ({ icon: 'target', label: k.name, sub: k.value, go: 'kpis' })) },
+    { h: 'Navigate', items: [
+      { icon: 'layout-dashboard', label: 'Go to Dashboard', go: 'dashboard' },
+      { icon: 'bar-chart-3', label: 'Go to Dashboards', go: 'dashboards' },
+      { icon: 'message-square', label: 'Ask a question', go: 'ask' },
+    ] },
+  ];
+  const ql = q.toLowerCase();
+  const filtered = groups.map((g) => ({ ...g, items: g.items.filter((i) => i.label.toLowerCase().includes(ql)) })).filter((g) => g.items.length);
+  return (
+    <div onClick={onClose} className="kn-fade" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'hsl(240 10% 10% / 0.4)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12vh', animation: 'knFadeIn var(--dur-base) var(--ease-out) both' }}>
+      <div onClick={(e) => e.stopPropagation()} className="kn-pop" style={{ width: 560, maxWidth: '92vw', borderRadius: 14, overflow: 'hidden', background: 'var(--glass-bg)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', border: '1px solid var(--c-border)', boxShadow: 'var(--shadow-pop)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px', borderBottom: '1px solid var(--c-divider)' }}>
+          <Icon name="search" size={18} style={{ color: 'var(--c-muted)' }} />
+          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search KPIs, dashboards, people…" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: 'var(--c-strong)', fontFamily: 'var(--font-sans)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--c-muted)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '1px 6px' }}>ESC</span>
+        </div>
+        <div style={{ maxHeight: 360, overflowY: 'auto', padding: 7 }}>
+          {filtered.length === 0 && <div style={{ padding: '28px 14px', textAlign: 'center', color: 'var(--c-muted)', fontSize: 13 }}>No results for “{q}”</div>}
+          {filtered.map((g, gi) => (
+            <div key={gi}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c-muted)', padding: '8px 10px 4px' }}>{g.h}</div>
+              {g.items.map((it, ii) => (
+                <button key={ii} onClick={() => { setView(it.go); onClose(); }} className="kn-cmd-item"
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', height: 38, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--c-default)', fontSize: 13.5, fontFamily: 'var(--font-sans)', textAlign: 'left' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-accent-bg)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <Icon name={it.icon} size={16} style={{ color: 'var(--c-muted)' }} />
+                  <span style={{ color: 'var(--c-strong)' }}>{it.label}</span>
+                  {it.sub && <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--c-muted)' }}>{it.sub}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Sidebar, Header, CommandPalette });
+
+
+
+========== FILE: lib.jsx ==========
+
+/* global React */
+const { useState, useEffect, useRef, createContext, useContext } = React;
+
+/* ============================================================================
+   Icon — renders Lucide icons from the UMD global (window.lucide), as inline
+   SVG via innerHTML so there is no React/DOM reconciliation conflict.
+   ============================================================================ */
+function Icon({ name, size = 18, strokeWidth = 2, style, className }) {
+  const pascal = name.split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join('');
+  const lib = window.lucide || {};
+  const node = (lib.icons && lib.icons[pascal]) || lib[pascal];
+  let inner = '';
+  if (node) {
+    // Lucide UMD icon node shape: ["svg", {attrs}, [ [tag, attrs], ... ]]
+    const children = Array.isArray(node) && Array.isArray(node[2]) ? node[2] : Array.isArray(node) ? node : node.icon || [];
+    inner = children
+      .map(([tag, attrs]) => {
+        const a = Object.entries(attrs || {})
+          .map(([k, v]) => `${k}="${v}"`)
+          .join(' ');
+        return `<${tag} ${a}></${tag}>`;
+      })
+      .join('');
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+  return (
+    <span
+      className={className}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
+
+/* ============================================================================
+   Primitives
+   ============================================================================ */
+function Button({ children, variant = 'primary', size = 'md', icon, iconRight, full, ...rest }) {
+  const sizes = {
+    sm: { height: 28, padding: '0 10px', fontSize: 12, gap: 6 },
+    md: { height: 36, padding: '0 14px', fontSize: 13, gap: 7 },
+    lg: { height: 44, padding: '0 20px', fontSize: 14, gap: 8 },
+  }[size];
+  const variants = {
+    primary: { background: 'hsl(var(--accent-primary))', color: 'var(--c-on-accent)', border: '1px solid transparent', boxShadow: 'var(--shadow-sm)' },
+    secondary: { background: 'var(--c-surface-bg)', color: 'var(--c-strong)', border: '1px solid var(--c-border-strong)' },
+    ghost: { background: 'transparent', color: 'var(--c-default)', border: '1px solid transparent' },
+    danger: { background: 'hsl(var(--status-critical))', color: '#fff', border: '1px solid transparent' },
+  }[variant];
+  return (
+    <button
+      {...rest}
+      className={'kn-btn kn-btn-' + variant}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: sizes.gap,
+        height: sizes.height, padding: sizes.padding, fontSize: sizes.fontSize, fontWeight: 600,
+        fontFamily: 'var(--font-sans)', borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+        width: full ? '100%' : 'auto', whiteSpace: 'nowrap', lineHeight: 1,
+        transition: 'background var(--dur-fast) var(--ease-out), filter var(--dur-fast)', ...variants,
+      }}
+    >
+      {icon && <Icon name={icon} size={size === 'sm' ? 14 : 16} />}
+      {children}
+      {iconRight && <Icon name={iconRight} size={size === 'sm' ? 14 : 16} />}
+    </button>
+  );
+}
+
+const STATUS_META = {
+  'on-track': { label: 'On track', color: 'var(--c-success)', bg: 'var(--c-success-bg)', icon: 'check' },
+  'at-risk': { label: 'At risk', color: 'var(--c-warning)', bg: 'var(--c-warning-bg)', icon: 'triangle-alert' },
+  'off-track': { label: 'Off track', color: 'var(--c-critical)', bg: 'var(--c-critical-bg)', icon: 'circle-alert' },
+  'no-data': { label: 'No data', color: 'var(--c-muted)', bg: 'var(--c-surface-2)', icon: 'minus' },
+};
+const SCOPE_META = {
+  ORG_WIDE: { color: 'hsl(var(--accent-primary))', bg: 'var(--c-accent-bg)' },
+  PER_UNIT: { color: 'hsl(var(--chart-10))', bg: 'hsl(var(--chart-10) / 0.14)' },
+  PER_USER: { color: 'hsl(326 60% 48%)', bg: 'hsl(var(--chart-7) / 0.18)' },
+};
+
+function StatusBadge({ status, size = 'md' }) {
+  const m = STATUS_META[status] || STATUS_META['no-data'];
+  const h = size === 'sm' ? 20 : 24;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: h, padding: '0 9px', borderRadius: 999, background: m.bg, color: m.color, fontSize: size === 'sm' ? 10.5 : 11.5, fontWeight: 600 }}>
+      <Icon name={m.icon} size={size === 'sm' ? 11 : 12} strokeWidth={2.5} />
+      {m.label}
+    </span>
+  );
+}
+function ScopeBadge({ scope }) {
+  const m = SCOPE_META[scope] || SCOPE_META.ORG_WIDE;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', height: 20, padding: '0 7px', borderRadius: 5, background: m.bg, color: m.color, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>
+      {scope}
+    </span>
+  );
+}
+
+function Card({ children, style, hover, ...rest }) {
+  return (
+    <div
+      {...rest}
+      className={'kn-card' + (hover ? ' kn-card-hover' : '')}
+      style={{ background: 'var(--c-surface-bg)', border: '1px solid var(--c-border)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-sm)', ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ============================================================================
+   Charts (SVG data-viz — not icons)
+   ============================================================================ */
+function Sparkline({ data, color = 'hsl(var(--accent-primary))', w = 120, h = 36, fill = true, fluid = false }) {
+  const min = Math.min(...data), max = Math.max(...data);
+  const rng = max - min || 1;
+  const pts = data.map((d, i) => [(i / (data.length - 1)) * w, h - 3 - ((d - min) / rng) * (h - 6)]);
+  const line = pts.map((p) => p.join(',')).join(' ');
+  const area = `${line} ${w},${h} 0,${h}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={fluid ? '100%' : w} height={h} preserveAspectRatio="none" style={{ display: 'block', width: fluid ? '100%' : undefined }}>
+      {fill && <polyline points={area} fill={color} opacity="0.08" stroke="none" />}
+      <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LineChart({ series, w = 640, h = 240, showBand }) {
+  const pad = { l: 38, r: 14, t: 14, b: 26 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const all = series.flatMap((s) => s.data).filter((v) => v != null && !Number.isNaN(v));
+  const min = Math.min(...all, showBand ? Math.min(...showBand.lo) : Infinity);
+  const max = Math.max(...all, showBand ? Math.max(...showBand.hi) : -Infinity);
+  const rng = max - min || 1;
+  const n = series[0].data.length;
+  const x = (i) => pad.l + (i / (n - 1)) * iw;
+  const y = (v) => pad.t + ih - ((v - min) / rng) * ih;
+  const yticks = 4;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ display: 'block', fontFamily: 'var(--font-mono)' }}>
+      {Array.from({ length: yticks + 1 }, (_, i) => {
+        const v = min + (rng * i) / yticks;
+        const yy = y(v);
+        return (
+          <g key={i}>
+            <line x1={pad.l} x2={w - pad.r} y1={yy} y2={yy} stroke="var(--c-divider)" strokeWidth="1" />
+            <text x={pad.l - 7} y={yy + 3} textAnchor="end" fontSize="9" fill="var(--c-muted)">{Math.round(v)}</text>
+          </g>
+        );
+      })}
+      {showBand && (
+        <polygon
+          points={[...showBand.hi.map((v, i) => `${x(i)},${y(v)}`), ...showBand.lo.map((v, i) => `${x(i)},${y(v)}`).reverse()].join(' ')}
+          fill="hsl(var(--accent-primary) / 0.12)" stroke="none"
+        />
+      )}
+      {series.map((s, si) => {
+        const pts = s.data.map((v, i) => [i, v]).filter(([, v]) => v != null && !Number.isNaN(v));
+        if (!pts.length) return null;
+        const line = pts.map(([i, v]) => `${x(i)},${y(v)}`).join(' ');
+        const fi = pts[0][0], li = pts[pts.length - 1][0];
+        return (
+          <g key={si}>
+            {s.fill && <polygon points={`${line} ${x(li)},${pad.t + ih} ${x(fi)},${pad.t + ih}`} fill={s.color} opacity="0.07" />}
+            <polyline points={line} fill="none" stroke={s.color} strokeWidth={s.dashed ? 2 : 2.4} strokeDasharray={s.dashed ? '5 4' : 'none'} strokeLinejoin="round" strokeLinecap="round" />
+            {s.markers && s.data.map((v, i) => s.markers.includes(i) && v != null ? <circle key={i} cx={x(i)} cy={y(v)} r="4" fill="hsl(var(--status-critical))" stroke="var(--c-surface-bg)" strokeWidth="1.5" /> : null)}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function BarChart({ data, color = 'hsl(var(--accent-primary))', w = 640, h = 200 }) {
+  const pad = { l: 34, r: 12, t: 12, b: 24 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const max = Math.max(...data.map((d) => d.v)) || 1;
+  const bw = (iw / data.length) * 0.62;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ display: 'block', fontFamily: 'var(--font-mono)' }}>
+      {[0, 0.5, 1].map((t, i) => {
+        const yy = pad.t + ih - t * ih;
+        return <line key={i} x1={pad.l} x2={w - pad.r} y1={yy} y2={yy} stroke="var(--c-divider)" />;
+      })}
+      {data.map((d, i) => {
+        const bh = (d.v / max) * ih;
+        const cx = pad.l + (iw / data.length) * (i + 0.5);
+        return (
+          <g key={i}>
+            <rect x={cx - bw / 2} y={pad.t + ih - bh} width={bw} height={bh} rx="3" fill={d.color || color} />
+            <text x={cx} y={h - 8} textAnchor="middle" fontSize="9" fill="var(--c-muted)">{d.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ============================================================================
+   Sample data
+   ============================================================================ */
+const sp = (a) => a;
+const KPIS = [
+  { id: 'mrr', name: 'Monthly recurring revenue', cat: 'Financial', scope: 'ORG_WIDE', type: 'Currency', value: '$284,910', delta: 12.4, up: true, status: 'on-track', target: '$300,000', spark: sp([210, 218, 222, 235, 240, 258, 262, 271, 285]), owner: 'Sara Chen' },
+  { id: 'nrr', name: 'Net revenue retention', cat: 'Financial', scope: 'ORG_WIDE', type: 'Percentage', value: '111%', delta: 1.2, up: true, status: 'on-track', target: '110%', spark: sp([104, 106, 105, 108, 107, 109, 110, 110, 111]), owner: 'Sara Chen' },
+  { id: 'churn', name: 'Logo churn rate', cat: 'Customer', scope: 'ORG_WIDE', type: 'Percentage', value: '3.8%', delta: 0.6, up: true, status: 'at-risk', target: '3.0%', spark: sp([2.9, 3.0, 3.1, 3.0, 3.3, 3.4, 3.5, 3.7, 3.8]), owner: 'Marcus Lee' },
+  { id: 'active', name: 'Weekly active users', cat: 'Customer', scope: 'PER_UNIT', type: 'Number', value: '48,210', delta: 8.1, up: true, status: 'on-track', target: '50,000', spark: sp([39, 40, 41, 42, 43, 44, 46, 47, 48]), owner: 'Priya N.' },
+  { id: 'nps', name: 'Net promoter score', cat: 'Customer', scope: 'ORG_WIDE', type: 'Number', value: '52', delta: 4, up: true, status: 'on-track', target: '50', spark: sp([44, 45, 46, 47, 48, 49, 50, 51, 52]), owner: 'Priya N.' },
+  { id: 'cac', name: 'Customer acquisition cost', cat: 'Financial', scope: 'PER_UNIT', type: 'Currency', value: '$1,240', delta: 9.0, up: false, status: 'off-track', target: '$1,000', spark: sp([980, 1010, 1050, 1080, 1110, 1150, 1180, 1210, 1240]), owner: 'Marcus Lee' },
+  { id: 'cycle', name: 'Sales cycle length', cat: 'Internal Process', scope: 'PER_UNIT', type: 'Number', value: '34 days', delta: 5.2, up: false, status: 'at-risk', target: '30 days', spark: sp([30, 31, 30, 32, 31, 33, 32, 34, 34]), owner: 'Devon R.' },
+  { id: 'onb', name: 'Onboarding completion', cat: 'Learning & Growth', scope: 'PER_USER', type: 'Percentage', value: '—', delta: 0, up: true, status: 'no-data', target: '90%', spark: sp([0, 0, 0, 0, 0, 0, 0, 0, 0]), owner: 'You' },
+];
+
+const ACTIVITY = [
+  { icon: 'pencil', who: 'Sara Chen', what: 'updated target on', obj: 'Monthly recurring revenue', t: '12m ago' },
+  { icon: 'plus', who: 'Devon R.', what: 'created KPI', obj: 'Pipeline coverage ratio', t: '1h ago' },
+  { icon: 'triangle-alert', who: 'Alert', what: 'fired on', obj: 'Logo churn rate', t: '2h ago' },
+  { icon: 'check', who: 'Marcus Lee', what: 'approved target change for', obj: 'Customer acquisition cost', t: '3h ago' },
+  { icon: 'message-square', who: 'Priya N.', what: 'commented on', obj: 'Net promoter score', t: '5h ago' },
+];
+
+const NAV = [
+  { group: null, items: [{ id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' }] },
+  { group: 'Analyze', items: [
+    { id: 'kpis', label: 'KPIs', icon: 'target' },
+    { id: 'dashboards', label: 'Dashboards', icon: 'bar-chart-3' },
+    { id: 'alerts', label: 'Alerts', icon: 'bell', badge: 3 },
+  ] },
+  { group: 'Intelligence', items: [
+    { id: 'insights', label: 'Insights', icon: 'sparkles' },
+    { id: 'ask', label: 'Ask', icon: 'message-square' },
+  ] },
+  { group: 'Execute', items: [
+    { id: 'okrs', label: 'OKRs', icon: 'flag' },
+    { id: 'tasks', label: 'Tasks', icon: 'check-square' },
+    { id: 'approvals', label: 'Approvals', icon: 'git-pull-request' },
+    { id: 'reports', label: 'Reports', icon: 'file-text' },
+  ] },
+  { group: 'Organize', items: [
+    { id: 'people', label: 'People & org', icon: 'users' },
+    { id: 'integrations', label: 'Integrations', icon: 'plug' },
+    { id: 'activity', label: 'Activity', icon: 'activity' },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
+  ] },
+];
+
+Object.assign(window, {
+  Icon, Button, StatusBadge, ScopeBadge, Card, Sparkline, LineChart, BarChart,
+  STATUS_META, SCOPE_META, KPIS, ACTIVITY, NAV,
+  useState, useEffect, useRef,
+});
+
+
+
+========== FILE: widgets.jsx ==========
+
+/* global React, Icon */
+/* widgets.jsx — shared composites layered on the kit primitives.
+   Loaded after lib.jsx + views.jsx (so PageHead/Delta exist), before the new view files.
+   Exports: Tabs, SubNav, Seg, Progress, Avatar, Pill, KV, Field, Select, Toggle, EmptyState, SeverityChip */
+
+const { useState: useStateW } = React;
+
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--c-border)', margin: '4px 0 18px', overflowX: 'auto' }}>
+      {tabs.map((t) => (
+        <button key={t} onClick={() => onChange && onChange(t)}
+          style={{ height: 38, padding: '0 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            fontFamily: 'var(--font-sans)', color: value === t ? 'var(--c-strong)' : 'var(--c-muted)',
+            borderBottom: value === t ? '2px solid hsl(var(--accent-primary))' : '2px solid transparent', marginBottom: -1, whiteSpace: 'nowrap' }}>{t}</button>
+      ))}
+    </div>
+  );
+}
+
+// pill-style sub navigation (route children)
+function SubNav({ items, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 7, marginBottom: 16, flexWrap: 'wrap' }}>
+      {items.map((t) => (
+        <button key={t} onClick={() => onChange && onChange(t)}
+          style={{ height: 30, padding: '0 12px', borderRadius: 999, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+            border: '1px solid ' + (value === t ? 'hsl(var(--accent-primary) / 0.4)' : 'var(--c-border)'),
+            background: value === t ? 'var(--c-accent-bg)' : 'var(--c-surface-bg)',
+            color: value === t ? 'hsl(var(--accent-primary))' : 'var(--c-default)' }}>{t}</button>
+      ))}
+    </div>
+  );
+}
+
+// segmented control (inset well)
+function Seg({ options, value, onChange, mono }) {
+  return (
+    <div style={{ display: 'inline-flex', padding: 3, borderRadius: 9, background: 'var(--c-surface-1)', boxShadow: 'var(--shadow-inset)', gap: 2 }}>
+      {options.map((s) => (
+        <button key={s} onClick={() => onChange && onChange(s)}
+          style={{ height: 28, padding: '0 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+            fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)', letterSpacing: mono ? '0.02em' : 0,
+            background: value === s ? 'var(--c-surface-bg)' : 'transparent', color: value === s ? 'var(--c-strong)' : 'var(--c-muted)',
+            boxShadow: value === s ? 'var(--shadow-xs)' : 'none' }}>{s}</button>
+      ))}
+    </div>
+  );
+}
+
+function Progress({ pct, color, height = 7 }) {
+  const c = color || 'hsl(var(--accent-primary))';
+  return (
+    <div style={{ height, borderRadius: 999, background: 'var(--c-surface-2)', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: c, borderRadius: 999, transition: 'width var(--dur-slow) var(--ease-out)' }} />
+    </div>
+  );
+}
+
+const AV_COLORS = ['hsl(var(--chart-5))', 'hsl(var(--chart-1))', 'hsl(var(--chart-3))', 'hsl(var(--chart-7))', 'hsl(var(--chart-2))', 'hsl(var(--chart-10))'];
+function Avatar({ name = '', size = 26, idx }) {
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const color = AV_COLORS[(idx ?? name.length) % AV_COLORS.length];
+  return (
+    <div style={{ width: size, height: size, borderRadius: 999, background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 600, flexShrink: 0 }}>{initials}</div>
+  );
+}
+
+function Pill({ children, tone = 'neutral', mono, style }) {
+  const tones = {
+    neutral: { bg: 'var(--c-surface-2)', color: 'var(--c-default)' },
+    accent: { bg: 'var(--c-accent-bg)', color: 'hsl(var(--accent-primary))' },
+    success: { bg: 'var(--c-success-bg)', color: 'var(--c-success)' },
+    warning: { bg: 'var(--c-warning-bg)', color: 'var(--c-warning)' },
+    critical: { bg: 'var(--c-critical-bg)', color: 'var(--c-critical)' },
+    info: { bg: 'var(--c-info-bg)', color: 'var(--c-info)' },
+  }[tone];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 20, padding: '0 8px', borderRadius: 6, background: tones.bg, color: tones.color,
+      fontSize: 10.5, fontWeight: 600, fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)', letterSpacing: mono ? '0.02em' : 0, ...style }}>{children}</span>
+  );
+}
+
+function KV({ k, v, mono }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 0', borderTop: '1px solid var(--c-divider)' }}>
+      <span style={{ fontSize: 12.5, color: 'var(--c-muted)' }}>{k}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--c-strong)', fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)', fontVariantNumeric: 'tabular-nums' }}>{v}</span>
+    </div>
+  );
+}
+
+function Field({ label, value, placeholder, mono, w, hint }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: w || '100%' }}>
+      {label && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-default)' }}>{label}</span>}
+      <div style={{ height: 36, display: 'flex', alignItems: 'center', padding: '0 11px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface-bg)' }}>
+        <span style={{ fontSize: 13, color: value ? 'var(--c-strong)' : 'var(--c-muted)', fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value || placeholder}</span>
+      </div>
+      {hint && <span style={{ fontSize: 11.5, color: 'var(--c-muted)' }}>{hint}</span>}
+    </label>
+  );
+}
+function Select({ label, value, w }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: w || '100%' }}>
+      {label && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-default)' }}>{label}</span>}
+      <div style={{ height: 36, display: 'flex', alignItems: 'center', gap: 8, padding: '0 11px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface-bg)' }}>
+        <span style={{ fontSize: 13, color: 'var(--c-strong)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+        <Icon name="chevron-down" size={14} style={{ color: 'var(--c-muted)' }} />
+      </div>
+    </label>
+  );
+}
+
+function Toggle({ on }) {
+  return (
+    <span style={{ width: 36, height: 20, borderRadius: 999, background: on ? 'hsl(var(--accent-primary))' : 'var(--c-surface-pressed)', position: 'relative', display: 'inline-block', flexShrink: 0, transition: 'background var(--dur-fast)' }}>
+      <span style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: '#fff', boxShadow: 'var(--shadow-xs)', transition: 'left var(--dur-fast) var(--ease-out)' }} />
+    </span>
+  );
+}
+
+function EmptyState({ icon = 'inbox', title, sub, cta }) {
+  return (
+    <div style={{ padding: '56px 24px', textAlign: 'center' }}>
+      <div className="kn-aura kn-aura-soft" style={{ display: 'inline-flex', width: 50, height: 50, borderRadius: 14, background: 'var(--gradient-brand-soft)', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--accent-primary))', marginBottom: 14 }}>
+        <Icon name={icon} size={24} />
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--c-strong)' }}>{title}</div>
+      <div style={{ fontSize: 13, color: 'var(--c-muted)', marginTop: 5, maxWidth: 360, marginInline: 'auto', lineHeight: 1.5 }}>{sub}</div>
+      {cta && <div style={{ marginTop: 16 }}>{cta}</div>}
+    </div>
+  );
+}
+
+const SEV_META = {
+  HIGH: { tone: 'critical', icon: 'circle-alert' },
+  MEDIUM: { tone: 'warning', icon: 'triangle-alert' },
+  LOW: { tone: 'neutral', icon: 'info' },
+};
+function SeverityChip({ level }) {
+  const m = SEV_META[level] || SEV_META.LOW;
+  return <Pill tone={m.tone}><Icon name={m.icon} size={11} strokeWidth={2.5} />{level}</Pill>;
+}
+
+Object.assign(window, { Tabs, SubNav, Seg, Progress, Avatar, Pill, KV, Field, Select, Toggle, EmptyState, SeverityChip });
+
+
+
+========== FILE: views.jsx ==========
+
+/* global React, Icon, Button, Card, StatusBadge, ScopeBadge, Sparkline, LineChart, BarChart, KPIS, ACTIVITY, STATUS_META */
+const { useState: useStateV } = React;
+
+function PageHead({ title, sub, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--c-strong)' }}>{title}</h1>
+        {sub && <p style={{ margin: '5px 0 0', fontSize: 13.5, color: 'var(--c-muted)' }}>{sub}</p>}
+      </div>
+      <div style={{ display: 'flex', gap: 9 }}>{children}</div>
+    </div>
+  );
+}
+
+function Delta({ v, up, good }) {
+  const positive = good === undefined ? up : good;
+  const color = positive ? 'var(--c-success)' : 'var(--c-critical)';
+  if (v === 0) return <span style={{ color: 'var(--c-muted)', fontSize: 12.5, fontWeight: 600 }}>—</span>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color, fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+      <Icon name={up ? 'arrow-up-right' : 'arrow-down-right'} size={13} strokeWidth={2.5} />{Math.abs(v)}%
+    </span>
+  );
+}
+
+/* =============================== DASHBOARD =============================== */
+function StatTile({ label, value, delta, up, good, spark, color }) {
+  return (
+    <Card hover style={{ padding: 16, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c-muted)' }}>{label}</span>
+        <Delta v={delta} up={up} good={good} />
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums', marginTop: 8 }}>{value}</div>
+      <div style={{ marginTop: 10 }}><Sparkline data={spark} color={color} h={34} fluid /></div>
+    </Card>
+  );
+}
+
+function DashboardView({ openKpi }) {
+  return (
+    <div>
+      <PageHead title="Good morning, Alex" sub="Tuesday, May 31 · Northwind Inc. org health at a glance">
+        <Button variant="secondary" icon="calendar" size="md">Last 30 days</Button>
+        <Button icon="plus">New KPI</Button>
+      </PageHead>
+
+      <div className="kn-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
+        <StatTile label="Recurring revenue" value="$284,910" delta={12.4} up good spark={KPIS[0].spark} color="hsl(var(--chart-11))" />
+        <StatTile label="Active users" value="48,210" delta={8.1} up good spark={KPIS[3].spark} color="hsl(var(--chart-1))" />
+        <StatTile label="Net retention" value="111%" delta={1.2} up good spark={KPIS[1].spark} color="hsl(var(--chart-3))" />
+        <StatTile label="Logo churn" value="3.8%" delta={0.6} up good={false} spark={KPIS[2].spark} color="hsl(var(--chart-4))" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* KPIs to watch */}
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--c-divider)' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>KPIs to watch</span>
+              <button onClick={() => openKpi(KPIS[0])} style={linkBtn}>View all <Icon name="arrow-right" size={13} /></button>
+            </div>
+            <div>
+              {KPIS.slice(0, 5).map((k, i) => (
+                <button key={k.id} onClick={() => openKpi(k)} className="kn-row"
+                  style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', alignItems: 'center', gap: 14, width: '100%', padding: '12px 16px', border: 'none', borderTop: i ? '1px solid var(--c-divider)' : 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-surface-1)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--c-strong)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
+                      <ScopeBadge scope={k.scope} />
+                    </div>
+                    <span style={{ fontSize: 11.5, color: 'var(--c-muted)' }}>{k.cat}</span>
+                  </div>
+                  <Sparkline data={k.spark} w={88} h={28} color={STATUS_META[k.status].color === 'var(--c-muted)' ? 'hsl(var(--chart-8))' : `hsl(var(--accent-primary))`} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums', minWidth: 78, textAlign: 'right' }}>{k.value}</span>
+                  <StatusBadge status={k.status} size="sm" />
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <SetupChecklist />
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--c-divider)', fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>Recent activity</div>
+            <div style={{ padding: '6px 0' }}>
+              {ACTIVITY.map((a, i) => (
+                <div key={i} style={{ display: 'flex', gap: 11, padding: '9px 16px' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--c-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--c-muted)' }}>
+                    <Icon name={a.icon} size={13} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--c-default)', lineHeight: 1.45 }}>
+                    <b style={{ color: 'var(--c-strong)', fontWeight: 600 }}>{a.who}</b> {a.what} <span style={{ color: 'hsl(var(--accent-primary))' }}>{a.obj}</span>
+                    <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 1 }}>{a.t}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SetupChecklist() {
+  const items = [{ t: 'Create your organization', done: true }, { t: 'Invite your team', done: true }, { t: 'Create your first KPI', done: true }, { t: 'Connect a data source', done: false }, { t: 'Enable MFA', done: false }];
+  const done = items.filter((i) => i.done).length;
+  return (
+    <Card style={{ padding: 16, background: 'var(--gradient-brand-soft)', borderColor: 'hsl(var(--accent-primary) / 0.25)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>Finish setup</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--accent-primary))', fontVariantNumeric: 'tabular-nums' }}>{done} of {items.length}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 999, background: 'hsl(var(--accent-primary) / 0.15)', marginTop: 10, overflow: 'hidden' }}>
+        <div className="kn-sheen" style={{ height: '100%', width: `${(done / items.length) * 100}%`, background: 'var(--gradient-brand)', borderRadius: 999 }} />
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5 }}>
+            <Icon name={it.done ? 'circle-check' : 'circle'} size={16} style={{ color: it.done ? 'var(--c-success)' : 'var(--c-disabled)' }} strokeWidth={2} />
+            <span style={{ color: it.done ? 'var(--c-muted)' : 'var(--c-strong)', textDecoration: it.done ? 'line-through' : 'none', fontWeight: it.done ? 400 : 500 }}>{it.t}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/* ================================= KPIs ================================= */
+function KpisView({ openKpi }) {
+  const [scope, setScope] = useStateV('All');
+  const [q, setQ] = useStateV('');
+  const scopes = ['All', 'ORG_WIDE', 'PER_UNIT', 'PER_USER'];
+  const rows = KPIS.filter((k) => (scope === 'All' || k.scope === scope) && k.name.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div>
+      <PageHead title="KPIs" sub={`${KPIS.length} indicators across 4 categories`}>
+        <Button variant="secondary" icon="upload" size="md">Import</Button>
+        <Button icon="plus">Create KPI</Button>
+      </PageHead>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 11px', borderRadius: 8, border: '1px solid var(--c-border)', background: 'var(--c-surface-bg)', width: 260 }}>
+          <Icon name="search" size={15} style={{ color: 'var(--c-muted)' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter KPIs…" style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--c-strong)', width: '100%', fontFamily: 'var(--font-sans)' }} />
+        </div>
+        <div style={{ display: 'inline-flex', padding: 3, borderRadius: 9, background: 'var(--c-surface-1)', boxShadow: 'var(--shadow-inset)', gap: 2 }}>
+          {scopes.map((s) => (
+            <button key={s} onClick={() => setScope(s)} style={{ height: 28, padding: '0 11px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: s === 'All' ? 'var(--font-sans)' : 'var(--font-mono)', letterSpacing: s === 'All' ? 0 : '0.02em', background: scope === s ? 'var(--c-surface-bg)' : 'transparent', color: scope === s ? 'var(--c-strong)' : 'var(--c-muted)', boxShadow: scope === s ? 'var(--shadow-xs)' : 'none' }}>{s}</button>
+          ))}
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--c-muted)' }}>{rows.length} shown</span>
+      </div>
+
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1fr 1fr 0.9fr 1.1fr 1.1fr', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface-1)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--c-muted)' }}>
+          <span>KPI</span><span>Scope</span><span>Trend</span><span style={{ textAlign: 'right' }}>Value</span><span style={{ textAlign: 'right' }}>vs target</span><span>Status</span>
+        </div>
+        {rows.map((k, i) => (
+          <button key={k.id} onClick={() => openKpi(k)} className="kn-row"
+            style={{ display: 'grid', gridTemplateColumns: '2.4fr 1fr 1fr 0.9fr 1.1fr 1.1fr', gap: 12, alignItems: 'center', width: '100%', padding: '12px 16px', border: 'none', borderTop: i ? '1px solid var(--c-divider)' : 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--c-surface-1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--c-strong)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--c-muted)' }}>{k.cat} · {k.type}</div>
+            </div>
+            <div><ScopeBadge scope={k.scope} /></div>
+            <Sparkline data={k.spark} w={84} h={26} color="hsl(var(--accent-primary))" />
+            <span style={{ textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums' }}>{k.value}</span>
+            <span style={{ textAlign: 'right' }}><Delta v={k.delta} up={k.up} good={k.status !== 'off-track' && k.status !== 'at-risk' ? k.up : !k.up} /></span>
+            <div><StatusBadge status={k.status} size="sm" /></div>
+          </button>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+/* ============================== KPI DETAIL ============================== */
+function KpiDetailView({ kpi, back }) {
+  const k = kpi || KPIS[0];
+  const [tab, setTab] = useStateV('Overview');
+  const [drawer, setDrawer] = useStateV(false);
+  const tabs = ['Overview', 'Data', 'Formula', 'Targets', 'Thresholds', 'Anomalies', 'Forecast', 'What-if', 'Lineage', 'Audit'];
+  const base = k.spark.map((v) => (typeof v === 'number' && v > 0 ? v : 40));
+  const forecast = [base[base.length - 1], base[base.length - 1] * 1.03, base[base.length - 1] * 1.06, base[base.length - 1] * 1.09];
+  return (
+    <div>
+      <button onClick={back} style={{ ...linkBtn, marginBottom: 14 }}><Icon name="arrow-left" size={14} /> All KPIs</button>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 4 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--c-strong)' }}>{k.name}</h1>
+            <StatusBadge status={k.status} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, fontSize: 12.5, color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>
+            <span>v4</span><span>·</span><ScopeBadge scope={k.scope} /><span>·</span><span>{k.type}</span><span>·</span><span style={{ fontFamily: 'var(--font-sans)' }}>Owner {k.owner}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 9 }}>
+          <Button variant="secondary" icon="message-square" size="md" onClick={() => setDrawer(true)}>Comments</Button>
+          <Button variant="secondary" icon="pencil" size="md">Edit</Button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--c-border)', margin: '16px 0 18px', overflowX: 'auto' }}>
+        {tabs.map((t) => (
+          <button key={t} onClick={() => setTab(t)} style={{ height: 38, padding: '0 13px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)', color: tab === t ? 'var(--c-strong)' : 'var(--c-muted)', borderBottom: tab === t ? '2px solid hsl(var(--accent-primary))' : '2px solid transparent', marginBottom: -1, whiteSpace: 'nowrap' }}>{t}</button>
+        ))}
+      </div>
+
+      {tab === 'Overview' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, alignItems: 'start' }}>
+          <Card style={{ padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c-muted)' }}>Current value</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
+                  <span style={{ fontSize: 34, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums' }}>{k.value}</span>
+                  <Delta v={k.delta} up={k.up} good={k.status === 'on-track'} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
+                <div style={{ textAlign: 'right' }}><div style={{ color: 'var(--c-muted)' }}>Target</div><div style={{ fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{k.target}</div></div>
+              </div>
+            </div>
+            <LineChart
+              series={[
+                { data: base, color: 'hsl(var(--accent-primary))', fill: true },
+                { data: [...base.map(() => null).slice(0, base.length - 1).map((_, i) => null), ...[]], color: 'transparent' },
+                { data: [...Array(base.length - 1).fill(null), ...forecast].map((v) => v), color: 'hsl(var(--accent-secondary))', dashed: true },
+              ].filter((s) => s.color !== 'transparent')}
+              showBand={{ hi: [...Array(base.length - 1).fill(base[base.length - 1]), ...forecast.map((v) => v * 1.05)], lo: [...Array(base.length - 1).fill(base[base.length - 1]), ...forecast.map((v) => v * 0.95)] }}
+              w={620} h={250}
+            />
+            <div style={{ display: 'flex', gap: 18, marginTop: 6, fontSize: 11.5, color: 'var(--c-muted)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 2.5, background: 'hsl(var(--accent-primary))', borderRadius: 2 }} /> Actual</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 0, borderTop: '2.5px dashed hsl(var(--accent-secondary))' }} /> Forecast (yhat + band)</span>
+            </div>
+          </Card>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Card style={{ padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)', marginBottom: 12 }}>Threshold status</div>
+              {[['Critical below', '< 3.0', 'off-track'], ['Warning below', '< 3.4', 'at-risk'], ['Healthy', '≥ 3.4', 'on-track']].map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--c-default)' }}>{r[0]}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--c-muted)' }}>{r[1]}</span>
+                </div>
+              ))}
+            </Card>
+            <Card style={{ padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)', marginBottom: 10 }}>Trust & provenance</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 12.5, color: 'var(--c-muted)' }}>
+                <div style={{ display: 'flex', gap: 8 }}><Icon name="user" size={14} /> Updated by {k.owner}</div>
+                <div style={{ display: 'flex', gap: 8 }}><Icon name="clock" size={14} /> 2 hours ago</div>
+                <div style={{ display: 'flex', gap: 8 }}><Icon name="git-commit-horizontal" size={14} /> Version 4 · 6 edits</div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <KpiTabContent k={k} tab={tab} base={base} />
+      )}
+      <CommentsDrawer open={drawer} onClose={() => setDrawer(false)} entity={k.name} entityType="kpi" />
+    </div>
+  );
+}
+
+/* ============================== DASHBOARDS ============================== */
+function DashboardsView() {
+  return (
+    <div>
+      <PageHead title="Revenue overview" sub="8 widgets · live · last 30 days">
+        <Button variant="secondary" icon="share-2" size="md">Share</Button>
+        <Button variant="secondary" icon="pencil" size="md">Edit</Button>
+        <Button icon="plus">Add widget</Button>
+      </PageHead>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--c-success)', fontWeight: 600 }}><span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--c-success)' }} className="kn-pulse" /> Live</span>
+        <span style={{ fontSize: 12.5, color: 'var(--c-muted)' }}>· refreshes via SSE</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <Card style={{ padding: 16, gridColumn: 'span 1' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c-muted)' }}>MRR</div>
+          <div style={{ fontSize: 26, fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums', marginTop: 8 }}>$284,910</div>
+          <Delta v={12.4} up good />
+        </Card>
+        <Card style={{ padding: 16, gridColumn: 'span 1' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c-muted)' }}>New accounts</div>
+          <div style={{ fontSize: 26, fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums', marginTop: 8 }}>312</div>
+          <Delta v={5.4} up good />
+        </Card>
+        <Card style={{ padding: '16px 16px 8px', gridColumn: 'span 2' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)', marginBottom: 6 }}>Revenue trend</div>
+          <LineChart series={[{ data: [180, 195, 188, 210, 225, 240, 258, 270, 285], color: 'hsl(var(--chart-11))', fill: true }]} w={300} h={150} />
+        </Card>
+        <Card style={{ padding: '16px 16px 8px', gridColumn: 'span 2' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)', marginBottom: 6 }}>Revenue by segment</div>
+          <BarChart data={[{ label: 'SMB', v: 120 }, { label: 'Mid', v: 185, color: 'hsl(var(--chart-5))' }, { label: 'Ent', v: 240, color: 'hsl(var(--chart-3))' }, { label: 'Gov', v: 95, color: 'hsl(var(--chart-2))' }]} w={300} h={150} />
+        </Card>
+        <Card style={{ padding: '16px', gridColumn: 'span 2' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)', marginBottom: 10 }}>Pipeline by stage</div>
+          {[['Discovery', 80], ['Qualified', 62], ['Proposal', 44], ['Closing', 28]].map((r, i) => (
+            <div key={i} style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--c-default)', marginBottom: 4 }}><span>{r[0]}</span><span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--c-muted)' }}>{r[1]}</span></div>
+              <div style={{ height: 7, borderRadius: 999, background: 'var(--c-surface-2)', overflow: 'hidden' }}><div style={{ height: '100%', width: `${r[1]}%`, background: `hsl(var(--chart-${i + 1}))`, borderRadius: 999 }} /></div>
+            </div>
+          ))}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ================================= ASK ================================= */
+function AskView() {
+  const [msgs, setMsgs] = useStateV([
+    { role: 'user', text: 'Why did logo churn tick up last month?' },
+    { role: 'ai', text: 'Logo churn rose to 3.8% (+0.6pt MoM), above the 3.0% target. The increase is concentrated in the SMB segment, where 11 of 14 churned accounts had not connected a data source within 30 days of signup. Net revenue retention held at 111%, so expansion is offsetting the dollar impact for now.', sources: ['Logo churn rate', 'Net revenue retention', 'Onboarding completion'], model: 'gemini-1.5-pro', cost: '$0.004' },
+  ]);
+  const [val, setVal] = useStateV('');
+  const prompts = ['Which KPIs are off track this quarter?', 'Forecast MRR for next 3 months', 'Compare CAC across org units'];
+  const send = (t) => { const text = t || val; if (!text.trim()) return; setMsgs((m) => [...m, { role: 'user', text }, { role: 'ai', text: 'Grounded in your visible data, here is what I found — this is a static demo response illustrating the answer layout, source chips, and provider/cost trust line.', sources: ['Monthly recurring revenue', 'Weekly active users'], model: 'gemini-1.5-pro', cost: '$0.003' }]); setVal(''); };
+  return (
+    <div style={{ maxWidth: 820, margin: '0 auto' }}>
+      <PageHead title="Ask" sub="Natural-language questions grounded in your data — respects your permissions" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 18 }}>
+        {msgs.map((m, i) => m.role === 'user' ? (
+          <div key={i} style={{ alignSelf: 'flex-end', maxWidth: '78%', background: 'hsl(var(--accent-primary))', color: 'var(--c-on-accent)', padding: '11px 15px', borderRadius: '14px 14px 4px 14px', fontSize: 13.5, lineHeight: 1.5, boxShadow: 'var(--shadow-sm)' }}>{m.text}</div>
+        ) : (
+          <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '86%' }}>
+            <div style={{ display: 'flex', gap: 11 }}>
+              <div className="kn-aura kn-aura-breathe" style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}><Icon name="sparkles" size={16} style={{ color: '#fff' }} /></div>
+              <div>
+                <div style={{ background: 'var(--c-surface-1)', border: '1px solid var(--c-border)', padding: '12px 15px', borderRadius: '14px 14px 14px 4px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--c-default)' }}>{m.text}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 9 }}>
+                  <span style={{ fontSize: 11, color: 'var(--c-muted)' }}>Sources</span>
+                  {m.sources.map((s) => <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 22, padding: '0 9px', borderRadius: 999, background: 'var(--c-surface-bg)', border: '1px solid var(--c-border)', fontSize: 11.5, color: 'var(--c-default)' }}><Icon name="target" size={11} style={{ color: 'hsl(var(--accent-primary))' }} />{s}</span>)}
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--c-muted)', fontFamily: 'var(--font-mono)' }}>{m.model} · {m.cost}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {prompts.map((p) => <button key={p} onClick={() => send(p)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid var(--c-border)', background: 'var(--c-surface-bg)', color: 'var(--c-default)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>{p}</button>)}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 7px 7px 16px', borderRadius: 12, border: '1px solid var(--c-border-strong)', background: 'var(--c-surface-bg)', boxShadow: 'var(--shadow-sm)' }}>
+        <Icon name="message-square" size={17} style={{ color: 'var(--c-muted)' }} />
+        <input value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="Ask about your KPIs…" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--c-strong)', fontFamily: 'var(--font-sans)' }} />
+        <Button icon="arrow-up" onClick={() => send()}>Ask</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ generic stub ============================ */
+function StubView({ title, icon, sub }) {
+  return (
+    <div>
+      <PageHead title={title} sub={sub} />
+      <Card style={{ padding: '64px 24px', textAlign: 'center' }}>
+        <div className="kn-aura kn-aura-soft" style={{ display: 'inline-flex', width: 52, height: 52, borderRadius: 14, background: 'var(--gradient-brand-soft)', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--accent-primary))', marginBottom: 14 }}>
+          <Icon name={icon} size={26} />
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--c-strong)' }}>{title} lives here</div>
+        <div style={{ fontSize: 13, color: 'var(--c-muted)', marginTop: 5, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 }}>{sub} This surface is specified in the frontend requirements and shares the same shell, tokens, and components shown across this kit.</div>
+      </Card>
+    </div>
+  );
+}
+
+const linkBtn = { display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', color: 'hsl(var(--accent-primary))', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)', padding: 0 };
+
+Object.assign(window, { DashboardView, KpisView, KpiDetailView, DashboardsView, AskView, StubView, PageHead, Delta, linkBtn });
+
+
+
+========== FILE: views-kpitabs.jsx ==========
+
+/* global React, Icon, Button, Card, StatusBadge, ScopeBadge, Sparkline, LineChart, BarChart, Delta, Pill, Progress, Seg, Field, Select, KV, Avatar */
+/* views-kpitabs.jsx — full content for every non-Overview KPI detail tab.
+   Exports KpiTabContent({ k, tab, base }). Loaded after widgets.jsx, before app.jsx. */
+const { useState: useStateKT } = React;
+
+function TabCard({ children, style }) { return <Card style={{ padding: 18, ...style }}>{children}</Card>; }
+function TabHead({ title, sub, right }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+      <div><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>{title}</div>{sub && <div style={{ fontSize: 12.5, color: 'var(--c-muted)', marginTop: 3 }}>{sub}</div>}</div>
+      {right}
+    </div>
+  );
+}
+const th = { padding: '9px 14px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--c-muted)', textAlign: 'left' };
+const td = { padding: '10px 14px', fontSize: 13, color: 'var(--c-default)', borderTop: '1px solid var(--c-divider)' };
+
+/* -------- Data -------- */
+function DataTab({ k, base }) {
+  const rows = [['May 2026', k.value, 'Sara Chen', 'verified'], ['Apr 2026', '$271,400', 'Connector · Stripe', 'verified'], ['Mar 2026', '$262,050', 'Connector · Stripe', 'verified'], ['Feb 2026', '$258,300', 'Sara Chen', 'estimate'], ['Jan 2026', '$240,100', 'Connector · Stripe', 'verified']];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14, alignItems: 'start' }}>
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--c-divider)' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>Time series</span>
+          <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>9 points · monthly</span>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr><th style={th}>Period</th><th style={{ ...th, textAlign: 'right' }}>Value</th><th style={th}>Source</th><th style={th}>Quality</th><th style={th}></th></tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={td}>{r[0]}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums' }}>{r[1]}</td>
+                <td style={{ ...td, color: 'var(--c-muted)' }}>{r[2]}</td>
+                <td style={td}>{r[3] === 'verified' ? <Pill tone="success"><Icon name="check" size={11} />Verified</Pill> : <Pill tone="warning"><Icon name="flag" size={11} />Estimate</Pill>}</td>
+                <td style={{ ...td, textAlign: 'right' }}><Icon name="ellipsis" size={15} style={{ color: 'var(--c-muted)' }} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+      <TabCard>
+        <TabHead title="Record a value" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Field label="Value" placeholder={k.type === 'Currency' ? '$0.00' : '0'} />
+          <div style={{ display: 'flex', gap: 8 }}><Field label="Period start" value="Jun 1" /><Field label="Period end" value="Jun 30" /></div>
+          <Button icon="plus" full>Record value</Button>
+          <div style={{ fontSize: 11.5, color: 'var(--c-muted)', lineHeight: 1.5 }}>Posts to the scope-correct endpoint. Optimistic — appears instantly, rolls back on failure.</div>
+        </div>
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- Formula -------- */
+function FormulaTab() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14, alignItems: 'start' }}>
+      <TabCard>
+        <TabHead title="Expression" sub="This KPI is COMPUTED from upstream metrics" right={<Pill tone="success"><Icon name="check" size={11} />Valid</Pill>} />
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, lineHeight: 1.7, background: 'var(--c-surface-1)', border: '1px solid var(--c-border)', borderRadius: 8, padding: 14, color: 'var(--c-strong)' }}>
+          <span style={{ color: 'hsl(var(--accent-primary))' }}>new_mrr</span> + <span style={{ color: 'hsl(var(--accent-primary))' }}>expansion_mrr</span> − <span style={{ color: 'hsl(var(--accent-primary))' }}>contraction_mrr</span> − <span style={{ color: 'hsl(var(--accent-primary))' }}>churned_mrr</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 12 }}>
+          <Button variant="secondary" size="md" icon="play">Validate</Button>
+          <Button size="md" icon="check">Save formula</Button>
+          <span style={{ fontSize: 12, color: 'var(--c-success)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="circle-check" size={13} />Parses · 4 dependencies resolved</span>
+        </div>
+      </TabCard>
+      <TabCard>
+        <TabHead title="Dependencies" />
+        {['New MRR', 'Expansion MRR', 'Contraction MRR', 'Churned MRR'].map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 0', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+            <Icon name="git-commit-horizontal" size={14} style={{ color: 'var(--c-muted)' }} />
+            <span style={{ fontSize: 12.5, color: 'var(--c-default)', flex: 1 }}>{d}</span>
+            <Icon name="arrow-up-right" size={13} style={{ color: 'hsl(var(--accent-primary))' }} />
+          </div>
+        ))}
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- Targets -------- */
+function TargetsTab() {
+  return (
+    <TabCard style={{ padding: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--c-divider)' }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>Period targets</span>
+        <Button variant="secondary" size="sm" icon="plus">Add target</Button>
+      </div>
+      {[['Q2 2026', '$300,000', 'Apr 1 – Jun 30', 'active'], ['Q1 2026', '$270,000', 'Jan 1 – Mar 31', 'met'], ['Q3 2026', '$330,000', 'Jul 1 – Sep 30', 'pending']].map((r, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr 1fr', gap: 12, alignItems: 'center', padding: '13px 16px', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)' }}>{r[0]}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--c-default)' }}>{r[1]}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--c-muted)' }}>{r[2]}</span>
+          <span style={{ textAlign: 'right' }}>{r[3] === 'active' ? <Pill tone="accent">Active</Pill> : r[3] === 'met' ? <Pill tone="success">Met</Pill> : <Pill tone="warning"><Icon name="clock" size={11} />Approval</Pill>}</span>
+        </div>
+      ))}
+      <div style={{ padding: '11px 16px', borderTop: '1px solid var(--c-divider)', fontSize: 12, color: 'var(--c-muted)', display: 'flex', alignItems: 'center', gap: 7 }}>
+        <Icon name="git-pull-request" size={13} />Target changes route through the KPI_TARGET approval workflow when active.
+      </div>
+    </TabCard>
+  );
+}
+
+/* -------- Thresholds -------- */
+function ThresholdsTab() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 14, alignItems: 'start' }}>
+      <TabCard style={{ padding: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--c-divider)' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-strong)' }}>Threshold bands</span>
+          <Button variant="secondary" size="sm" icon="plus">Add band</Button>
+        </div>
+        {[['Healthy', '≥ $280k', 'on-track'], ['Warning', '$260k – $280k', 'at-risk'], ['Critical', '< $260k', 'off-track']].map((r, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+            <StatusBadge status={r[2]} size="sm" />
+            <span style={{ fontSize: 13, color: 'var(--c-default)', flex: 1 }}>{r[0]}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--c-muted)' }}>{r[1]}</span>
+          </div>
+        ))}
+      </TabCard>
+      <TabCard>
+        <TabHead title="Current standing" />
+        <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+          <div style={{ fontSize: 30, fontWeight: 700, color: 'var(--c-success)', fontVariantNumeric: 'tabular-nums' }}>$284,910</div>
+          <div style={{ margintop: 8 }}><StatusBadge status="on-track" /></div>
+          <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 8 }}>$4,910 above the warning band</div>
+        </div>
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- Anomalies -------- */
+function AnomaliesTab({ base }) {
+  const markers = [3, 6];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start' }}>
+      <TabCard>
+        <TabHead title="Anomaly detection" right={<Button size="sm" icon="scan-search">Detect</Button>} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <Select label="Method" value="Z-score" w={150} /><Field label="Threshold (σ)" value="3.0" w={120} />
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-default)' }}>Persist</span><div style={{ height: 36, display: 'flex', alignItems: 'center' }}><span style={{ width: 36, height: 20, borderRadius: 999, background: 'var(--c-surface-pressed)', position: 'relative', display: 'inline-block' }}><span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: 999, background: '#fff' }} /></span></div></label>
+        </div>
+        <LineChart series={[{ data: base, color: 'hsl(var(--accent-primary))', fill: true, markers }]} w={620} h={220} />
+      </TabCard>
+      <TabCard>
+        <TabHead title="Flagged points" />
+        {[['Mar 2026', '−2.8σ', 'High'], ['Jun 2026', '+3.4σ', 'High']].map((r, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+            <div><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-strong)' }}>{r[0]}</div><div style={{ fontSize: 11.5, color: 'var(--c-muted)' }}>outside expected range</div></div>
+            <div style={{ textAlign: 'right' }}><div style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--c-critical)' }}>{r[1]}</div><Pill tone="accent" style={{ marginTop: 4 }}>conf · {r[2]}</Pill></div>
+          </div>
+        ))}
+        <div style={{ marginTop: 12, fontSize: 11.5, color: 'var(--c-muted)', lineHeight: 1.5, display: 'flex', gap: 7 }}><Icon name="info" size={13} style={{ flexShrink: 0, marginTop: 1 }} />Markers use shape + colour, never colour alone.</div>
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- Forecast -------- */
+function ForecastTab({ base }) {
+  const last = base[base.length - 1];
+  const fc = [last, last * 1.03, last * 1.06, last * 1.09, last * 1.12];
+  const series = [
+    { data: [...base, ...Array(fc.length - 1).fill(null)], color: 'hsl(var(--accent-primary))', fill: true },
+    { data: [...Array(base.length - 1).fill(null), ...fc], color: 'hsl(var(--accent-secondary))', dashed: true },
+  ];
+  const band = { hi: [...Array(base.length - 1).fill(last), ...fc.map((v) => v * 1.06)], lo: [...Array(base.length - 1).fill(last), ...fc.map((v) => v * 0.94)] };
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 14, alignItems: 'start' }}>
+      <TabCard>
+        <TabHead title="Forecast" right={<Button size="sm" icon="play">Run</Button>} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}><Select label="Model" value="Auto (best fit)" w={170} /><Select label="Horizon" value="5 periods" w={140} /></div>
+        <LineChart series={series} showBand={band} w={620} h={220} />
+        <div style={{ display: 'flex', gap: 18, marginTop: 8, fontSize: 11.5, color: 'var(--c-muted)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 2.5, background: 'hsl(var(--accent-primary))', borderRadius: 2 }} /> Actual</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 0, borderTop: '2.5px dashed hsl(var(--accent-secondary))' }} /> Forecast</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 14, height: 9, background: 'hsl(var(--accent-primary) / 0.12)', borderRadius: 2 }} /> 80 / 95% band</span>
+        </div>
+      </TabCard>
+      <TabCard>
+        <TabHead title="Fit metrics" />
+        <KV k="RMSE" v="0.042" mono /><KV k="MAPE" v="3.1%" mono /><KV k="Model" v="ETS" mono />
+        <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--c-muted)', lineHeight: 1.5 }}>Lower error means the model tracks history more closely. Bands widen with the horizon.</div>
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- What-if -------- */
+function WhatIfTab() {
+  const [lift, setLift] = useStateKT(12);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14, alignItems: 'start' }}>
+      <TabCard>
+        <TabHead title="Driver" />
+        <Select label="Mechanic" value="Expansion rate" />
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-default)' }}>Lift</span><span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--accent-primary))', fontVariantNumeric: 'tabular-nums' }}>+{lift}%</span></div>
+          <input type="range" min="0" max="30" value={lift} onChange={(e) => setLift(+e.target.value)} style={{ width: '100%', accentColor: 'hsl(var(--accent-primary))' }} />
+        </div>
+        <Button icon="play" full style={{ marginTop: 16 }}>Run simulation</Button>
+        <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--c-muted)', lineHeight: 1.5 }}>Assumes a linear relationship between the driver and this KPI.</div>
+      </TabCard>
+      <TabCard>
+        <TabHead title="Projected impact" />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 40, padding: '14px 10px', height: 200 }}>
+          {[['Before', 120, '$284,910', 'var(--c-surface-pressed)'], ['After', 120 + lift * 3.6, '$' + Math.round(284910 * (1 + lift / 100)).toLocaleString(), 'hsl(var(--accent-primary))']].map((b, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-strong)', fontVariantNumeric: 'tabular-nums' }}>{b[2]}</div>
+              <div style={{ width: 72, height: b[1], background: b[3], borderRadius: '6px 6px 0 0', border: '1px solid var(--c-border)', transition: 'height var(--dur-slow) var(--ease-out)' }} />
+              <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>{b[0]}</div>
+            </div>
+          ))}
+          <div style={{ alignSelf: 'center' }}><Delta v={lift} up good /></div>
+        </div>
+      </TabCard>
+    </div>
+  );
+}
+
+/* -------- Lineage -------- */
+function LineageTab() {
+  const col = (title, items, icon) => (
+    <TabCard>
+      <TabHead title={title} />
+      {items.map((d, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 0', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--c-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-muted)', flexShrink: 0 }}><Icon name={icon} size={14} /></div>
+          <span style={{ fontSize: 13, color: 'var(--c-default)', flex: 1 }}>{d}</span>
+          <Icon name="arrow-up-right" size={13} style={{ color: 'hsl(var(--accent-primary))' }} />
+        </div>
+      ))}
+    </TabCard>
+  );
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 14, alignItems: 'center' }}>
+      {col('Upstream — feeds this', ['New MRR', 'Expansion MRR', 'Contraction MRR', 'Churned MRR'], 'git-commit-horizontal')}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <Icon name="arrow-right" size={20} style={{ color: 'var(--c-muted)' }} />
+        <div className="kn-aura kn-aura-soft" style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--gradient-brand-soft)', border: '1px solid hsl(var(--accent-primary) / 0.3)', fontSize: 12, fontWeight: 600, color: 'hsl(var(--accent-primary))', textAlign: 'center', whiteSpace: 'nowrap' }}>This KPI</div>
+        <Icon name="arrow-right" size={20} style={{ color: 'var(--c-muted)' }} />
+      </div>
+      {col('Downstream — consumes this', ['Revenue overview dashboard', 'Durable growth · OKR', 'Weekly board pack'], 'bar-chart-3')}
+    </div>
+  );
+}
+
+/* -------- Audit -------- */
+function AuditTab({ k }) {
+  const rows = [['v4', k.owner, 'Updated target to $300,000', '2h ago'], ['v3', 'Marcus Lee', 'Edited formula (added expansion_mrr)', '3d ago'], ['v2', 'Sara Chen', 'Added critical threshold band', '2w ago'], ['v1', 'Sara Chen', 'Created KPI', 'Apr 2']];
+  return (
+    <TabCard style={{ padding: 0 }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderTop: i ? '1px solid var(--c-divider)' : 'none' }}>
+          <Pill mono tone="neutral">{r[0]}</Pill>
+          <Avatar name={r[1]} size={24} idx={i} />
+          <div style={{ flex: 1 }}><div style={{ fontSize: 13, color: 'var(--c-strong)' }}>{r[2]}</div><div style={{ fontSize: 11.5, color: 'var(--c-muted)' }}>by {r[1]}</div></div>
+          <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>{r[3]}</span>
+        </div>
+      ))}
+    </TabCard>
+  );
+}
+
+function KpiTabContent({ k, tab, base }) {
+  switch (tab) {
+    case 'Data': return <DataTab k={k} base={base} />;
+    case 'Formula': return <FormulaTab />;
+    case 'Targets': return <TargetsTab />;
+    case 'Thresholds': return <ThresholdsTab />;
+    case 'Anomalies': return <AnomaliesTab base={base} />;
+    case 'Forecast': return <ForecastTab base={base} />;
+    case 'What-if': return <WhatIfTab />;
+    case 'Lineage': return <LineageTab />;
+    case 'Audit': return <AuditTab k={k} />;
+    default: return null;
+  }
+}
+
+Object.assign(window, { KpiTabContent });
+
+
+
+========== FILE: app.jsx ==========
+
+/* global React, ReactDOM, Sidebar, Header, CommandPalette, DashboardView, KpisView, KpiDetailView, DashboardsView, AskView, StubView */
+const { useState: useStateA, useEffect: useEffectA } = React;
+
+const TITLES = {
+  dashboard: { title: 'Dashboard', crumbs: ['Home'] },
+  kpis: { title: 'KPIs', crumbs: ['Workspace'] },
+  kpiDetail: { title: 'KPI detail', crumbs: ['Workspace', 'KPIs'] },
+  dashboards: { title: 'Dashboards', crumbs: ['Workspace'] },
+  alerts: { title: 'Alerts', crumbs: ['Workspace'] },
+  insights: { title: 'Insights', crumbs: ['Intelligence'] },
+  ask: { title: 'Ask', crumbs: ['Intelligence'] },
+  okrs: { title: 'OKRs', crumbs: ['Execute'] },
+  tasks: { title: 'Tasks', crumbs: ['Execute'] },
+  approvals: { title: 'Approvals', crumbs: ['Execute'] },
+  reports: { title: 'Reports', crumbs: ['Execute'] },
+  people: { title: 'People & org', crumbs: ['Organize'] },
+  integrations: { title: 'Integrations', crumbs: ['Organize'] },
+  activity: { title: 'Activity', crumbs: ['Organize'] },
+  settings: { title: 'Settings', crumbs: ['Organize'] },
+};
+
+function App() {
+  const [theme, setTheme] = useStateA(() => localStorage.getItem('kn-theme') || 'light');
+  const [view, setView] = useStateA('dashboard');
+  const [collapsed, setCollapsed] = useStateA(false);
+  const [paletteOpen, setPaletteOpen] = useStateA(false);
+  const [activeKpi, setActiveKpi] = useStateA(null);
+
+  useEffectA(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('kn-theme', theme);
+  }, [theme]);
+
+  useEffectA(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen((p) => !p); }
+      if (e.key === 'Escape') setPaletteOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const openKpi = (k) => { setActiveKpi(k); setView('kpiDetail'); };
+  const navTo = (v) => { setView(v); };
+
+  const meta = TITLES[view] || TITLES.dashboard;
+
+  let content;
+  switch (view) {
+    case 'dashboard': content = <DashboardView openKpi={openKpi} />; break;
+    case 'kpis': content = <KpisView openKpi={openKpi} />; break;
+    case 'kpiDetail': content = <KpiDetailView kpi={activeKpi} back={() => setView('kpis')} />; break;
+    case 'dashboards': content = <DashboardsView />; break;
+    case 'ask': content = <AskView />; break;
+    case 'alerts': content = <AlertsView />; break;
+    case 'insights': content = <InsightsView />; break;
+    case 'okrs': content = <OkrsView />; break;
+    case 'tasks': content = <TasksView />; break;
+    case 'reports': content = <ReportsView />; break;
+    case 'approvals': content = <ApprovalsView />; break;
+    case 'activity': content = <ActivityView />; break;
+    case 'people': content = <PeopleView />; break;
+    case 'integrations': content = <IntegrationsView />; break;
+    case 'settings': content = <SettingsView />; break;
+    default: content = <DashboardView openKpi={openKpi} />;
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--c-surface-bg)' }}>
+      <Sidebar view={view === 'kpiDetail' ? 'kpis' : view} setView={navTo} collapsed={collapsed} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Header
+          title={meta.title}
+          crumbs={meta.crumbs}
+          theme={theme}
+          toggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          onSearch={() => setPaletteOpen(true)}
+          onToggleSidebar={() => setCollapsed((c) => !c)}
+        />
+        <main style={{ flex: 1, overflowY: 'auto', padding: '24px 28px 48px' }}>
+          <div key={view} className="kn-view" style={{ maxWidth: view === 'ask' ? 860 : 1180, margin: '0 auto' }}>{content}</div>
+        </main>
+      </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} setView={navTo} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+

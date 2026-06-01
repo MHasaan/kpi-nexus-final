@@ -66,6 +66,22 @@ export class UsersController {
     return this.offboarding.offboard(id, parse(OffboardDtoSchema, body ?? {}));
   }
 
+  /** Suspend a user: block sign-in (reversible). Refuses self + archived/deleted/purged. */
+  @Post(':id/suspend')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  suspend(@Param('id') id: string): Promise<PublicUser> {
+    return this.users.suspend(id);
+  }
+
+  /** Reactivate a SUSPENDED user back to ACTIVE. */
+  @Post(':id/reactivate')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  reactivate(@Param('id') id: string): Promise<PublicUser> {
+    return this.users.reactivate(id);
+  }
+
   /** GDPR hard-purge a previously-ARCHIVED user (PII redaction). */
   @Post(':id/purge')
   @RequirePermissions(PermissionKey.USERS_MANAGE)

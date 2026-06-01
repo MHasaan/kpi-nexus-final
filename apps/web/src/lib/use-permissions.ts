@@ -23,28 +23,31 @@ export interface UsePermissionsResult {
 /**
  * Hook that provides the current user's permissions.
  *
- * - Reads the localStorage cache synchronously on first render so guard
- *   components don't flash incorrectly (SSR-safe via `typeof window`).
- * - If the cache is empty, fires `meRequest()` once to populate it.
- * - On SSR (no window), returns `ready: false` and an empty permissions array
- *   so the server render is always safe.
+ * - Starts with `[]` / `ready: false` so the server render and the client's
+ *   FIRST render agree (reading localStorage during render would cause a
+ *   hydration mismatch — guarded actions would be hidden on the server but
+ *   shown on the client's first paint). We populate after mount instead.
+ * - After mount, reads the localStorage cache; if empty, fires `meRequest()`
+ *   once to populate it.
  */
 export function usePermissions(): UsePermissionsResult {
-  const [permissions, setPermissions] = useState<string[]>(() => {
-    // Synchronous initializer — works on client; returns [] on server.
-    return getCachedPermissions();
-  });
-  const [ready, setReady] = useState<boolean>(() => {
-    // If the cache already has entries we are ready immediately.
-    return getCachedPermissions().length > 0;
-  });
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [ready, setReady] = useState<boolean>(false);
 
   useEffect(() => {
-    // Already hydrated from cache — nothing to do.
-    if (ready) return;
-
     let cancelled = false;
 
+    // Hydrate from the synchronous cache first (no flash beyond the first paint).
+    const cached = getCachedPermissions();
+    if (cached.length > 0) {
+      setPermissions(cached);
+      setReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Cache empty — resolve from the API once.
     async function fetchMe() {
       try {
         const { user } = await meRequest();
@@ -61,8 +64,10 @@ export function usePermissions(): UsePermissionsResult {
     }
 
     void fetchMe();
-    return () => { cancelled = true; };
-  }, [ready]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return {
     permissions,

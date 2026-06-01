@@ -2,9 +2,32 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LineChart as LineChartIcon } from 'lucide-react';
 
-import { SeriesChart } from '../../../../components/series-chart';
+import { AppShell } from '../../../../components/app-shell';
+import { RequirePermission } from '../../../../components/auth/require-permission';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  Label,
+  Select,
+  Input,
+  Metric,
+  Skeleton,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  EmptyState,
+} from '../../../../components/ui';
+import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 
 interface Prediction {
@@ -21,13 +44,45 @@ interface Forecast {
   predictions: Prediction[];
   fitMetrics?: { rmse?: number; mape?: number };
 }
+interface DataPoint {
+  value: number;
+  recordedAt: string;
+}
 
-function Tile({ label, value }: { label: string; value: string }) {
+// Shared analytics navigation strip — lets users move between the KPI's
+// analytics surfaces and back to the detail page.
+function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
+  const links: Array<{ key: string; label: string; href: string }> = [
+    { key: 'detail', label: 'Overview', href: `/kpis/${kpiId}` },
+    { key: 'forecast', label: 'Forecast', href: `/kpis/${kpiId}/forecast` },
+    { key: 'anomalies', label: 'Anomalies', href: `/kpis/${kpiId}/anomalies` },
+    { key: 'whatif', label: 'What-if', href: `/kpis/${kpiId}/whatif` },
+    { key: 'embed', label: 'Embed', href: `/kpis/${kpiId}/embed` },
+  ];
   return (
-    <div className="rounded-lg border border-border bg-surface-1 p-4">
-      <p className="text-xs text-content-muted">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-content-strong">{value}</p>
-    </div>
+    <nav
+      aria-label="KPI analytics"
+      data-testid="analytics-nav"
+      className="mt-4 flex flex-wrap gap-1 rounded-lg border border-border bg-surface-1 p-1"
+    >
+      {links.map((l) => {
+        const isActive = l.key === active;
+        return (
+          <Link
+            key={l.key}
+            href={l.href}
+            aria-current={isActive ? 'page' : undefined}
+            className={
+              isActive
+                ? 'rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white'
+                : 'rounded-md px-3 py-1.5 text-sm font-medium text-content-muted hover:bg-surface-2 hover:text-content-strong'
+            }
+          >
+            {l.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -37,12 +92,26 @@ export default function ForecastPage() {
   const [horizon, setHorizon] = useState('14');
   const [model, setModel] = useState('naive');
   const [fc, setFc] = useState<Forecast | null>(null);
+  const [history, setHistory] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadHistory = useCallback(() => {
+    setLoading(true);
+    api<DataPoint[]>(`/kpis/${id}/data?limit=365`)
+      .then((rows) => setHistory([...rows].reverse().map((r) => r.value)))
+      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load history'))
+      .finally(() => setLoading(false));
+  }, [id]);
 
   useEffect(() => {
-    if (!getAccessToken()) router.replace('/login');
-  }, [router]);
+    if (!getAccessToken()) {
+      router.replace('/login');
+      return;
+    }
+    loadHistory();
+  }, [loadHistory, router]);
 
   const run = async () => {
     setError(null);
@@ -60,70 +129,171 @@ export default function ForecastPage() {
     }
   };
 
-  const yhat = fc?.predictions.map((p) => p.yhat) ?? [];
-  const band = fc
-    ? { lower: fc.predictions.map((p) => p.yhat_lower_95), upper: fc.predictions.map((p) => p.yhat_upper_95) }
-    : undefined;
+  const forecastBand = useMemo(() => {
+    if (!fc) return undefined;
+    return {
+      yhat: fc.predictions.map((p) => p.yhat),
+      lower: fc.predictions.map((p) => p.yhat_lower_95),
+      upper: fc.predictions.map((p) => p.yhat_upper_95),
+    };
+  }, [fc]);
+
+  const crumbs = useMemo(() => ['KPIs', 'Forecast'], []);
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
-          <Link href={`/kpis/${id}`} className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">Forecast</span>
-        </div>
-      </header>
+    <AppShell title="Forecast" crumbs={crumbs}>
+     <RequirePermission permission="ANALYTICS_VIEW">
+      <PageHeader
+        title="Forecast"
+        subtitle="Project this KPI forward with 80/95% confidence bands. The forecast segment is dashed; bands render as translucent fills."
+      />
 
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
-        <h1 className="text-2xl font-semibold text-content-strong">Forecast</h1>
-        {error && <p className="text-sm text-status-critical" data-testid="fc-error">{error}</p>}
+      <AnalyticsNav kpiId={id} active="forecast" />
 
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface-1 p-4">
-          <label className="text-xs text-content-muted">
-            Model
-            <select data-testid="fc-model" value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong">
-              {['naive', 'prophet', 'arima'].map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </label>
-          <label className="text-xs text-content-muted">
-            Horizon (days)
-            <input data-testid="fc-horizon" value={horizon} onChange={(e) => setHorizon(e.target.value)} className="mt-1 block w-24 rounded border border-border bg-surface-bg px-2 py-1 text-sm text-content-strong" />
-          </label>
-          <button type="button" data-testid="fc-run" onClick={run} disabled={busy} className="rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-            {busy ? 'Forecasting…' : 'Generate forecast'}
-          </button>
-        </div>
+      {error && (
+        <p role="alert" data-testid="fc-error" className="mt-4 rounded-md border border-status-critical-bg bg-status-critical-bg px-3 py-2 text-sm text-status-critical">
+          {error}
+        </p>
+      )}
 
-        {fc && (
-          <>
-            <SeriesChart values={yhat} band={band} testId="fc-chart" />
-            <div className="grid grid-cols-3 gap-3" data-testid="fc-metrics">
-              <Tile label="Model" value={fc.model} />
-              <Tile label="RMSE" value={fc.fitMetrics?.rmse?.toFixed(2) ?? '—'} />
-              <Tile label="MAPE" value={fc.fitMetrics?.mape !== undefined ? `${fc.fitMetrics.mape.toFixed(1)}%` : '—'} />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Forecast controls</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="fc-model">Model</Label>
+              <Select id="fc-model" data-testid="fc-model" value={model} onChange={(e) => setModel(e.target.value)}>
+                {['naive', 'prophet', 'arima'].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
             </div>
-            <div className="overflow-hidden rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-2 text-left text-xs text-content-muted">
-                  <tr><th className="px-4 py-2">ds</th><th className="px-4 py-2">yhat</th><th className="px-4 py-2">80% band</th><th className="px-4 py-2">95% band</th></tr>
-                </thead>
-                <tbody>
-                  {fc.predictions.map((p) => (
-                    <tr key={p.ds} className="border-t border-border bg-surface-1">
-                      <td className="px-4 py-2 text-content-strong">{p.ds}</td>
-                      <td className="px-4 py-2 text-content-strong">{p.yhat.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-content-muted">{p.yhat_lower_80.toFixed(1)} – {p.yhat_upper_80.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-content-muted">{p.yhat_lower_95.toFixed(1)} – {p.yhat_upper_95.toFixed(1)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-1.5">
+              <Label htmlFor="fc-horizon">Horizon (days)</Label>
+              <Input
+                id="fc-horizon"
+                data-testid="fc-horizon"
+                value={horizon}
+                onChange={(e) => setHorizon(e.target.value)}
+              />
             </div>
-          </>
-        )}
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full"
+              data-testid="fc-run"
+              onClick={run}
+              isLoading={busy}
+            >
+              Generate forecast
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Result */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Projection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-[240px] w-full" data-testid="fc-chart" />
+              ) : fc || history.length > 0 ? (
+                <div data-testid="fc-chart">
+                  <LineChart
+                    series={history.length > 0 ? [{ data: history, label: 'Actual' }] : []}
+                    forecast={forecastBand}
+                    height={240}
+                    aria-label="Historical actuals with forecast and confidence band"
+                  />
+                </div>
+              ) : (
+                <div data-testid="fc-chart">
+                  <EmptyState
+                    icon={LineChartIcon}
+                    title="No forecast yet"
+                    description="Pick a model and horizon, then generate a forecast to see projected values."
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {fc && (
+            <>
+              <div className="grid grid-cols-3 gap-4" data-testid="fc-metrics">
+                <Card>
+                  <CardContent className="p-4">
+                    <Metric label="Model" value={fc.model} size="sm" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <Metric
+                      label="RMSE"
+                      value={fc.fitMetrics?.rmse !== undefined ? fc.fitMetrics.rmse.toFixed(2) : '—'}
+                      size="sm"
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <Metric
+                      label="MAPE"
+                      value={
+                        fc.fitMetrics?.mape !== undefined ? fc.fitMetrics.mape.toFixed(1) : '—'
+                      }
+                      unit={fc.fitMetrics?.mape !== undefined ? '%' : undefined}
+                      size="sm"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Predictions</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">yhat</TableHead>
+                        <TableHead className="text-right">80% band</TableHead>
+                        <TableHead className="text-right">95% band</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fc.predictions.map((p) => (
+                        <TableRow key={p.ds}>
+                          <TableCell className="font-mono text-xs text-content">{p.ds}</TableCell>
+                          <TableCell className="text-right tabular-nums text-content-strong">
+                            {p.yhat.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-content-muted">
+                            {p.yhat_lower_80.toFixed(1)} – {p.yhat_upper_80.toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-content-muted">
+                            {p.yhat_lower_95.toFixed(1)} – {p.yhat_upper_95.toFixed(1)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
       </div>
-    </main>
+     </RequirePermission>
+    </AppShell>
   );
 }

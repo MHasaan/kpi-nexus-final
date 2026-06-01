@@ -2,10 +2,23 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Building2, ChevronDown, Network, Plus, UserPlus, Users } from 'lucide-react';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { OrgUnitReorg } from '../../components/org-unit-reorg';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  PageHeader,
+  Select,
+  Skeleton,
+} from '../../components/ui';
+import { cn } from '../../lib/cn';
 import {
   addOrgUnitMember,
   ApiError,
@@ -84,9 +97,7 @@ function OrgUnitsPageInner() {
         router.replace('/login');
         return;
       }
-      setLoadError(
-        err instanceof ApiError ? err.message : 'Failed to load org units',
-      );
+      setLoadError(err instanceof ApiError ? err.message : 'Failed to load org units');
     }
   }
 
@@ -105,9 +116,7 @@ function OrgUnitsPageInner() {
       setNewDescription('');
       await refresh();
     } catch (err) {
-      setCreateError(
-        err instanceof ApiError ? err.message : 'Failed to create org unit',
-      );
+      setCreateError(err instanceof ApiError ? err.message : 'Failed to create org unit');
     } finally {
       setCreating(false);
     }
@@ -123,9 +132,7 @@ function OrgUnitsPageInner() {
       }
       await refresh();
     } catch (err) {
-      setLoadError(
-        err instanceof ApiError ? err.message : `Failed to delete ${unit.name}`,
-      );
+      setLoadError(err instanceof ApiError ? err.message : `Failed to delete ${unit.name}`);
     } finally {
       setDeletingId(null);
     }
@@ -147,9 +154,7 @@ function OrgUnitsPageInner() {
       const data = await listOrgUnitMembers(unit.id);
       setUnitMembers(data);
     } catch (err) {
-      setMembersError(
-        err instanceof ApiError ? err.message : 'Failed to load members',
-      );
+      setMembersError(err instanceof ApiError ? err.message : 'Failed to load members');
     } finally {
       setMembersLoading(false);
     }
@@ -164,9 +169,7 @@ function OrgUnitsPageInner() {
       setUnitMembers(refreshed);
       setMemberUserId('');
     } catch (err) {
-      setAddMemberError(
-        err instanceof ApiError ? err.message : 'Failed to add member',
-      );
+      setAddMemberError(err instanceof ApiError ? err.message : 'Failed to add member');
     } finally {
       setAddingMember(false);
     }
@@ -178,9 +181,7 @@ function OrgUnitsPageInner() {
       const refreshed = await listOrgUnitMembers(unitId);
       setUnitMembers(refreshed);
     } catch (err) {
-      setMembersError(
-        err instanceof ApiError ? err.message : 'Failed to remove member',
-      );
+      setMembersError(err instanceof ApiError ? err.message : 'Failed to remove member');
     }
   }
 
@@ -196,6 +197,20 @@ function OrgUnitsPageInner() {
     return map;
   }, [users]);
 
+  // Depth of each unit in the tree (for the indented tree view).
+  function depthOf(unit: OrgUnitSummary): number {
+    let depth = 0;
+    let current: OrgUnitSummary | undefined = unit;
+    const seen = new Set<string>();
+    while (current?.parentUnitId && !seen.has(current.id)) {
+      seen.add(current.id);
+      current = unitsById.get(current.parentUnitId);
+      if (!current) break;
+      depth += 1;
+    }
+    return depth;
+  }
+
   // Users who can be added to the currently expanded unit — exclude those
   // already in it (active membership: leftAt = null).
   const availableUsers = useMemo(() => {
@@ -207,323 +222,358 @@ function OrgUnitsPageInner() {
   }, [users, unitMembers]);
 
   const groupLabelPlural = pluralize(terminology.groupLabel);
+  const groupLabelLower = terminology.groupLabel.toLowerCase();
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8">
-          <h1
-            className="text-2xl font-semibold text-content-strong"
-            data-testid="org-units-heading"
-          >
-            {groupLabelPlural}
-          </h1>
-          <p className="mt-1 text-sm text-content-muted">
-            The organization's structural tree. A {terminology.groupLabel.toLowerCase()}{' '}
-            can have a parent (creating a hierarchy) and members (the{' '}
-            {pluralize(terminology.memberLabel.toLowerCase())} who belong to it).
-          </p>
-        </div>
+    <AppShell title={groupLabelPlural} crumbs={['People', groupLabelPlural]}>
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title={groupLabelPlural}
+          titleTestId="org-units-heading"
+          subtitle={
+            <>
+              Build the {groupLabelLower} hierarchy — members drive PER_UNIT KPI visibility.
+            </>
+          }
+          actions={
+            <PermissionGuard permission="GROUPS_MANAGE">
+              <Button
+                leftIcon={<Plus aria-hidden className="h-4 w-4" />}
+                onClick={() => document.getElementById('unit-name-input')?.focus()}
+              >
+                New {groupLabelLower}
+              </Button>
+            </PermissionGuard>
+          }
+        />
 
         {loadError && (
           <div
             role="alert"
             data-testid="org-units-load-error"
-            className="mb-6 rounded-md border border-status-critical/40 bg-status-critical/10 px-4 py-3 text-sm text-status-critical"
+            className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
             {loadError}
           </div>
         )}
 
         <PermissionGuard permission="GROUPS_MANAGE">
-        <section
-          className="mb-8 rounded-lg border border-border bg-surface-1 p-6"
-          data-testid="create-unit-section"
-        >
-          <h2 className="text-lg font-semibold text-content-strong">
-            Create a {terminology.groupLabel.toLowerCase()}
-          </h2>
-          <form
-            onSubmit={handleCreate}
-            className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end"
-          >
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Name</span>
-              <input
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                disabled={creating}
-                data-testid="unit-name-input"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="Engineering"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Parent</span>
-              <select
-                value={newParentId}
-                onChange={(e) => setNewParentId(e.target.value)}
-                disabled={creating || !units}
-                data-testid="unit-parent-select"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-              >
-                <option value="">(top level)</option>
-                {units?.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-content-default">Description</span>
-              <input
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                disabled={creating}
-                data-testid="unit-description-input"
-                className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="(optional)"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={creating}
-              data-testid="unit-submit-button"
-              className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          <Card data-testid="create-unit-section">
+            <div className="border-b border-border-divider px-4 py-3.5">
+              <h2 className="text-sm font-semibold text-content-strong">
+                Create a {groupLabelLower}
+              </h2>
+            </div>
+            <form
+              onSubmit={handleCreate}
+              className="grid gap-4 p-4 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end"
             >
-              {creating ? 'Creating…' : 'Create'}
-            </button>
-          </form>
-          {createError && (
-            <p
-              role="alert"
-              data-testid="unit-error"
-              className="mt-3 text-sm text-status-critical"
-            >
-              {createError}
-            </p>
-          )}
-        </section>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="unit-name-input" required>
+                  Name
+                </Label>
+                <Input
+                  id="unit-name-input"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={creating}
+                  data-testid="unit-name-input"
+                  placeholder="Engineering"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="unit-parent-select">Parent</Label>
+                <Select
+                  id="unit-parent-select"
+                  value={newParentId}
+                  onChange={(e) => setNewParentId(e.target.value)}
+                  disabled={creating || !units}
+                  data-testid="unit-parent-select"
+                >
+                  <option value="">(top level)</option>
+                  {units?.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="unit-description-input">Description</Label>
+                <Input
+                  id="unit-description-input"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  disabled={creating}
+                  data-testid="unit-description-input"
+                  placeholder="(optional)"
+                />
+              </div>
+              <Button type="submit" isLoading={creating} data-testid="unit-submit-button">
+                {creating ? 'Creating…' : 'Create'}
+              </Button>
+              {createError && (
+                <p
+                  role="alert"
+                  data-testid="unit-error"
+                  className="text-sm text-status-critical sm:col-span-4"
+                >
+                  {createError}
+                </p>
+              )}
+            </form>
+          </Card>
         </PermissionGuard>
 
         <section data-testid="units-list-section">
-          {units === null && !loadError && (
-            <p className="text-sm text-content-muted">
-              Loading {groupLabelPlural.toLowerCase()}…
-            </p>
-          )}
-          {units && units.length === 0 && (
-            <p
-              className="text-sm text-content-muted"
-              data-testid="units-empty"
-            >
-              No {groupLabelPlural.toLowerCase()} yet. Create one above.
-            </p>
-          )}
-          {units && units.length > 0 && (
-            <ul className="space-y-3" data-testid="units-list">
+          {units === null && !loadError ? (
+            <Card>
+              <div className="flex flex-col gap-2 p-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            </Card>
+          ) : units && units.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={Network}
+                title={`No ${groupLabelPlural.toLowerCase()} yet`}
+                description="Create one above to start building the org structure."
+              />
+              <span data-testid="units-empty" className="sr-only" />
+            </Card>
+          ) : units ? (
+            <ul className="flex flex-col gap-3" data-testid="units-list">
               {units.map((unit) => {
-                const parent = unit.parentUnitId
-                  ? unitsById.get(unit.parentUnitId)
-                  : null;
+                const parent = unit.parentUnitId ? unitsById.get(unit.parentUnitId) : null;
                 const isExpanded = expandedUnitId === unit.id;
+                const depth = depthOf(unit);
                 return (
-                  <li
-                    key={unit.id}
-                    className="rounded-lg border border-border bg-surface-1"
-                    data-testid={`unit-row-${unit.name}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3 p-4">
-                      <div>
-                        <h3 className="text-base font-semibold text-content-strong">
-                          {unit.name}
-                          <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content-default">
-                            {unit.status}
-                          </span>
-                        </h3>
-                        {parent && (
-                          <p className="mt-0.5 text-sm text-content-muted">
-                            Parent:{' '}
-                            <span className="font-medium text-content-default">
-                              {parent.name}
-                            </span>
-                          </p>
-                        )}
-                        {unit.description && (
-                          <p className="mt-1 text-sm text-content-muted">
-                            {unit.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleExpand(unit)}
-                          data-testid={`expand-unit-${unit.name}`}
-                          className="rounded-md border border-border px-3 py-1.5 text-sm text-content-default transition hover:bg-surface-2"
-                        >
-                          {isExpanded ? 'Hide members' : 'Members'}
-                        </button>
-                        <PermissionGuard permission="GROUPS_MANAGE">
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(unit)}
-                          disabled={deletingId === unit.id}
-                          data-testid={`delete-unit-${unit.name}`}
-                          className="rounded-md border border-border px-3 py-1.5 text-sm text-status-critical transition hover:bg-status-critical/10 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {deletingId === unit.id ? 'Deleting…' : 'Delete'}
-                        </button>
-                        </PermissionGuard>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
+                  <li key={unit.id} data-testid={`unit-row-${unit.name}`}>
+                    <Card className="overflow-hidden">
                       <div
-                        className="border-t border-border bg-surface-bg p-4"
-                        data-testid={`members-panel-${unit.name}`}
+                        className="flex flex-wrap items-start justify-between gap-3 p-4"
+                        style={{ paddingInlineStart: 16 + depth * 20 }}
                       >
-                        <h4 className="text-sm font-semibold text-content-strong">
-                          Members
-                        </h4>
-                        {membersError && (
-                          <p
-                            role="alert"
-                            data-testid="members-error"
-                            className="mt-2 text-sm text-status-critical"
-                          >
-                            {membersError}
-                          </p>
-                        )}
-                        {membersLoading && (
-                          <p className="mt-2 text-sm text-content-muted">Loading…</p>
-                        )}
-                        {unitMembers && unitMembers.filter((m) => !m.leftAt).length === 0 && (
-                          <p className="mt-2 text-sm text-content-muted">
-                            No active members.
-                          </p>
-                        )}
-                        {unitMembers && (
-                          <ul className="mt-2 space-y-1.5 text-sm">
-                            {unitMembers
-                              .filter((m) => !m.leftAt)
-                              .map((m) => {
-                                const user = usersById.get(m.userId);
-                                return (
-                                  <li
-                                    key={m.id}
-                                    data-testid={`unit-member-${m.userId}`}
-                                    className="flex items-center justify-between rounded bg-surface-1 px-3 py-1.5"
-                                  >
-                                    <span>
-                                      {user?.email ?? m.userId}{' '}
-                                      <span className="ml-1 rounded bg-accent-primary/10 px-1.5 py-0.5 text-xs font-medium text-accent-primary">
-                                        {m.memberRole}
-                                      </span>
-                                    </span>
-                                    <PermissionGuard permission="GROUPS_MANAGE">
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleRemoveMember(unit.id, m.userId)}
-                                      data-testid={`remove-member-${m.userId}`}
-                                      className="text-xs text-status-critical hover:underline"
-                                    >
-                                      Remove
-                                    </button>
-                                    </PermissionGuard>
-                                  </li>
-                                );
-                              })}
-                          </ul>
-                        )}
-
-                        <PermissionGuard permission="GROUPS_MANAGE">
-                        <div className="mt-4 grid gap-2 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
-                          <label className="block">
-                            <span className="text-sm font-medium text-content-default">
-                              Add a {terminology.memberLabel.toLowerCase()}
-                            </span>
-                            <select
-                              value={memberUserId}
-                              onChange={(e) => setMemberUserId(e.target.value)}
-                              disabled={addingMember || availableUsers.length === 0}
-                              data-testid="add-member-select"
-                              className="mt-1 w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                            >
-                              <option value="">(select a {terminology.memberLabel.toLowerCase()})</option>
-                              {availableUsers.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.email}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="block">
-                            <span className="text-sm font-medium text-content-default">Role</span>
-                            <select
-                              value={memberRole}
-                              onChange={(e) =>
-                                setMemberRole(e.target.value as OrgUnitMemberRole)
-                              }
-                              disabled={addingMember}
-                              data-testid="add-member-role"
-                              className="mt-1 w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-                            >
-                              <option value="MEMBER">Member</option>
-                              <option value="LEAD">Lead</option>
-                              <option value="MANAGER">Manager</option>
-                              <option value="DEPUTY">Deputy</option>
-                            </select>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => void handleAddMember(unit)}
-                            disabled={addingMember || !memberUserId}
-                            data-testid="add-member-button"
-                            className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {addingMember ? 'Adding…' : 'Add'}
-                          </button>
+                        <div className="flex items-start gap-2.5">
+                          {depth === 0 ? (
+                            <Building2 aria-hidden className="mt-0.5 h-4 w-4 text-content-muted" />
+                          ) : (
+                            <Users aria-hidden className="mt-0.5 h-4 w-4 text-content-muted" />
+                          )}
+                          <div>
+                            <h3 className="flex items-center gap-2 text-sm font-semibold text-content-strong">
+                              {unit.name}
+                              <Badge tone="neutral" className="font-mono text-[10px]">
+                                {unit.status}
+                              </Badge>
+                            </h3>
+                            {parent && (
+                              <p className="mt-0.5 text-xs text-content-muted">
+                                Parent:{' '}
+                                <span className="font-medium text-content-default">
+                                  {parent.name}
+                                </span>
+                              </p>
+                            )}
+                            {unit.description && (
+                              <p className="mt-1 text-sm text-content-muted">
+                                {unit.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {addMemberError && (
-                          <p
-                            role="alert"
-                            data-testid="add-member-error"
-                            className="mt-2 text-sm text-status-critical"
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => void handleExpand(unit)}
+                            data-testid={`expand-unit-${unit.name}`}
+                            rightIcon={
+                              <ChevronDown
+                                aria-hidden
+                                className={cn(
+                                  'h-3.5 w-3.5 transition-transform',
+                                  isExpanded && 'rotate-180',
+                                )}
+                              />
+                            }
                           >
-                            {addMemberError}
-                          </p>
-                        )}
-                        </PermissionGuard>
-
-                        {unitMembers && (
-                          <OrgUnitReorg
-                            unit={unit}
-                            allUnits={units ?? []}
-                            members={unitMembers}
-                            onRefresh={async () => {
-                              await refresh();
-                              // Re-load members for the currently expanded unit
-                              if (expandedUnitId) {
-                                try {
-                                  const refreshed = await listOrgUnitMembers(expandedUnitId);
-                                  setUnitMembers(refreshed);
-                                } catch {
-                                  // ignore
-                                }
-                              }
-                            }}
-                          />
-                        )}
+                            {isExpanded ? 'Hide members' : 'Members'}
+                          </Button>
+                          <PermissionGuard permission="GROUPS_MANAGE">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void handleDelete(unit)}
+                              disabled={deletingId === unit.id}
+                              data-testid={`delete-unit-${unit.name}`}
+                              className="text-status-critical hover:bg-status-critical/10"
+                            >
+                              {deletingId === unit.id ? 'Deleting…' : 'Delete'}
+                            </Button>
+                          </PermissionGuard>
+                        </div>
                       </div>
-                    )}
+
+                      {isExpanded && (
+                        <div
+                          className="border-t border-border-divider bg-surface-1 p-4"
+                          data-testid={`members-panel-${unit.name}`}
+                        >
+                          <div className="kn-eyebrow mb-2">Members</div>
+                          {membersError && (
+                            <p
+                              role="alert"
+                              data-testid="members-error"
+                              className="mb-2 text-sm text-status-critical"
+                            >
+                              {membersError}
+                            </p>
+                          )}
+                          {membersLoading && (
+                            <div className="flex flex-col gap-2">
+                              <Skeleton className="h-8 w-full" />
+                              <Skeleton className="h-8 w-2/3" />
+                            </div>
+                          )}
+                          {unitMembers &&
+                            unitMembers.filter((m) => !m.leftAt).length === 0 && (
+                              <p className="text-sm text-content-muted">No active members.</p>
+                            )}
+                          {unitMembers && (
+                            <ul className="flex flex-col gap-1.5">
+                              {unitMembers
+                                .filter((m) => !m.leftAt)
+                                .map((m) => {
+                                  const user = usersById.get(m.userId);
+                                  return (
+                                    <li
+                                      key={m.id}
+                                      data-testid={`unit-member-${m.userId}`}
+                                      className="flex items-center justify-between rounded-md bg-surface-bg px-3 py-2 text-sm"
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        <span className="text-content-strong">
+                                          {user?.fullName ?? user?.email ?? m.userId}
+                                        </span>
+                                        <Badge
+                                          tone={
+                                            m.memberRole === 'MANAGER' ? 'info' : 'neutral'
+                                          }
+                                          className="font-mono text-[10px]"
+                                        >
+                                          {m.memberRole}
+                                        </Badge>
+                                      </span>
+                                      <PermissionGuard permission="GROUPS_MANAGE">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleRemoveMember(unit.id, m.userId)
+                                          }
+                                          data-testid={`remove-member-${m.userId}`}
+                                          className="text-xs font-medium text-status-critical hover:underline"
+                                        >
+                                          Remove
+                                        </button>
+                                      </PermissionGuard>
+                                    </li>
+                                  );
+                                })}
+                            </ul>
+                          )}
+
+                          <PermissionGuard permission="GROUPS_MANAGE">
+                            <div className="mt-4 grid gap-2 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
+                              <div className="flex flex-col gap-1.5">
+                                <Label htmlFor={`add-member-select-${unit.id}`}>
+                                  Add a {terminology.memberLabel.toLowerCase()}
+                                </Label>
+                                <Select
+                                  id={`add-member-select-${unit.id}`}
+                                  value={memberUserId}
+                                  onChange={(e) => setMemberUserId(e.target.value)}
+                                  disabled={addingMember || availableUsers.length === 0}
+                                  data-testid="add-member-select"
+                                >
+                                  <option value="">
+                                    (select a {terminology.memberLabel.toLowerCase()})
+                                  </option>
+                                  {availableUsers.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                      {u.fullName} · {u.email}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <Label htmlFor={`add-member-role-${unit.id}`}>Role</Label>
+                                <Select
+                                  id={`add-member-role-${unit.id}`}
+                                  value={memberRole}
+                                  onChange={(e) =>
+                                    setMemberRole(e.target.value as OrgUnitMemberRole)
+                                  }
+                                  disabled={addingMember}
+                                  data-testid="add-member-role"
+                                >
+                                  <option value="MEMBER">Member</option>
+                                  <option value="LEAD">Lead</option>
+                                  <option value="MANAGER">Manager</option>
+                                  <option value="DEPUTY">Deputy</option>
+                                </Select>
+                              </div>
+                              <Button
+                                onClick={() => void handleAddMember(unit)}
+                                disabled={addingMember || !memberUserId}
+                                isLoading={addingMember}
+                                data-testid="add-member-button"
+                                leftIcon={<UserPlus aria-hidden className="h-4 w-4" />}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                            {addMemberError && (
+                              <p
+                                role="alert"
+                                data-testid="add-member-error"
+                                className="mt-2 text-sm text-status-critical"
+                              >
+                                {addMemberError}
+                              </p>
+                            )}
+                          </PermissionGuard>
+
+                          {unitMembers && (
+                            <OrgUnitReorg
+                              unit={unit}
+                              allUnits={units ?? []}
+                              members={unitMembers}
+                              onRefresh={async () => {
+                                await refresh();
+                                if (expandedUnitId) {
+                                  try {
+                                    const refreshed =
+                                      await listOrgUnitMembers(expandedUnitId);
+                                    setUnitMembers(refreshed);
+                                  } catch {
+                                    // ignore
+                                  }
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </Card>
                   </li>
                 );
               })}
             </ul>
-          )}
+          ) : null}
         </section>
       </div>
     </AppShell>

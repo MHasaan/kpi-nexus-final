@@ -111,12 +111,15 @@ export class RolesService {
     opts: { bypassApproval?: boolean } = {},
   ): Promise<PublicRole> {
     // Verify the role belongs to the tenant before updating
-    await this.getById(id);
+    const existing = await this.getById(id);
 
     // Approval seam: gate only sensitive permission changes (permissions /
     // isAdmin). Cosmetic edits (name, color) flow through untouched.
     if (this.approvalGate && !opts.bypassApproval && (dto.permissions !== undefined || dto.isAdmin !== undefined)) {
-      await this.approvalGate.requireApprovalIfActive('ROLE_PERMISSIONS', id, dto, opts);
+      await this.approvalGate.requireApprovalIfActive('ROLE_PERMISSIONS', id, dto, {
+        ...opts,
+        currentPayload: existing,
+      });
     }
 
     try {

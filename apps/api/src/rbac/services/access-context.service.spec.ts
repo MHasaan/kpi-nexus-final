@@ -6,7 +6,7 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 
-import { PermissionKey } from '@kpi-nexus/contracts';
+import { PERMISSION_COUNT, PermissionKey } from '@kpi-nexus/contracts';
 
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore, type RequestContext } from '../../tenancy/request-context.js';
@@ -96,6 +96,7 @@ describe('AccessContextService', () => {
     const profile = await run(() => svc.resolveForCurrentPrincipal());
 
     expect(profile.isAdmin).toBe(true);
+    expect(profile.capabilities).toHaveLength(PERMISSION_COUNT); // admin ⇒ all 25
     expect(profile.scopeByDomain.KPIS).toBe('ORG');
     expect(profile.scopeByDomain.ORG).toBe('ORG');
     expect(profile.context.managedOrgUnitIds).toEqual([]);

@@ -11,8 +11,10 @@ import {
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
 import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+import type { AccessProfile } from '@kpi-nexus/contracts';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -49,6 +51,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly prisma: PrismaService,
     private readonly permissionResolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   @Public()
@@ -111,9 +114,10 @@ export class AuthController {
       notificationSettings: unknown;
       permissions: string[];
     };
+    accessProfile: AccessProfile;
   }> {
     const ctx = RequestContextStore.require();
-    const [user, resolved] = await Promise.all([
+    const [user, resolved, accessProfile] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: ctx.userId },
         select: {
@@ -128,13 +132,14 @@ export class AuthController {
         },
       }),
       this.permissionResolver.resolveForCurrentPrincipal(),
+      this.accessContext.resolveForCurrentPrincipal(),
     ]);
 
     const permissions: string[] = resolved.isAdmin
       ? [...ALL_PERMISSIONS]
       : [...resolved.permissions];
 
-    return { user: { ...user, permissions } };
+    return { user: { ...user, permissions }, accessProfile };
   }
 
   /** Update the current user's notification preferences (digest, mute hours). */

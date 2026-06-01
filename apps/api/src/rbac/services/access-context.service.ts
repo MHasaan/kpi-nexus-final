@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
 import type { AccessProfile, Domain, Scope } from '@kpi-nexus/contracts';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -53,7 +54,9 @@ export class AccessContextService {
       ctx.roleId,
     );
     const isAdmin = resolved.isAdmin;
-    const capabilities = [...resolved.permissions];
+    // Admins bypass the resolver's accumulation, so expand to the full set here —
+    // mirrors how /auth/me reports an admin's permissions.
+    const capabilities = isAdmin ? [...ALL_PERMISSIONS] : [...resolved.permissions];
 
     const managedOrgUnitIds: string[] = [];
     const memberOrgUnitIds: string[] = [];

@@ -5,6 +5,9 @@
  * envelope when present.
  */
 
+import type { AccessProfile } from '@kpi-nexus/contracts';
+
+import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
 
 const TOKEN_KEY = 'kpi-nexus.access-token';
@@ -48,6 +51,7 @@ export function clearTokens(): void {
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_KEY);
   clearCachedPermissions();
+  clearCachedAccessProfile();
 }
 
 export async function api<T = unknown>(
@@ -135,10 +139,12 @@ export async function registerRequest(body: {
   });
 }
 
-export async function meRequest(): Promise<{ user: AuthUser }> {
-  const result = await api<{ user: AuthUser }>('/auth/me');
-  // Cache permissions for synchronous access in usePermissions / guard components.
+export async function meRequest(): Promise<{ user: AuthUser; accessProfile?: AccessProfile }> {
+  const result = await api<{ user: AuthUser; accessProfile?: AccessProfile }>('/auth/me');
+  // Cache permissions + access profile for synchronous access in the
+  // usePermissions / useAccess hooks and guard components.
   setCachedPermissions(result.user.permissions ?? []);
+  if (result.accessProfile) setCachedAccessProfile(result.accessProfile);
   return result;
 }
 

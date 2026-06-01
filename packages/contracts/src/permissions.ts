@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 /**
- * Canonical 18 permissions for KPI Nexus. Locked per spec §5.2.
+ * Canonical permissions for KPI Nexus — 18 core (spec §5.2) + 7 refined (ADR-001,
+ * 2026-06-01: docs/superpowers/specs/2026-06-01-granular-access-control-design.md).
  *
  * Adding or removing a permission requires an ADR plus coordinated updates
  * across: RBAC module, role seeders, frontend guards, and this enum.
@@ -38,8 +39,17 @@ export const PermissionKey = {
   ANALYTICS_VIEW: 'ANALYTICS_VIEW',
   INSIGHTS_VIEW: 'INSIGHTS_VIEW',
 
-  // Admin — covers retention, billing, AI config, integrations, API keys, webhooks, SSO, SCIM, custom domain (1)
+  // Admin — covers retention, AI config, API keys, SSO, SCIM, custom domain (1)
   ORG_SETTINGS: 'ORG_SETTINGS',
+
+  // Refined capabilities (ADR-001, 2026-06-01) — carved out for finer assignment.
+  KPI_IMPORT: 'KPI_IMPORT', // bulk CSV import (was implied by KPI_CREATE)
+  REPORTS_MANAGE: 'REPORTS_MANAGE', // create/schedule/trigger reports (was REPORTS_VIEW)
+  ANALYTICS_FORECAST: 'ANALYTICS_FORECAST', // forecast / what-if (subset of ANALYTICS_VIEW)
+  EXPORTS: 'EXPORTS', // download/export data in any format
+  AUDIT_VIEW: 'AUDIT_VIEW', // read the audit log (carved from ORG_SETTINGS)
+  INTEGRATIONS_MANAGE: 'INTEGRATIONS_MANAGE', // connectors/webhooks/integrations (carved from ORG_SETTINGS)
+  BILLING_MANAGE: 'BILLING_MANAGE', // billing (carved from ORG_SETTINGS)
 } as const;
 
 export type PermissionKey = (typeof PermissionKey)[keyof typeof PermissionKey];
@@ -48,4 +58,4 @@ export const PermissionKeySchema = z.nativeEnum(PermissionKey);
 
 export const ALL_PERMISSIONS: readonly PermissionKey[] = Object.values(PermissionKey);
 
-export const PERMISSION_COUNT = 18 as const;
+export const PERMISSION_COUNT = 25 as const;

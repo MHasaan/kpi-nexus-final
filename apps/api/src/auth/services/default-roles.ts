@@ -45,6 +45,11 @@ export const DEFAULT_ROLES: readonly DefaultRoleSeed[] = [
       PermissionKey.REPORTS_VIEW,
       PermissionKey.ANALYTICS_VIEW,
       PermissionKey.INSIGHTS_VIEW,
+      // ADR-001 refined capabilities for managers.
+      PermissionKey.KPI_IMPORT,
+      PermissionKey.REPORTS_MANAGE,
+      PermissionKey.ANALYTICS_FORECAST,
+      PermissionKey.EXPORTS,
     ],
   },
   {
@@ -58,6 +63,8 @@ export const DEFAULT_ROLES: readonly DefaultRoleSeed[] = [
       PermissionKey.KPI_DATA_ENTRY,
       PermissionKey.DASHBOARD_VIEW,
       PermissionKey.ALERTS_VIEW,
+      // ADR-001: employees may export their visible data.
+      PermissionKey.EXPORTS,
     ],
   },
   {

@@ -51,12 +51,17 @@ const EXPECTED_ALLOWED: Record<Exclude<RoleName, 'Admin'>, readonly PermissionKe
     PermissionKey.REPORTS_VIEW,
     PermissionKey.ANALYTICS_VIEW,
     PermissionKey.INSIGHTS_VIEW,
+    PermissionKey.KPI_IMPORT,
+    PermissionKey.REPORTS_MANAGE,
+    PermissionKey.ANALYTICS_FORECAST,
+    PermissionKey.EXPORTS,
   ],
   Employee: [
     PermissionKey.KPI_VIEW,
     PermissionKey.KPI_DATA_ENTRY,
     PermissionKey.DASHBOARD_VIEW,
     PermissionKey.ALERTS_VIEW,
+    PermissionKey.EXPORTS,
   ],
   Viewer: [
     PermissionKey.KPI_VIEW,
@@ -100,9 +105,9 @@ describe('DEFAULT_ROLES seed shape', () => {
   });
 });
 
-describe('72-case RBAC truth table (4 roles × 18 permissions)', () => {
-  test('exactly 72 cases (sanity)', () => {
-    expect(ROLE_NAMES.length * ALL_PERMISSIONS.length).toBe(72);
+describe('100-case RBAC truth table (4 roles × 25 permissions)', () => {
+  test('exactly 100 cases (sanity)', () => {
+    expect(ROLE_NAMES.length * ALL_PERMISSIONS.length).toBe(100);
   });
 
   describe('Admin (isAdmin bypass — every permission allowed)', () => {

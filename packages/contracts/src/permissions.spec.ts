@@ -7,9 +7,24 @@ import {
 } from './permissions.js';
 
 describe('PermissionKey', () => {
-  test('exports exactly 18 canonical permissions (locked invariant per spec §5.2)', () => {
-    expect(PERMISSION_COUNT).toBe(18);
+  test('exports 25 permissions (18 core §5.2 + 7 ADR-001)', () => {
+    expect(PERMISSION_COUNT).toBe(25);
     expect(ALL_PERMISSIONS).toHaveLength(PERMISSION_COUNT);
+  });
+
+  test('includes the 7 ADR-001 refined capability keys', () => {
+    const set = new Set<string>(ALL_PERMISSIONS);
+    for (const key of [
+      PermissionKey.KPI_IMPORT,
+      PermissionKey.REPORTS_MANAGE,
+      PermissionKey.ANALYTICS_FORECAST,
+      PermissionKey.EXPORTS,
+      PermissionKey.AUDIT_VIEW,
+      PermissionKey.INTEGRATIONS_MANAGE,
+      PermissionKey.BILLING_MANAGE,
+    ]) {
+      expect(set.has(key)).toBe(true);
+    }
   });
 
   test('contains all expected categories', () => {

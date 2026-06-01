@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
+import type { AccessProfile } from '@kpi-nexus/contracts';
+
 import {
   buildKpiVisibilityWhere,
+  kpiContextFromProfile,
   type KpiVisibilityContext,
   type KpiVisibilityOrBranch,
 } from './kpi-visibility.js';
@@ -184,4 +187,30 @@ describe('buildKpiVisibilityWhere — 12-case matrix (spec §5.5 + §6)', () => 
       expect(where.organizationId).toBe(ORG);
     });
   });
+});
+
+describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)', () => {
+  function profileFor(ctx: KpiVisibilityContext): AccessProfile {
+    return {
+      isAdmin: ctx.isAdmin,
+      capabilities: [],
+      scopeByDomain: {},
+      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      context: {
+        managedOrgUnitIds: [...ctx.managedOrgUnitIds],
+        memberOrgUnitIds: [...ctx.memberOrgUnitIds],
+        directReportIds: [...ctx.directReportIds],
+      },
+    };
+  }
+
+  // The bridge + builder must reproduce the legacy `where` for every default role.
+  for (const ctx of [ADMIN, MANAGER, EMPLOYEE, VIEWER]) {
+    test(`reproduces the legacy where for ${ctx.userId}`, () => {
+      const bridged = kpiContextFromProfile(ctx.organizationId, ctx.userId, profileFor(ctx));
+      expect(bridged).toEqual(ctx);
+      expect(buildKpiVisibilityWhere(bridged)).toEqual(buildKpiVisibilityWhere(ctx));
+    });
+  }
 });

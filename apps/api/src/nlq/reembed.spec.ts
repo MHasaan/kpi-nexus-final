@@ -231,22 +231,29 @@ describe('KpisService reembed trigger', () => {
 
     const audit = { record: vi.fn().mockResolvedValue(undefined) };
     const billing = { assertWithinQuota: vi.fn().mockResolvedValue(undefined) };
-    const resolver = {
-      resolveForUser: vi.fn().mockResolvedValue({ isAdmin: true, permissions: [] }),
+    const accessContext = {
+      resolveForCurrentPrincipal: vi.fn().mockResolvedValue({
+        isAdmin: true,
+        capabilities: [],
+        scopeByDomain: {},
+        dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+        dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+        context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: [] },
+      }),
     };
     const producer = { enqueueKpi: vi.fn().mockResolvedValue(undefined) };
 
-    return { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer };
+    return { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer };
   }
 
   it('create() enqueues reembed after successful creation', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined, // approvalGate @Optional
       producer as never, // reembedProducer
@@ -276,12 +283,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() enqueues reembed when name changes', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -300,12 +307,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() enqueues reembed when description changes', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -323,12 +330,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() enqueues reembed when unit changes', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -346,12 +353,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() enqueues reembed when tags change', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -369,12 +376,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() does NOT enqueue reembed when only status changes', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -392,12 +399,12 @@ describe('KpisService reembed trigger', () => {
 
   it('update() does NOT enqueue reembed when only targetValue changes', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver, producer } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext, producer } = buildMocks();
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       producer as never,
@@ -415,13 +422,13 @@ describe('KpisService reembed trigger', () => {
 
   it('update() still succeeds (no throw) even when producer throws', async () => {
     const { KpisService } = await import('../kpis/kpis.service.js');
-    const { orgId, userId, fakeKpi, prisma, audit, billing, resolver } = buildMocks();
+    const { orgId, userId, fakeKpi, prisma, audit, billing, accessContext } = buildMocks();
     const brokenProducer = { enqueueKpi: vi.fn().mockRejectedValue(new Error('Redis gone')) };
 
     const svc = new KpisService(
       prisma as never,
       audit as never,
-      resolver as never,
+      accessContext as never,
       billing as never,
       undefined,
       brokenProducer as never,

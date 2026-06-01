@@ -14,8 +14,12 @@ import { AuditService } from '../audit/audit.service.js';
 import { BillingService } from '../billing/billing.service.js';
 import { ReembedProducer } from '../nlq/reembed.producer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { buildKpiVisibilityWhere } from '../rbac/visibility/kpi-visibility.js';
-import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
+import {
+  buildKpiVisibilityWhere,
+  kpiContextFromProfile,
+  type KpiVisibilityContext,
+} from '../rbac/visibility/kpi-visibility.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateKpiDto, UpdateKpiDto } from './dto/create-kpi.dto.js';
 import { type KpiStatus, canTransition } from './kpi-status.js';
@@ -64,7 +68,7 @@ export class KpisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
     private readonly billing: BillingService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
     @Optional() private readonly reembedProducer?: ReembedProducer,
@@ -455,56 +459,10 @@ export class KpisService {
    * Build the visibility context the visibility helper needs. Reads the
    * principal's OrgUnit memberships + direct reports from the DB.
    */
-  private async buildVisibilityContext() {
+  private async buildVisibilityContext(): Promise<KpiVisibilityContext> {
     const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForUser(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.roleId,
-    );
-
-    if (resolved.isAdmin) {
-      return {
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        isAdmin: true,
-        managedOrgUnitIds: [],
-        memberOrgUnitIds: [],
-        directReportIds: [],
-      };
-    }
-
-    const memberships = await this.prisma.orgUnitMember.findMany({
-      where: {
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        leftAt: null,
-      },
-      select: { orgUnitId: true, memberRole: true },
-    });
-    const managedOrgUnitIds: string[] = [];
-    const memberOrgUnitIds: string[] = [];
-    for (const m of memberships) {
-      if (m.memberRole === 'MANAGER' || m.memberRole === 'LEAD') {
-        managedOrgUnitIds.push(m.orgUnitId);
-      } else {
-        memberOrgUnitIds.push(m.orgUnitId);
-      }
-    }
-
-    const directReports = await this.prisma.user.findMany({
-      where: { organizationId: ctx.organizationId, managerId: ctx.userId },
-      select: { id: true },
-    });
-
-    return {
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-      isAdmin: false,
-      managedOrgUnitIds,
-      memberOrgUnitIds,
-      directReportIds: directReports.map((u) => u.id),
-    };
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    return kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
   }
 
   private async isVisibleToUser(

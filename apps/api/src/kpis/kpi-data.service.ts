@@ -12,7 +12,11 @@ import type { Prisma } from '@kpi-nexus/db';
 import { WorkflowsService } from '../workflows/workflows.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import {
+  kpiContextFromProfile,
+  type KpiVisibilityContext,
+} from '../rbac/visibility/kpi-visibility.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
@@ -94,7 +98,7 @@ export class KpiDataService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
     private readonly realtime: RealtimeService,
     private readonly alertEngine: AlertEngineProducer,
     private readonly calcEngine: CalculationEngineProducer,
@@ -655,47 +659,9 @@ export class KpiDataService {
     }
   }
 
-  private async buildVisibilityContext() {
+  private async buildVisibilityContext(): Promise<KpiVisibilityContext> {
     const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForUser(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.roleId,
-    );
-    if (resolved.isAdmin) {
-      return {
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        isAdmin: true,
-        managedOrgUnitIds: [],
-        memberOrgUnitIds: [],
-        directReportIds: [],
-      };
-    }
-    const memberships = await this.prisma.orgUnitMember.findMany({
-      where: { organizationId: ctx.organizationId, userId: ctx.userId, leftAt: null },
-      select: { orgUnitId: true, memberRole: true },
-    });
-    const managedOrgUnitIds: string[] = [];
-    const memberOrgUnitIds: string[] = [];
-    for (const m of memberships) {
-      if (m.memberRole === 'MANAGER' || m.memberRole === 'LEAD') {
-        managedOrgUnitIds.push(m.orgUnitId);
-      } else {
-        memberOrgUnitIds.push(m.orgUnitId);
-      }
-    }
-    const directReports = await this.prisma.user.findMany({
-      where: { organizationId: ctx.organizationId, managerId: ctx.userId },
-      select: { id: true },
-    });
-    return {
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-      isAdmin: false,
-      managedOrgUnitIds,
-      memberOrgUnitIds,
-      directReportIds: directReports.map((u) => u.id),
-    };
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    return kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
   }
 }

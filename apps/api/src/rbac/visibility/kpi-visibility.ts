@@ -22,6 +22,8 @@
  * change them.
  */
 
+import type { AccessProfile } from '@kpi-nexus/contracts';
+
 export type KpiScope = 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
 
 export interface KpiVisibilityContext {
@@ -93,4 +95,27 @@ export function buildKpiVisibilityWhere(ctx: KpiVisibilityContext): KpiVisibilit
 
 function uniq<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
+}
+
+/**
+ * Adapt a resolved {@link AccessProfile} into the {@link KpiVisibilityContext}
+ * that `buildKpiVisibilityWhere` consumes. Parity bridge for Phase 1: the KPI
+ * services now derive their visibility from the centralized `AccessContextService`
+ * (via this profile) instead of re-querying memberships locally. Behaviour is
+ * identical for admins and unit-managers; `directReportIds` may now include
+ * indirect reports (the documented §6 intent the local builder under-delivered).
+ */
+export function kpiContextFromProfile(
+  organizationId: string,
+  userId: string,
+  profile: AccessProfile,
+): KpiVisibilityContext {
+  return {
+    organizationId,
+    userId,
+    isAdmin: profile.isAdmin,
+    managedOrgUnitIds: profile.context.managedOrgUnitIds,
+    memberOrgUnitIds: profile.context.memberOrgUnitIds,
+    directReportIds: profile.context.directReportIds,
+  };
 }

@@ -14,6 +14,8 @@ import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import {
+  clampHistoryFrom,
+  clampTake,
   kpiContextFromProfile,
   type KpiVisibilityContext,
 } from '../rbac/visibility/kpi-visibility.js';
@@ -321,6 +323,8 @@ export class KpiDataService {
   > {
     const ctx = RequestContextStore.require();
     const visibility = await this.buildVisibilityContext();
+    const limits = await this.accessContext.dataLimits();
+    const windowFrom = clampHistoryFrom(opts.from, limits.historyWindowDays);
     const visibleKpis = await this.prisma.kPI.findMany({
       where: {
         organizationId: ctx.organizationId,
@@ -352,7 +356,8 @@ export class KpiDataService {
           organizationId: ctx.organizationId,
           kpiId: kpi.id,
         };
-        if (opts.from) where.periodStart = { gte: opts.from };
+        // Layer-4: clamp the read window to the principal's historyWindowDays (null ⇒ parity).
+        if (windowFrom) where.periodStart = { gte: windowFrom };
         if (opts.to) where.periodEnd = { lte: opts.to };
         // Apply scope-specific visibility on data points themselves
         if (!visibility.isAdmin) {
@@ -373,7 +378,7 @@ export class KpiDataService {
           where,
           select: { value: true, recordedAt: true, periodStart: true },
           orderBy: [{ recordedAt: 'desc' }],
-          take: 1000,
+          take: clampTake(1000, limits.maxListRows),
         });
         return {
           kpiId: kpi.id,
@@ -457,7 +462,10 @@ export class KpiDataService {
       organizationId: ctx.organizationId,
       kpiId,
     };
-    if (opts.from) where.periodStart = { gte: opts.from };
+    // Layer-4: clamp the read window to historyWindowDays (null ⇒ request as-is = parity).
+    const limits = await this.accessContext.dataLimits();
+    const windowFrom = clampHistoryFrom(opts.from, limits.historyWindowDays);
+    if (windowFrom) where.periodStart = { gte: windowFrom };
     if (opts.to) where.periodEnd = { lte: opts.to };
 
     // For PER_USER + PER_UNIT KPIs, non-admin principals can only see
@@ -488,7 +496,8 @@ export class KpiDataService {
       where,
       select: dataPointSelect,
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
-      take: Math.min(opts.limit ?? 1000, 5000),
+      // Layer-4: cap the row count by maxListRows (null ⇒ the existing 5000 cap = parity).
+      take: clampTake(Math.min(opts.limit ?? 1000, 5000), limits.maxListRows),
     });
   }
 

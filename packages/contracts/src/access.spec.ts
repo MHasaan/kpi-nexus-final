@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import { AccessProfileSchema, DomainSchema, ScopeConfigSchema, ScopeSchema } from './access.js';
+import {
+  AccessProfileSchema,
+  DataTypeConfigSchema,
+  DomainSchema,
+  ScopeConfigSchema,
+  ScopeSchema,
+} from './access.js';
 
 describe('AccessProfile contract', () => {
   const valid = {
@@ -36,5 +42,14 @@ describe('AccessProfile contract', () => {
     expect(ScopeConfigSchema.safeParse({}).success).toBe(true);
     expect(ScopeConfigSchema.safeParse({ KPIS: 'EVERYTHING' }).success).toBe(false);
     expect(ScopeConfigSchema.safeParse({ NOPE: 'SELF' }).success).toBe(false);
+  });
+
+  test('DataTypeConfig parses category allowlist forms and rejects bad shapes', () => {
+    expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: ['c1', 'c2'] }).success).toBe(true);
+    expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: [] }).success).toBe(true);
+    expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: null }).success).toBe(true);
+    expect(DataTypeConfigSchema.safeParse({}).success).toBe(true);
+    expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: 'nope' }).success).toBe(false);
+    expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: [1, 2] }).success).toBe(false);
   });
 });

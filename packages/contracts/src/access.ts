@@ -45,6 +45,16 @@ export const DataTypeFiltersSchema = z.object({
 });
 export type DataTypeFilters = z.infer<typeof DataTypeFiltersSchema>;
 
+/**
+ * Layer-3 role configuration — which data *types* a role may see. Phase 3 enforces
+ * `kpiCategoryIds` only (null/absent = all categories ⇒ parity; [] = none; [ids] =
+ * only those). `orgUnitIds`/`dashboardIds` enforcement is a later refinement.
+ */
+export const DataTypeConfigSchema = z.object({
+  kpiCategoryIds: z.array(z.string()).nullable().optional(),
+});
+export type DataTypeConfig = z.infer<typeof DataTypeConfigSchema>;
+
 /** Layer 4 — how much / how old (null = unlimited). */
 export const DataLimitsSchema = z.object({
   historyWindowDays: z.number().int().positive().nullable(),

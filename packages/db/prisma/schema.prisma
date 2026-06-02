@@ -367,6 +367,9 @@ model RoleDefinition {
   // Layer-2 granular access: partial Domain→Scope map (Zod ScopeConfig in contracts).
   // null/absent ⇒ derived default (UNITS for non-admins) ⇒ behavioural parity.
   scopeConfig      Json?
+  // Layer-3 granular access: KPI category allowlist (Zod DataTypeConfig in contracts).
+  // null/absent ⇒ all categories ⇒ parity. Enforced in the KPI visibility builder.
+  dataTypeConfig   Json?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

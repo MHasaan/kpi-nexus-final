@@ -30,15 +30,17 @@ interface FakeUser {
 class FakePrisma {
   memberships: FakeMembership[] = [];
   users: FakeUser[] = [];
-  /** config returned by roleDefinition.findUnique (null ⇒ derived defaults / parity). */
+  /** config returned by roleDefinition.findFirst (null ⇒ derived defaults / parity). */
   roleScopeConfig: unknown = null;
   roleDataTypeConfig: unknown = null;
+  /** the org the fake role actually belongs to — the org-scoped read must match it. */
+  roleOrg: string = ORG;
 
   roleDefinition = {
-    findUnique: vi.fn(async () => ({
-      scopeConfig: this.roleScopeConfig,
-      dataTypeConfig: this.roleDataTypeConfig,
-    })),
+    findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) => {
+      if (where.organizationId !== this.roleOrg) return null; // cross-tenant guard
+      return { scopeConfig: this.roleScopeConfig, dataTypeConfig: this.roleDataTypeConfig };
+    }),
   };
 
   orgUnitMember = {
@@ -208,7 +210,24 @@ describe('AccessContextService', () => {
     );
     const adminProfile = await run(() => admin.resolveForCurrentPrincipal());
     expect(adminProfile.dataTypeFilters.kpiCategoryIds).toBeNull();
-    expect(adminPrisma.roleDefinition.findUnique).not.toHaveBeenCalled();
+    expect(adminPrisma.roleDefinition.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('a foreign-tenant roleId resolves to defaults, never another org config', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleOrg = 'org_other'; // the role lives in a different tenant
+    prisma.roleScopeConfig = { KPIS: 'SELF' };
+    prisma.roleDataTypeConfig = { kpiCategoryIds: ['secret'] };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    // The org-scoped read returned null ⇒ defaults/parity, NOT the foreign config.
+    expect(profile.scopeByDomain.KPIS).toBe('UNITS');
+    expect(profile.dataTypeFilters.kpiCategoryIds).toBeNull();
   });
 
   test('admin ignores scopeConfig (always ORG)', async () => {
@@ -222,7 +241,7 @@ describe('AccessContextService', () => {
     const profile = await run(() => svc.resolveForCurrentPrincipal());
 
     expect(profile.scopeByDomain.KPIS).toBe('ORG');
-    expect(prisma.roleDefinition.findUnique).not.toHaveBeenCalled();
+    expect(prisma.roleDefinition.findFirst).not.toHaveBeenCalled();
   });
 
   test('caches per org:user — a second resolve does not re-query; invalidate clears it', async () => {

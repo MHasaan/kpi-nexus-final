@@ -126,6 +126,21 @@ function uniq<T>(values: readonly T[]): T[] {
 }
 
 /**
+ * Layer-3 category-visibility predicate shared by the KPI read paths that don't go
+ * through {@link buildKpiVisibilityWhere} (embed tokens, targets/bands/benchmarks,
+ * org-unit/user assignment lists, cascades, snapshots/share-links). Keeps identical
+ * semantics: a null/undefined allowlist ⇒ all (admins + unconfigured roles); when an
+ * allowlist is set, a KPI with a null category is hidden, mirroring `categoryId IN (…)`.
+ */
+export function isCategoryAllowed(
+  allowlist: readonly string[] | null | undefined,
+  categoryId: string | null | undefined,
+): boolean {
+  if (allowlist == null) return true;
+  return categoryId != null && allowlist.includes(categoryId);
+}
+
+/**
  * Adapt a resolved {@link AccessProfile} into the {@link KpiVisibilityContext}
  * that `buildKpiVisibilityWhere` consumes. Parity bridge for Phase 1: the KPI
  * services now derive their visibility from the centralized `AccessContextService`

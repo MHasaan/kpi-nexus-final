@@ -89,7 +89,7 @@ export class AccessContextService {
     // the role's per-domain scopeConfig overrides this default; narrower values
     // (DIRECT_REPORTS/SELF) actually restrict, ORG widens.
     const defaultScope: Scope = isAdmin ? 'ORG' : 'UNITS';
-    const roleConfig = await this.loadRoleConfig(isAdmin, ctx.roleId);
+    const roleConfig = await this.loadRoleConfig(isAdmin, ctx.organizationId, ctx.roleId);
     const scopeByDomain = Object.fromEntries(
       DOMAINS.map((d) => [d, isAdmin ? 'ORG' : (roleConfig.scope[d] ?? defaultScope)]),
     ) as Record<Domain, Scope>;
@@ -113,17 +113,30 @@ export class AccessContextService {
   }
 
   /**
+   * The current principal's KPI category allowlist (`null` ⇒ all categories / admin).
+   * Convenience for the sibling KPI read paths that filter rows outside
+   * {@link buildKpiVisibilityWhere} — pair with `isCategoryAllowed`.
+   */
+  async kpiCategoryAllowlist(): Promise<readonly string[] | null> {
+    const profile = await this.resolveForCurrentPrincipal();
+    return profile.isAdmin ? null : profile.dataTypeFilters.kpiCategoryIds;
+  }
+
+  /**
    * The direct role's `scopeConfig` (Phase 2, Layer 2) + `dataTypeConfig` (Phase 3,
    * Layer 3), fetched together. Admins skip it (always ORG / unrestricted). Inherited-
    * role merge is deferred (Phase 5). Invalid/absent JSON ⇒ `{}` ⇒ defaults/parity.
    */
   private async loadRoleConfig(
     isAdmin: boolean,
+    organizationId: string,
     roleId: string | null,
   ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig }> {
     if (isAdmin || !roleId) return { scope: {}, dataType: {} };
-    const role = await this.prisma.roleDefinition.findUnique({
-      where: { id: roleId },
+    // Org-scoped read (defense in depth) — a foreign-tenant roleId must never load
+    // another org's config; mirrors PermissionResolverService's org guard.
+    const role = await this.prisma.roleDefinition.findFirst({
+      where: { id: roleId, organizationId },
       select: { scopeConfig: true, dataTypeConfig: true },
     });
     const scope = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});

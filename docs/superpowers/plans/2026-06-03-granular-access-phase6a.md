@@ -31,9 +31,12 @@ new FE page on the established design system. Gated by `USERS_MANAGE` (matches t
 - [x] Add `/settings/access` to the settings index + app-shell nav (gated `USERS_MANAGE`). **Commit**.
 
 ## Task 4 — verify
-- [ ] Web typecheck + `next build`; rebuild+restart web+API. Browser as admin: pick a user, see resolved
+- [x] Web typecheck + `next build`; rebuild+restart web+API. Browser as admin: pick a user, see resolved
   access, set an override (revoke a cap + narrow scope), Save, confirm preview updates; Clear restores.
   0 console errors. **Commit**.
+- [x] Adversarial review (4 dimensions → skeptic-verify, 8 agents): backend/tenancy/contract clean; 4 FE
+  findings confirmed + fixed — `toPos` rejects non-integers (was `parseInt` truncating `90abc`/`100.5`);
+  empty-category-selection warning; "categorised KPIs" plural. Re-verified live.
 
 ## Deferred → Phase 6b
 - Role scope/type/limits editor on /roles. Resource-grant + delegation + role-hierarchy UIs.

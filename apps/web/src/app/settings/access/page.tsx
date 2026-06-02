@@ -298,8 +298,13 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
     }
 
     const toPos = (s: string): number | undefined => {
-      const n = Number.parseInt(s, 10);
-      return s.trim() !== '' && Number.isFinite(n) && n > 0 ? n : undefined;
+      const t = s.trim();
+      // Reject anything that isn't a pure positive integer. parseInt would
+      // silently truncate "90abc"/"100.5"/"1e9" to a wrong value (90/100/1),
+      // corrupting the saved limit; a non-integer entry is treated as "inherit".
+      if (!/^\d+$/.test(t)) return undefined;
+      const n = Number.parseInt(t, 10);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
     };
     const dl: DataLimitsConfig = {};
     const h = toPos(limits.historyWindowDays);
@@ -601,25 +606,32 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
                 No KPI categories defined yet — saving with this on will hide all categorised KPIs.
               </p>
             ) : (
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                {categories.map((c) => (
-                  <label key={c.id} className="inline-flex items-center gap-2 text-sm text-content-default">
-                    <input
-                      type="checkbox"
-                      checked={catIds.has(c.id)}
-                      onChange={(e) =>
-                        setCatIds((prev) => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(c.id);
-                          else next.delete(c.id);
-                          return next;
-                        })
-                      }
-                      className="h-4 w-4 rounded border-border-strong accent-accent-primary"
-                    />
-                    {c.name}
-                  </label>
-                ))}
+              <div className="mt-2 flex flex-col gap-2">
+                {catIds.size === 0 && (
+                  <p role="alert" className="text-xs text-status-warning" data-testid="empty-categories-warning">
+                    No categories selected — saving will hide every categorised KPI from this user.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {categories.map((c) => (
+                    <label key={c.id} className="inline-flex items-center gap-2 text-sm text-content-default">
+                      <input
+                        type="checkbox"
+                        checked={catIds.has(c.id)}
+                        onChange={(e) =>
+                          setCatIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(c.id);
+                            else next.delete(c.id);
+                            return next;
+                          })
+                        }
+                        className="h-4 w-4 rounded border-border-strong accent-accent-primary"
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
               </div>
             ))}
         </div>
@@ -674,7 +686,7 @@ function summarize(p: AccessProfile, categoryName: (id: string) => string): stri
   const kc = p.dataTypeFilters.kpiCategoryIds;
   if (Array.isArray(kc)) {
     if (kc.length === 0) {
-      lines.push('Cannot see any categorised KPI.');
+      lines.push('Cannot see any categorised KPIs.');
     } else {
       const names = kc.slice(0, 3).map(categoryName).join(', ');
       lines.push(

@@ -97,26 +97,35 @@ export class AccessContextService {
     // (DIRECT_REPORTS/SELF) actually restrict, ORG widens.
     const defaultScope: Scope = isAdmin ? 'ORG' : 'UNITS';
     const roleConfig = await this.loadRoleConfig(isAdmin, ctx.organizationId, ctx.roleId);
+    // Phase 5 — per-user override REPLACES the role value per-field when set (admins skip).
+    // The capability layer is already merged in PermissionResolverService (the guard reads
+    // that), so here we only override scope/dataType/limits. ?? chain ⇒ override → role → default.
+    const override = isAdmin ? null : await this.loadUserOverride(ctx.organizationId, ctx.userId);
     const scopeByDomain = Object.fromEntries(
-      DOMAINS.map((d) => [d, isAdmin ? 'ORG' : (roleConfig.scope[d] ?? defaultScope)]),
+      DOMAINS.map((d) => [
+        d,
+        isAdmin ? 'ORG' : (override?.scope[d] ?? roleConfig.scope[d] ?? defaultScope),
+      ]),
     ) as Record<Domain, Scope>;
 
     const profile: AccessProfile = {
       isAdmin,
       capabilities,
       scopeByDomain,
-      // Layer 3 — admins unrestricted; non-admins inherit the role's category allowlist
-      // (Phase 3). orgUnitIds/dashboardIds enforcement is deferred (stay null).
+      // Layer 3 — admins unrestricted; else override → role category allowlist (Phase 3/5).
+      // orgUnitIds/dashboardIds enforcement is deferred (stay null).
       dataTypeFilters: {
-        kpiCategoryIds: roleConfig.dataType.kpiCategoryIds ?? null,
+        kpiCategoryIds:
+          override?.dataType.kpiCategoryIds ?? roleConfig.dataType.kpiCategoryIds ?? null,
         orgUnitIds: null,
         dashboardIds: null,
       },
-      // Layer 4 — admins/unset ⇒ unlimited (null); non-admins inherit the role's limits (Phase 4).
+      // Layer 4 — admins/unset ⇒ unlimited (null); else override → role limits (Phase 4/5).
       dataLimits: {
-        historyWindowDays: roleConfig.limits.historyWindowDays ?? null,
-        maxListRows: roleConfig.limits.maxListRows ?? null,
-        maxExportRows: roleConfig.limits.maxExportRows ?? null,
+        historyWindowDays:
+          override?.limits.historyWindowDays ?? roleConfig.limits.historyWindowDays ?? null,
+        maxListRows: override?.limits.maxListRows ?? roleConfig.limits.maxListRows ?? null,
+        maxExportRows: override?.limits.maxExportRows ?? roleConfig.limits.maxExportRows ?? null,
       },
       context: { managedOrgUnitIds, memberOrgUnitIds, directReportIds },
     };
@@ -169,6 +178,30 @@ export class AccessContextService {
     const scope = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
     const dataType = DataTypeConfigSchema.safeParse(role?.dataTypeConfig ?? {});
     const limits = DataLimitsConfigSchema.safeParse(role?.dataLimits ?? {});
+    return {
+      scope: scope.success ? scope.data : {},
+      dataType: dataType.success ? dataType.data : {},
+      limits: limits.success ? limits.data : {},
+    };
+  }
+
+  /**
+   * The user's {@link UserAccessOverride} scope/dataType/limits config (Phase 5),
+   * org-scoped. Absent/invalid ⇒ `{}` ⇒ no override (role value wins). Capabilities
+   * are handled in PermissionResolverService, not here.
+   */
+  private async loadUserOverride(
+    organizationId: string,
+    userId: string,
+  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig; limits: DataLimitsConfig }> {
+    const ov = await this.prisma.userAccessOverride.findFirst({
+      where: { organizationId, userId },
+      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true },
+    });
+    if (!ov) return { scope: {}, dataType: {}, limits: {} };
+    const scope = ScopeConfigSchema.safeParse(ov.scopeConfig ?? {});
+    const dataType = DataTypeConfigSchema.safeParse(ov.dataTypeConfig ?? {});
+    const limits = DataLimitsConfigSchema.safeParse(ov.dataLimits ?? {});
     return {
       scope: scope.success ? scope.data : {},
       dataType: dataType.success ? dataType.data : {},

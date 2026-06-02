@@ -143,6 +143,22 @@ export class PermissionResolverService {
       }
     }
 
+    // Step 3 (spec §3) — per-user UserAccessOverride. Capability deltas: grant adds,
+    // revoke removes. Applied LAST (after role/inheritance/delegations) so a per-user
+    // revoke is authoritative — most-restrictive wins. Done HERE (not only in
+    // AccessContextService) because PermissionsGuard checks this resolved set directly,
+    // so a capability override applied elsewhere would not gate endpoints. Admins skip.
+    if (!isAdmin) {
+      const override = await this.prisma.userAccessOverride.findFirst({
+        where: { organizationId, userId },
+        select: { grantCapabilities: true, revokeCapabilities: true },
+      });
+      if (override) {
+        for (const p of override.grantCapabilities as PermissionKey[]) permissions.add(p);
+        for (const p of override.revokeCapabilities as PermissionKey[]) permissions.delete(p);
+      }
+    }
+
     const resolved: ResolvedPermissions = {
       isAdmin,
       permissions,

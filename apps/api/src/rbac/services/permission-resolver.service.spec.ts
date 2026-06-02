@@ -52,6 +52,22 @@ class FakePrisma {
   roleInheritanceStore: FakeInheritance[] = [];
   permissionDelegationStore: FakeDelegation[] = [];
   resourcePermissionStore: FakeResourcePermission[] = [];
+  userAccessOverrideStore: Array<{
+    organizationId: string;
+    userId: string;
+    grantCapabilities: string[];
+    revokeCapabilities: string[];
+  }> = [];
+
+  userAccessOverride = {
+    findFirst: vi.fn(async ({ where }: { where: { organizationId: string; userId: string } }) => {
+      return (
+        this.userAccessOverrideStore.find(
+          (o) => o.organizationId === where.organizationId && o.userId === where.userId,
+        ) ?? null
+      );
+    }),
+  };
 
   roleDefinition = {
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
@@ -590,5 +606,75 @@ describe('PermissionResolverService.invalidate / invalidateAll', () => {
     await resolver.resolveForUser(ORG, 'u1', 'r1');
     await resolver.resolveForUser(ORG, 'u2', 'r1');
     expect(prisma.roleDefinition.findUnique).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('PermissionResolverService — per-user UserAccessOverride (Phase 5)', () => {
+  function withRole(perms: string[], isAdmin = false) {
+    const { resolver, prisma } = makeResolver();
+    prisma.roleDefinitionStore.push({ id: 'r1', organizationId: ORG, isAdmin, permissions: perms });
+    return { resolver, prisma };
+  }
+
+  test('grantCapabilities add a permission the role lacks', async () => {
+    const { resolver, prisma } = withRole([PermissionKey.KPI_VIEW]);
+    prisma.userAccessOverrideStore.push({
+      organizationId: ORG,
+      userId: 'u1',
+      grantCapabilities: [PermissionKey.EXPORTS],
+      revokeCapabilities: [],
+    });
+    const r = await resolver.resolveForUser(ORG, 'u1', 'r1');
+    expect(r.permissions.has(PermissionKey.KPI_VIEW)).toBe(true);
+    expect(r.permissions.has(PermissionKey.EXPORTS)).toBe(true);
+  });
+
+  test('revokeCapabilities remove a permission the role grants', async () => {
+    const { resolver, prisma } = withRole([PermissionKey.KPI_VIEW, PermissionKey.EXPORTS]);
+    prisma.userAccessOverrideStore.push({
+      organizationId: ORG,
+      userId: 'u1',
+      grantCapabilities: [],
+      revokeCapabilities: [PermissionKey.EXPORTS],
+    });
+    const r = await resolver.resolveForUser(ORG, 'u1', 'r1');
+    expect(r.permissions.has(PermissionKey.KPI_VIEW)).toBe(true);
+    expect(r.permissions.has(PermissionKey.EXPORTS)).toBe(false);
+  });
+
+  test('revoke wins over a delegation granting the same key (revoke applied last)', async () => {
+    const { resolver, prisma } = withRole([PermissionKey.KPI_VIEW]);
+    const now = new Date();
+    prisma.permissionDelegationStore.push({
+      id: 'd1',
+      organizationId: ORG,
+      granteeUserId: 'u1',
+      grantorUserId: 'mgr',
+      permissions: [PermissionKey.EXPORTS],
+      revokedAt: null,
+      validFrom: new Date(now.getTime() - 1000),
+      validTo: new Date(now.getTime() + 100000),
+    });
+    prisma.userAccessOverrideStore.push({
+      organizationId: ORG,
+      userId: 'u1',
+      grantCapabilities: [],
+      revokeCapabilities: [PermissionKey.EXPORTS],
+    });
+    const r = await resolver.resolveForUser(ORG, 'u1', 'r1');
+    expect(r.permissions.has(PermissionKey.EXPORTS)).toBe(false); // revoke wins
+  });
+
+  test('admins are immune — the override is not even read', async () => {
+    const { resolver, prisma } = withRole([], true);
+    prisma.userAccessOverrideStore.push({
+      organizationId: ORG,
+      userId: 'u1',
+      grantCapabilities: [],
+      revokeCapabilities: [PermissionKey.KPI_VIEW],
+    });
+    const r = await resolver.resolveForUser(ORG, 'u1', 'r1');
+    expect(r.isAdmin).toBe(true);
+    expect(prisma.userAccessOverride.findFirst).not.toHaveBeenCalled();
   });
 });

@@ -48,6 +48,16 @@ class FakePrisma {
     }),
   };
 
+  /** Phase 5 — per-user override row (null ⇒ no override ⇒ role value). */
+  userOverride: {
+    scopeConfig?: unknown;
+    dataTypeConfig?: unknown;
+    dataLimits?: unknown;
+  } | null = null;
+  userAccessOverride = {
+    findFirst: vi.fn(async () => this.userOverride),
+  };
+
   orgUnitMember = {
     findMany: vi.fn(
       async ({
@@ -204,6 +214,57 @@ describe('AccessContextService', () => {
     );
     const adminProfile = await run(() => admin.resolveForCurrentPrincipal());
     expect(adminProfile.dataLimits.historyWindowDays).toBeNull(); // admin ⇒ unlimited
+  });
+
+  test('per-user override REPLACES role scope/dataType/limits per field (Phase 5)', async () => {
+    const prisma = new FakePrisma();
+    // Role says UNITS + a category allowlist + a 90-day window…
+    prisma.roleScopeConfig = { KPIS: 'UNITS' };
+    prisma.roleDataTypeConfig = { kpiCategoryIds: ['cat_role'] };
+    prisma.roleDataLimits = { historyWindowDays: 90, maxListRows: 1000 };
+    // …the user override narrows KPIS to SELF, swaps the category, tightens the window,
+    // and leaves maxListRows unset (⇒ inherits the role's 1000).
+    prisma.userOverride = {
+      scopeConfig: { KPIS: 'SELF' },
+      dataTypeConfig: { kpiCategoryIds: ['cat_user'] },
+      dataLimits: { historyWindowDays: 7 },
+    };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    expect(profile.scopeByDomain.KPIS).toBe('SELF'); // override replaced role UNITS
+    expect(profile.scopeByDomain.DASHBOARDS).toBe('UNITS'); // unset everywhere ⇒ default
+    expect(profile.dataTypeFilters.kpiCategoryIds).toEqual(['cat_user']); // override replaced
+    expect(profile.dataLimits.historyWindowDays).toBe(7); // override tightened
+    expect(profile.dataLimits.maxListRows).toBe(1000); // override unset ⇒ role value
+  });
+
+  test('per-user override can WIDEN scope (e.g. ORG) over a narrower role', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleScopeConfig = { KPIS: 'SELF' };
+    prisma.userOverride = { scopeConfig: { KPIS: 'ORG' } };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.scopeByDomain.KPIS).toBe('ORG');
+  });
+
+  test('admins ignore the per-user override (not even read)', async () => {
+    const prisma = new FakePrisma();
+    prisma.userOverride = { scopeConfig: { KPIS: 'SELF' }, dataLimits: { historyWindowDays: 1 } };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.scopeByDomain.KPIS).toBe('ORG');
+    expect(profile.dataLimits.historyWindowDays).toBeNull();
+    expect(prisma.userAccessOverride.findFirst).not.toHaveBeenCalled();
   });
 
   test('dataLimits() returns all-null under bypassDataLimits even with a configured role', async () => {

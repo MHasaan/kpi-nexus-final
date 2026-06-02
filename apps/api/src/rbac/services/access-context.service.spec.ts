@@ -33,13 +33,18 @@ class FakePrisma {
   /** config returned by roleDefinition.findFirst (null ⇒ derived defaults / parity). */
   roleScopeConfig: unknown = null;
   roleDataTypeConfig: unknown = null;
+  roleDataLimits: unknown = null;
   /** the org the fake role actually belongs to — the org-scoped read must match it. */
   roleOrg: string = ORG;
 
   roleDefinition = {
     findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) => {
       if (where.organizationId !== this.roleOrg) return null; // cross-tenant guard
-      return { scopeConfig: this.roleScopeConfig, dataTypeConfig: this.roleDataTypeConfig };
+      return {
+        scopeConfig: this.roleScopeConfig,
+        dataTypeConfig: this.roleDataTypeConfig,
+        dataLimits: this.roleDataLimits,
+      };
     }),
   };
 
@@ -177,6 +182,28 @@ describe('AccessContextService', () => {
     expect(profile.scopeByDomain.KPIS).toBe('SELF'); // narrowed by config
     expect(profile.scopeByDomain.DASHBOARDS).toBe('ORG'); // widened by config
     expect(profile.scopeByDomain.ALERTS).toBe('UNITS'); // unset ⇒ default
+  });
+
+  test('role dataLimits resolve onto the profile; admin stays unlimited (null)', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleDataLimits = { historyWindowDays: 90, maxExportRows: 5000 };
+    const nonAdmin = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => nonAdmin.resolveForCurrentPrincipal());
+    expect(profile.dataLimits.historyWindowDays).toBe(90);
+    expect(profile.dataLimits.maxExportRows).toBe(5000);
+    expect(profile.dataLimits.maxListRows).toBeNull(); // unset ⇒ null
+
+    const adminPrisma = new FakePrisma();
+    adminPrisma.roleDataLimits = { historyWindowDays: 7 };
+    const admin = new AccessContextService(
+      adminPrisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+    const adminProfile = await run(() => admin.resolveForCurrentPrincipal());
+    expect(adminProfile.dataLimits.historyWindowDays).toBeNull(); // admin ⇒ unlimited
   });
 
   test('non-admin default dataTypeFilters are all-null (parity baseline)', async () => {

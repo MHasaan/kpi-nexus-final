@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ALL_PERMISSIONS, DataTypeConfigSchema, ScopeConfigSchema } from '@kpi-nexus/contracts';
+import {
+  ALL_PERMISSIONS,
+  DataLimitsConfigSchema,
+  DataTypeConfigSchema,
+  ScopeConfigSchema,
+} from '@kpi-nexus/contracts';
 import type {
   AccessProfile,
+  DataLimits,
+  DataLimitsConfig,
   DataTypeConfig,
   Domain,
   Scope,
@@ -105,7 +112,12 @@ export class AccessContextService {
         orgUnitIds: null,
         dashboardIds: null,
       },
-      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      // Layer 4 — admins/unset ⇒ unlimited (null); non-admins inherit the role's limits (Phase 4).
+      dataLimits: {
+        historyWindowDays: roleConfig.limits.historyWindowDays ?? null,
+        maxListRows: roleConfig.limits.maxListRows ?? null,
+        maxExportRows: roleConfig.limits.maxExportRows ?? null,
+      },
       context: { managedOrgUnitIds, memberOrgUnitIds, directReportIds },
     };
     this.cache.set(key, { profile, at: Date.now() });
@@ -123,6 +135,16 @@ export class AccessContextService {
   }
 
   /**
+   * The current principal's Layer-4 {@link DataLimits} (all `null` ⇒ unlimited / admin).
+   * Convenience for the user-facing KPI read paths that clamp history/rows via
+   * `clampHistoryFrom` / `clampTake`.
+   */
+  async dataLimits(): Promise<DataLimits> {
+    const profile = await this.resolveForCurrentPrincipal();
+    return profile.dataLimits;
+  }
+
+  /**
    * The direct role's `scopeConfig` (Phase 2, Layer 2) + `dataTypeConfig` (Phase 3,
    * Layer 3), fetched together. Admins skip it (always ORG / unrestricted). Inherited-
    * role merge is deferred (Phase 5). Invalid/absent JSON ⇒ `{}` ⇒ defaults/parity.
@@ -131,19 +153,21 @@ export class AccessContextService {
     isAdmin: boolean,
     organizationId: string,
     roleId: string | null,
-  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig }> {
-    if (isAdmin || !roleId) return { scope: {}, dataType: {} };
+  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig; limits: DataLimitsConfig }> {
+    if (isAdmin || !roleId) return { scope: {}, dataType: {}, limits: {} };
     // Org-scoped read (defense in depth) — a foreign-tenant roleId must never load
     // another org's config; mirrors PermissionResolverService's org guard.
     const role = await this.prisma.roleDefinition.findFirst({
       where: { id: roleId, organizationId },
-      select: { scopeConfig: true, dataTypeConfig: true },
+      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true },
     });
     const scope = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
     const dataType = DataTypeConfigSchema.safeParse(role?.dataTypeConfig ?? {});
+    const limits = DataLimitsConfigSchema.safeParse(role?.dataLimits ?? {});
     return {
       scope: scope.success ? scope.data : {},
       dataType: dataType.success ? dataType.data : {},
+      limits: limits.success ? limits.data : {},
     };
   }
 

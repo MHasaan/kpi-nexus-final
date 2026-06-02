@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   AccessProfileSchema,
+  DataLimitsConfigSchema,
   DataTypeConfigSchema,
   DomainSchema,
   ScopeConfigSchema,
@@ -51,5 +52,15 @@ describe('AccessProfile contract', () => {
     expect(DataTypeConfigSchema.safeParse({}).success).toBe(true);
     expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: 'nope' }).success).toBe(false);
     expect(DataTypeConfigSchema.safeParse({ kpiCategoryIds: [1, 2] }).success).toBe(false);
+  });
+
+  test('DataLimitsConfig parses partial limits and rejects non-positive/non-int', () => {
+    expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: 90 }).success).toBe(true);
+    expect(DataLimitsConfigSchema.safeParse({ maxListRows: 100, maxExportRows: 5000 }).success).toBe(true);
+    expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: null }).success).toBe(true);
+    expect(DataLimitsConfigSchema.safeParse({}).success).toBe(true);
+    expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: 0 }).success).toBe(false);
+    expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: -5 }).success).toBe(false);
+    expect(DataLimitsConfigSchema.safeParse({ maxListRows: 1.5 }).success).toBe(false);
   });
 });

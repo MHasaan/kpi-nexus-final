@@ -140,6 +140,33 @@ export function isCategoryAllowed(
   return categoryId != null && allowlist.includes(categoryId);
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Layer-4 history-window clamp (Phase 4). Given a role's `historyWindowDays`, returns
+ * the effective lower bound for a KPI data-point read: `null` window ⇒ the request's
+ * own `from` unchanged (parity / admin); otherwise `windowStart = now - windowDays`,
+ * defaulting to `windowStart` when no `from` was requested, else `max(from, windowStart)`.
+ * The result is the earliest data the principal may read.
+ */
+export function clampHistoryFrom(
+  requestedFrom: Date | undefined,
+  historyWindowDays: number | null | undefined,
+): Date | undefined {
+  if (historyWindowDays == null) return requestedFrom;
+  const windowStart = new Date(Date.now() - historyWindowDays * MS_PER_DAY);
+  if (!requestedFrom) return windowStart;
+  return requestedFrom.getTime() > windowStart.getTime() ? requestedFrom : windowStart;
+}
+
+/**
+ * Layer-4 row cap (Phase 4). Caps an already-computed `take` by the role's `maxRows`
+ * (maxListRows / maxExportRows). `null` maxRows ⇒ `take` unchanged (parity / admin).
+ */
+export function clampTake(take: number, maxRows: number | null | undefined): number {
+  return maxRows == null ? take : Math.min(take, maxRows);
+}
+
 /**
  * Adapt a resolved {@link AccessProfile} into the {@link KpiVisibilityContext}
  * that `buildKpiVisibilityWhere` consumes. Parity bridge for Phase 1: the KPI

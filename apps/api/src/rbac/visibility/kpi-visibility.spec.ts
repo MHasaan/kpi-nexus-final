@@ -4,6 +4,8 @@ import type { AccessProfile } from '@kpi-nexus/contracts';
 
 import {
   buildKpiVisibilityWhere,
+  clampHistoryFrom,
+  clampTake,
   kpiContextFromProfile,
   type KpiVisibilityContext,
   type KpiVisibilityOrBranch,
@@ -333,5 +335,47 @@ describe('buildKpiVisibilityWhere — category allowlist (Phase 3, Layer 3)', ()
     const where = buildKpiVisibilityWhere({ ...mgr, isAdmin: true, allowedCategoryIds: ['cat_sales'] });
     expect(where.categoryId).toBeUndefined();
     expect(where.OR).toBeUndefined();
+  });
+});
+
+describe('clampHistoryFrom — Layer-4 history window (Phase 4)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  test('null window ⇒ requestedFrom unchanged (parity / admin)', () => {
+    const from = new Date('2020-01-01');
+    expect(clampHistoryFrom(from, null)).toBe(from);
+    expect(clampHistoryFrom(undefined, null)).toBeUndefined();
+  });
+
+  test('window + no from ⇒ ~ now - windowDays', () => {
+    const result = clampHistoryFrom(undefined, 90);
+    const expected = Date.now() - 90 * DAY;
+    expect(result).toBeInstanceOf(Date);
+    expect(Math.abs((result as Date).getTime() - expected)).toBeLessThan(5000);
+  });
+
+  test('from older than the window ⇒ clamped up to windowStart', () => {
+    const old = new Date(Date.now() - 365 * DAY);
+    const result = clampHistoryFrom(old, 30) as Date;
+    expect(result.getTime()).toBeGreaterThan(old.getTime());
+    expect(Math.abs(result.getTime() - (Date.now() - 30 * DAY))).toBeLessThan(5000);
+  });
+
+  test('from newer than the window ⇒ kept (the request is already inside the window)', () => {
+    const recent = new Date(Date.now() - 5 * DAY);
+    expect((clampHistoryFrom(recent, 90) as Date).getTime()).toBe(recent.getTime());
+  });
+});
+
+describe('clampTake — Layer-4 row cap (Phase 4)', () => {
+  test('null max ⇒ take unchanged (parity / admin)', () => {
+    expect(clampTake(1000, null)).toBe(1000);
+    expect(clampTake(1000, undefined)).toBe(1000);
+  });
+  test('max below take ⇒ capped', () => {
+    expect(clampTake(1000, 50)).toBe(50);
+  });
+  test('max above take ⇒ take', () => {
+    expect(clampTake(50, 1000)).toBe(50);
   });
 });

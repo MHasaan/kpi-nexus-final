@@ -63,6 +63,14 @@ export const DataLimitsSchema = z.object({
 });
 export type DataLimits = z.infer<typeof DataLimitsSchema>;
 
+/**
+ * Layer-4 role configuration (Phase 4) — partial data limits stored on
+ * `RoleDefinition.dataLimits`. An unset/null field ⇒ unlimited (parity); admins
+ * bypass. Enforced at user-facing KPI data reads (history clamp + row/export caps).
+ */
+export const DataLimitsConfigSchema = DataLimitsSchema.partial();
+export type DataLimitsConfig = z.infer<typeof DataLimitsConfigSchema>;
+
 /** Derived membership context (Phase 1) consumed by the FE + later phases. */
 export const AccessMembershipSchema = z.object({
   managedOrgUnitIds: z.array(z.string()),

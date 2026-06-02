@@ -4,6 +4,8 @@ import type { AnomalyDetection } from '@kpi-nexus/db';
 import { KpisService } from '../kpis/kpis.service.js';
 import { MlClientService } from '../ml/ml-client.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RecommendationsService } from '../recommendations/recommendations.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 
@@ -36,12 +38,21 @@ export class AnomalyService {
     private readonly ml: MlClientService,
     private readonly kpis: KpisService,
     private readonly recommendations: RecommendationsService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
-  /** Recent points oldest→newest (visibility already enforced by caller). */
-  private async series(organizationId: string, kpiId: string) {
+  /**
+   * Recent points oldest→newest (visibility already enforced by caller).
+   * `from`, when given, is the Layer-4 history-window lower bound (null ⇒ parity).
+   */
+  private async series(organizationId: string, kpiId: string, from?: Date) {
+    const where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date } } = {
+      organizationId,
+      kpiId,
+    };
+    if (from) where.recordedAt = { gte: from };
     const rows = await this.prisma.kPIDataPoint.findMany({
-      where: { organizationId, kpiId },
+      where,
       orderBy: { recordedAt: 'desc' },
       take: WINDOW,
       select: { id: true, value: true, recordedAt: true },
@@ -56,7 +67,10 @@ export class AnomalyService {
     const ctx = RequestContextStore.require();
     await this.kpis.getById(kpiId); // visibility gate (throws 404 if not visible)
 
-    const points = await this.series(ctx.organizationId, kpiId);
+    // Layer-4: clamp the user-facing on-demand series to historyWindowDays (null ⇒ parity).
+    const limits = await this.accessContext.dataLimits();
+    const from = clampHistoryFrom(undefined, limits.historyWindowDays);
+    const points = await this.series(ctx.organizationId, kpiId, from);
     if (points.length < 2) return { anomalies: [] };
 
     const result = await this.ml.post<{ anomalies: MlAnomaly[] }>('/anomaly/detect', {

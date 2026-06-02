@@ -122,15 +122,24 @@ class FakePrisma {
       async ({
         where,
       }: {
-        where: { organizationId: string; kpiId: string };
+        where: {
+          organizationId: string;
+          kpiId: string;
+          recordedAt?: { gte?: Date };
+        };
         orderBy?: unknown;
         select?: unknown;
       }) => {
-        const dp = this.dataPointStore.find(
-          (d) =>
-            d.organizationId === where.organizationId &&
-            d.kpiId === where.kpiId,
-        );
+        const gte = where.recordedAt?.gte;
+        const dp = this.dataPointStore
+          .filter(
+            (d) =>
+              d.organizationId === where.organizationId &&
+              d.kpiId === where.kpiId &&
+              (gte === undefined || d.recordedAt.getTime() >= gte.getTime()),
+          )
+          // newest-first to mirror orderBy: { recordedAt: 'desc' }
+          .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())[0];
         return dp ? { value: dp.value, recordedAt: dp.recordedAt } : null;
       },
     ),
@@ -172,10 +181,20 @@ class FakeAudit {
  * Controllable AccessContextService stub. `allowlist` drives the Layer-3 KPI
  * category gate: `null` ⇒ all categories (admin / unconfigured = parity);
  * `[ids]` ⇒ only those; `[]` ⇒ none.
+ *
+ * `historyWindowDays` drives the Layer-4 data-limit gate on the latest-point
+ * read: `null` ⇒ unbounded (admin / unconfigured = parity); a number ⇒ points
+ * older than `now - days` are omitted.
  */
 class FakeAccessContext {
   allowlist: readonly string[] | null = null;
+  historyWindowDays: number | null = null;
   kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
+  dataLimits = vi.fn(async () => ({
+    historyWindowDays: this.historyWindowDays,
+    maxListRows: null as number | null,
+    maxExportRows: null as number | null,
+  }));
 }
 
 // A stub for DashboardsService. `getById` can be configured to throw or return a dashboard.
@@ -488,6 +507,104 @@ describe('SnapshotService.capture', () => {
     const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
     const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
     expect(payload.kpiValues['kpi_uncategorized']).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Layer-4 data limit (Phase 4): historyWindowDays bounds the latest-point read.
+  // -------------------------------------------------------------------------
+
+  /** Single-KPI dashboard referencing kpi_1. */
+  function makeSingleKpiDashboard(): DashboardsService {
+    return makeDashboardStub({
+      dashboard: {
+        id: 'dash_1',
+        widgets: [
+          {
+            id: 'w1',
+            widgetType: 'kpi_card',
+            title: 'KPI 1',
+            config: { kpiId: 'kpi_1' },
+            position: { x: 0, y: 0, w: 4, h: 2 },
+            sortOrder: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ] as PublicDashboard['widgets'],
+      },
+    });
+  }
+
+  test('window set ⇒ a latest point older than the window is omitted (value absent)', async () => {
+    const prisma = new FakePrisma();
+    // Only data point is 30 days old; the role's window is 7 days.
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_1',
+      value: 42,
+      recordedAt: thirtyDaysAgo,
+    });
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowDays = 7;
+    const { service } = makeService({
+      dashboardStub: makeSingleKpiDashboard(),
+      prisma,
+      accessContext,
+    });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+
+    // The point predates the window ⇒ no row ⇒ latestValue null (omitted value).
+    expect(payload.kpiValues['kpi_1']).toMatchObject({ latestValue: null });
+  });
+
+  test('null window ⇒ old latest point still present (parity)', async () => {
+    const prisma = new FakePrisma();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_1',
+      value: 42,
+      recordedAt: thirtyDaysAgo,
+    });
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowDays = null; // parity — no window
+    const { service } = makeService({
+      dashboardStub: makeSingleKpiDashboard(),
+      prisma,
+      accessContext,
+    });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+
+    // Parity: an unbounded window keeps the old point's value.
+    expect(payload.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
+  });
+
+  test('window set ⇒ a recent latest point within the window is still present', async () => {
+    const prisma = new FakePrisma();
+    const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_1',
+      value: 55,
+      recordedAt: oneDayAgo,
+    });
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowDays = 7;
+    const { service } = makeService({
+      dashboardStub: makeSingleKpiDashboard(),
+      prisma,
+      accessContext,
+    });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+
+    // Within the 7-day window ⇒ value retained.
+    expect(payload.kpiValues['kpi_1']).toMatchObject({ latestValue: 55 });
   });
 });
 

@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { KpisService } from '../kpis/kpis.service.js';
 import { MlClientService } from '../ml/ml-client.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 
 const DEFAULT_BASELINE = 12;
@@ -31,6 +33,7 @@ export class WhatIfService {
     private readonly prisma: PrismaService,
     private readonly ml: MlClientService,
     private readonly kpis: KpisService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   async simulate(
@@ -40,9 +43,17 @@ export class WhatIfService {
     const ctx = RequestContextStore.require();
     await this.kpis.getById(kpiId); // visibility gate
 
+    // Layer-4: clamp the user-facing baseline read to historyWindowDays (null ⇒ parity).
+    const limits = await this.accessContext.dataLimits();
+    const from = clampHistoryFrom(undefined, limits.historyWindowDays);
     const take = Math.min(365, Math.max(1, input.baselineCount ?? DEFAULT_BASELINE));
+    const where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date } } = {
+      organizationId: ctx.organizationId,
+      kpiId,
+    };
+    if (from) where.recordedAt = { gte: from };
     const points = await this.prisma.kPIDataPoint.findMany({
-      where: { organizationId: ctx.organizationId, kpiId },
+      where,
       orderBy: { recordedAt: 'desc' },
       take,
       select: { value: true },

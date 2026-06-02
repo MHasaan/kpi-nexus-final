@@ -12,7 +12,10 @@ import type { Prisma } from '@kpi-nexus/db';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
+import {
+  clampHistoryFrom,
+  isCategoryAllowed,
+} from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
 import type { CreateShareLinkDto } from './dto/dashboard.dto.js';
@@ -328,10 +331,16 @@ export class ShareLinksService {
       // so we gate the payload by the LINK CREATOR's KPI category allowlist — a
       // restricted creator must not be able to leak restricted-category KPI values
       // through a public link. `null` ⇒ all (admin / unconfigured creator) = parity.
-      const allowlist = await this.resolveCreatorAllowlist(
+      //
+      // Layer-4 data limit (Phase 4): for the same reason, the creator's
+      // `historyWindowDays` bounds the latest-point read so a public viewer can't
+      // surface a point older than the creator's own window. Both restrictions are
+      // resolved under the re-established creator context in one pass.
+      const { allowlist, historyWindowDays } = await this.resolveCreatorLimits(
         link.organizationId,
         link.createdById,
       );
+      const windowFrom = clampHistoryFrom(undefined, historyWindowDays);
 
       // Fetch the latest data point for each allowed kpiId within the org;
       // restricted KPI values never enter the public payload.
@@ -350,8 +359,16 @@ export class ShareLinksService {
             }
           }
 
+          const where: Prisma.KPIDataPointWhereInput = {
+            organizationId: link.organizationId,
+            kpiId,
+          };
+          // Apply the creator's history-window lower bound only when set; an older
+          // point is omitted (latestValue becomes null/absent) for the public viewer.
+          if (windowFrom) where.recordedAt = { gte: windowFrom };
+
           const point = await this.prisma.kPIDataPoint.findFirst({
-            where: { organizationId: link.organizationId, kpiId },
+            where,
             orderBy: { recordedAt: 'desc' },
             select: { value: true, recordedAt: true },
           });
@@ -385,23 +402,34 @@ export class ShareLinksService {
   }
 
   /**
-   * Resolve the KPI category allowlist (`null` ⇒ all / admin) of the user who
-   * created a share link. The public `resolve()` path runs unauthenticated under
-   * `runWithBypass`, so there is no principal to resolve from — we re-establish
-   * the creator's request context (org + user + role) and ask the shared
-   * `AccessContextService`, ensuring the public payload is gated by exactly the
-   * restrictions the creator is subject to. Missing creator ⇒ deny all (`[]`).
+   * Resolve the Layer-3 + Layer-4 restrictions of the user who created a share
+   * link, as seen under that creator's own request context. The public
+   * `resolve()` path runs unauthenticated under `runWithBypass`, so there is no
+   * principal to resolve from — we re-establish the creator's request context
+   * (org + user + role) and ask the shared `AccessContextService`, ensuring the
+   * public payload is gated by exactly the restrictions the creator is subject
+   * to:
+   *   - `allowlist`: KPI category allowlist (`null` ⇒ all / admin = parity).
+   *   - `historyWindowDays`: data-limit window (`null` ⇒ unbounded = parity).
+   *
+   * Both are resolved in a single re-established context. A deleted/missing
+   * creator can't vouch for anything — fail closed: deny all categories (`[]`)
+   * but leave the window unbounded (`null`) since the empty allowlist already
+   * suppresses every value.
    */
-  private async resolveCreatorAllowlist(
+  private async resolveCreatorLimits(
     organizationId: string,
     createdById: string,
-  ): Promise<readonly string[] | null> {
+  ): Promise<{
+    allowlist: readonly string[] | null;
+    historyWindowDays: number | null;
+  }> {
     const creator = await this.prisma.user.findFirst({
       where: { id: createdById, organizationId },
       select: { id: true, roleId: true },
     });
     // A deleted/missing creator can't vouch for any category — fail closed.
-    if (!creator) return [];
+    if (!creator) return { allowlist: [], historyWindowDays: null };
 
     return RequestContextStore.run(
       {
@@ -410,7 +438,11 @@ export class ShareLinksService {
         roleId: creator.roleId,
         principalType: 'user',
       },
-      () => this.accessContext.kpiCategoryAllowlist(),
+      async () => {
+        const allowlist = await this.accessContext.kpiCategoryAllowlist();
+        const limits = await this.accessContext.dataLimits();
+        return { allowlist, historyWindowDays: limits.historyWindowDays };
+      },
     );
   }
 }

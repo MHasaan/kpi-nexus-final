@@ -4,7 +4,10 @@ import type { Prisma } from '@kpi-nexus/db';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
+import {
+  clampHistoryFrom,
+  isCategoryAllowed,
+} from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
 import type { CaptureSnapshotDto } from './dto/dashboard.dto.js';
@@ -113,6 +116,13 @@ export class SnapshotService {
     // Layer-3 category allowlist (null ⇒ all / admin).
     const allowlist = await this.accessContext.kpiCategoryAllowlist();
 
+    // Layer-4 data limit (Phase 4): the latest data point is a USER-FACING read
+    // performed under the capturing principal's context. A restricted role's
+    // `historyWindowDays` must not let a point older than its window leak into the
+    // payload. `null` window ⇒ no lower bound (admin / unconfigured = parity).
+    const limits = await this.accessContext.dataLimits();
+    const windowFrom = clampHistoryFrom(undefined, limits.historyWindowDays);
+
     // Fetch the latest data point for each kpiId within the org — but only for
     // KPIs whose category is allowed; restricted KPI values never enter the payload.
     const kpiValues: SnapshotPayload['kpiValues'] = {};
@@ -131,8 +141,16 @@ export class SnapshotService {
           }
         }
 
+        const where: Prisma.KPIDataPointWhereInput = {
+          organizationId: ctx.organizationId,
+          kpiId,
+        };
+        // Apply the history-window lower bound only when a limit is set; a point
+        // older than the window is omitted (latestValue becomes null/absent).
+        if (windowFrom) where.recordedAt = { gte: windowFrom };
+
         const point = await this.prisma.kPIDataPoint.findFirst({
-          where: { organizationId: ctx.organizationId, kpiId },
+          where,
           orderBy: { recordedAt: 'desc' },
           select: { value: true, recordedAt: true },
         });

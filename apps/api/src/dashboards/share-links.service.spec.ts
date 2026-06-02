@@ -209,11 +209,22 @@ class FakePrisma {
       async ({
         where,
       }: {
-        where: { organizationId: string; kpiId: string };
+        where: {
+          organizationId: string;
+          kpiId: string;
+          recordedAt?: { gte?: Date };
+        };
       }) => {
-        const dp = this.dataPointStore.find(
-          (d) => d.organizationId === where.organizationId && d.kpiId === where.kpiId,
-        );
+        const gte = where.recordedAt?.gte;
+        const dp = this.dataPointStore
+          .filter(
+            (d) =>
+              d.organizationId === where.organizationId &&
+              d.kpiId === where.kpiId &&
+              (gte === undefined || d.recordedAt.getTime() >= gte.getTime()),
+          )
+          // newest-first to mirror orderBy: { recordedAt: 'desc' }
+          .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())[0];
         return dp ? { value: dp.value, recordedAt: dp.recordedAt } : null;
       },
     ),
@@ -272,19 +283,33 @@ class FakeAudit {
 }
 
 /**
- * Controllable AccessContextService stub. `kpiCategoryAllowlist()` resolves the
- * allowlist for the *current* principal (the service re-establishes the link
- * creator's context before calling it), keyed here by userId so a test can
- * give different creators different allowlists. `null` ⇒ all (parity / admin).
+ * Controllable AccessContextService stub. `kpiCategoryAllowlist()` /
+ * `dataLimits()` resolve for the *current* principal (the service re-establishes
+ * the link creator's context before calling them), keyed here by userId so a
+ * test can give different creators different restrictions. `null` ⇒ all (parity
+ * / admin).
  */
 class FakeAccessContext {
   /** Per-user allowlist; default (any user not listed) is null = parity. */
   allowlistByUser = new Map<string, readonly string[] | null>();
+  /** Per-user historyWindowDays; default (any user not listed) is null = parity. */
+  historyWindowByUser = new Map<string, number | null>();
   kpiCategoryAllowlist = vi.fn(async () => {
     const ctx = RequestContextStore.require();
     return this.allowlistByUser.has(ctx.userId)
       ? (this.allowlistByUser.get(ctx.userId) ?? null)
       : null;
+  });
+  dataLimits = vi.fn(async () => {
+    const ctx = RequestContextStore.require();
+    const historyWindowDays = this.historyWindowByUser.has(ctx.userId)
+      ? (this.historyWindowByUser.get(ctx.userId) ?? null)
+      : null;
+    return {
+      historyWindowDays,
+      maxListRows: null as number | null,
+      maxExportRows: null as number | null,
+    };
   });
 }
 
@@ -648,8 +673,8 @@ describe('ShareLinksService.resolve', () => {
       widgets: [],
     });
 
-    // The link creator must exist for resolveCreatorAllowlist to resolve their
-    // allowlist (a missing creator fails closed). Default role ⇒ null allowlist.
+    // The link creator must exist for resolveCreatorLimits to resolve their
+    // allowlist + window (a missing creator fails closed). Default role ⇒ null.
     if (!prisma.userStore.some((u) => u.id === link.createdById)) {
       prisma.userStore.push({
         id: link.createdById,
@@ -892,5 +917,70 @@ describe('ShareLinksService.resolve', () => {
 
     const result = await service.resolve('valid_token');
     expect(result.kpiValues['kpi_uncategorized']).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Layer-4 data limit (Phase 4): the public payload's latest-point read is
+  // bounded by the LINK CREATOR's historyWindowDays.
+  // -------------------------------------------------------------------------
+
+  /** Seed a link + dashboard with one KPI widget whose only point is `ageDays` old. */
+  function seedSingleKpiLink(prisma: FakePrisma, ageDays: number): void {
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [
+      {
+        id: 'w1',
+        widgetType: 'kpi_card',
+        title: 'KPI 1',
+        config: { kpiId: 'kpi_1' },
+        position: { x: 0, y: 0, w: 4, h: 2 },
+        sortOrder: 0,
+      },
+    ];
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_1',
+      value: 42,
+      recordedAt: new Date(Date.now() - ageDays * 24 * 60 * 60 * 1000),
+    });
+  }
+
+  test("window set ⇒ a point older than the creator's window is omitted from the public payload", async () => {
+    const prisma = new FakePrisma();
+    seedSingleKpiLink(prisma, 30); // 30-day-old point
+    const accessContext = new FakeAccessContext();
+    // The creator (u1) has a 7-day window — the 30-day-old point is out of range.
+    accessContext.historyWindowByUser.set('u1', 7);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_1']).toMatchObject({ latestValue: null });
+    // The window was resolved under the creator's context, not the bypass principal.
+    expect(accessContext.dataLimits).toHaveBeenCalled();
+  });
+
+  test('null creator window ⇒ old point still present in the public payload (parity)', async () => {
+    const prisma = new FakePrisma();
+    seedSingleKpiLink(prisma, 30); // 30-day-old point
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowByUser.set('u1', null); // parity — unbounded window
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
+  });
+
+  test("window set ⇒ a point within the creator's window is still present", async () => {
+    const prisma = new FakePrisma();
+    seedSingleKpiLink(prisma, 1); // 1-day-old point
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowByUser.set('u1', 7);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
   });
 });

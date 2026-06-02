@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 
 import { KpiDataService } from '../kpis/kpi-data.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { GeneratedReport, ReportDataset } from './report-dataset.js';
 import { generateCsv } from './services/csv-generator.js';
@@ -18,6 +19,29 @@ export interface GenerateReportParams {
   to?: Date;
 }
 
+/**
+ * Trim the assembled per-KPI `points` so the grand total across every KPI is at
+ * most `maxRows`. KPIs are filled in order: each keeps `min(remaining, its own
+ * length)` points; once the budget is exhausted later KPIs carry an empty array
+ * (the KPI row itself is preserved so the export still lists it). Pure / no I/O.
+ */
+function capTotalPoints<T extends { points: ReportDataset['kpis'][number]['points'] }>(
+  kpis: T[],
+  maxRows: number,
+): T[] {
+  let remaining = Math.max(0, maxRows);
+  return kpis.map((kpi) => {
+    if (remaining <= 0) return { ...kpi, points: [] };
+    if (kpi.points.length <= remaining) {
+      remaining -= kpi.points.length;
+      return kpi;
+    }
+    const sliced = kpi.points.slice(0, remaining);
+    remaining = 0;
+    return { ...kpi, points: sliced };
+  });
+}
+
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
@@ -25,6 +49,7 @@ export class ReportsService {
   constructor(
     private readonly kpiData: KpiDataService,
     private readonly prisma: PrismaService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /**
@@ -100,10 +125,24 @@ export class ReportsService {
       }),
     );
 
+    const resolvedKpis = kpis.filter((k): k is NonNullable<typeof k> => k !== null);
+
+    // ── Layer-4: cap the TOTAL exported data-point rows across all KPIs ────────
+    // maxExportRows limits what the principal may READ out via an export; the
+    // system already computed every point — we only trim what leaves. `null`
+    // (admins / unconfigured roles) ⇒ uncapped = parity. We accumulate a running
+    // count across KPIs and slice each KPI's points so the grand total never
+    // exceeds the cap; once exhausted, remaining KPIs carry zero points.
+    const limits = await this.accessContext.dataLimits();
+    const cappedKpis =
+      limits.maxExportRows == null
+        ? resolvedKpis
+        : capTotalPoints(resolvedKpis, limits.maxExportRows);
+
     return {
       orgName,
       generatedAt: new Date(),
-      kpis: kpis.filter((k): k is NonNullable<typeof k> => k !== null),
+      kpis: cappedKpis,
     };
   }
 

@@ -57,11 +57,14 @@ class FakePrisma {
         create,
         update,
       }: {
-        where: { userId: string };
+        where: { organizationId_userId: { organizationId: string; userId: string } };
         create: Record<string, unknown>;
         update: Record<string, unknown>;
       }) => {
-        const existing = this.overrides.find((o) => o.userId === where.userId);
+        const { organizationId, userId } = where.organizationId_userId;
+        const existing = this.overrides.find(
+          (o) => o.userId === userId && o.organizationId === organizationId,
+        );
         if (existing) {
           Object.assign(existing, update);
           return existing;
@@ -114,7 +117,11 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 function makeService() {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
-  const resolver = { invalidate: vi.fn() };
+  const resolver = {
+    invalidate: vi.fn(),
+    // default caller is admin ⇒ the grant-escalation guard is a no-op; override per test.
+    resolveForUser: vi.fn(async () => ({ isAdmin: true, permissions: new Set<string>() })),
+  };
   const accessContext = { invalidate: vi.fn() };
   const service = new UsersService(
     prisma as unknown as PrismaService,
@@ -266,5 +273,53 @@ describe('UsersService — access override (Phase 5)', () => {
     await expect(
       withCtx({}, () => service.getAccessOverride('u_other')),
     ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
+  });
+});
+
+describe('UsersService — access override hardening (Phase 5 review)', () => {
+  test('a non-admin manager cannot grant a capability they do not hold (403)', async () => {
+    const { service, prisma, resolver } = makeService();
+    seedUser(prisma);
+    // caller is NOT admin and holds only USERS_MANAGE — granting BILLING_MANAGE escalates.
+    resolver.resolveForUser.mockResolvedValue({
+      isAdmin: false,
+      permissions: new Set<string>(['USERS_MANAGE']),
+    });
+    await expect(
+      withCtx({}, () =>
+        service.upsertAccessOverride('u_target', {
+          grantCapabilities: ['BILLING_MANAGE'],
+          revokeCapabilities: [],
+        }),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'FORBIDDEN' } });
+    expect(prisma.overrides).toHaveLength(0);
+  });
+
+  test('a non-admin manager CAN grant a capability they hold', async () => {
+    const { service, prisma, resolver } = makeService();
+    seedUser(prisma);
+    resolver.resolveForUser.mockResolvedValue({
+      isAdmin: false,
+      permissions: new Set<string>(['USERS_MANAGE', 'EXPORTS']),
+    });
+    const r = await withCtx({}, () =>
+      service.upsertAccessOverride('u_target', { grantCapabilities: ['EXPORTS'], revokeCapabilities: [] }),
+    );
+    expect(r.grantCapabilities).toEqual(['EXPORTS']);
+  });
+
+  test('upsert + delete for a foreign-tenant user are blocked (NOT_FOUND), nothing written', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_foreign', organizationId: 'org_beta' });
+    await expect(
+      withCtx({}, () =>
+        service.upsertAccessOverride('u_foreign', { grantCapabilities: [], revokeCapabilities: [] }),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
+    await expect(
+      withCtx({}, () => service.deleteAccessOverride('u_foreign')),
+    ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
+    expect(prisma.overrides).toHaveLength(0);
   });
 });

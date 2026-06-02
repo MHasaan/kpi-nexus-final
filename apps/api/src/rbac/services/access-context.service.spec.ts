@@ -54,8 +54,12 @@ class FakePrisma {
     dataTypeConfig?: unknown;
     dataLimits?: unknown;
   } | null = null;
+  /** the org the override belongs to — the org-scoped read must match it. */
+  userOverrideOrg: string = ORG;
   userAccessOverride = {
-    findFirst: vi.fn(async () => this.userOverride),
+    findFirst: vi.fn(async ({ where }: { where: { organizationId: string; userId: string } }) =>
+      where.organizationId === this.userOverrideOrg ? this.userOverride : null,
+    ),
   };
 
   orgUnitMember = {
@@ -240,6 +244,19 @@ describe('AccessContextService', () => {
     expect(profile.dataTypeFilters.kpiCategoryIds).toEqual(['cat_user']); // override replaced
     expect(profile.dataLimits.historyWindowDays).toBe(7); // override tightened
     expect(profile.dataLimits.maxListRows).toBe(1000); // override unset ⇒ role value
+  });
+
+  test('an override belonging to another org is NOT applied (org-scoped read)', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleScopeConfig = { KPIS: 'UNITS' };
+    prisma.userOverride = { scopeConfig: { KPIS: 'SELF' } };
+    prisma.userOverrideOrg = 'org_other'; // override lives in a different tenant
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.scopeByDomain.KPIS).toBe('UNITS'); // foreign override ignored ⇒ role value
   });
 
   test('per-user override can WIDEN scope (e.g. ORG) over a narrower role', async () => {

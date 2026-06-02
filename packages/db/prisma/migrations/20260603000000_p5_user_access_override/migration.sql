@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "UserAccessOverride" (
     CONSTRAINT "UserAccessOverride_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS "UserAccessOverride_userId_key" ON "UserAccessOverride"("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "UserAccessOverride_organizationId_userId_key" ON "UserAccessOverride"("organizationId", "userId");
 CREATE INDEX IF NOT EXISTS "UserAccessOverride_organizationId_idx" ON "UserAccessOverride"("organizationId");
 
 DO $$ BEGIN

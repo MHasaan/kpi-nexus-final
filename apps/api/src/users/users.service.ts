@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,6 +14,7 @@ import type { Prisma } from '@kpi-nexus/db';
 import type {
   DataLimitsConfig,
   DataTypeConfig,
+  PermissionKey,
   ScopeConfig,
   UserAccessOverride,
 } from '@kpi-nexus/contracts';
@@ -151,6 +153,28 @@ export class UsersService {
     const ctx = RequestContextStore.require();
     await this.requireUserInTenant(userId);
 
+    // Privilege-escalation guard: a non-admin manager may only GRANT capabilities they
+    // themselves hold (admins hold everything). Prevents a USERS_MANAGE holder from
+    // minting a higher privilege (e.g. BILLING_MANAGE) onto another user via the override.
+    if (dto.grantCapabilities.length > 0) {
+      const caller = await this.resolver.resolveForUser(
+        ctx.organizationId,
+        ctx.userId,
+        ctx.roleId,
+      );
+      if (!caller.isAdmin) {
+        const escalated = dto.grantCapabilities.filter(
+          (c) => !caller.permissions.has(c as PermissionKey),
+        );
+        if (escalated.length > 0) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN',
+            message: `Cannot grant capabilities you do not hold: ${escalated.join(', ')}`,
+          });
+        }
+      }
+    }
+
     // Tenant-validate the override's KPI category allowlist (mirrors RolesService).
     const categoryIds = dto.dataTypeConfig?.kpiCategoryIds;
     if (categoryIds && categoryIds.length > 0) {
@@ -175,7 +199,8 @@ export class UsersService {
       updatedById: ctx.userId,
     };
     const ov = await this.prisma.userAccessOverride.upsert({
-      where: { userId },
+      // Composite selector ⇒ the org is part of the unique key (DB-level tenant safety).
+      where: { organizationId_userId: { organizationId: ctx.organizationId, userId } },
       create: { organizationId: ctx.organizationId, userId, ...data },
       update: data,
       select: accessOverrideSelect,

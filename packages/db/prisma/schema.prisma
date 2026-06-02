@@ -271,7 +271,7 @@ model User {
 
   refreshTokens         RefreshToken[]
   platformAdmin         PlatformAdmin?
-  accessOverride        UserAccessOverride?
+  accessOverrides       UserAccessOverride[]
   orgUnitMemberships    OrgUnitMember[]
   headedOrgUnits        OrgUnit[]           @relation("OrgUnitHead")
   ownedKpis             KPI[]               @relation("KpiOwner")
@@ -463,7 +463,7 @@ model UserAccessOverride {
   id                 String       @id @default(cuid())
   organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId             String       @unique
+  userId             String
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   grantCapabilities  String[]
   revokeCapabilities String[]
@@ -474,6 +474,9 @@ model UserAccessOverride {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
+  // Composite unique ⇒ the upsert selector includes organizationId (DB-level tenant
+  // safety, not guard-ordering). A user belongs to one org, so this is still ≤1 per user.
+  @@unique([organizationId, userId])
   @@index([organizationId])
 }
 

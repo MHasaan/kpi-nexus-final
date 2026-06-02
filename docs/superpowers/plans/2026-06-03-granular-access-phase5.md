@@ -83,3 +83,24 @@ limits" + "tighten **or widen** scope"). `null`/absent ⇒ role value ⇒ parity
 - Delegations (`PermissionDelegation`) already fold into the resolver — unchanged.
 - Inherited-role merge for scope (most-restrictive across parents) still deferred.
 - Per-user override editor UI → Phase 6 (Access Center).
+
+## Adversarial-review hardening (post-implementation)
+
+A 23-agent adversarial review confirmed **13 issues**. Fixed in commit (this phase):
+- **Composite `@@unique([organizationId, userId])`** (was single-column `userId @unique`) so the upsert
+  selector includes the org (DB-level tenant safety, not guard-ordering only); relation → one-to-many.
+- **Grant-escalation guard:** a non-admin USERS_MANAGE holder may only `grantCapabilities` they themselves
+  hold (admins hold all) — prevents minting a higher privilege onto another user.
+- Test hardening: AccessContext override read now org-verified; write-path cross-tenant upsert/delete tests.
+
+**Accepted / deferred (documented, not fixed):**
+- **Multi-instance cache staleness:** resolver + access caches are per-process in-memory (5-min TTL); a
+  revoke invalidates only the serving instance. Bounded to 5 min; the planned **Redis pub/sub tier** (call
+  signatures kept stable) closes it for multi-replica. Verified the in-process key format matches.
+- **FE permission/access-profile localStorage** has no TTL — a revoked user keeps stale UI until reload
+  (no auth bypass; the backend guard already 403s). Add a background `meRequest()` revalidate later.
+- **`@OwnerOverride`** short-circuits before the capability check (benign today — only on `GET /users/:id`).
+  Document the revoke-vs-owner precedence before applying owner-override to mutating routes.
+- **API-key principals** are exempt from per-user overrides (capability scopes are baked at key issuance).
+- `UserAccessOverride` has no Postgres RLS policy — consistent with the existing P2+ posture (app-level org
+  filtering is primary; RLS is documented defense-in-depth, not the primary mechanism).

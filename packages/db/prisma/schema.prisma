@@ -177,6 +177,7 @@ model Organization {
   roleInheritances      RoleInheritance[]
   positions             Position[]
   permissionDelegations PermissionDelegation[]
+  accessOverrides       UserAccessOverride[]
   resourcePermissions   ResourcePermission[]
   orgUnitDimensions     OrgUnitDimension[]
   orgUnitTypes          OrgUnitType[]
@@ -270,6 +271,7 @@ model User {
 
   refreshTokens         RefreshToken[]
   platformAdmin         PlatformAdmin?
+  accessOverride        UserAccessOverride?
   orgUnitMemberships    OrgUnitMember[]
   headedOrgUnits        OrgUnit[]           @relation("OrgUnitHead")
   ownedKpis             KPI[]               @relation("KpiOwner")
@@ -450,6 +452,29 @@ model ResourcePermission {
 
   @@unique([organizationId, subjectType, subjectId, action, resourceType, resourceId])
   @@index([subjectType, subjectId])
+}
+
+// Granular access Phase 5: per-user override on top of the role. One row per user.
+// Capabilities are grant/revoke deltas (applied in PermissionResolverService so the
+// guard honours them); scope/dataType/limits REPLACE the role value per-field when set
+// (applied in AccessContextService). null/absent ⇒ role value ⇒ parity. Admins are immune.
+// pageAccess deferred to Phase 7. Zod UserAccessOverride in contracts.
+model UserAccessOverride {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId             String       @unique
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grantCapabilities  String[]
+  revokeCapabilities String[]
+  scopeConfig        Json?
+  dataTypeConfig     Json?
+  dataLimits         Json?
+  updatedById        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([organizationId])
 }
 
 // ============================================================================

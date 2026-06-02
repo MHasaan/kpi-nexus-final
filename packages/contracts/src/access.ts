@@ -72,6 +72,21 @@ export type DataLimits = z.infer<typeof DataLimitsSchema>;
 export const DataLimitsConfigSchema = DataLimitsSchema.partial();
 export type DataLimitsConfig = z.infer<typeof DataLimitsConfigSchema>;
 
+/**
+ * Phase 5 — per-user override on top of the role. `grant`/`revokeCapabilities` are
+ * capability deltas (revoke wins, applied in the resolver so the guard honours them);
+ * scope/dataType/limits REPLACE the role value per-field when set. Unset ⇒ role value
+ * ⇒ parity; admins are immune. Stored on `UserAccessOverride`.
+ */
+export const UserAccessOverrideSchema = z.object({
+  grantCapabilities: z.array(PermissionKeySchema).default([]),
+  revokeCapabilities: z.array(PermissionKeySchema).default([]),
+  scopeConfig: ScopeConfigSchema.optional(),
+  dataTypeConfig: DataTypeConfigSchema.optional(),
+  dataLimits: DataLimitsConfigSchema.optional(),
+});
+export type UserAccessOverride = z.infer<typeof UserAccessOverrideSchema>;
+
 /** Derived membership context (Phase 1) consumed by the FE + later phases. */
 export const AccessMembershipSchema = z.object({
   managedOrgUnitIds: z.array(z.string()),

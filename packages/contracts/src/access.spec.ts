@@ -7,6 +7,7 @@ import {
   DomainSchema,
   ScopeConfigSchema,
   ScopeSchema,
+  UserAccessOverrideSchema,
 } from './access.js';
 
 describe('AccessProfile contract', () => {
@@ -62,5 +63,23 @@ describe('AccessProfile contract', () => {
     expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: 0 }).success).toBe(false);
     expect(DataLimitsConfigSchema.safeParse({ historyWindowDays: -5 }).success).toBe(false);
     expect(DataLimitsConfigSchema.safeParse({ maxListRows: 1.5 }).success).toBe(false);
+  });
+
+  test('UserAccessOverride parses caps + nested configs; defaults empty cap arrays; rejects bad keys', () => {
+    const full = UserAccessOverrideSchema.safeParse({
+      grantCapabilities: ['KPI_VIEW'],
+      revokeCapabilities: ['EXPORTS'],
+      scopeConfig: { KPIS: 'SELF' },
+      dataTypeConfig: { kpiCategoryIds: ['c1'] },
+      dataLimits: { historyWindowDays: 30 },
+    });
+    expect(full.success).toBe(true);
+    // caps default to [] when omitted
+    const empty = UserAccessOverrideSchema.parse({});
+    expect(empty.grantCapabilities).toEqual([]);
+    expect(empty.revokeCapabilities).toEqual([]);
+    // unknown capability key rejected
+    expect(UserAccessOverrideSchema.safeParse({ grantCapabilities: ['NOT_A_PERM'] }).success).toBe(false);
+    expect(UserAccessOverrideSchema.safeParse({ scopeConfig: { KPIS: 'NOPE' } }).success).toBe(false);
   });
 });

@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { ALL_PERMISSIONS, ScopeConfigSchema } from '@kpi-nexus/contracts';
-import type { AccessProfile, Domain, Scope, ScopeConfig } from '@kpi-nexus/contracts';
+import { ALL_PERMISSIONS, DataTypeConfigSchema, ScopeConfigSchema } from '@kpi-nexus/contracts';
+import type {
+  AccessProfile,
+  DataTypeConfig,
+  Domain,
+  Scope,
+  ScopeConfig,
+} from '@kpi-nexus/contracts';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
@@ -83,16 +89,22 @@ export class AccessContextService {
     // the role's per-domain scopeConfig overrides this default; narrower values
     // (DIRECT_REPORTS/SELF) actually restrict, ORG widens.
     const defaultScope: Scope = isAdmin ? 'ORG' : 'UNITS';
-    const roleScope = await this.loadRoleScopeConfig(isAdmin, ctx.roleId);
+    const roleConfig = await this.loadRoleConfig(isAdmin, ctx.roleId);
     const scopeByDomain = Object.fromEntries(
-      DOMAINS.map((d) => [d, isAdmin ? 'ORG' : (roleScope[d] ?? defaultScope)]),
+      DOMAINS.map((d) => [d, isAdmin ? 'ORG' : (roleConfig.scope[d] ?? defaultScope)]),
     ) as Record<Domain, Scope>;
 
     const profile: AccessProfile = {
       isAdmin,
       capabilities,
       scopeByDomain,
-      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      // Layer 3 — admins unrestricted; non-admins inherit the role's category allowlist
+      // (Phase 3). orgUnitIds/dashboardIds enforcement is deferred (stay null).
+      dataTypeFilters: {
+        kpiCategoryIds: roleConfig.dataType.kpiCategoryIds ?? null,
+        orgUnitIds: null,
+        dashboardIds: null,
+      },
       dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
       context: { managedOrgUnitIds, memberOrgUnitIds, directReportIds },
     };
@@ -101,17 +113,25 @@ export class AccessContextService {
   }
 
   /**
-   * The direct role's `scopeConfig` (Phase 2). Admins skip it (always ORG). Inherited-
-   * role scope merge is deferred (Phase 5). Invalid/absent JSON ⇒ `{}` ⇒ defaults.
+   * The direct role's `scopeConfig` (Phase 2, Layer 2) + `dataTypeConfig` (Phase 3,
+   * Layer 3), fetched together. Admins skip it (always ORG / unrestricted). Inherited-
+   * role merge is deferred (Phase 5). Invalid/absent JSON ⇒ `{}` ⇒ defaults/parity.
    */
-  private async loadRoleScopeConfig(isAdmin: boolean, roleId: string | null): Promise<ScopeConfig> {
-    if (isAdmin || !roleId) return {};
+  private async loadRoleConfig(
+    isAdmin: boolean,
+    roleId: string | null,
+  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig }> {
+    if (isAdmin || !roleId) return { scope: {}, dataType: {} };
     const role = await this.prisma.roleDefinition.findUnique({
       where: { id: roleId },
-      select: { scopeConfig: true },
+      select: { scopeConfig: true, dataTypeConfig: true },
     });
-    const parsed = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
-    return parsed.success ? parsed.data : {};
+    const scope = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
+    const dataType = DataTypeConfigSchema.safeParse(role?.dataTypeConfig ?? {});
+    return {
+      scope: scope.success ? scope.data : {},
+      dataType: dataType.success ? dataType.data : {},
+    };
   }
 
   /** Direct + indirect reports via the managerId chain (cycle-safe, depth-capped). */

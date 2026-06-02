@@ -43,6 +43,12 @@ export interface KpiVisibilityContext {
   directReportIds: readonly string[];
   /** orgUnitIds the user is a non-managing member of. */
   memberOrgUnitIds: readonly string[];
+  /**
+   * Layer-3 data-type allowlist (Phase 3): when set, the principal sees only KPIs in
+   * these categories — an AND constraint orthogonal to scope. `null`/`undefined` = all
+   * categories (parity); `[]` = none. Admins bypass it entirely.
+   */
+  allowedCategoryIds?: readonly string[] | null;
 }
 
 /**
@@ -52,6 +58,8 @@ export interface KpiVisibilityContext {
  */
 export interface KpiVisibilityWhere {
   organizationId: string;
+  /** Layer-3 category allowlist (Phase 3) — AND'd with the scope branches. */
+  categoryId?: { in: readonly string[] };
   OR?: Array<KpiVisibilityOrBranch>;
 }
 
@@ -71,9 +79,21 @@ export type KpiVisibilityOrBranch =
     };
 
 export function buildKpiVisibilityWhere(ctx: KpiVisibilityContext): KpiVisibilityWhere {
-  // Admin, or a principal scoped to ORG, sees every KPI in the tenant — no branches.
-  if (ctx.isAdmin || ctx.scope === 'ORG') {
+  // Admins bypass every layer — see the whole tenant, all categories.
+  if (ctx.isAdmin) {
     return { organizationId: ctx.organizationId };
+  }
+
+  const where: KpiVisibilityWhere = { organizationId: ctx.organizationId };
+  // Layer 3 — category allowlist (null/undefined = all). Orthogonal AND to scope:
+  // even ORG_WIDE KPIs outside the allowed categories are hidden.
+  if (ctx.allowedCategoryIds != null) {
+    where.categoryId = { in: ctx.allowedCategoryIds };
+  }
+
+  // ORG scope (non-admin) ⇒ every category-allowed KPI in the tenant, no scope branches.
+  if (ctx.scope === 'ORG') {
+    return where;
   }
 
   // ORG_WIDE KPIs are always visible regardless of scope.
@@ -97,10 +117,8 @@ export function buildKpiVisibilityWhere(ctx: KpiVisibilityContext): KpiVisibilit
     userAssignments: { some: { userId: { in: userIds } } },
   });
 
-  return {
-    organizationId: ctx.organizationId,
-    OR: branches,
-  };
+  where.OR = branches;
+  return where;
 }
 
 function uniq<T>(values: readonly T[]): T[] {
@@ -125,6 +143,7 @@ export function kpiContextFromProfile(
     userId,
     isAdmin: profile.isAdmin,
     scope: profile.scopeByDomain.KPIS ?? 'UNITS',
+    allowedCategoryIds: profile.dataTypeFilters.kpiCategoryIds,
     managedOrgUnitIds: profile.context.managedOrgUnitIds,
     memberOrgUnitIds: profile.context.memberOrgUnitIds,
     directReportIds: profile.context.directReportIds,

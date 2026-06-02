@@ -20,6 +20,7 @@ const ADMIN: KpiVisibilityContext = {
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: [],
+  allowedCategoryIds: null,
 };
 
 // The default non-admin scope is UNITS — its mapping reproduces legacy behaviour,
@@ -32,6 +33,7 @@ const MANAGER: KpiVisibilityContext = {
   managedOrgUnitIds: ['unit_sales_us', 'unit_sales_emea'],
   directReportIds: ['u_rep1', 'u_rep2', 'u_rep3'],
   memberOrgUnitIds: ['unit_sales_global'],
+  allowedCategoryIds: null,
 };
 
 const EMPLOYEE: KpiVisibilityContext = {
@@ -42,6 +44,7 @@ const EMPLOYEE: KpiVisibilityContext = {
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: ['unit_sales_us'],
+  allowedCategoryIds: null,
 };
 
 const VIEWER: KpiVisibilityContext = {
@@ -52,6 +55,7 @@ const VIEWER: KpiVisibilityContext = {
   managedOrgUnitIds: [],
   directReportIds: [],
   memberOrgUnitIds: ['unit_sales_us'],
+  allowedCategoryIds: null,
 };
 
 function getOrgWideBranch(branches: KpiVisibilityOrBranch[] | undefined): KpiVisibilityOrBranch | undefined {
@@ -203,7 +207,11 @@ describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)
       isAdmin: ctx.isAdmin,
       capabilities: [],
       scopeByDomain: { KPIS: ctx.scope },
-      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataTypeFilters: {
+        kpiCategoryIds: ctx.allowedCategoryIds ? [...ctx.allowedCategoryIds] : null,
+        orgUnitIds: null,
+        dashboardIds: null,
+      },
       dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
       context: {
         managedOrgUnitIds: [...ctx.managedOrgUnitIds],
@@ -281,5 +289,49 @@ describe('buildKpiVisibilityWhere — scope ladder enforcement (Phase 2)', () =>
     expect([...self].every((u) => reports.has(u))).toBe(true);
     expect([...reports].every((u) => units.has(u))).toBe(true);
     expect(self.size).toBeLessThanOrEqual(reports.size);
+  });
+});
+
+describe('buildKpiVisibilityWhere — category allowlist (Phase 3, Layer 3)', () => {
+  const mgr: KpiVisibilityContext = {
+    organizationId: ORG,
+    userId: 'u_mgr',
+    isAdmin: false,
+    scope: 'UNITS',
+    managedOrgUnitIds: ['unit_a'],
+    memberOrgUnitIds: [],
+    directReportIds: ['u_r1'],
+    allowedCategoryIds: null,
+  };
+
+  test('null allowlist ⇒ no categoryId constraint (parity)', () => {
+    const where = buildKpiVisibilityWhere(mgr);
+    expect(where.categoryId).toBeUndefined();
+    expect(getPerUnitBranch(where.OR)).toBeDefined(); // scope branches untouched
+  });
+
+  test('set allowlist ⇒ categoryId AND-filter alongside the scope branches', () => {
+    const where = buildKpiVisibilityWhere({ ...mgr, allowedCategoryIds: ['cat_sales', 'cat_ops'] });
+    expect(where.categoryId).toEqual({ in: ['cat_sales', 'cat_ops'] });
+    // scope branches still present (category is orthogonal AND, not a replacement)
+    expect(getOrgWideBranch(where.OR)).toBeDefined();
+    expect(getPerUnitBranch(where.OR)).toBeDefined();
+  });
+
+  test('empty allowlist ⇒ categoryId { in: [] } (sees nothing of that type)', () => {
+    const where = buildKpiVisibilityWhere({ ...mgr, allowedCategoryIds: [] });
+    expect(where.categoryId).toEqual({ in: [] });
+  });
+
+  test('ORG-scope non-admin still gets the category filter, no scope branches', () => {
+    const where = buildKpiVisibilityWhere({ ...mgr, scope: 'ORG', allowedCategoryIds: ['cat_sales'] });
+    expect(where.categoryId).toEqual({ in: ['cat_sales'] });
+    expect(where.OR).toBeUndefined();
+  });
+
+  test('admin bypasses the category allowlist entirely', () => {
+    const where = buildKpiVisibilityWhere({ ...mgr, isAdmin: true, allowedCategoryIds: ['cat_sales'] });
+    expect(where.categoryId).toBeUndefined();
+    expect(where.OR).toBeUndefined();
   });
 });

@@ -30,11 +30,15 @@ interface FakeUser {
 class FakePrisma {
   memberships: FakeMembership[] = [];
   users: FakeUser[] = [];
-  /** scopeConfig returned by roleDefinition.findUnique (null ⇒ derived defaults). */
+  /** config returned by roleDefinition.findUnique (null ⇒ derived defaults / parity). */
   roleScopeConfig: unknown = null;
+  roleDataTypeConfig: unknown = null;
 
   roleDefinition = {
-    findUnique: vi.fn(async () => ({ scopeConfig: this.roleScopeConfig })),
+    findUnique: vi.fn(async () => ({
+      scopeConfig: this.roleScopeConfig,
+      dataTypeConfig: this.roleDataTypeConfig,
+    })),
   };
 
   orgUnitMember = {
@@ -171,6 +175,40 @@ describe('AccessContextService', () => {
     expect(profile.scopeByDomain.KPIS).toBe('SELF'); // narrowed by config
     expect(profile.scopeByDomain.DASHBOARDS).toBe('ORG'); // widened by config
     expect(profile.scopeByDomain.ALERTS).toBe('UNITS'); // unset ⇒ default
+  });
+
+  test('non-admin default dataTypeFilters are all-null (parity baseline)', async () => {
+    const prisma = new FakePrisma();
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    expect(profile.dataTypeFilters.kpiCategoryIds).toBeNull();
+    expect(profile.dataTypeFilters.orgUnitIds).toBeNull();
+  });
+
+  test('role dataTypeConfig sets the KPI category allowlist; admin stays null', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleDataTypeConfig = { kpiCategoryIds: ['cat_sales', 'cat_finance'] };
+    const nonAdmin = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const nonAdminProfile = await run(() => nonAdmin.resolveForCurrentPrincipal());
+    expect(nonAdminProfile.dataTypeFilters.kpiCategoryIds).toEqual(['cat_sales', 'cat_finance']);
+
+    const adminPrisma = new FakePrisma();
+    adminPrisma.roleDataTypeConfig = { kpiCategoryIds: ['cat_sales'] };
+    const admin = new AccessContextService(
+      adminPrisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+    const adminProfile = await run(() => admin.resolveForCurrentPrincipal());
+    expect(adminProfile.dataTypeFilters.kpiCategoryIds).toBeNull();
+    expect(adminPrisma.roleDefinition.findUnique).not.toHaveBeenCalled();
   });
 
   test('admin ignores scopeConfig (always ORG)', async () => {

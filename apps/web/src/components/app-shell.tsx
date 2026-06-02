@@ -34,6 +34,7 @@ import {
   Plug,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Sun,
   Target,
@@ -132,6 +133,13 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/users', label: 'People', icon: Users, permission: 'USERS_VIEW' },
       { href: '/roles', label: 'Roles', icon: KeyRound, permission: 'ROLES_MANAGE' },
+      {
+        href: '/settings/access',
+        label: 'Access Center',
+        icon: SlidersHorizontal,
+        permission: 'USERS_MANAGE',
+        testId: 'nav-access',
+      },
       { href: '/positions', label: 'Positions', icon: UserCog, permission: 'POSITIONS_MANAGE' },
       { href: '/org-units', label: 'Org units', icon: Building2, permission: 'GROUPS_VIEW' },
       { href: '/integrations', label: 'Integrations', icon: Plug, permission: 'INTEGRATIONS_MANAGE' },

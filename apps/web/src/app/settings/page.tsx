@@ -44,6 +44,12 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
     ],
   },
   {
+    heading: 'Access control',
+    links: [
+      { href: '/settings/access', title: 'Access Center', description: 'Per-user access overrides and resolved-access preview.' },
+    ],
+  },
+  {
     heading: 'Billing',
     links: [
       { href: '/billing', title: 'Billing & plan', description: 'Current plan, usage, and quotas.' },

@@ -22,13 +22,13 @@ new FE page on the established design system. Gated by `USERS_MANAGE` (matches t
 - [x] `lib/permissions.ts`: `PERMISSION_LABELS` (25 keys → human labels) + `PERMISSION_GROUPS` (domain → keys) for the capability matrix. **Commit**.
 
 ## Task 3 — FE Access Center page + nav
-- [ ] `app/settings/access/page.tsx`: AppShell + `RequirePermission USERS_MANAGE` + PageHeader; two-panel
+- [x] `app/settings/access/page.tsx`: AppShell + `RequirePermission USERS_MANAGE` + PageHeader; two-panel
   (`lg:grid-cols-[280px_1fr]`): left = searchable user list; right = (a) **Resolved access** (isAdmin,
   capabilities by domain, scope per domain, data limits, category filter) + plain-language summary;
   (b) **Override editor** — per-capability tri-state (Inherit/Grant/Revoke), scope-per-domain Selects
   (Inherit + 4 scopes), data-limit number inputs, category multi-select; Save → PUT + re-preview, Clear →
   DELETE + re-preview. Controlled state, inline error/success (mirror roles/organization pages).
-- [ ] Add `/settings/access` to the settings index + app-shell nav (gated `USERS_MANAGE`). **Commit**.
+- [x] Add `/settings/access` to the settings index + app-shell nav (gated `USERS_MANAGE`). **Commit**.
 
 ## Task 4 — verify
 - [ ] Web typecheck + `next build`; rebuild+restart web+API. Browser as admin: pick a user, see resolved

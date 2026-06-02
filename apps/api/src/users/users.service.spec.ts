@@ -41,6 +41,52 @@ class FakePrisma {
     deleteMany: vi.fn(async () => ({ count: 0 })),
   };
 
+  overrides: Array<Record<string, unknown>> = [];
+  categories: Array<{ id: string; organizationId: string }> = [];
+
+  userAccessOverride = {
+    findFirst: vi.fn(
+      async ({ where }: { where: { organizationId: string; userId: string } }) =>
+        this.overrides.find(
+          (o) => o.userId === where.userId && o.organizationId === where.organizationId,
+        ) ?? null,
+    ),
+    upsert: vi.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { userId: string };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const existing = this.overrides.find((o) => o.userId === where.userId);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const row = { updatedAt: new Date(), ...create };
+        this.overrides.push(row);
+        return row;
+      },
+    ),
+    deleteMany: vi.fn(async ({ where }: { where: { userId: string } }) => {
+      const before = this.overrides.length;
+      this.overrides = this.overrides.filter((o) => o.userId !== where.userId);
+      return { count: before - this.overrides.length };
+    }),
+  };
+
+  kPICategory = {
+    findMany: vi.fn(
+      async ({ where }: { where: { id: { in: string[] }; organizationId: string } }) =>
+        this.categories
+          .filter((c) => c.organizationId === where.organizationId && where.id.in.includes(c.id))
+          .map((c) => ({ id: c.id })),
+    ),
+  };
+
   // Transactions run the callback against this same fake (mirrors the service's
   // tx usage: tx.user.update + tx.refreshToken.deleteMany).
   $transaction = vi.fn(async (fn: (tx: FakePrisma) => Promise<unknown>) => fn(this));
@@ -68,11 +114,15 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 function makeService() {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
+  const resolver = { invalidate: vi.fn() };
+  const accessContext = { invalidate: vi.fn() };
   const service = new UsersService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
+    resolver as unknown as import('../rbac/services/permission-resolver.service.js').PermissionResolverService,
+    accessContext as unknown as import('../rbac/services/access-context.service.js').AccessContextService,
   );
-  return { service, prisma, audit };
+  return { service, prisma, audit, resolver, accessContext };
 }
 
 function seedUser(prisma: FakePrisma, over: Partial<FakeUser> = {}): FakeUser {
@@ -157,5 +207,64 @@ describe('UsersService.reactivate', () => {
       BadRequestException,
     );
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('UsersService — access override (Phase 5)', () => {
+  test('upsert persists the override + invalidates both caches', async () => {
+    const { service, prisma, resolver, accessContext } = makeService();
+    seedUser(prisma);
+    const result = await withCtx({}, () =>
+      service.upsertAccessOverride('u_target', {
+        grantCapabilities: ['EXPORTS'],
+        revokeCapabilities: ['KPI_DELETE'],
+        scopeConfig: { KPIS: 'SELF' },
+      }),
+    );
+    expect(result.grantCapabilities).toEqual(['EXPORTS']);
+    expect(result.scopeConfig).toEqual({ KPIS: 'SELF' });
+    expect(prisma.overrides).toHaveLength(1);
+    expect(resolver.invalidate).toHaveBeenCalledWith(ORG, 'u_target');
+    expect(accessContext.invalidate).toHaveBeenCalledWith(ORG, 'u_target');
+  });
+
+  test('rejects an unknown KPI category id (tenant validation)', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma);
+    // no categories seeded ⇒ the id is unknown to the tenant
+    await expect(
+      withCtx({}, () =>
+        service.upsertAccessOverride('u_target', {
+          grantCapabilities: [],
+          revokeCapabilities: [],
+          dataTypeConfig: { kpiCategoryIds: ['cat_unknown'] },
+        }),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+    expect(prisma.overrides).toHaveLength(0);
+  });
+
+  test('get returns the override; delete clears it + invalidates', async () => {
+    const { service, prisma, resolver, accessContext } = makeService();
+    seedUser(prisma);
+    await withCtx({}, () =>
+      service.upsertAccessOverride('u_target', { grantCapabilities: ['EXPORTS'], revokeCapabilities: [] }),
+    );
+    const got = await withCtx({}, () => service.getAccessOverride('u_target'));
+    expect(got?.grantCapabilities).toEqual(['EXPORTS']);
+
+    await withCtx({}, () => service.deleteAccessOverride('u_target'));
+    expect(prisma.overrides).toHaveLength(0);
+    expect(resolver.invalidate).toHaveBeenCalledWith(ORG, 'u_target');
+    expect(accessContext.invalidate).toHaveBeenCalledWith(ORG, 'u_target');
+    expect(await withCtx({}, () => service.getAccessOverride('u_target'))).toBeNull();
+  });
+
+  test('a user from another tenant is not found', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_other', organizationId: 'org_other' });
+    await expect(
+      withCtx({}, () => service.getAccessOverride('u_other')),
+    ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
   });
 });

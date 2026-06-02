@@ -9,8 +9,18 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 
+import type { Prisma } from '@kpi-nexus/db';
+import type {
+  DataLimitsConfig,
+  DataTypeConfig,
+  ScopeConfig,
+  UserAccessOverride,
+} from '@kpi-nexus/contracts';
+
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { InviteUserDto } from './dto/invite-user.dto.js';
 import { purgedHandle } from './services/purge-handle.js';
@@ -45,6 +55,41 @@ const userSelect = {
   createdAt: true,
 } as const;
 
+/** Public projection of a user's access override (Phase 5). */
+export interface PublicAccessOverride {
+  userId: string;
+  grantCapabilities: string[];
+  revokeCapabilities: string[];
+  scopeConfig: ScopeConfig | null;
+  dataTypeConfig: DataTypeConfig | null;
+  dataLimits: DataLimitsConfig | null;
+  updatedById: string | null;
+  updatedAt: Date;
+}
+
+const accessOverrideSelect = {
+  userId: true,
+  grantCapabilities: true,
+  revokeCapabilities: true,
+  scopeConfig: true,
+  dataTypeConfig: true,
+  dataLimits: true,
+  updatedById: true,
+  updatedAt: true,
+} as const;
+
+type AccessOverrideRow = Prisma.UserAccessOverrideGetPayload<{ select: typeof accessOverrideSelect }>;
+
+/** Narrow Prisma's JsonValue config columns to their typed contract shapes. */
+function toPublicAccessOverride(row: AccessOverrideRow): PublicAccessOverride {
+  return {
+    ...row,
+    scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null,
+    dataTypeConfig: (row.dataTypeConfig as DataTypeConfig | null) ?? null,
+    dataLimits: (row.dataLimits as DataLimitsConfig | null) ?? null,
+  };
+}
+
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Injectable()
@@ -54,6 +99,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   list(): Promise<PublicUser[]> {
@@ -75,6 +122,99 @@ export class UsersService {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return user;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-user access override (Phase 5)
+  // ---------------------------------------------------------------------------
+
+  /** The user's access override, or null when none is set. Org-scoped. */
+  async getAccessOverride(userId: string): Promise<PublicAccessOverride | null> {
+    const ctx = RequestContextStore.require();
+    await this.requireUserInTenant(userId);
+    const ov = await this.prisma.userAccessOverride.findFirst({
+      where: { organizationId: ctx.organizationId, userId },
+      select: accessOverrideSelect,
+    });
+    return ov ? toPublicAccessOverride(ov) : null;
+  }
+
+  /**
+   * Upsert a user's access override (USERS_MANAGE). Tenant-validates any category ids,
+   * persists, audits, and invalidates BOTH the permission + access caches for that user
+   * so the new grant/revoke + scope/limits take effect immediately.
+   */
+  async upsertAccessOverride(
+    userId: string,
+    dto: UserAccessOverride,
+  ): Promise<PublicAccessOverride> {
+    const ctx = RequestContextStore.require();
+    await this.requireUserInTenant(userId);
+
+    // Tenant-validate the override's KPI category allowlist (mirrors RolesService).
+    const categoryIds = dto.dataTypeConfig?.kpiCategoryIds;
+    if (categoryIds && categoryIds.length > 0) {
+      const found = await this.prisma.kPICategory.findMany({
+        where: { id: { in: categoryIds }, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (found.length !== new Set(categoryIds).size) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'dataTypeConfig.kpiCategoryIds contains unknown categories',
+        });
+      }
+    }
+
+    const data = {
+      grantCapabilities: dto.grantCapabilities,
+      revokeCapabilities: dto.revokeCapabilities,
+      scopeConfig: dto.scopeConfig ?? undefined,
+      dataTypeConfig: dto.dataTypeConfig ?? undefined,
+      dataLimits: dto.dataLimits ?? undefined,
+      updatedById: ctx.userId,
+    };
+    const ov = await this.prisma.userAccessOverride.upsert({
+      where: { userId },
+      create: { organizationId: ctx.organizationId, userId, ...data },
+      update: data,
+      select: accessOverrideSelect,
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'UserAccessOverride',
+      entityId: userId,
+      changes: { grant: dto.grantCapabilities, revoke: dto.revokeCapabilities },
+    });
+    this.invalidateAccessCaches(ctx.organizationId, userId);
+    return toPublicAccessOverride(ov);
+  }
+
+  /** Clear a user's access override (revert to pure role access). Org-scoped. */
+  async deleteAccessOverride(userId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    await this.requireUserInTenant(userId);
+    await this.prisma.userAccessOverride.deleteMany({
+      where: { organizationId: ctx.organizationId, userId },
+    });
+    this.invalidateAccessCaches(ctx.organizationId, userId);
+  }
+
+  private async requireUserInTenant(userId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+  }
+
+  /** Both caches key on org:user — invalidate per-user so the override applies at once. */
+  private invalidateAccessCaches(organizationId: string, userId: string): void {
+    this.resolver.invalidate(organizationId, userId);
+    this.accessContext.invalidate(organizationId, userId);
   }
 
   /**

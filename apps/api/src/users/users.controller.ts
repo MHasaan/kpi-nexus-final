@@ -2,20 +2,27 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Put,
 } from '@nestjs/common';
-import { PermissionKey } from '@kpi-nexus/contracts';
+import { PermissionKey, UserAccessOverrideSchema } from '@kpi-nexus/contracts';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { OwnerOverride } from '../rbac/decorators/owner-override.decorator.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { InviteUserDtoSchema } from './dto/invite-user.dto.js';
 import { OffboardDtoSchema } from './dto/offboard.dto.js';
-import { type InviteResult, type PublicUser, UsersService } from './users.service.js';
+import {
+  type InviteResult,
+  type PublicAccessOverride,
+  type PublicUser,
+  UsersService,
+} from './users.service.js';
 import { type OffboardSummary, OffboardingService } from './services/offboarding.service.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
@@ -48,6 +55,32 @@ export class UsersController {
   @OwnerOverride('id')
   getById(@Param('id') id: string): Promise<PublicUser> {
     return this.users.getById(id);
+  }
+
+  // -------------------------------------------------------------------------
+  // Per-user access override (Phase 5) — USERS_MANAGE only.
+  // -------------------------------------------------------------------------
+
+  @Get(':id/access-override')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  getAccessOverride(@Param('id') id: string): Promise<PublicAccessOverride | null> {
+    return this.users.getAccessOverride(id);
+  }
+
+  @Put(':id/access-override')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  upsertAccessOverride(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<PublicAccessOverride> {
+    return this.users.upsertAccessOverride(id, parse(UserAccessOverrideSchema, body));
+  }
+
+  @Delete(':id/access-override')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteAccessOverride(@Param('id') id: string): Promise<void> {
+    return this.users.deleteAccessOverride(id);
   }
 
   /** Invite a user. Creates an INVITED User + EmailVerificationToken. */

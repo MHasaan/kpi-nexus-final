@@ -6,6 +6,8 @@ import {
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { AssignUserKpiDto } from './dto/user-kpi.dto.js';
 
@@ -24,6 +26,7 @@ export class UserKpisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /** Assign a PER_USER KPI to a user (admin/manager action). Refuses other scopes. */
@@ -109,6 +112,11 @@ export class UserKpisService {
 
   private async rowsForUser(userId: string): Promise<MyKpiRow[]> {
     const ctx = RequestContextStore.require();
+    // Layer-3 data-type allowlist (Phase 3): null ⇒ all/admin. When set, drop rows
+    // whose joined KPI category is outside it — a restricted-category PER_USER KPI is
+    // hidden even from its own owner, mirroring `isVisibleToUser` (category before the
+    // self/scope branch). See spec §5.5.
+    const allowlist = await this.accessContext.kpiCategoryAllowlist();
     const rows = await this.prisma.kPIAssignmentUser.findMany({
       where: { organizationId: ctx.organizationId, userId },
       select: {
@@ -117,18 +125,20 @@ export class UserKpisService {
         targetValue: true,
         currentValue: true,
         status: true,
-        kpi: { select: { name: true, unit: true } },
+        kpi: { select: { name: true, unit: true, categoryId: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
-    return rows.map((r) => ({
-      assignmentId: r.id,
-      kpiId: r.kpiId,
-      name: r.kpi.name,
-      unit: r.kpi.unit,
-      targetValue: r.targetValue,
-      currentValue: r.currentValue,
-      status: r.status,
-    }));
+    return rows
+      .filter((r) => isCategoryAllowed(allowlist, r.kpi.categoryId))
+      .map((r) => ({
+        assignmentId: r.id,
+        kpiId: r.kpiId,
+        name: r.kpi.name,
+        unit: r.kpi.unit,
+        targetValue: r.targetValue,
+        currentValue: r.currentValue,
+        status: r.status,
+      }));
   }
 }

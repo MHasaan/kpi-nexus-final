@@ -3,6 +3,8 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { computeBenchmarkValue, resolveCutoff } from './benchmark-compute.js';
 import type { ComputeBenchmarkDto, CreateBenchmarkDto } from './dto/benchmark.dto.js';
@@ -27,6 +29,7 @@ export class KpiBenchmarksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   async list(kpiId: string): Promise<PublicKpiBenchmark[]> {
@@ -108,9 +111,14 @@ export class KpiBenchmarksService {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, categoryId: true },
     });
     if (!kpi) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    // Layer-3 category allowlist (Phase 3): hide a KPI outside the allowed categories
+    // the same way listForKpi does — 404, no existence leak. null ⇒ all (admins/parity).
+    if (!isCategoryAllowed(await this.accessContext.kpiCategoryAllowlist(), kpi.categoryId)) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
   }
 
   private async requireBenchmark(id: string): Promise<PublicKpiBenchmark> {

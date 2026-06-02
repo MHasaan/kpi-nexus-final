@@ -3,6 +3,8 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
 import type { CaptureSnapshotDto } from './dto/dashboard.dto.js';
@@ -71,6 +73,7 @@ export class SnapshotService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly dashboards: DashboardsService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /**
@@ -81,6 +84,13 @@ export class SnapshotService {
    *   3. Fetch the latest data-point value for each kpiId directly from
    *      kPIDataPoint (avoiding a cross-module import of KpisModule).
    *   4. Compose the payload and persist a DashboardSnapshot row.
+   *
+   * Layer-3 category gate (Phase 3 security): a KPI whose category falls outside
+   * the principal's allowlist must never have its value baked into the persisted
+   * payload. We resolve the allowlist once and omit the latest value for any
+   * restricted kpiId. `null` allowlist (admins / unconfigured roles) ⇒ all values
+   * present (parity). A KPI with a null category is restricted when an allowlist
+   * is set, mirroring `isCategoryAllowed`.
    */
   async capture(
     dashboardId: string,
@@ -100,10 +110,27 @@ export class SnapshotService {
       }
     }
 
-    // Fetch the latest data point for each kpiId within the org.
+    // Layer-3 category allowlist (null ⇒ all / admin).
+    const allowlist = await this.accessContext.kpiCategoryAllowlist();
+
+    // Fetch the latest data point for each kpiId within the org — but only for
+    // KPIs whose category is allowed; restricted KPI values never enter the payload.
     const kpiValues: SnapshotPayload['kpiValues'] = {};
     await Promise.all(
       Array.from(kpiIds).map(async (kpiId) => {
+        // Resolve the KPI's category to gate it against the allowlist.
+        // null allowlist short-circuits the category lookup (parity / admin).
+        if (allowlist != null) {
+          const kpi = await this.prisma.kPI.findFirst({
+            where: { organizationId: ctx.organizationId, id: kpiId },
+            select: { categoryId: true },
+          });
+          if (!isCategoryAllowed(allowlist, kpi?.categoryId ?? null)) {
+            // Restricted: omit entirely — the value must not be persisted.
+            return;
+          }
+        }
+
         const point = await this.prisma.kPIDataPoint.findFirst({
           where: { organizationId: ctx.organizationId, kpiId },
           orderBy: { recordedAt: 'desc' },

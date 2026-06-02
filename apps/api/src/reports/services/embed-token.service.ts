@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { GoneException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
+import { KpisService } from '../../kpis/kpis.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 
@@ -56,7 +57,10 @@ function hmacSign(payloadB64: string): string {
 export class EmbedTokenService {
   private readonly logger = new Logger(EmbedTokenService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly kpis: KpisService,
+  ) {}
 
   /**
    * Mint a compact stateless HMAC embed token for the given KPI.
@@ -66,6 +70,13 @@ export class EmbedTokenService {
    */
   async mint(kpiId: string): Promise<string> {
     const ctx = RequestContextStore.require();
+    // SECURITY: route the existence check through KpisService.getById so the
+    // Phase-3 category allowlist + PER_USER/PER_UNIT scope visibility is enforced.
+    // getById() 404s any KPI the caller cannot see, so a non-admin can no longer
+    // mint a public embed token for a category-restricted or out-of-scope KPI.
+    await this.kpis.getById(kpiId);
+    // getById's PublicKpi select does not include embedTokenVersion, so fetch it
+    // here (already org-scoped + soft-delete-filtered by the guard above).
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
       select: { embedTokenVersion: true },
@@ -91,6 +102,9 @@ export class EmbedTokenService {
    */
   async revoke(kpiId: string): Promise<{ embedTokenVersion: number }> {
     const ctx = RequestContextStore.require();
+    // SECURITY: gate revocation through the same visibility check as mint() so a
+    // non-admin cannot probe/affect category-restricted or out-of-scope KPIs.
+    await this.kpis.getById(kpiId);
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
       select: { id: true },

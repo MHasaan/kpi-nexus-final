@@ -123,5 +123,20 @@ export type DataTypeConfig = z.infer<typeof DataTypeConfigSchema>;
 ## Deferred (explicit)
 - `orgUnitIds` / `dashboardIds` allowlist enforcement → later refinement.
 - **ResourcePermission** additive grants + `@RequireResourceAccess` decorator + guard hook + canonical action enum → **Phase 3.5**.
-- `SearchService.search` + `InsightsService.generateBatch` apply no visibility today (pre-existing scope gap) → separate hardening slice.
+- `SearchService.search`, `InsightsService.generateBatch`, **`RecommendationsService.list`** apply no KPI visibility today (pre-existing scope gap — they expose KPI names / AI-derived text regardless of scope OR category) → separate hardening slice that routes them through the visibility builder.
 - Per-user overrides → Phase 5. Access Center UI (incl. category picker) → Phase 6.
+
+## Adversarial-review hardening (post-implementation)
+
+A 4-dimension adversarial review (22 agents) confirmed **12 issues**. The category filter at first
+covered only `buildKpiVisibilityWhere` + `kpi-data` — the review found **sibling KPI read paths that
+bypassed it**. All confirmed *leaks* are closed in the hardening commits via the shared
+`isCategoryAllowed` + `AccessContextService.kpiCategoryAllowlist()`:
+embed-token mint, org-unit-kpi list, cascade list/tree, targets/threshold-bands/benchmarks,
+dashboard snapshots + share-links, user-kpi (my-kpis/team) lists. Defense-in-depth: `loadRoleConfig`
+now reads the role **org-scoped**; role `dataTypeConfig.kpiCategoryIds` is **tenant-validated** on write.
+
+**Accepted by design (documented, not changed):** a non-null allowlist also hides **uncategorized
+(categoryId = null) KPIs** — including org-level metrics — consistently across all sites (matches
+`categoryId IN (…)` SQL semantics + the `[] = none` rule). An admin setting an allowlist should know it
+excludes uncategorized KPIs. Revisit (keep null-category visible) if product wants it.

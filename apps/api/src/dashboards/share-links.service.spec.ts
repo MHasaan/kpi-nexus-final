@@ -29,6 +29,7 @@ vi.mock('bcrypt', () => ({
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import type { DashboardsService, PublicDashboard } from './dashboards.service.js';
 import { ShareLinksService } from './share-links.service.js';
@@ -98,6 +99,18 @@ interface FakeDataPoint {
   recordedAt: Date;
 }
 
+interface FakeKpi {
+  organizationId: string;
+  id: string;
+  categoryId: string | null;
+}
+
+interface FakeUser {
+  id: string;
+  organizationId: string;
+  roleId: string | null;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // FakePrisma
 // ────────────────────────────────────────────────────────────────────────────
@@ -107,6 +120,8 @@ class FakePrisma {
   linkStore: FakeLink[] = [];
   dashboardStore: FakeDashboardRow[] = [];
   dataPointStore: FakeDataPoint[] = [];
+  kpiStore: FakeKpi[] = [];
+  userStore: FakeUser[] = [];
 
   dashboardShareLink = {
     create: vi.fn(async ({ data }: { data: Partial<FakeLink> & { data?: unknown } }) => {
@@ -204,6 +219,36 @@ class FakePrisma {
     ),
   };
 
+  kPI = {
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { organizationId: string; id: string };
+      }) => {
+        const kpi = this.kpiStore.find(
+          (k) => k.organizationId === where.organizationId && k.id === where.id,
+        );
+        return kpi ? { categoryId: kpi.categoryId } : null;
+      },
+    ),
+  };
+
+  user = {
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { id: string; organizationId: string };
+      }) => {
+        const u = this.userStore.find(
+          (x) => x.id === where.id && x.organizationId === where.organizationId,
+        );
+        return u ? { id: u.id, roleId: u.roleId } : null;
+      },
+    ),
+  };
+
   private matchLink(l: FakeLink, where: Record<string, unknown>): boolean {
     if (where['id'] !== undefined && l.id !== where['id']) return false;
     if (where['organizationId'] !== undefined && l.organizationId !== where['organizationId'])
@@ -223,6 +268,23 @@ class FakeAudit {
   records: Array<Record<string, unknown>> = [];
   record = vi.fn(async (input: Record<string, unknown>) => {
     this.records.push(input);
+  });
+}
+
+/**
+ * Controllable AccessContextService stub. `kpiCategoryAllowlist()` resolves the
+ * allowlist for the *current* principal (the service re-establishes the link
+ * creator's context before calling it), keyed here by userId so a test can
+ * give different creators different allowlists. `null` ⇒ all (parity / admin).
+ */
+class FakeAccessContext {
+  /** Per-user allowlist; default (any user not listed) is null = parity. */
+  allowlistByUser = new Map<string, readonly string[] | null>();
+  kpiCategoryAllowlist = vi.fn(async () => {
+    const ctx = RequestContextStore.require();
+    return this.allowlistByUser.has(ctx.userId)
+      ? (this.allowlistByUser.get(ctx.userId) ?? null)
+      : null;
   });
 }
 
@@ -275,16 +337,24 @@ function makeDashboardStub(opts: {
 function makeService(opts: {
   dashboardStub?: DashboardsService;
   prisma?: FakePrisma;
-} = {}): { service: ShareLinksService; prisma: FakePrisma; audit: FakeAudit } {
+  accessContext?: FakeAccessContext;
+} = {}): {
+  service: ShareLinksService;
+  prisma: FakePrisma;
+  audit: FakeAudit;
+  accessContext: FakeAccessContext;
+} {
   const prisma = opts.prisma ?? new FakePrisma();
   const audit = new FakeAudit();
   const dashboards = opts.dashboardStub ?? makeDashboardStub();
+  const accessContext = opts.accessContext ?? new FakeAccessContext();
   const service = new ShareLinksService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     dashboards,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, audit };
+  return { service, prisma, audit, accessContext };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -578,6 +648,16 @@ describe('ShareLinksService.resolve', () => {
       widgets: [],
     });
 
+    // The link creator must exist for resolveCreatorAllowlist to resolve their
+    // allowlist (a missing creator fails closed). Default role ⇒ null allowlist.
+    if (!prisma.userStore.some((u) => u.id === link.createdById)) {
+      prisma.userStore.push({
+        id: link.createdById,
+        organizationId: link.organizationId,
+        roleId: null,
+      });
+    }
+
     return link;
   }
 
@@ -715,5 +795,102 @@ describe('ShareLinksService.resolve', () => {
     expect(result).not.toHaveProperty('passwordHash');
     expect(result).not.toHaveProperty('token');
     expect(result.dashboard.id).toBe(DASH_ID);
+  });
+
+  // -------------------------------------------------------------------------
+  // Layer-3 category allowlist (Phase 3 security): the public payload is gated
+  // by the LINK CREATOR's KPI category allowlist.
+  // -------------------------------------------------------------------------
+
+  /** Seed a link + dashboard with two KPI widgets (cat_a allowed, cat_b restricted). */
+  function seedTwoCategoryLink(prisma: FakePrisma): void {
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [
+      {
+        id: 'w_allowed',
+        widgetType: 'kpi_card',
+        title: 'Allowed',
+        config: { kpiId: 'kpi_allowed' },
+        position: { x: 0, y: 0, w: 4, h: 2 },
+        sortOrder: 0,
+      },
+      {
+        id: 'w_restricted',
+        widgetType: 'kpi_card',
+        title: 'Restricted',
+        config: { kpiId: 'kpi_restricted' },
+        position: { x: 4, y: 0, w: 4, h: 2 },
+        sortOrder: 1,
+      },
+    ];
+    prisma.kpiStore.push(
+      { organizationId: ORG, id: 'kpi_allowed', categoryId: 'cat_a' },
+      { organizationId: ORG, id: 'kpi_restricted', categoryId: 'cat_b' },
+    );
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'kpi_allowed', value: 10, recordedAt: new Date('2026-01-01') },
+      { organizationId: ORG, kpiId: 'kpi_restricted', value: 999, recordedAt: new Date('2026-01-02') },
+    );
+  }
+
+  test('restricted-category KPI value is omitted from the public payload (leak closed)', async () => {
+    const prisma = new FakePrisma();
+    seedTwoCategoryLink(prisma);
+    const accessContext = new FakeAccessContext();
+    // The creator (u1) may only see cat_a; cat_b (kpi_restricted) is off-limits.
+    accessContext.allowlistByUser.set('u1', ['cat_a']);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_allowed']).toMatchObject({ latestValue: 10 });
+    // The restricted KPI's value must never reach the public share output.
+    expect(result.kpiValues['kpi_restricted']).toBeUndefined();
+    // The allowlist was resolved under the creator's context, not the bypass principal.
+    expect(accessContext.kpiCategoryAllowlist).toHaveBeenCalled();
+  });
+
+  test('null creator allowlist ⇒ all values present (parity)', async () => {
+    const prisma = new FakePrisma();
+    seedTwoCategoryLink(prisma);
+    const accessContext = new FakeAccessContext();
+    // Creator u1 has no category restriction (null) — parity with pre-fix behaviour.
+    accessContext.allowlistByUser.set('u1', null);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_allowed']).toMatchObject({ latestValue: 10 });
+    expect(result.kpiValues['kpi_restricted']).toMatchObject({ latestValue: 999 });
+    // Parity: a null allowlist short-circuits the per-KPI category lookup.
+    expect(prisma.kPI.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('a null-category KPI is hidden when the creator has an allowlist', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [
+      {
+        id: 'w_uncat',
+        widgetType: 'kpi_card',
+        title: 'Uncategorized',
+        config: { kpiId: 'kpi_uncategorized' },
+        position: { x: 0, y: 0, w: 4, h: 2 },
+        sortOrder: 0,
+      },
+    ];
+    prisma.kpiStore.push({ organizationId: ORG, id: 'kpi_uncategorized', categoryId: null });
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_uncategorized',
+      value: 7,
+      recordedAt: new Date('2026-01-01'),
+    });
+    const accessContext = new FakeAccessContext();
+    accessContext.allowlistByUser.set('u1', ['cat_a']);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+    expect(result.kpiValues['kpi_uncategorized']).toBeUndefined();
   });
 });

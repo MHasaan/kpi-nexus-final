@@ -11,6 +11,8 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
 import type { CreateShareLinkDto } from './dto/dashboard.dto.js';
@@ -66,6 +68,9 @@ const resolveSelect = {
   passwordHash: true,
   revokedAt: true,
   lastViewedAt: true,
+  // createdById — used to gate the public payload by the link creator's KPI
+  // category allowlist (Phase 3 security); never surfaced in the output.
+  createdById: true,
 } satisfies Prisma.DashboardShareLinkSelect;
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -119,6 +124,7 @@ export class ShareLinksService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly dashboards: DashboardsService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /**
@@ -318,10 +324,32 @@ export class ShareLinksService {
         }
       }
 
-      // Fetch the latest data point for each kpiId within the org.
+      // Layer-3 category gate (Phase 3 security): the public viewer is anonymous,
+      // so we gate the payload by the LINK CREATOR's KPI category allowlist — a
+      // restricted creator must not be able to leak restricted-category KPI values
+      // through a public link. `null` ⇒ all (admin / unconfigured creator) = parity.
+      const allowlist = await this.resolveCreatorAllowlist(
+        link.organizationId,
+        link.createdById,
+      );
+
+      // Fetch the latest data point for each allowed kpiId within the org;
+      // restricted KPI values never enter the public payload.
       const kpiValues: ShareLinkResolvedPayload['kpiValues'] = {};
       await Promise.all(
         Array.from(kpiIds).map(async (kpiId) => {
+          // null allowlist short-circuits the category lookup (parity / admin).
+          if (allowlist != null) {
+            const kpi = await this.prisma.kPI.findFirst({
+              where: { organizationId: link.organizationId, id: kpiId },
+              select: { categoryId: true },
+            });
+            if (!isCategoryAllowed(allowlist, kpi?.categoryId ?? null)) {
+              // Restricted: omit entirely — the value must not be exposed publicly.
+              return;
+            }
+          }
+
           const point = await this.prisma.kPIDataPoint.findFirst({
             where: { organizationId: link.organizationId, kpiId },
             orderBy: { recordedAt: 'desc' },
@@ -354,5 +382,35 @@ export class ShareLinksService {
         kpiValues,
       };
     });
+  }
+
+  /**
+   * Resolve the KPI category allowlist (`null` ⇒ all / admin) of the user who
+   * created a share link. The public `resolve()` path runs unauthenticated under
+   * `runWithBypass`, so there is no principal to resolve from — we re-establish
+   * the creator's request context (org + user + role) and ask the shared
+   * `AccessContextService`, ensuring the public payload is gated by exactly the
+   * restrictions the creator is subject to. Missing creator ⇒ deny all (`[]`).
+   */
+  private async resolveCreatorAllowlist(
+    organizationId: string,
+    createdById: string,
+  ): Promise<readonly string[] | null> {
+    const creator = await this.prisma.user.findFirst({
+      where: { id: createdById, organizationId },
+      select: { id: true, roleId: true },
+    });
+    // A deleted/missing creator can't vouch for any category — fail closed.
+    if (!creator) return [];
+
+    return RequestContextStore.run(
+      {
+        userId: creator.id,
+        organizationId,
+        roleId: creator.roleId,
+        principalType: 'user',
+      },
+      () => this.accessContext.kpiCategoryAllowlist(),
+    );
   }
 }

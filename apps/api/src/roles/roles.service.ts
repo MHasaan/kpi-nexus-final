@@ -137,8 +137,26 @@ export class RolesService {
     dto: UpdateRoleDto,
     opts: { bypassApproval?: boolean } = {},
   ): Promise<PublicRole> {
+    const ctx = RequestContextStore.require();
     // Verify the role belongs to the tenant before updating
     const existing = await this.getById(id);
+
+    // Tenant-validate the KPI category allowlist before persisting — every id
+    // must resolve to a kPICategory in this org. Mirrors the categoryId check
+    // in kpis.service.ts. Prevents storing foreign/unknown category ids.
+    const categoryIds = dto.dataTypeConfig?.kpiCategoryIds;
+    if (categoryIds && categoryIds.length > 0) {
+      const found = await this.prisma.kPICategory.findMany({
+        where: { id: { in: categoryIds }, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (found.length !== new Set(categoryIds).size) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'dataTypeConfig.kpiCategoryIds contains unknown categories',
+        });
+      }
+    }
 
     // Approval seam: gate only sensitive permission changes (permissions /
     // isAdmin). Cosmetic edits (name, color) flow through untouched.

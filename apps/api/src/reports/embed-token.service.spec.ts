@@ -13,6 +13,8 @@
 import { describe, expect, test, vi } from 'vitest';
 import { GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
+import type { KpisService } from '../kpis/kpis.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import { EmbedTokenService } from './services/embed-token.service.js';
 
@@ -48,6 +50,8 @@ interface FakeKpi {
   direction: string;
   embedTokenVersion: number;
   deletedAt: Date | null;
+  /** Phase-3 category allowlist gating: null ⇒ uncategorised. */
+  categoryId?: string | null;
 }
 
 interface FakeDataPoint {
@@ -102,13 +106,42 @@ class FakePrisma {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Fake KpisService — mirrors the real getById() visibility gate that mint()/revoke()
+// now route through. It 404s missing/soft-deleted KPIs and, when an allowlist is
+// set, hides KPIs whose category is not allowed (Phase-3 parity via isCategoryAllowed).
+// allowlist === null ⇒ admin/all (parity) — never hides anything.
+// ──────────────────────────────────────────────────────────────────────────────
+
+class FakeKpisService {
+  /** null ⇒ all/admin (parity); [] ⇒ none; [ids] ⇒ only those. */
+  allowlist: readonly string[] | null = null;
+
+  constructor(private readonly prisma: FakePrisma) {}
+
+  getById = vi.fn(async (id: string) => {
+    const ctx = RequestContextStore.require();
+    const kpi = this.prisma.kpiStore.find(
+      (k) => k.id === id && k.organizationId === ctx.organizationId && k.deletedAt === null,
+    );
+    if (!kpi) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
+    if (!isCategoryAllowed(this.allowlist, kpi.categoryId ?? null)) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
+    return kpi;
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Tests
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe('EmbedTokenService', () => {
-  function makeService(prisma: FakePrisma) {
+  function makeService(prisma: FakePrisma, kpis: FakeKpisService = new FakeKpisService(prisma)) {
     return new EmbedTokenService(
       prisma as unknown as import('../prisma/prisma.service.js').PrismaService,
+      kpis as unknown as KpisService,
     );
   }
 
@@ -365,6 +398,98 @@ describe('EmbedTokenService', () => {
     const freshToken = await withCtx({}, () => service.mint(KPI_ID));
 
     const snapshot = await service.resolve(freshToken);
+    expect(snapshot.kpiId).toBe(KPI_ID);
+    expect(snapshot.latestValue).toBe(750);
+  });
+
+  // ── SECURITY: Phase-3 category allowlist on mint()/revoke() ──────────────────
+  // Closes the embed-token leak — a non-admin could previously mint a public
+  // token for a category-restricted (or out-of-scope) KPI and read its name +
+  // value series via the @Public resolve endpoint. mint()/revoke() now route the
+  // lookup through KpisService.getById(), which enforces the allowlist (404s).
+
+  function pushCategorisedKpi(prisma: FakePrisma, categoryId: string | null) {
+    prisma.kpiStore.push({
+      id: KPI_ID,
+      organizationId: ORG,
+      name: 'Confidential Revenue',
+      unit: 'USD',
+      targetValue: 1000,
+      warningThreshold: 500,
+      criticalThreshold: 200,
+      direction: 'HIGHER_IS_BETTER',
+      embedTokenVersion: 0,
+      deletedAt: null,
+      categoryId,
+    });
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: KPI_ID,
+      recordedAt: new Date('2026-05-01'),
+      value: 750,
+    });
+  }
+
+  test('mint on a category-restricted KPI → NotFoundException (leak closed)', async () => {
+    const prisma = new FakePrisma();
+    pushCategorisedKpi(prisma, 'cat_finance');
+    const kpis = new FakeKpisService(prisma);
+    // Caller is allowed only the "marketing" category — finance KPI is hidden.
+    kpis.allowlist = ['cat_marketing'];
+    const service = makeService(prisma, kpis);
+
+    await expect(withCtx({}, () => service.mint(KPI_ID))).rejects.toBeInstanceOf(NotFoundException);
+    // The KPI was never inspected for an embedTokenVersion past the guard.
+    expect(kpis.getById).toHaveBeenCalledWith(KPI_ID);
+  });
+
+  test('mint hides an uncategorised KPI when an allowlist is set (null category)', async () => {
+    const prisma = new FakePrisma();
+    pushCategorisedKpi(prisma, null);
+    const kpis = new FakeKpisService(prisma);
+    kpis.allowlist = ['cat_marketing'];
+    const service = makeService(prisma, kpis);
+
+    await expect(withCtx({}, () => service.mint(KPI_ID))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('revoke on a category-restricted KPI → NotFoundException (leak closed)', async () => {
+    const prisma = new FakePrisma();
+    pushCategorisedKpi(prisma, 'cat_finance');
+    const kpis = new FakeKpisService(prisma);
+    kpis.allowlist = ['cat_marketing'];
+    const service = makeService(prisma, kpis);
+
+    await expect(withCtx({}, () => service.revoke(KPI_ID))).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    // Version must NOT have been bumped — the guard short-circuited before update.
+    expect(prisma.kpiStore[0]!.embedTokenVersion).toBe(0);
+  });
+
+  test('mint succeeds when the KPI category is on the allowlist (parity)', async () => {
+    const prisma = new FakePrisma();
+    pushCategorisedKpi(prisma, 'cat_finance');
+    const kpis = new FakeKpisService(prisma);
+    kpis.allowlist = ['cat_finance', 'cat_marketing'];
+    const service = makeService(prisma, kpis);
+
+    const token = await withCtx({}, () => service.mint(KPI_ID));
+    expect(typeof token).toBe('string');
+    const snapshot = await service.resolve(token);
+    expect(snapshot.kpiId).toBe(KPI_ID);
+    expect(snapshot.latestValue).toBe(750);
+  });
+
+  test('mint succeeds for admins / null allowlist regardless of category (parity)', async () => {
+    const prisma = new FakePrisma();
+    pushCategorisedKpi(prisma, 'cat_finance');
+    const kpis = new FakeKpisService(prisma);
+    kpis.allowlist = null; // admin / unconfigured ⇒ all categories
+    const service = makeService(prisma, kpis);
+
+    const token = await withCtx({}, () => service.mint(KPI_ID));
+    const snapshot = await service.resolve(token);
     expect(snapshot.kpiId).toBe(KPI_ID);
     expect(snapshot.latestValue).toBe(750);
   });

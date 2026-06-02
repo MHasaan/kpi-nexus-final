@@ -4,6 +4,8 @@ import type { Prisma } from '@kpi-nexus/db';
 import { AuditService } from '../audit/audit.service.js';
 import { CascadeService, type RollupResult } from '../kpis/cascade.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type CascadeEdge, computeLevels, wouldCreateCycle } from './cascade-graph.js';
 import type { AttachCascadeDto } from './dto/cascade.dto.js';
@@ -36,15 +38,32 @@ export class KpiCascadesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly cascade: CascadeService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   async list(): Promise<PublicCascade[]> {
     const ctx = RequestContextStore.require();
-    return this.prisma.kPICascade.findMany({
+    // Layer-3 category allowlist (null ⇒ all / admin). When set, drop any edge whose
+    // parent OR child KPI is outside the allowed categories so restricted KPI ids/names
+    // never surface — mirrors `isCategoryAllowed` (null-category KPI hidden once set).
+    const allowlist = await this.accessContext.kpiCategoryAllowlist();
+    const rows = await this.prisma.kPICascade.findMany({
       where: { organizationId: ctx.organizationId },
-      select: cascadeSelect,
+      select: {
+        ...cascadeSelect,
+        parentKpi: { select: { categoryId: true } },
+        childKpi: { select: { categoryId: true } },
+      },
       orderBy: [{ level: 'asc' }, { createdAt: 'asc' }],
     });
+    return rows
+      .filter(
+        (r) =>
+          isCategoryAllowed(allowlist, r.parentKpi.categoryId) &&
+          isCategoryAllowed(allowlist, r.childKpi.categoryId),
+      )
+      // Strip the join-only category fields — preserve the PublicCascade shape exactly.
+      .map(({ parentKpi: _parentKpi, childKpi: _childKpi, ...rest }) => rest);
   }
 
   async attach(dto: AttachCascadeDto): Promise<PublicCascade> {
@@ -102,16 +121,25 @@ export class KpiCascadesService {
 
   async tree(): Promise<CascadeTreeNode[]> {
     const ctx = RequestContextStore.require();
+    // Layer-3 category allowlist (null ⇒ all / admin) — same drop-the-edge filter as
+    // list(): a restricted parent OR child hides the whole edge so its id/name never leaks.
+    const allowlist = await this.accessContext.kpiCategoryAllowlist();
     const rows = await this.prisma.kPICascade.findMany({
       where: { organizationId: ctx.organizationId },
       include: {
-        parentKpi: { select: { id: true, name: true } },
-        childKpi: { select: { id: true, name: true } },
+        parentKpi: { select: { id: true, name: true, categoryId: true } },
+        childKpi: { select: { id: true, name: true, categoryId: true } },
       },
       orderBy: [{ level: 'asc' }, { createdAt: 'asc' }],
     });
     const byParent = new Map<string, CascadeTreeNode>();
     for (const r of rows) {
+      if (
+        !isCategoryAllowed(allowlist, r.parentKpi.categoryId) ||
+        !isCategoryAllowed(allowlist, r.childKpi.categoryId)
+      ) {
+        continue;
+      }
       let node = byParent.get(r.parentKpiId);
       if (!node) {
         node = { parentKpiId: r.parentKpiId, parentName: r.parentKpi.name, level: r.level, children: [] };

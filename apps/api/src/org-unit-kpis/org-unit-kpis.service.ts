@@ -6,6 +6,8 @@ import {
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type UnitNode, computeInheritedAssignments } from './inheritance.js';
 
@@ -26,6 +28,7 @@ export class OrgUnitKpisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /** Assign a PER_UNIT KPI directly to a unit, then cascade inherited rows down. */
@@ -94,6 +97,9 @@ export class OrgUnitKpisService {
   async list(orgUnitId: string): Promise<UnitKpiRow[]> {
     const ctx = RequestContextStore.require();
     await this.requireUnit(orgUnitId);
+    // Layer-3 category allowlist (Phase 3): null ⇒ all/admin. When set, hide
+    // assignments whose KPI is in a disallowed (or null) category.
+    const allowlist = await this.accessContext.kpiCategoryAllowlist();
     const rows = await this.prisma.kPIAssignmentOrgUnit.findMany({
       where: { orgUnitId, organizationId: ctx.organizationId },
       select: {
@@ -104,21 +110,23 @@ export class OrgUnitKpisService {
         targetValue: true,
         currentValue: true,
         status: true,
-        kpi: { select: { name: true, unit: true } },
+        kpi: { select: { name: true, unit: true, categoryId: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
-    return rows.map((r) => ({
-      assignmentId: r.id,
-      kpiId: r.kpiId,
-      name: r.kpi.name,
-      unit: r.kpi.unit,
-      inherited: r.inherited,
-      inheritedFromUnitId: r.inheritedFromUnitId,
-      targetValue: r.targetValue,
-      currentValue: r.currentValue,
-      status: r.status,
-    }));
+    return rows
+      .filter((r) => isCategoryAllowed(allowlist, r.kpi.categoryId))
+      .map((r) => ({
+        assignmentId: r.id,
+        kpiId: r.kpiId,
+        name: r.kpi.name,
+        unit: r.kpi.unit,
+        inherited: r.inherited,
+        inheritedFromUnitId: r.inheritedFromUnitId,
+        targetValue: r.targetValue,
+        currentValue: r.currentValue,
+        status: r.status,
+      }));
   }
 
   /**

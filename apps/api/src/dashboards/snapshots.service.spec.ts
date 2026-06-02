@@ -14,6 +14,7 @@ import { NotFoundException } from '@nestjs/common';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import type { DashboardsService, PublicDashboard } from './dashboards.service.js';
 import { SnapshotService } from './snapshots.service.js';
@@ -65,6 +66,12 @@ interface FakeDataPoint {
   recordedAt: Date;
 }
 
+interface FakeKpi {
+  organizationId: string;
+  id: string;
+  categoryId: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Fakes
 // ---------------------------------------------------------------------------
@@ -73,6 +80,7 @@ class FakePrisma {
   private nextId = 1;
   snapshotStore: FakeSnapshot[] = [];
   dataPointStore: FakeDataPoint[] = [];
+  kpiStore: FakeKpi[] = [];
 
   dashboardSnapshot = {
     create: vi.fn(async ({ data }: { data: Partial<FakeSnapshot> }) => {
@@ -128,6 +136,22 @@ class FakePrisma {
     ),
   };
 
+  kPI = {
+    findFirst: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { organizationId: string; id: string };
+        select?: unknown;
+      }) => {
+        const kpi = this.kpiStore.find(
+          (k) => k.organizationId === where.organizationId && k.id === where.id,
+        );
+        return kpi ? { categoryId: kpi.categoryId } : null;
+      },
+    ),
+  };
+
   private matchSnap(s: FakeSnapshot, where: Record<string, unknown>): boolean {
     if (where.id && s.id !== where.id) return false;
     if (where.organizationId && s.organizationId !== where.organizationId)
@@ -142,6 +166,16 @@ class FakeAudit {
   record = vi.fn(async (input: Record<string, unknown>) => {
     this.records.push(input);
   });
+}
+
+/**
+ * Controllable AccessContextService stub. `allowlist` drives the Layer-3 KPI
+ * category gate: `null` ⇒ all categories (admin / unconfigured = parity);
+ * `[ids]` ⇒ only those; `[]` ⇒ none.
+ */
+class FakeAccessContext {
+  allowlist: readonly string[] | null = null;
+  kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
 }
 
 // A stub for DashboardsService. `getById` can be configured to throw or return a dashboard.
@@ -186,16 +220,24 @@ function makeDashboardStub(
 function makeService(opts: {
   dashboardStub?: DashboardsService;
   prisma?: FakePrisma;
-} = {}): { service: SnapshotService; prisma: FakePrisma; audit: FakeAudit } {
+  accessContext?: FakeAccessContext;
+} = {}): {
+  service: SnapshotService;
+  prisma: FakePrisma;
+  audit: FakeAudit;
+  accessContext: FakeAccessContext;
+} {
   const prisma = opts.prisma ?? new FakePrisma();
   const audit = new FakeAudit();
   const dashboards = opts.dashboardStub ?? makeDashboardStub();
+  const accessContext = opts.accessContext ?? new FakeAccessContext();
   const service = new SnapshotService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     dashboards,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, audit };
+  return { service, prisma, audit, accessContext };
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +367,127 @@ describe('SnapshotService.capture', () => {
     const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
     const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
     expect(payload.kpiValues['kpi_no_data']).toMatchObject({ latestValue: null });
+  });
+
+  // -------------------------------------------------------------------------
+  // Layer-3 category allowlist (Phase 3 security)
+  // -------------------------------------------------------------------------
+
+  /** Two-KPI dashboard: kpi_allowed (cat_a), kpi_restricted (cat_b). */
+  function makeTwoCategoryDashboard(): DashboardsService {
+    return makeDashboardStub({
+      dashboard: {
+        id: 'dash_1',
+        widgets: [
+          {
+            id: 'w1',
+            widgetType: 'kpi_card',
+            title: 'Allowed',
+            config: { kpiId: 'kpi_allowed' },
+            position: { x: 0, y: 0, w: 4, h: 2 },
+            sortOrder: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: 'w2',
+            widgetType: 'kpi_card',
+            title: 'Restricted',
+            config: { kpiId: 'kpi_restricted' },
+            position: { x: 4, y: 0, w: 4, h: 2 },
+            sortOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ] as PublicDashboard['widgets'],
+      },
+    });
+  }
+
+  function seedTwoCategoryPrisma(): FakePrisma {
+    const prisma = new FakePrisma();
+    prisma.kpiStore.push(
+      { organizationId: ORG, id: 'kpi_allowed', categoryId: 'cat_a' },
+      { organizationId: ORG, id: 'kpi_restricted', categoryId: 'cat_b' },
+    );
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'kpi_allowed', value: 10, recordedAt: new Date('2026-01-01') },
+      { organizationId: ORG, kpiId: 'kpi_restricted', value: 999, recordedAt: new Date('2026-01-02') },
+    );
+    return prisma;
+  }
+
+  test('omits a restricted-category KPI value from the captured payload (leak closed)', async () => {
+    const prisma = seedTwoCategoryPrisma();
+    const accessContext = new FakeAccessContext();
+    accessContext.allowlist = ['cat_a']; // cat_b (kpi_restricted) is NOT allowed
+    const { service } = makeService({
+      dashboardStub: makeTwoCategoryDashboard(),
+      prisma,
+      accessContext,
+    });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+
+    // Allowed KPI present with its value …
+    expect(payload.kpiValues['kpi_allowed']).toMatchObject({ latestValue: 10 });
+    // … restricted KPI's value must never enter the persisted payload.
+    expect(payload.kpiValues['kpi_restricted']).toBeUndefined();
+  });
+
+  test('null allowlist ⇒ all values present (admin / unconfigured parity)', async () => {
+    const prisma = seedTwoCategoryPrisma();
+    const accessContext = new FakeAccessContext();
+    accessContext.allowlist = null; // parity — no category restriction
+    const { service } = makeService({
+      dashboardStub: makeTwoCategoryDashboard(),
+      prisma,
+      accessContext,
+    });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+
+    expect(payload.kpiValues['kpi_allowed']).toMatchObject({ latestValue: 10 });
+    expect(payload.kpiValues['kpi_restricted']).toMatchObject({ latestValue: 999 });
+    // Parity: the category lookup must be short-circuited for a null allowlist.
+    expect(prisma.kPI.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('a null-category KPI is hidden when an allowlist is set', async () => {
+    const prisma = new FakePrisma();
+    prisma.kpiStore.push({ organizationId: ORG, id: 'kpi_uncategorized', categoryId: null });
+    prisma.dataPointStore.push({
+      organizationId: ORG,
+      kpiId: 'kpi_uncategorized',
+      value: 7,
+      recordedAt: new Date('2026-01-01'),
+    });
+    const accessContext = new FakeAccessContext();
+    accessContext.allowlist = ['cat_a'];
+    const dashboardStub = makeDashboardStub({
+      dashboard: {
+        id: 'dash_1',
+        widgets: [
+          {
+            id: 'w1',
+            widgetType: 'kpi_card',
+            title: 'Uncategorized',
+            config: { kpiId: 'kpi_uncategorized' },
+            position: { x: 0, y: 0, w: 4, h: 2 },
+            sortOrder: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ] as PublicDashboard['widgets'],
+      },
+    });
+    const { service } = makeService({ dashboardStub, prisma, accessContext });
+
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+    expect(payload.kpiValues['kpi_uncategorized']).toBeUndefined();
   });
 });
 

@@ -62,6 +62,27 @@ class FakePrisma {
   roles: FakeRole[] = [];
   inheritances: FakeInheritance[] = [];
   auditLogs: FakeAuditLog[] = [];
+  /** Known KPI category ids per org — drives kPICategory.findMany tenant checks. */
+  categories: Array<{ id: string; organizationId: string }> = [];
+
+  kPICategory = {
+    findMany: vi.fn(
+      async ({
+        where,
+      }: {
+        where: { id?: { in?: string[] }; organizationId?: string };
+      }) => {
+        const ids = where.id?.in;
+        return this.categories
+          .filter(
+            (c) =>
+              (!where.organizationId || c.organizationId === where.organizationId) &&
+              (!ids || ids.includes(c.id)),
+          )
+          .map((c) => ({ id: c.id }));
+      },
+    ),
+  };
 
   roleDefinition = {
     findFirst: vi.fn(async ({ where }: { where: { id?: string; organizationId?: string } }) => {
@@ -542,6 +563,8 @@ describe('RolesService.update — dataTypeConfig', () => {
   test('persists dataTypeConfig (category allowlist) and invalidates both caches', async () => {
     const { service, prisma, resolver, accessContext } = makeService();
     prisma.roles.push(makeRole({ id: 'role_1' }));
+    // category must resolve in-tenant for the allowlist to persist
+    prisma.categories.push({ id: 'cat_sales', organizationId: ORG });
 
     const result = await withCtx(BASE_CTX, () =>
       service.update('role_1', { dataTypeConfig: { kpiCategoryIds: ['cat_sales'] } }),
@@ -560,5 +583,45 @@ describe('RolesService.update — dataTypeConfig', () => {
     const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
 
     expect(result.dataTypeConfig).toBeNull();
+  });
+
+  test('unknown / cross-tenant category id → BadRequestException (VALIDATION_ERROR), nothing persisted', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+    // cat_sales is in-tenant, but cat_foreign belongs to another org (or doesn't exist)
+    prisma.categories.push({ id: 'cat_sales', organizationId: ORG });
+    prisma.categories.push({ id: 'cat_foreign', organizationId: OTHER_ORG });
+
+    await expect(
+      withCtx(BASE_CTX, () =>
+        service.update('role_1', { dataTypeConfig: { kpiCategoryIds: ['cat_sales', 'cat_foreign'] } }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      withCtx(BASE_CTX, () =>
+        service.update('role_1', { dataTypeConfig: { kpiCategoryIds: ['cat_foreign'] } }),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR' } });
+
+    // the foreign allowlist must NOT have been written
+    expect(prisma.roles[0]!.dataTypeConfig).toBeUndefined();
+    expect(prisma.roleDefinition.update).not.toHaveBeenCalled();
+  });
+
+  test('all category ids resolve in-tenant → persists the allowlist', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+    prisma.categories.push(
+      { id: 'cat_sales', organizationId: ORG },
+      { id: 'cat_ops', organizationId: ORG },
+    );
+
+    const result = await withCtx(BASE_CTX, () =>
+      service.update('role_1', { dataTypeConfig: { kpiCategoryIds: ['cat_sales', 'cat_ops'] } }),
+    );
+
+    expect(result.dataTypeConfig).toEqual({ kpiCategoryIds: ['cat_sales', 'cat_ops'] });
+    expect(prisma.roleDefinition.update).toHaveBeenCalledOnce();
   });
 });

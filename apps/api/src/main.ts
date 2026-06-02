@@ -17,7 +17,9 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ trustProxy: true }),
+    // maxParamLength default is 100, which 404s long path params — e.g. the public
+    // embed-resolve token (/public/embed/kpi/:token, a ~200-char signed token).
+    new FastifyAdapter({ trustProxy: true, maxParamLength: 4096 }),
     { bufferLogs: true },
   );
 

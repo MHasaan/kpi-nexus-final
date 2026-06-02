@@ -322,7 +322,14 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const visibility = await this.buildVisibilityContext();
     const visibleKpis = await this.prisma.kPI.findMany({
-      where: { organizationId: ctx.organizationId, deletedAt: null },
+      where: {
+        organizationId: ctx.organizationId,
+        deletedAt: null,
+        // Layer-3 category allowlist (Phase 3) — null ⇒ all categories (parity).
+        ...(visibility.allowedCategoryIds != null
+          ? { categoryId: { in: [...visibility.allowedCategoryIds] } }
+          : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -456,6 +463,14 @@ export class KpiDataService {
     // For PER_USER + PER_UNIT KPIs, non-admin principals can only see
     // points scoped to themselves / their units / direct reports.
     const visibility = await this.buildVisibilityContext();
+    // Layer-3 category allowlist (Phase 3): hide data for a KPI outside the allowed
+    // categories the same way the list does — 404, no existence leak. null ⇒ all.
+    if (
+      visibility.allowedCategoryIds != null &&
+      !(kpi.categoryId != null && visibility.allowedCategoryIds.includes(kpi.categoryId))
+    ) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
     if (!visibility.isAdmin) {
       if (kpi.scope === 'PER_USER') {
         const allowedUsers = [visibility.userId, ...visibility.directReportIds];
@@ -485,7 +500,7 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, name: true, scope: true, allowNegative: true },
+      select: { id: true, name: true, scope: true, allowNegative: true, categoryId: true },
     });
     if (!kpi) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });

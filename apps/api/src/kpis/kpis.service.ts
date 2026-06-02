@@ -469,6 +469,15 @@ export class KpisService {
     kpi: PublicKpi,
     visibility: Awaited<ReturnType<KpisService['buildVisibilityContext']>>,
   ): Promise<boolean> {
+    // Layer-3 category allowlist (Phase 3): KPIs outside the allowed categories are
+    // hidden for everyone the filter applies to — including ORG_WIDE. A null allowlist
+    // (admins + unconfigured roles) means all categories (parity).
+    if (
+      visibility.allowedCategoryIds != null &&
+      !(kpi.categoryId != null && visibility.allowedCategoryIds.includes(kpi.categoryId))
+    ) {
+      return false;
+    }
     if (kpi.scope === 'ORG_WIDE') return true;
     if (kpi.scope === 'PER_UNIT') {
       const allowedUnits = new Set([

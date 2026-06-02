@@ -32,6 +32,7 @@ interface FakeRole {
   canAccessModules: string[];
   scopeConfig?: unknown;
   dataTypeConfig?: unknown;
+  dataLimits?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -623,5 +624,34 @@ describe('RolesService.update — dataTypeConfig', () => {
 
     expect(result.dataTypeConfig).toEqual({ kpiCategoryIds: ['cat_sales', 'cat_ops'] });
     expect(prisma.roleDefinition.update).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// update — dataLimits (Phase 4)
+// ---------------------------------------------------------------------------
+
+describe('RolesService.update — dataLimits', () => {
+  test('persists dataLimits and invalidates both caches', async () => {
+    const { service, prisma, resolver, accessContext } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () =>
+      service.update('role_1', { dataLimits: { historyWindowDays: 90, maxExportRows: 5000 } }),
+    );
+
+    expect(result.dataLimits).toEqual({ historyWindowDays: 90, maxExportRows: 5000 });
+    expect(prisma.roles[0]!.dataLimits).toEqual({ historyWindowDays: 90, maxExportRows: 5000 });
+    expect(resolver.invalidateAll).toHaveBeenCalled();
+    expect(accessContext.invalidateAll).toHaveBeenCalled();
+  });
+
+  test('a non-limits update leaves dataLimits null in the projection', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
+
+    expect(result.dataLimits).toBeNull();
   });
 });

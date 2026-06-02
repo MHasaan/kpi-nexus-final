@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DataTypeConfigSchema, ScopeConfigSchema } from '@kpi-nexus/contracts';
+import { DataLimitsConfigSchema, DataTypeConfigSchema, ScopeConfigSchema } from '@kpi-nexus/contracts';
 
 import { CreateRoleDtoSchema } from './create-role.dto.js';
 
@@ -8,5 +8,7 @@ export const UpdateRoleDtoSchema = CreateRoleDtoSchema.partial().extend({
   scopeConfig: ScopeConfigSchema.optional(),
   /** Layer-3 data-type (KPI category) allowlist for this role (Phase 3). */
   dataTypeConfig: DataTypeConfigSchema.optional(),
+  /** Layer-4 data limits (history window / row + export caps) for this role (Phase 4). */
+  dataLimits: DataLimitsConfigSchema.optional(),
 });
 export type UpdateRoleDto = z.infer<typeof UpdateRoleDtoSchema>;

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 
 import type { Prisma } from '@kpi-nexus/db';
-import type { ScopeConfig } from '@kpi-nexus/contracts';
+import type { DataTypeConfig, ScopeConfig } from '@kpi-nexus/contracts';
 
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -29,6 +29,7 @@ export interface PublicRole {
   color: string | null;
   canAccessModules: string[];
   scopeConfig: ScopeConfig | null;
+  dataTypeConfig: DataTypeConfig | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,15 +49,20 @@ const roleSelect = {
   color: true,
   canAccessModules: true,
   scopeConfig: true,
+  dataTypeConfig: true,
   createdAt: true,
   updatedAt: true,
 } as const;
 
 type RoleRow = Prisma.RoleDefinitionGetPayload<{ select: typeof roleSelect }>;
 
-/** Narrow Prisma's JsonValue `scopeConfig` to the typed `ScopeConfig` for the API. */
+/** Narrow Prisma's JsonValue config columns to their typed contract shapes for the API. */
 function toPublicRole(row: RoleRow): PublicRole {
-  return { ...row, scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null };
+  return {
+    ...row,
+    scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null,
+    dataTypeConfig: (row.dataTypeConfig as DataTypeConfig | null) ?? null,
+  };
 }
 
 @Injectable()
@@ -155,6 +161,7 @@ export class RolesService {
           color: dto.color,
           canAccessModules: dto.canAccessModules,
           scopeConfig: dto.scopeConfig ?? undefined,
+          dataTypeConfig: dto.dataTypeConfig ?? undefined,
         },
         select: roleSelect,
       });

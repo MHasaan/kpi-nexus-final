@@ -31,6 +31,7 @@ interface FakeRole {
   color: string | null;
   canAccessModules: string[];
   scopeConfig?: unknown;
+  dataTypeConfig?: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -530,5 +531,34 @@ describe('RolesService.update — scopeConfig', () => {
     const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
 
     expect(result.scopeConfig).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// update — dataTypeConfig (Phase 3)
+// ---------------------------------------------------------------------------
+
+describe('RolesService.update — dataTypeConfig', () => {
+  test('persists dataTypeConfig (category allowlist) and invalidates both caches', async () => {
+    const { service, prisma, resolver, accessContext } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () =>
+      service.update('role_1', { dataTypeConfig: { kpiCategoryIds: ['cat_sales'] } }),
+    );
+
+    expect(result.dataTypeConfig).toEqual({ kpiCategoryIds: ['cat_sales'] });
+    expect(prisma.roles[0]!.dataTypeConfig).toEqual({ kpiCategoryIds: ['cat_sales'] });
+    expect(resolver.invalidateAll).toHaveBeenCalled();
+    expect(accessContext.invalidateAll).toHaveBeenCalled();
+  });
+
+  test('a non-dataType update leaves dataTypeConfig null in the projection', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_1' }));
+
+    const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
+
+    expect(result.dataTypeConfig).toBeNull();
   });
 });

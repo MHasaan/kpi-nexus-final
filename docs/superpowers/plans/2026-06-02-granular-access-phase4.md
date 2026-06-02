@@ -87,3 +87,26 @@ EXPORTS-capability re-gating of `/reports/generate`.
 - General non-KPI list caps (audit/activity/alerts/search/notification-deliveries) → follow-up.
 - EXPORTS-capability re-gating of `/reports/generate` → follow-up.
 - Per-user overrides → Phase 5. Access Center UI (incl. limits editor) → Phase 6.
+
+## Adversarial-review hardening (post-implementation)
+
+A 22-agent adversarial review confirmed **9 issues**; all fixed in commit `ca5bb82`:
+- **Scheduled-report processor** ran *as the creator* (for visibility) and therefore silently
+  imported the creator's read quotas → cron reports truncated. Fixed with a `bypassDataLimits`
+  context flag honoured by `AccessContextService.dataLimits()`; visibility still applies.
+- **NLQ `/ask`** fed unbounded recent values to the LLM → now clamped by `historyWindowDays`.
+- **embed-token.resolve** (the deferred peripheral site) — now stamps the minter (`mby`) into the
+  token and clamps the public sparkline to the minter's window (legacy tokens ⇒ no clamp = parity).
+- **`maxListRows` distorted `dashboardSummary` aggregates** — removed there (it caps the raw
+  data-point *list*, not the aggregation input); `historyWindowDays` still bounds the aggregate window.
+- **`clampHistoryFrom` overflow** → degrades to parity; `DataLimitsSchema` gains sane `.max` caps.
+
+**Refuted (no change, intentional):** `POST /insights/generate` + `POST /recommendations/generate`
+read recent points unbounded, but AI-*generation* is the documented deferred family (Phase 3), not a
+plain read. Benchmarks (`days` is user-specified), OKR sync (internal materialization), and
+threshold-band status (derived label) are internal/by-design.
+
+**Accepted (documented):** the window bound is applied on `periodStart` in the list family
+(`listForKpi`/`dashboardSummary`, matching their existing `from`/`to`) and on `recordedAt` in the
+latest-point/ML-series reads (their order key). For a *backfilled* point these can diverge; each site
+is internally consistent. Single-axis unification is a possible later refinement.

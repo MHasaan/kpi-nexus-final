@@ -11,6 +11,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { PermissionKey, UserAccessOverrideSchema } from '@kpi-nexus/contracts';
+import type { AccessProfile } from '@kpi-nexus/contracts';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { OwnerOverride } from '../rbac/decorators/owner-override.decorator.js';
@@ -58,8 +59,15 @@ export class UsersController {
   }
 
   // -------------------------------------------------------------------------
-  // Per-user access override (Phase 5) — USERS_MANAGE only.
+  // Access Center (Phase 5/6) — USERS_MANAGE only.
   // -------------------------------------------------------------------------
+
+  /** Resolved "what can this user see?" — the target user's effective AccessProfile. */
+  @Get(':id/access-profile')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  getAccessProfile(@Param('id') id: string): Promise<AccessProfile> {
+    return this.users.getAccessProfile(id);
+  }
 
   @Get(':id/access-override')
   @RequirePermissions(PermissionKey.USERS_MANAGE)

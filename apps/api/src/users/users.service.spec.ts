@@ -122,7 +122,17 @@ function makeService() {
     // default caller is admin ⇒ the grant-escalation guard is a no-op; override per test.
     resolveForUser: vi.fn(async () => ({ isAdmin: true, permissions: new Set<string>() })),
   };
-  const accessContext = { invalidate: vi.fn() };
+  const accessContext = {
+    invalidate: vi.fn(),
+    resolveForCurrentPrincipal: vi.fn(async () => ({
+      isAdmin: false,
+      capabilities: ['KPI_VIEW'],
+      scopeByDomain: { KPIS: 'UNITS' },
+      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: [] },
+    })),
+  };
   const service = new UsersService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
@@ -321,5 +331,23 @@ describe('UsersService — access override hardening (Phase 5 review)', () => {
       withCtx({}, () => service.deleteAccessOverride('u_foreign')),
     ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
     expect(prisma.overrides).toHaveLength(0);
+  });
+});
+
+describe('UsersService.getAccessProfile (Phase 6)', () => {
+  test('resolves a target user profile under their context', async () => {
+    const { service, prisma, accessContext } = makeService();
+    seedUser(prisma, { id: 'u_target', roleId: 'r1' });
+    const profile = await withCtx({}, () => service.getAccessProfile('u_target'));
+    expect(profile.scopeByDomain.KPIS).toBe('UNITS');
+    expect(accessContext.resolveForCurrentPrincipal).toHaveBeenCalled();
+  });
+
+  test('a foreign-tenant user is not found', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_foreign', organizationId: 'org_beta' });
+    await expect(
+      withCtx({}, () => service.getAccessProfile('u_foreign')),
+    ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
   });
 });

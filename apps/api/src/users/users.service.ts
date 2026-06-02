@@ -12,6 +12,7 @@ import {
 
 import type { Prisma } from '@kpi-nexus/db';
 import type {
+  AccessProfile,
   DataLimitsConfig,
   DataTypeConfig,
   PermissionKey,
@@ -127,8 +128,29 @@ export class UsersService {
   }
 
   // ---------------------------------------------------------------------------
-  // Per-user access override (Phase 5)
+  // Per-user access override (Phase 5) + resolved-access preview (Phase 6)
   // ---------------------------------------------------------------------------
+
+  /**
+   * Resolve a TARGET user's full effective AccessProfile ("what can this user see?").
+   * Runs the resolver under the target's request context (same pattern as embed/
+   * share-link/scheduled-report). USERS_MANAGE-gated at the controller — it exposes
+   * another user's effective permissions/scope/limits.
+   */
+  async getAccessProfile(userId: string): Promise<AccessProfile> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { roleId: true },
+    });
+    if (!user) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+    return RequestContextStore.run(
+      { userId, organizationId: ctx.organizationId, roleId: user.roleId, principalType: 'user' },
+      () => this.accessContext.resolveForCurrentPrincipal(),
+    ) as Promise<AccessProfile>;
+  }
 
   /** The user's access override, or null when none is set. Org-scoped. */
   async getAccessOverride(userId: string): Promise<PublicAccessOverride | null> {

@@ -18,8 +18,8 @@ new FE page on the established design system. Gated by `USERS_MANAGE` (matches t
 - [x] Test (returns the target's profile; foreign user ⇒ 404). **Commit**.
 
 ## Task 2 — FE clients + labels
-- [ ] `api-client.ts`: `getUser`, `getUserAccessProfile`, `getAccessOverride`, `upsertAccessOverride`, `deleteAccessOverride` (+ `PublicAccessOverride` type, re-export access contracts).
-- [ ] `lib/permissions.ts`: `PERMISSION_LABELS` (25 keys → human labels) + `PERMISSION_GROUPS` (domain → keys) for the capability matrix. **Commit**.
+- [x] `api-client.ts`: `getUser`, `getUserAccessProfile`, `getAccessOverride`, `upsertAccessOverride`, `deleteAccessOverride` (+ `PublicAccessOverride` type, re-export access contracts).
+- [x] `lib/permissions.ts`: `PERMISSION_LABELS` (25 keys → human labels) + `PERMISSION_GROUPS` (domain → keys) for the capability matrix. **Commit**.
 
 ## Task 3 — FE Access Center page + nav
 - [ ] `app/settings/access/page.tsx`: AppShell + `RequirePermission USERS_MANAGE` + PageHeader; two-panel

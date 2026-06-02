@@ -5,7 +5,13 @@
  * envelope when present.
  */
 
-import type { AccessProfile } from '@kpi-nexus/contracts';
+import type {
+  AccessProfile,
+  DataLimitsConfig,
+  DataTypeConfig,
+  ScopeConfig,
+  UserAccessOverride,
+} from '@kpi-nexus/contracts';
 
 import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
@@ -332,6 +338,10 @@ export async function listUsers(): Promise<UserSummary[]> {
   return api('/users');
 }
 
+export async function getUser(id: string): Promise<UserSummary> {
+  return api(`/users/${id}`);
+}
+
 export async function inviteUser(body: {
   email: string;
   fullName: string;
@@ -382,6 +392,49 @@ export async function previewInvitation(
     body: JSON.stringify({ token }),
     auth: false,
   });
+}
+
+// =============================================================================
+// Access Center (granular access — Phase 5/6)
+// =============================================================================
+
+// Re-export the access contract shapes so pages import everything from one place.
+export type { AccessProfile, ScopeConfig, DataTypeConfig, DataLimitsConfig, UserAccessOverride };
+
+/** Server shape of a persisted per-user override (JSON-serialized `updatedAt`). */
+export interface PublicAccessOverride {
+  userId: string;
+  grantCapabilities: string[];
+  revokeCapabilities: string[];
+  scopeConfig: ScopeConfig | null;
+  dataTypeConfig: DataTypeConfig | null;
+  dataLimits: DataLimitsConfig | null;
+  updatedById: string | null;
+  updatedAt: string;
+}
+
+/** Resolved "what can this user see?" — the target user's effective AccessProfile. */
+export async function getUserAccessProfile(userId: string): Promise<AccessProfile> {
+  return api(`/users/${userId}/access-profile`);
+}
+
+/** The user's persisted override (null = none, pure role access). */
+export async function getAccessOverride(userId: string): Promise<PublicAccessOverride | null> {
+  return api(`/users/${userId}/access-override`);
+}
+
+export async function upsertAccessOverride(
+  userId: string,
+  override: UserAccessOverride,
+): Promise<PublicAccessOverride> {
+  return api(`/users/${userId}/access-override`, {
+    method: 'PUT',
+    body: JSON.stringify(override),
+  });
+}
+
+export async function deleteAccessOverride(userId: string): Promise<void> {
+  return api(`/users/${userId}/access-override`, { method: 'DELETE' });
 }
 
 // =============================================================================

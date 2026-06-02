@@ -376,9 +376,14 @@ export class KpiDataService {
 
         const points = await this.prisma.kPIDataPoint.findMany({
           where,
+          // maxListRows is NOT applied here: these points feed aggregatedValue
+          // (SUM/AVG/…); capping the input would silently distort the aggregate.
+          // historyWindowDays IS applied (via windowFrom) — it legitimately bounds
+          // how old the data the principal may aggregate is. maxListRows governs the
+          // raw data-point LIST endpoint (listForKpi), not this computed summary.
           select: { value: true, recordedAt: true, periodStart: true },
           orderBy: [{ recordedAt: 'desc' }],
-          take: clampTake(1000, limits.maxListRows),
+          take: 1000,
         });
         return {
           kpiId: kpi.id,

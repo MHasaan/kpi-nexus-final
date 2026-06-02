@@ -94,11 +94,27 @@ class FakePrisma {
     ),
   };
 
+  /** roleId returned for the token minter (drives resolveMinterWindow). */
+  minterRoleId: string | null = null;
+  user = {
+    findFirst: vi.fn(async () => ({ roleId: this.minterRoleId })),
+  };
+
   kPIDataPoint = {
     findMany: vi.fn(
-      async ({ where }: { where: { organizationId: string; kpiId: string } }) => {
+      async ({
+        where,
+      }: {
+        where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date } };
+      }) => {
         return this.dataPointStore
-          .filter((p) => p.organizationId === where.organizationId && p.kpiId === where.kpiId)
+          .filter(
+            (p) =>
+              p.organizationId === where.organizationId &&
+              p.kpiId === where.kpiId &&
+              (!where.recordedAt || p.recordedAt.getTime() >= where.recordedAt.gte.getTime()),
+          )
+          .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())
           .slice(0, 30);
       },
     ),
@@ -138,10 +154,22 @@ class FakeKpisService {
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe('EmbedTokenService', () => {
-  function makeService(prisma: FakePrisma, kpis: FakeKpisService = new FakeKpisService(prisma)) {
+  function makeService(
+    prisma: FakePrisma,
+    kpis: FakeKpisService = new FakeKpisService(prisma),
+    historyWindowDays: number | null = null,
+  ) {
+    const accessContext = {
+      dataLimits: vi.fn(async () => ({
+        historyWindowDays,
+        maxListRows: null,
+        maxExportRows: null,
+      })),
+    };
     return new EmbedTokenService(
       prisma as unknown as import('../prisma/prisma.service.js').PrismaService,
       kpis as unknown as KpisService,
+      accessContext as unknown as import('../rbac/services/access-context.service.js').AccessContextService,
     );
   }
 
@@ -177,6 +205,44 @@ describe('EmbedTokenService', () => {
     expect(snapshot.kpiName).toBe('Revenue');
     expect(snapshot.latestValue).toBe(750);
     expect(snapshot.sparkline).toHaveLength(1);
+  });
+
+  test("Phase 4: resolve clamps the public sparkline to the minter's historyWindowDays", async () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const seed = (prisma: FakePrisma) => {
+      prisma.kpiStore.push({
+        id: KPI_ID,
+        organizationId: ORG,
+        name: 'Revenue',
+        unit: 'USD',
+        targetValue: 1000,
+        warningThreshold: 500,
+        criticalThreshold: 200,
+        direction: 'HIGHER_IS_BETTER',
+        embedTokenVersion: 0,
+        deletedAt: null,
+      });
+      prisma.dataPointStore.push(
+        { organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date(Date.now() - 60 * DAY), value: 100 },
+        { organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date(Date.now() - 1 * DAY), value: 200 },
+      );
+    };
+
+    // Minter restricted to 7 days ⇒ the 60-day-old point is dropped from the public embed.
+    const restricted = new FakePrisma();
+    seed(restricted);
+    const svc7 = makeService(restricted, new FakeKpisService(restricted), 7);
+    const snap = await svc7.resolve(await withCtx({}, () => svc7.mint(KPI_ID)));
+    expect(snap.sparkline).toHaveLength(1);
+    expect(snap.sparkline[0]!.value).toBe(200);
+    expect(snap.latestValue).toBe(200); // out-of-window latest hidden
+
+    // Parity: null window ⇒ both points surface.
+    const open = new FakePrisma();
+    seed(open);
+    const svcOpen = makeService(open, new FakeKpisService(open), null);
+    const snap2 = await svcOpen.resolve(await withCtx({}, () => svcOpen.mint(KPI_ID)));
+    expect(snap2.sparkline).toHaveLength(2);
   });
 
   test('tampered signature → UnauthorizedException', async () => {

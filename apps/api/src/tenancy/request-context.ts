@@ -24,6 +24,14 @@ export interface RequestContext {
    * cross-tenant cleanup jobs, and platform-admin reads.
    */
   bypassRls?: boolean;
+  /**
+   * When true, Layer-4 data limits (history window / row + export caps) are NOT
+   * applied even if the acting role configures them. Set by SYSTEM batch jobs (e.g.
+   * the scheduled-report processor) that run *as the creator* solely to preserve KPI
+   * visibility (§6) — a user's personal read quota must not silently truncate a
+   * system-generated artifact. Visibility (scope/category) still applies.
+   */
+  bypassDataLimits?: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

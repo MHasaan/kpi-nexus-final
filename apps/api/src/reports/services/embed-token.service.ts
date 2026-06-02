@@ -4,6 +4,8 @@ import { GoneException, Injectable, Logger, NotFoundException, UnauthorizedExcep
 
 import { KpisService } from '../../kpis/kpis.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { AccessContextService } from '../../rbac/services/access-context.service.js';
+import { clampHistoryFrom } from '../../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 
 // 30 days in seconds.
@@ -22,6 +24,13 @@ interface EmbedTokenPayload {
    * as version 0 for graceful backward compatibility.
    */
   v?: number;
+  /**
+   * Minted-by userId (Phase 4). resolve() clamps the public sparkline to this
+   * user's Layer-4 historyWindowDays so a published embed can't surface data older
+   * than the minter's own read window. Tokens minted before this field existed omit
+   * it; resolve() then applies no window clamp (parity, as pre-Phase-4).
+   */
+  mby?: string;
 }
 
 /** Public snapshot returned by resolve(). */
@@ -60,7 +69,25 @@ export class EmbedTokenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly kpis: KpisService,
+    private readonly accessContext: AccessContextService,
   ) {}
+
+  /**
+   * Resolve the token minter's Layer-4 historyWindowDays by re-establishing their
+   * request context (the public resolve path has no session). A deleted minter ⇒
+   * null ⇒ no clamp (the mint was already visibility-gated). Phase 4.
+   */
+  private async resolveMinterWindow(orgId: string, userId: string): Promise<number | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: orgId },
+      select: { roleId: true },
+    });
+    if (!user) return null;
+    return RequestContextStore.run(
+      { userId, organizationId: orgId, roleId: user.roleId, principalType: 'user' },
+      async () => (await this.accessContext.dataLimits()).historyWindowDays,
+    ) as Promise<number | null>;
+  }
 
   /**
    * Mint a compact stateless HMAC embed token for the given KPI.
@@ -89,6 +116,7 @@ export class EmbedTokenService {
       orgId: ctx.organizationId,
       exp: Math.floor(Date.now() / 1000) + DEFAULT_TTL_SECONDS,
       v: kpi.embedTokenVersion,
+      mby: ctx.userId,
     };
     const payloadB64 = b64urlEncode(JSON.stringify(payload));
     const sig = hmacSign(payloadB64);
@@ -197,9 +225,22 @@ export class EmbedTokenService {
         throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found or no longer exists' });
       }
 
-      // Fetch sparkline — last 30 points descending.
+      // Layer-4: clamp the public sparkline to the MINTER's historyWindowDays so the
+      // embed can't surface data older than their own read window (null/legacy token ⇒
+      // no clamp = parity). A point older than the window is dropped, so latestValue
+      // also reflects only in-window data.
+      const minterWindow = payload.mby
+        ? await this.resolveMinterWindow(payload.orgId, payload.mby)
+        : null;
+      const windowFrom = clampHistoryFrom(undefined, minterWindow);
+
+      // Fetch sparkline — last 30 points descending (within the window if clamped).
       const points = await this.prisma.kPIDataPoint.findMany({
-        where: { organizationId: payload.orgId, kpiId: payload.kpiId },
+        where: {
+          organizationId: payload.orgId,
+          kpiId: payload.kpiId,
+          ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
+        },
         select: { recordedAt: true, value: true },
         orderBy: { recordedAt: 'desc' },
         take: 30,

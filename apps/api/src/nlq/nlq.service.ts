@@ -4,6 +4,8 @@ import { AiConfigsService } from '../ai/ai-configs.service.js';
 import { AiRouterService } from '../ai/ai-router.service.js';
 import { KpisService } from '../kpis/kpis.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
 
@@ -52,6 +54,7 @@ export class NlqService {
     private readonly kpis: KpisService,
     private readonly embeddings: KpiCatalogEmbeddingService,
     private readonly configs: AiConfigsService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   private now(): number {
@@ -133,11 +136,19 @@ export class NlqService {
     metaById: Map<string, { id: string; name: string; description: string | null; unit: string | null }>,
   ): Promise<string> {
     const lines: string[] = [];
+    // Layer-4: the answer quotes these values back to the asker — clamp the read to
+    // their historyWindowDays so out-of-window values never enter the prompt (null ⇒ parity).
+    const limits = await this.accessContext.dataLimits();
+    const windowFrom = clampHistoryFrom(undefined, limits.historyWindowDays);
     for (const id of kpiIds) {
       const meta = metaById.get(id);
       if (!meta) continue; // defensive: never describe a KPI not in the visible set
       const points = await this.prisma.kPIDataPoint.findMany({
-        where: { organizationId, kpiId: id },
+        where: {
+          organizationId,
+          kpiId: id,
+          ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
+        },
         orderBy: { recordedAt: 'desc' },
         take: RECENT_POINTS,
         select: { value: true },

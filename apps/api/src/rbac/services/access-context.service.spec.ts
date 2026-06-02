@@ -206,6 +206,27 @@ describe('AccessContextService', () => {
     expect(adminProfile.dataLimits.historyWindowDays).toBeNull(); // admin ⇒ unlimited
   });
 
+  test('dataLimits() returns all-null under bypassDataLimits even with a configured role', async () => {
+    const prisma = new FakePrisma();
+    prisma.roleDataLimits = { historyWindowDays: 30, maxExportRows: 100 };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    // Normal context ⇒ the role's limits apply.
+    const normal = await run(() => svc.dataLimits());
+    expect(normal.historyWindowDays).toBe(30);
+
+    // System batch context (e.g. scheduled-report processor) ⇒ limits suppressed.
+    const bypassed = (await RequestContextStore.run(
+      { ...ctx, bypassDataLimits: true },
+      () => svc.dataLimits(),
+    )) as Awaited<ReturnType<typeof svc.dataLimits>>;
+    expect(bypassed.historyWindowDays).toBeNull();
+    expect(bypassed.maxExportRows).toBeNull();
+  });
+
   test('non-admin default dataTypeFilters are all-null (parity baseline)', async () => {
     const prisma = new FakePrisma();
     const svc = new AccessContextService(

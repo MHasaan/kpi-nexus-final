@@ -55,11 +55,12 @@ export const DataTypeConfigSchema = z.object({
 });
 export type DataTypeConfig = z.infer<typeof DataTypeConfigSchema>;
 
-/** Layer 4 — how much / how old (null = unlimited). */
+/** Layer 4 — how much / how old (null = unlimited). Upper bounds keep an absurd
+ *  config from overflowing date math / unbounded queries. */
 export const DataLimitsSchema = z.object({
-  historyWindowDays: z.number().int().positive().nullable(),
-  maxListRows: z.number().int().positive().nullable(),
-  maxExportRows: z.number().int().positive().nullable(),
+  historyWindowDays: z.number().int().positive().max(36500).nullable(), // ≤ ~100 years
+  maxListRows: z.number().int().positive().max(1_000_000).nullable(),
+  maxExportRows: z.number().int().positive().max(10_000_000).nullable(),
 });
 export type DataLimits = z.infer<typeof DataLimitsSchema>;
 

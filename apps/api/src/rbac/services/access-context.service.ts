@@ -140,6 +140,11 @@ export class AccessContextService {
    * `clampHistoryFrom` / `clampTake`.
    */
   async dataLimits(): Promise<DataLimits> {
+    // System batch jobs (e.g. scheduled reports) run as the creator for visibility
+    // but must NOT inherit that user's personal read quotas — honour bypassDataLimits.
+    if (RequestContextStore.get()?.bypassDataLimits) {
+      return { historyWindowDays: null, maxListRows: null, maxExportRows: null };
+    }
     const profile = await this.resolveForCurrentPrincipal();
     return profile.dataLimits;
   }

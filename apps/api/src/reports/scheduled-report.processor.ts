@@ -94,7 +94,9 @@ export class ScheduledReportProcessor extends WorkerHost {
     }
 
     // Phase 2 — run generation as the report's creator so the §6 visibility
-    // filter resolves the KPI set the creator intended.
+    // filter resolves the KPI set the creator intended. Phase 4: bypassDataLimits so
+    // the creator's personal read quotas (history window / row + export caps) do NOT
+    // silently truncate this system-generated report — only their visibility applies.
     await RequestContextStore.run(
       {
         userId: loaded.report.createdById,
@@ -102,6 +104,7 @@ export class ScheduledReportProcessor extends WorkerHost {
         roleId: loaded.creatorRoleId,
         principalType: 'user',
         bypassRls: true,
+        bypassDataLimits: true,
       },
       async () => {
         await this.runReport(loaded.report, organizationId);

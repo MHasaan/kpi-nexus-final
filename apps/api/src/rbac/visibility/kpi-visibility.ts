@@ -148,6 +148,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * own `from` unchanged (parity / admin); otherwise `windowStart = now - windowDays`,
  * defaulting to `windowStart` when no `from` was requested, else `max(from, windowStart)`.
  * The result is the earliest data the principal may read.
+ *
+ * Callers apply the bound to whichever time column they already order/filter by — the
+ * period-filtered list family (`listForKpi`/`dashboardSummary`) uses `periodStart` (to
+ * stay consistent with their existing `from`/`to`); latest-point + ML-series reads use
+ * `recordedAt` (their order key). An absurd window that overflows the Date range degrades
+ * to parity (returns the request's `from`) rather than producing an Invalid Date.
  */
 export function clampHistoryFrom(
   requestedFrom: Date | undefined,
@@ -155,6 +161,7 @@ export function clampHistoryFrom(
 ): Date | undefined {
   if (historyWindowDays == null) return requestedFrom;
   const windowStart = new Date(Date.now() - historyWindowDays * MS_PER_DAY);
+  if (Number.isNaN(windowStart.getTime())) return requestedFrom; // out-of-range ⇒ parity
   if (!requestedFrom) return windowStart;
   return requestedFrom.getTime() > windowStart.getTime() ? requestedFrom : windowStart;
 }

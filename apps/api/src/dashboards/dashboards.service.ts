@@ -335,6 +335,55 @@ export class DashboardsService {
     return this.getById(id);
   }
 
+  /** List the org units a dashboard is published to (caller must be able to see it). */
+  async listUnitAssignments(
+    dashboardId: string,
+  ): Promise<Array<{ orgUnitId: string; createdAt: Date }>> {
+    await this.getById(dashboardId); // visibility-gates: 404 if not visible to caller
+    return this.prisma.dashboardAssignmentOrgUnit.findMany({
+      where: { dashboardId },
+      select: { orgUnitId: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /** Publish a dashboard to an org unit (DASHBOARD_MANAGE). Idempotent on (dashboard, unit). */
+  async assignUnit(dashboardId: string, orgUnitId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    await this.getById(dashboardId); // tenant + visibility check
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: orgUnitId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!unit) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Org unit not found' });
+    await this.prisma.dashboardAssignmentOrgUnit.upsert({
+      where: { dashboardId_orgUnitId: { dashboardId, orgUnitId } },
+      create: { organizationId: ctx.organizationId, dashboardId, orgUnitId, createdById: ctx.userId },
+      update: {},
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'Dashboard',
+      entityId: dashboardId,
+      metadata: { assignedUnit: orgUnitId },
+    });
+  }
+
+  /** Un-publish a dashboard from an org unit (DASHBOARD_MANAGE). */
+  async unassignUnit(dashboardId: string, orgUnitId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    await this.getById(dashboardId);
+    await this.prisma.dashboardAssignmentOrgUnit.deleteMany({
+      where: { organizationId: ctx.organizationId, dashboardId, orgUnitId },
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'Dashboard',
+      entityId: dashboardId,
+      metadata: { unassignedUnit: orgUnitId },
+    });
+  }
+
   private isUniqueViolation(error: unknown): boolean {
     return (
       typeof error === 'object' &&

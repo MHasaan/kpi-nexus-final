@@ -26,6 +26,7 @@ import { type PublicShareLink, ShareLinksService } from './share-links.service.j
 import { type PublicWidget, WidgetsService } from './widgets.service.js';
 import {
   AddWidgetDtoSchema,
+  AssignDashboardUnitDtoSchema,
   CaptureSnapshotDtoSchema,
   CreateDashboardDtoSchema,
   CreateShareLinkDtoSchema,
@@ -145,6 +146,28 @@ export class DashboardsController {
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
   setDefault(@Param('id') id: string): Promise<PublicDashboard> {
     return this.dashboards.setDefault(id);
+  }
+
+  // Unit assignments (per-dashboard sub-resource, Phase 2.5) --------------------
+
+  @Get(':id/unit-assignments')
+  @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
+  listUnitAssignments(@Param('id') id: string): Promise<Array<{ orgUnitId: string; createdAt: Date }>> {
+    return this.dashboards.listUnitAssignments(id);
+  }
+
+  @Post(':id/unit-assignments')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  assignUnit(@Param('id') id: string, @Body() body: unknown): Promise<void> {
+    return this.dashboards.assignUnit(id, parse(AssignDashboardUnitDtoSchema, body).orgUnitId);
+  }
+
+  @Delete(':id/unit-assignments/:orgUnitId')
+  @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unassignUnit(@Param('id') id: string, @Param('orgUnitId') orgUnitId: string): Promise<void> {
+    return this.dashboards.unassignUnit(id, orgUnitId);
   }
 
   // Share links (per-dashboard sub-resource) ---------------------------------

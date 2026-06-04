@@ -94,3 +94,9 @@ export const ResolveShareDtoSchema = z
   })
   .strict();
 export type ResolveShareDto = z.infer<typeof ResolveShareDtoSchema>;
+
+// Publish-a-dashboard-to-a-unit (Phase 2.5).
+export const AssignDashboardUnitDtoSchema = z
+  .object({ orgUnitId: z.string().trim().min(1) })
+  .strict();
+export type AssignDashboardUnitDto = z.infer<typeof AssignDashboardUnitDtoSchema>;

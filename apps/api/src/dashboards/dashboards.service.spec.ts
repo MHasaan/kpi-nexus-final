@@ -122,6 +122,43 @@ class FakePrisma {
     return fn(this);
   });
 
+  orgUnits: Array<{ id: string; organizationId: string }> = [];
+  unitAssignmentRows: Array<{ dashboardId: string; orgUnitId: string; createdAt: Date }> = [];
+
+  orgUnit = {
+    findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+      this.orgUnits.find((u) => u.id === where.id && u.organizationId === where.organizationId) ?? null,
+    ),
+  };
+
+  dashboardAssignmentOrgUnit = {
+    findMany: vi.fn(async ({ where }: { where: { dashboardId: string } }) =>
+      this.unitAssignmentRows
+        .filter((a) => a.dashboardId === where.dashboardId)
+        .map((a) => ({ orgUnitId: a.orgUnitId, createdAt: a.createdAt })),
+    ),
+    upsert: vi.fn(async ({ create }: { create: { dashboardId: string; orgUnitId: string } }) => {
+      const exists = this.unitAssignmentRows.some(
+        (a) => a.dashboardId === create.dashboardId && a.orgUnitId === create.orgUnitId,
+      );
+      if (!exists) {
+        this.unitAssignmentRows.push({
+          dashboardId: create.dashboardId,
+          orgUnitId: create.orgUnitId,
+          createdAt: new Date(),
+        });
+      }
+      return {};
+    }),
+    deleteMany: vi.fn(async ({ where }: { where: { dashboardId: string; orgUnitId: string } }) => {
+      const before = this.unitAssignmentRows.length;
+      this.unitAssignmentRows = this.unitAssignmentRows.filter(
+        (a) => !(a.dashboardId === where.dashboardId && a.orgUnitId === where.orgUnitId),
+      );
+      return { count: before - this.unitAssignmentRows.length };
+    }),
+  };
+
   private matches(d: FakeDashboard, where: Record<string, unknown>): boolean {
     if (where.id && d.id !== where.id) return false;
     if (where.organizationId && d.organizationId !== where.organizationId) return false;
@@ -580,6 +617,72 @@ describe('DashboardsService.purge', () => {
     await withCtx({ userId: 'u1' }, () => service.purge('d1'));
     expect(
       audit.records.some((r) => r['action'] === 'DELETE' && r['entityId'] === 'd1'),
+    ).toBe(true);
+  });
+});
+
+describe('DashboardsService unit assignments (Phase 2.5)', () => {
+  test('assign validates the org unit, upserts idempotently, and audits', async () => {
+    const { service, prisma, audit, accessContext } = makeService();
+    accessContext.isAdmin = true; // can see any dashboard
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'someone' }));
+    prisma.orgUnits.push({ id: 'g1', organizationId: ORG });
+    await withCtx({ userId: 'me' }, () => service.assignUnit('d1', 'g1'));
+    await withCtx({ userId: 'me' }, () => service.assignUnit('d1', 'g1')); // idempotent
+    expect(prisma.dashboardAssignmentOrgUnit.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.unitAssignmentRows).toHaveLength(1); // no duplicate
+    expect(
+      audit.records.some((r) => r['entityType'] === 'Dashboard' && r['entityId'] === 'd1'),
+    ).toBe(true);
+  });
+
+  test('assign rejects an org unit outside the tenant ⇒ 404', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'me' }));
+    // no matching orgUnit pushed ⇒ findFirst returns null
+    await expect(
+      withCtx({ userId: 'me' }, () => service.assignUnit('d1', 'gX')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.dashboardAssignmentOrgUnit.upsert).not.toHaveBeenCalled();
+  });
+
+  test('assign on a dashboard the caller cannot see ⇒ 404 (no unit lookup)', async () => {
+    const { service, prisma } = makeService();
+    // non-admin (default SELF), dashboard owned by someone else, not shared ⇒ getById 404s
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'other', isShared: false }));
+    prisma.orgUnits.push({ id: 'g1', organizationId: ORG });
+    await expect(
+      withCtx({ userId: 'me' }, () => service.assignUnit('d1', 'g1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.orgUnit.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('listUnitAssignments returns the published units (after a visibility gate)', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'me' }));
+    prisma.unitAssignmentRows.push(
+      { dashboardId: 'd1', orgUnitId: 'g1', createdAt: new Date() },
+      { dashboardId: 'd2', orgUnitId: 'g9', createdAt: new Date() }, // other dashboard, excluded
+    );
+    const result = await withCtx({ userId: 'me' }, () => service.listUnitAssignments('d1'));
+    expect(result.map((r) => r.orgUnitId)).toEqual(['g1']);
+  });
+
+  test('unassign removes the row and audits', async () => {
+    const { service, prisma, audit, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'me' }));
+    prisma.unitAssignmentRows.push({ dashboardId: 'd1', orgUnitId: 'g1', createdAt: new Date() });
+    await withCtx({ userId: 'me' }, () => service.unassignUnit('d1', 'g1'));
+    expect(prisma.unitAssignmentRows).toHaveLength(0);
+    expect(
+      audit.records.some(
+        (r) =>
+          r['metadata'] &&
+          (r['metadata'] as Record<string, unknown>)['unassignedUnit'] === 'g1',
+      ),
     ).toBe(true);
   });
 });

@@ -55,3 +55,37 @@ export function scopeAtLeast(
 ): boolean {
   return SCOPE_RANK[scopeForDomain(profile, domain)] >= SCOPE_RANK[required];
 }
+
+// ---------------------------------------------------------------------------
+// Phase 7 — Layer-5 page access (nav filtering + route guard).
+// ---------------------------------------------------------------------------
+
+/** The resolved page-access shape carried on the AccessProfile. */
+export type PageAccessResolved = AccessProfile['pageAccess'];
+
+/** The default/admin/unset value — no page is restricted. */
+export const NO_PAGE_RESTRICTION: PageAccessResolved = { allow: null, deny: [] };
+
+/**
+ * True when `href` is reachable under the given page-access config.
+ *
+ * Semantics (implement EXACTLY): deny wins, then an `allow` list (when non-null)
+ * acts as an allowlist. A null/undefined config ⇒ no restriction.
+ */
+export function isPageAllowed(
+  pageAccess: PageAccessResolved | null | undefined,
+  href: string,
+): boolean {
+  if (!pageAccess) return true;
+  if (pageAccess.deny.includes(href)) return false;
+  return pageAccess.allow == null || pageAccess.allow.includes(href);
+}
+
+/**
+ * The effective page-access for a profile. Admins (and a null profile) are never
+ * page-restricted; otherwise fall back to no-restriction when `pageAccess` is unset.
+ */
+export function pageAccessOf(profile: AccessProfile | null): PageAccessResolved {
+  if (!profile || profile.isAdmin) return NO_PAGE_RESTRICTION;
+  return profile.pageAccess ?? NO_PAGE_RESTRICTION;
+}

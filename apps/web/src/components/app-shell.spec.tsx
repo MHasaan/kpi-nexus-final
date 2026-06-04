@@ -14,6 +14,7 @@ import {
   NAV_ITEMS,
   filterNav,
   filterNavGroups,
+  matchNavHref,
   navTestId,
   visibleNavItems,
 } from './app-shell';
@@ -180,5 +181,61 @@ describe('filterNavGroups', () => {
     expect(groups.map((g) => g.group)).toEqual(['Workspace', 'Execute', 'Organize']);
     const organize = groups.find((g) => g.group === 'Organize');
     expect(organize?.items.map((i) => i.href)).toEqual(['/activity']);
+  });
+});
+
+describe('page-access (Layer-5) nav filtering', () => {
+  test('default no-restriction leaves the admin nav unchanged (parity)', () => {
+    const withDefault = hrefs(
+      visibleNavItems(ADMIN_PERMISSIONS, NAV_ITEMS, { allow: null, deny: [] }),
+    );
+    expect(withDefault).toEqual(hrefs(visibleNavItems(ADMIN_PERMISSIONS)));
+  });
+
+  test('deny hides an otherwise-visible nav item', () => {
+    const visible = hrefs(
+      visibleNavItems(ADMIN_PERMISSIONS, NAV_ITEMS, { allow: null, deny: ['/kpis'] }),
+    );
+    expect(visible).not.toContain('/kpis');
+    expect(visible).toContain('/dashboards');
+  });
+
+  test('allow list restricts the nav to listed (and capability-held) items', () => {
+    const visible = hrefs(
+      visibleNavItems(ADMIN_PERMISSIONS, NAV_ITEMS, {
+        allow: ['/dashboard', '/kpis'],
+        deny: [],
+      }),
+    );
+    expect(visible).toEqual(['/dashboard', '/kpis']);
+  });
+
+  test('filterNav threads page-access through once ready', () => {
+    const visible = hrefs(
+      filterNav(NAV_ITEMS, ADMIN_PERMISSIONS, true, { allow: null, deny: ['/roles'] }),
+    );
+    expect(visible).not.toContain('/roles');
+    expect(visible).toContain('/users');
+  });
+});
+
+describe('matchNavHref (route-guard mapping)', () => {
+  test('exact nav href matches itself', () => {
+    expect(matchNavHref('/kpis')).toBe('/kpis');
+  });
+  test('child route maps to its parent nav href', () => {
+    expect(matchNavHref('/kpis/123')).toBe('/kpis');
+  });
+  test('picks the MOST SPECIFIC nav href', () => {
+    // /settings and /settings/audit are both nav items; the deeper route wins.
+    expect(matchNavHref('/settings/audit')).toBe('/settings/audit');
+    expect(matchNavHref('/settings/audit/x')).toBe('/settings/audit');
+    expect(matchNavHref('/settings/org')).toBe('/settings');
+  });
+  test('non-nav routes map to null (never gated)', () => {
+    expect(matchNavHref('/profile')).toBeNull();
+    expect(matchNavHref('/me/sessions')).toBeNull();
+    expect(matchNavHref('/unauthorized')).toBeNull();
+    expect(matchNavHref('/login')).toBeNull();
   });
 });

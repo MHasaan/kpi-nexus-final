@@ -53,6 +53,12 @@ import {
   logoutRequest,
   meRequest,
 } from '../lib/api-client';
+import {
+  NO_PAGE_RESTRICTION,
+  isPageAllowed,
+  type PageAccessResolved,
+} from '../lib/access';
+import { usePageAccess } from '../lib/use-page-access';
 import { usePermissions } from '../lib/use-permissions';
 
 // ---------------------------------------------------------------------------
@@ -166,17 +172,23 @@ export function navTestId(href: string): string {
 
 /**
  * Returns the nav items the given permission set is allowed to see, assuming
- * permissions are fully resolved (ready). Entries without a `permission` are
- * always included; gated entries require the key be present.
+ * permissions are fully resolved (ready). An item is shown iff it passes BOTH:
+ * its capability gate (no `permission`, or the key is held) AND its Layer-5
+ * page-access gate ({@link isPageAllowed}). The default `pageAccess`
+ * ({@link NO_PAGE_RESTRICTION}) allows everything, so existing callers are
+ * unaffected.
  *
  * @see filterNav for the ready-aware variant used by the live nav.
  */
 export function visibleNavItems(
   permissions: string[],
   items: NavItem[] = NAV_ITEMS,
+  pageAccess: PageAccessResolved = NO_PAGE_RESTRICTION,
 ): NavItem[] {
   return items.filter(
-    (item) => !item.permission || permissions.includes(item.permission),
+    (item) =>
+      (!item.permission || permissions.includes(item.permission)) &&
+      isPageAllowed(pageAccess, item.href),
   );
 }
 
@@ -186,17 +198,19 @@ export function visibleNavItems(
  * - While `!isReady`, only the no-permission items are shown. This avoids both
  *   a flash of an empty nav and a flash of gated items based on a stale or
  *   partial permission cache.
- * - Once `isReady`, behaves like {@link visibleNavItems}.
+ * - Once `isReady`, behaves like {@link visibleNavItems} — also applying the
+ *   page-access allow/deny lists.
  */
 export function filterNav(
   items: NavItem[],
   permissions: string[],
   isReady: boolean,
+  pageAccess: PageAccessResolved = NO_PAGE_RESTRICTION,
 ): NavItem[] {
   if (!isReady) {
     return items.filter((item) => !item.permission);
   }
-  return visibleNavItems(permissions, items);
+  return visibleNavItems(permissions, items, pageAccess);
 }
 
 /**
@@ -207,10 +221,24 @@ export function filterNavGroups(
   groups: NavGroup[],
   permissions: string[],
   isReady: boolean,
+  pageAccess: PageAccessResolved = NO_PAGE_RESTRICTION,
 ): NavGroup[] {
   return groups
-    .map((g) => ({ ...g, items: filterNav(g.items, permissions, isReady) }))
+    .map((g) => ({ ...g, items: filterNav(g.items, permissions, isReady, pageAccess) }))
     .filter((g) => g.items.length > 0);
+}
+
+/**
+ * Resolve a pathname to the MOST SPECIFIC nav href it maps to (exact match or a
+ * slash-prefixed child), or `null` when it maps to no nav item. Used by the
+ * route guard so only nav-configurable routes are gated — pages like `/profile`
+ * or `/unauthorized` are never locked out by an allow-list.
+ */
+export function matchNavHref(pathname: string): string | null {
+  const matches = NAV_ITEMS.map((i) => i.href).filter(
+    (h) => pathname === h || pathname.startsWith(`${h}/`),
+  );
+  return matches.sort((a, b) => b.length - a.length)[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +324,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const { permissions, ready } = usePermissions();
+  const { pageAccess, ready: pageAccessReady } = usePageAccess();
   const { resolvedTheme, setTheme } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -368,7 +397,29 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
 
   // Until mounted, behave as "not ready" so SSR and the first client render
   // agree (no-permission items only). After mount, honour the resolved state.
-  const groups = filterNavGroups(NAV_GROUPS, permissions, mounted && ready);
+  // Page-access only narrows the nav once it's resolved; until then we pass
+  // NO_PAGE_RESTRICTION so nothing is wrongly hidden during load.
+  const effectivePageAccess =
+    mounted && pageAccessReady ? pageAccess : NO_PAGE_RESTRICTION;
+  const groups = filterNavGroups(
+    NAV_GROUPS,
+    permissions,
+    mounted && ready,
+    effectivePageAccess,
+  );
+
+  // Layer-5 route guard: gate the CURRENT route only when it maps to a nav href
+  // (most-specific match). Routes with no nav mapping (e.g. /profile,
+  // /me/sessions, /unauthorized, /login) are NEVER gated, so an allow-list can't
+  // lock the user out of non-configurable pages. Only redirect once resolved to
+  // avoid a flash-redirect on a stale/empty cache.
+  useEffect(() => {
+    if (!(mounted && pageAccessReady)) return;
+    const matched = matchNavHref(pathname);
+    if (matched && !isPageAllowed(pageAccess, matched)) {
+      router.replace('/unauthorized');
+    }
+  }, [mounted, pageAccessReady, pageAccess, pathname, router]);
 
   const email = user?.email ?? '';
   const name = user?.fullName || user?.email || 'You';

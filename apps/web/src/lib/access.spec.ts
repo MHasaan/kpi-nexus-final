@@ -35,6 +35,7 @@ const adminProfile: AccessProfile = {
   dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
   dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
   context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: [] },
+  resourceGrants: [],
 };
 
 const managerProfile: AccessProfile = {

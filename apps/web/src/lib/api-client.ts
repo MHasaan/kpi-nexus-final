@@ -167,12 +167,22 @@ export interface RoleSummary {
   level: number;
   color: string | null;
   canAccessModules: string[];
+  scopeConfig: ScopeConfig | null;
+  dataTypeConfig: DataTypeConfig | null;
+  dataLimits: DataLimitsConfig | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export async function listRoles(): Promise<RoleSummary[]> {
   return api('/roles');
+}
+
+export async function updateRole(
+  id: string,
+  patch: { scopeConfig?: ScopeConfig; dataTypeConfig?: DataTypeConfig; dataLimits?: DataLimitsConfig },
+): Promise<RoleSummary> {
+  return api(`/roles/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
 export async function createRole(body: {

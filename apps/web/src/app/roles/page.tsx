@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Check, Plus, ShieldCheck } from 'lucide-react';
+
+import type { Domain, Scope } from '@kpi-nexus/contracts';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
@@ -26,10 +28,16 @@ import {
   createRole,
   deleteRole,
   getAccessToken,
+  listKpiCategories,
   listPermissionPresets,
   listRoles,
+  updateRole,
+  type DataLimitsConfig,
+  type DataTypeConfig,
+  type KpiCategory,
   type RolePreset,
   type RoleSummary,
+  type ScopeConfig,
 } from '../../lib/api-client';
 import {
   pluralize,
@@ -96,6 +104,27 @@ const ROLE_DOT = [
   'bg-chart-7',
 ];
 
+// Per-domain scope + labels — mirrors the per-user override editor (Access Center).
+const DOMAINS: ReadonlyArray<{ key: Domain; label: string }> = [
+  { key: 'KPIS', label: 'KPIs' },
+  { key: 'DASHBOARDS', label: 'Dashboards' },
+  { key: 'ALERTS', label: 'Alerts' },
+  { key: 'REPORTS', label: 'Reports' },
+  { key: 'ANALYTICS', label: 'Analytics' },
+  { key: 'INSIGHTS', label: 'Insights' },
+  { key: 'OKRS', label: 'OKRs' },
+  { key: 'TASKS', label: 'Tasks' },
+  { key: 'PEOPLE', label: 'People' },
+  { key: 'ORG', label: 'Org' },
+];
+
+const SCOPE_LABELS: Record<Scope, string> = {
+  SELF: 'Self only',
+  DIRECT_REPORTS: 'Direct reports',
+  UNITS: 'Their units',
+  ORG: 'Whole org',
+};
+
 export default function RolesPage() {
   return (
     <TerminologyProvider>
@@ -108,6 +137,7 @@ function RolesPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
+  const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
 
@@ -141,7 +171,18 @@ function RolesPageInner() {
       .catch(() => {
         /* non-fatal — preset UI degrades gracefully */
       });
+    listKpiCategories()
+      .then(setCategories)
+      .catch(() => {
+        /* non-fatal — category restriction UI degrades gracefully */
+      });
   }, [router]);
+
+  // Patch a single role in local state after a config save (so re-selecting it
+  // shows persisted values without a full refetch).
+  const handleRoleUpdated = useCallback((updated: RoleSummary) => {
+    setRoles((prev) => (prev ? prev.map((r) => (r.id === updated.id ? updated : r)) : prev));
+  }, []);
 
   async function refresh() {
     setLoadError(null);
@@ -523,6 +564,13 @@ function RolesPageInner() {
                       {selectedRole.description}
                     </p>
                   )}
+
+                  <RoleAccessConfig
+                    key={selectedRole.id}
+                    role={selectedRole}
+                    categories={categories}
+                    onSaved={handleRoleUpdated}
+                  />
                 </Card>
               )}
             </div>
@@ -530,5 +578,265 @@ function RolesPageInner() {
         </div>
       </RequirePermission>
     </AppShell>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Per-role scope / data-limits / KPI-category config editor (Phase 6b)
+// Mirrors the per-user override editor (Access Center). Keyed by role id so it
+// re-mounts (and re-hydrates) cleanly when a different role is selected.
+// -----------------------------------------------------------------------------
+
+function RoleAccessConfig({
+  role,
+  categories,
+  onSaved,
+}: {
+  role: RoleSummary;
+  categories: KpiCategory[];
+  onSaved: (role: RoleSummary) => void;
+}) {
+  // Editor state — hydrated once from the role on mount (component is keyed by id).
+  const [scopes, setScopes] = useState<Record<string, string>>(() => {
+    const s: Record<string, string> = {};
+    for (const d of DOMAINS) s[d.key] = role.scopeConfig?.[d.key] ?? '';
+    return s;
+  });
+  const [limits, setLimits] = useState(() => ({
+    historyWindowDays:
+      role.dataLimits?.historyWindowDays != null ? String(role.dataLimits.historyWindowDays) : '',
+    maxListRows: role.dataLimits?.maxListRows != null ? String(role.dataLimits.maxListRows) : '',
+    maxExportRows:
+      role.dataLimits?.maxExportRows != null ? String(role.dataLimits.maxExportRows) : '',
+  }));
+  const [restrictCats, setRestrictCats] = useState(() =>
+    Array.isArray(role.dataTypeConfig?.kpiCategoryIds),
+  );
+  const [catIds, setCatIds] = useState<Set<string>>(() => {
+    const kc = role.dataTypeConfig?.kpiCategoryIds;
+    return new Set(Array.isArray(kc) ? kc : []);
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  function buildPayload(): {
+    scopeConfig: ScopeConfig;
+    dataTypeConfig: DataTypeConfig;
+    dataLimits: DataLimitsConfig;
+  } {
+    // Scope: only non-empty (non-inherit) entries; {} clears the role's scope config.
+    const scopeConfig: ScopeConfig = {};
+    for (const d of DOMAINS) {
+      const v = scopes[d.key];
+      if (v) scopeConfig[d.key] = v as Scope;
+    }
+
+    // Strict positive-integer parse (shared 6a semantics). parseInt would silently
+    // truncate "90abc"/"100.5"/"1e9" to a wrong value — treat non-integers as unset.
+    const toPos = (s: string): number | undefined => {
+      const t = s.trim();
+      if (!/^\d+$/.test(t)) return undefined;
+      const n = Number.parseInt(t, 10);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const dataLimits: DataLimitsConfig = {};
+    const h = toPos(limits.historyWindowDays);
+    if (h !== undefined) dataLimits.historyWindowDays = h;
+    const l = toPos(limits.maxListRows);
+    if (l !== undefined) dataLimits.maxListRows = l;
+    const e = toPos(limits.maxExportRows);
+    if (e !== undefined) dataLimits.maxExportRows = e;
+
+    // Category allowlist: restrict on ⇒ { kpiCategoryIds: [...] }; off ⇒ {} which
+    // (no kpiCategoryIds key) resolves to null server-side, i.e. no restriction.
+    const dataTypeConfig: DataTypeConfig = restrictCats ? { kpiCategoryIds: [...catIds] } : {};
+
+    return { scopeConfig, dataTypeConfig, dataLimits };
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveErr(null);
+    setSaveMsg(null);
+    try {
+      const updated = await updateRole(role.id, buildPayload());
+      onSaved(updated);
+      setSaveMsg('Access config saved.');
+    } catch (err) {
+      setSaveErr(err instanceof ApiError ? err.message : 'Failed to save access config');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="role-access-config"
+      className="mt-6 border-t border-border-divider pt-5"
+    >
+      <h3 className="text-sm font-semibold text-content-strong">Access config</h3>
+      <p className="mt-1 max-w-xl text-xs text-content-muted">
+        Default scope, data limits, and KPI-category allowlist applied to everyone with this{' '}
+        role. Per-user overrides (Access Center) replace these per field.
+      </p>
+
+      {role.isAdmin && (
+        <p
+          role="note"
+          className="mt-3 rounded-lg border border-status-info/30 bg-status-info-bg px-3 py-2 text-xs text-status-info"
+        >
+          Admin roles bypass every permission, scope, and data-limit check — this config is stored
+          but has no effect while the role stays admin.
+        </p>
+      )}
+
+      {/* Scope per domain */}
+      <div className="mt-5">
+        <div className="kn-eyebrow mb-2">Whose data (scope)</div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {DOMAINS.map((d) => (
+            <div key={d.key} className="flex items-center justify-between gap-3">
+              <Label
+                htmlFor={`role-scope-${d.key}`}
+                className="text-sm font-normal text-content-default"
+              >
+                {d.label}
+              </Label>
+              <Select
+                id={`role-scope-${d.key}`}
+                value={scopes[d.key] ?? ''}
+                onChange={(e) => setScopes((prev) => ({ ...prev, [d.key]: e.target.value }))}
+                className="w-44"
+              >
+                <option value="">Default (inherit)</option>
+                <option value="SELF">{SCOPE_LABELS.SELF}</option>
+                <option value="DIRECT_REPORTS">{SCOPE_LABELS.DIRECT_REPORTS}</option>
+                <option value="UNITS">{SCOPE_LABELS.UNITS}</option>
+                <option value="ORG">{SCOPE_LABELS.ORG}</option>
+              </Select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Data limits */}
+      <div className="mt-6">
+        <div className="kn-eyebrow mb-2">How much / how old (blank = unset)</div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="role-lim-history">History window (days)</Label>
+            <Input
+              id="role-lim-history"
+              type="number"
+              min={1}
+              value={limits.historyWindowDays}
+              onChange={(e) => setLimits((p) => ({ ...p, historyWindowDays: e.target.value }))}
+              placeholder="Unlimited"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="role-lim-list">Max list rows</Label>
+            <Input
+              id="role-lim-list"
+              type="number"
+              min={1}
+              value={limits.maxListRows}
+              onChange={(e) => setLimits((p) => ({ ...p, maxListRows: e.target.value }))}
+              placeholder="Unlimited"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="role-lim-export">Max export rows</Label>
+            <Input
+              id="role-lim-export"
+              type="number"
+              min={1}
+              value={limits.maxExportRows}
+              onChange={(e) => setLimits((p) => ({ ...p, maxExportRows: e.target.value }))}
+              placeholder="Unlimited"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Category filter */}
+      <div className="mt-6">
+        <label className="flex items-center gap-2 text-sm font-medium text-content-strong">
+          <input
+            type="checkbox"
+            checked={restrictCats}
+            onChange={(e) => setRestrictCats(e.target.checked)}
+            data-testid="role-restrict-categories-toggle"
+            className="h-4 w-4 rounded border-border-strong accent-accent-primary"
+          />
+          Restrict to specific KPI categories
+        </label>
+        {restrictCats &&
+          (categories.length === 0 ? (
+            <p className="mt-2 text-xs text-content-muted">
+              No KPI categories defined yet — saving with this on will hide all categorised KPIs.
+            </p>
+          ) : (
+            <div className="mt-2 flex flex-col gap-2">
+              {catIds.size === 0 && (
+                <p
+                  role="alert"
+                  className="text-xs text-status-warning"
+                  data-testid="role-empty-categories-warning"
+                >
+                  No categories selected — saving will hide every categorised KPI from this role.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {categories.map((c) => (
+                  <label
+                    key={c.id}
+                    className="inline-flex items-center gap-2 text-sm text-content-default"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={catIds.has(c.id)}
+                      onChange={(e) =>
+                        setCatIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(c.id);
+                          else next.delete(c.id);
+                          return next;
+                        })
+                      }
+                      className="h-4 w-4 rounded border-border-strong accent-accent-primary"
+                    />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* Actions */}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button
+          onClick={() => void handleSave()}
+          isLoading={saving}
+          disabled={saving}
+          data-testid="save-role-config"
+        >
+          {saving ? 'Saving…' : 'Save access config'}
+        </Button>
+        {saveErr && (
+          <p role="alert" className="text-sm text-status-critical" data-testid="role-config-error">
+            {saveErr}
+          </p>
+        )}
+        {saveMsg && (
+          <p role="status" className="text-sm text-status-success" data-testid="role-config-success">
+            {saveMsg}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

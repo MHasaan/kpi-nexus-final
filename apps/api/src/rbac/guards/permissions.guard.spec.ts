@@ -21,6 +21,10 @@ import type { RequestContext } from '../../tenancy/request-context.js';
 import { OWNER_OVERRIDE_KEY } from '../decorators/owner-override.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import {
+  REQUIRE_RESOURCE_ACCESS_KEY,
+  type ResourceAccessConfig,
+} from '../decorators/require-resource-access.decorator.js';
+import {
   REQUIRE_ANY_PERMISSION_KEY,
   REQUIRE_PERMISSIONS_KEY,
 } from '../decorators/require-permissions.decorator.js';
@@ -32,6 +36,7 @@ interface Metadata {
   requireAll?: PermissionKey[];
   requireAny?: PermissionKey[];
   ownerOverride?: { paramKey: string; resolveOwnerId?: (id: string) => Promise<string | null> };
+  resourceAccess?: ResourceAccessConfig;
 }
 
 interface MockedResolverResult {
@@ -43,10 +48,14 @@ function makeContext(
   metadata: Metadata,
   request: { user?: RequestContext; params?: Record<string, string> },
   resolverResult: MockedResolverResult | null,
+  resourceGrant = false,
 ): {
   context: ExecutionContext;
   guard: PermissionsGuard;
-  resolver: { resolveForUser: ReturnType<typeof vi.fn> };
+  resolver: {
+    resolveForUser: ReturnType<typeof vi.fn>;
+    hasResourceGrant: ReturnType<typeof vi.fn>;
+  };
 } {
   const reflector = {
     getAllAndOverride: vi.fn((key: string) => {
@@ -54,12 +63,14 @@ function makeContext(
       if (key === REQUIRE_PERMISSIONS_KEY) return metadata.requireAll;
       if (key === REQUIRE_ANY_PERMISSION_KEY) return metadata.requireAny;
       if (key === OWNER_OVERRIDE_KEY) return metadata.ownerOverride;
+      if (key === REQUIRE_RESOURCE_ACCESS_KEY) return metadata.resourceAccess;
       return undefined;
     }),
   } as unknown as Reflector;
 
   const resolver = {
     resolveForUser: vi.fn().mockResolvedValue(resolverResult),
+    hasResourceGrant: vi.fn().mockResolvedValue(resourceGrant),
   };
 
   const context = {
@@ -285,6 +296,94 @@ describe('PermissionsGuard', () => {
         { isAdmin: false, permissions: new Set() },
       );
       await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('@RequireResourceAccess (spec §5.4 step 6 — additive per-entity grant)', () => {
+    test('principal lacks the capability but holds a resource grant → allow', async () => {
+      const { context, guard, resolver } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: userPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: false, permissions: new Set() }, // lacks KPI_EDIT
+        true, // hasResourceGrant → true
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(resolver.hasResourceGrant).toHaveBeenCalledWith(
+        userPrincipal.organizationId,
+        { userId: userPrincipal.userId, roleId: userPrincipal.roleId },
+        'edit',
+        'kpi',
+        'kpi-1',
+      );
+    });
+
+    test('principal lacks the capability AND has no grant → ForbiddenException', async () => {
+      const { context, guard } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: userPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: false, permissions: new Set() },
+        false, // hasResourceGrant → false
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+
+    test('capability-holder passes regardless — grant not consulted', async () => {
+      const { context, guard, resolver } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: userPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: false, permissions: new Set([PermissionKey.KPI_EDIT]) },
+        false,
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(resolver.hasResourceGrant).not.toHaveBeenCalled();
+    });
+
+    test('admin → allow (bypass, grant not consulted)', async () => {
+      const { context, guard, resolver } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: adminPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: true, permissions: new Set() },
+        false,
+      );
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(resolver.hasResourceGrant).not.toHaveBeenCalled();
+    });
+
+    test('missing route param → grant check skipped, capability check decides (deny)', async () => {
+      const { context, guard, resolver } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: userPrincipal, params: {} },
+        { isAdmin: false, permissions: new Set() },
+        true,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+      expect(resolver.hasResourceGrant).not.toHaveBeenCalled();
+    });
+
+    test('no @RequireResourceAccess metadata → pure capability gate (unchanged path)', async () => {
+      const { context, guard, resolver } = makeContext(
+        { requireAll: [PermissionKey.KPI_EDIT] },
+        { user: userPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: false, permissions: new Set() },
+        true,
+      );
+      await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+      expect(resolver.hasResourceGrant).not.toHaveBeenCalled();
     });
   });
 

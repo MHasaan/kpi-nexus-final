@@ -561,6 +561,125 @@ describe('PermissionResolverService.hasResourcePermission', () => {
   });
 });
 
+describe('PermissionResolverService.hasResourceGrant (guard-safe, no RequestContextStore)', () => {
+  test('user-level grant matches → true', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.resourcePermissionStore.push({
+      organizationId: ORG,
+      subjectType: 'user',
+      subjectId: 'u1',
+      action: 'view',
+      resourceType: 'kpi',
+      resourceId: 'kpi-1',
+      expiresAt: null,
+    });
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: 'r1' },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(true);
+  });
+
+  test('role-level grant matches → true when no user-level grant', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.resourcePermissionStore.push({
+      organizationId: ORG,
+      subjectType: 'role',
+      subjectId: 'r1',
+      action: 'view',
+      resourceType: 'kpi',
+      resourceId: 'kpi-1',
+      expiresAt: null,
+    });
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: 'r1' },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(true);
+  });
+
+  test('expired grant (expiresAt in the past) → false', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.resourcePermissionStore.push({
+      organizationId: ORG,
+      subjectType: 'user',
+      subjectId: 'u1',
+      action: 'view',
+      resourceType: 'kpi',
+      resourceId: 'kpi-1',
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: 'r1' },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(false);
+  });
+
+  test('no grant → false', async () => {
+    const { resolver } = makeResolver();
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: 'r1' },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(false);
+  });
+
+  test('org mismatch → false', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.resourcePermissionStore.push({
+      organizationId: OTHER_ORG,
+      subjectType: 'user',
+      subjectId: 'u1',
+      action: 'view',
+      resourceType: 'kpi',
+      resourceId: 'kpi-1',
+      expiresAt: null,
+    });
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: 'r1' },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(false);
+  });
+
+  test('roleId null → only the user-level grant is consulted', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.resourcePermissionStore.push({
+      organizationId: ORG,
+      subjectType: 'role',
+      subjectId: 'r1',
+      action: 'view',
+      resourceType: 'kpi',
+      resourceId: 'kpi-1',
+      expiresAt: null,
+    });
+    const result = await resolver.hasResourceGrant(
+      ORG,
+      { userId: 'u1', roleId: null },
+      'view',
+      'kpi',
+      'kpi-1',
+    );
+    expect(result).toBe(false);
+  });
+});
+
 describe('PermissionResolverService.invalidate / invalidateAll', () => {
   test('cache hit on repeated call within TTL', async () => {
     const { resolver, prisma } = makeResolver();

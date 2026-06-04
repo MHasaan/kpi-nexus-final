@@ -18,6 +18,10 @@ import {
   REQUIRE_ANY_PERMISSION_KEY,
   REQUIRE_PERMISSIONS_KEY,
 } from '../decorators/require-permissions.decorator.js';
+import {
+  REQUIRE_RESOURCE_ACCESS_KEY,
+  type ResourceAccessConfig,
+} from '../decorators/require-resource-access.decorator.js';
 import { PermissionResolverService } from '../services/permission-resolver.service.js';
 
 @Injectable()
@@ -108,6 +112,40 @@ export class PermissionsGuard implements CanActivate {
           : resourceId; // identity — the param IS the owner user id
         if (ownerId === principal.userId) {
           return true;
+        }
+      }
+    }
+
+    // Whether the principal already satisfies the route's capability gate.
+    const capabilityOk =
+      (!requireAll ||
+        requireAll.length === 0 ||
+        requireAll.every((p) => resolved.permissions.has(p))) &&
+      (!requireAny || requireAny.length === 0 || requireAny.some((p) => resolved.permissions.has(p)));
+
+    // Resolver step 6 — additive ResourcePermission grant for this specific entity.
+    // A principal who lacks the route's @RequirePermissions capability is STILL
+    // allowed if they (or their role) hold a non-expired grant for this exact
+    // (action, resourceType, <route param>). Additive — a capability-holder
+    // passes regardless (no need to query the grant); admins returned above.
+    if (!capabilityOk) {
+      const resourceAccess = this.reflector.getAllAndOverride<ResourceAccessConfig | undefined>(
+        REQUIRE_RESOURCE_ACCESS_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      if (resourceAccess) {
+        const resourceId = request.params?.[resourceAccess.paramKey];
+        if (
+          resourceId &&
+          (await this.resolver.hasResourceGrant(
+            principal.organizationId,
+            { userId: principal.userId, roleId: principal.roleId },
+            resourceAccess.action,
+            resourceAccess.resourceType,
+            resourceId,
+          ))
+        ) {
+          return true; // additive per-entity grant unlocks this resource
         }
       }
     }

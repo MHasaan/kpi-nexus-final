@@ -187,37 +187,52 @@ export class PermissionResolverService {
     const resolved = await this.resolveForCurrentPrincipal();
     if (resolved.isAdmin) return true;
 
-    const now = new Date();
-    const expiryFilter = {
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    };
+    return this.hasResourceGrant(
+      ctx.organizationId,
+      { userId: ctx.userId, roleId: ctx.roleId },
+      action,
+      resourceType,
+      resourceId,
+    );
+  }
 
-    // User-level grant
+  /** Guard-safe (no RequestContextStore): does the user or their role hold a
+   *  non-expired ResourcePermission grant for this exact (action, resourceType,
+   *  resourceId)? No admin bypass here — callers handle admin separately. */
+  async hasResourceGrant(
+    organizationId: string,
+    principal: { userId: string; roleId: string | null },
+    action: string,
+    resourceType: string,
+    resourceId: string,
+  ): Promise<boolean> {
+    const now = new Date();
+    const expiry = { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
+
     const userGrant = await this.prisma.resourcePermission.findFirst({
       where: {
-        organizationId: ctx.organizationId,
+        organizationId,
         subjectType: 'user',
-        subjectId: ctx.userId,
+        subjectId: principal.userId,
         action,
         resourceType,
         resourceId,
-        ...expiryFilter,
+        ...expiry,
       },
       select: { id: true },
     });
     if (userGrant) return true;
 
-    // Role-level grant
-    if (ctx.roleId) {
+    if (principal.roleId) {
       const roleGrant = await this.prisma.resourcePermission.findFirst({
         where: {
-          organizationId: ctx.organizationId,
+          organizationId,
           subjectType: 'role',
-          subjectId: ctx.roleId,
+          subjectId: principal.roleId,
           action,
           resourceType,
           resourceId,
-          ...expiryFilter,
+          ...expiry,
         },
         select: { id: true },
       });

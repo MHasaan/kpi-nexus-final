@@ -195,6 +195,7 @@ model Organization {
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
   dashboardShareLinks   DashboardShareLink[]
+  dashboardUnitAssignments DashboardAssignmentOrgUnit[]
   scheduledReports      ScheduledReport[]
   reportRuns            ReportRun[]
   alertRules            AlertRule[]
@@ -545,6 +546,7 @@ model OrgUnit {
   nameHistory    OrgUnitNameHistory[]
   kpiAssignments KPIAssignmentOrgUnit[]
   kpiDataPoints  KPIDataPoint[]         @relation("KpiDataPointOrgUnit")
+  dashboardAssignments DashboardAssignmentOrgUnit[]
 
   @@index([organizationId, status])
   @@index([parentUnitId])
@@ -1018,9 +1020,29 @@ model Dashboard {
   widgets    DashboardWidget[]
   snapshots  DashboardSnapshot[]
   shareLinks DashboardShareLink[]
+  unitAssignments DashboardAssignmentOrgUnit[]
 
   @@index([organizationId, deletedAt])
   @@index([ownerUserId])
+}
+
+// Phase 2.5 — lets a dashboard be "published" to an org unit so unit members
+// see it under UNITS scope. Additive; absence = today's owner/isShared model.
+model DashboardAssignmentOrgUnit {
+  id             String   @id @default(cuid())
+  organizationId String
+  dashboardId    String
+  orgUnitId      String
+  createdAt      DateTime @default(now())
+  createdById    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dashboard    Dashboard    @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  orgUnit      OrgUnit      @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, orgUnitId])
+  @@index([organizationId])
+  @@index([orgUnitId])
 }
 
 // A single widget on a dashboard. `widgetType` is a string union enforced at

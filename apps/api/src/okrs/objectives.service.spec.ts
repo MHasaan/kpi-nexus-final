@@ -6,9 +6,11 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
+import type { Scope } from '@kpi-nexus/contracts';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import { ObjectivesService } from './objectives.service.js';
 
@@ -59,14 +61,25 @@ class FakePrisma {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
       this.objectives.find((o) => o.id === where.id && o.organizationId === where.organizationId) ?? null,
     ),
-    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
-      this.objectives.filter(
-        (o) =>
-          o.organizationId === where.organizationId &&
-          (where.parentObjectiveId === undefined || o.parentObjectiveId === where.parentObjectiveId) &&
-          (where.status === undefined ? true : o.status === where.status),
-      ),
-    ),
+    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const ownerOk = (o: FakeObjective, cond: unknown): boolean => {
+        if (cond === undefined) return true;
+        if (cond && typeof cond === 'object' && 'in' in (cond as Record<string, unknown>)) {
+          return (cond as { in: string[] }).in.includes(o.ownerUserId);
+        }
+        return o.ownerUserId === cond;
+      };
+      return this.objectives.filter((o) => {
+        if (o.organizationId !== where.organizationId) return false;
+        if (where.parentObjectiveId !== undefined && o.parentObjectiveId !== where.parentObjectiveId) return false;
+        if (where.status !== undefined && o.status !== where.status) return false;
+        if (!ownerOk(o, where.ownerUserId)) return false;
+        if (Array.isArray(where.AND)) {
+          if (!(where.AND as Array<Record<string, unknown>>).every((cl) => ownerOk(o, cl.ownerUserId))) return false;
+        }
+        return true;
+      });
+    }),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
       const o: FakeObjective = {
         id: `obj_${this.on++}`,
@@ -144,6 +157,22 @@ class FakeAudit {
   record = vi.fn(async () => {});
 }
 
+class FakeAccessContext {
+  isAdmin = false;
+  okrsScope: Scope = 'ORG';
+  directReportIds: string[] = [];
+  unitMemberIds: string[] = [];
+  resolveForCurrentPrincipal = vi.fn(async () => ({
+    isAdmin: this.isAdmin,
+    capabilities: [],
+    scopeByDomain: { OKRS: this.okrsScope },
+    dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+    dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: this.directReportIds },
+  }));
+  unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
+}
+
 const ORG = 'org_alpha';
 
 function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Promise<T> | T {
@@ -153,10 +182,21 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
   );
 }
 
-function makeService() {
+function makeService(
+  opts: { isAdmin?: boolean; okrsScope?: Scope; directReportIds?: string[]; unitMemberIds?: string[] } = {},
+) {
   const prisma = new FakePrisma();
-  const service = new ObjectivesService(prisma as unknown as PrismaService, new FakeAudit() as unknown as AuditService);
-  return { service, prisma };
+  const accessContext = new FakeAccessContext();
+  accessContext.isAdmin = opts.isAdmin ?? false;
+  if (opts.okrsScope) accessContext.okrsScope = opts.okrsScope;
+  if (opts.directReportIds) accessContext.directReportIds = opts.directReportIds;
+  if (opts.unitMemberIds) accessContext.unitMemberIds = opts.unitMemberIds;
+  const service = new ObjectivesService(
+    prisma as unknown as PrismaService,
+    new FakeAudit() as unknown as AuditService,
+    accessContext as unknown as AccessContextService,
+  );
+  return { service, prisma, accessContext };
 }
 
 const period = { periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31') };
@@ -233,5 +273,42 @@ describe('ObjectivesService.syncFromLinkedKpis', () => {
     const kr = prisma.addKr({ objectiveId: o.id, kpiId: null, baselineValue: 0, targetValue: 100, currentValue: 25, weight: 1 });
     await withCtx({}, () => service.syncFromLinkedKpis(o.id));
     expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(25);
+  });
+});
+
+describe('ObjectivesService OKRS scope (Phase 2.5)', () => {
+  test('default ORG ⇒ no owner filter (parity)', async () => {
+    const { service, prisma } = makeService();
+    await withCtx({ userId: 'me' }, () => service.list({}));
+    const where = prisma.objective.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.ownerUserId).toBeUndefined();
+    expect(where.AND).toBeUndefined();
+  });
+
+  test('SELF ⇒ ownerUserId IN {me}', async () => {
+    const { service, prisma } = makeService({ okrsScope: 'SELF' });
+    await withCtx({ userId: 'me' }, () => service.list({}));
+    const where = prisma.objective.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.ownerUserId).toEqual({ in: ['me'] });
+  });
+
+  test('explicit owner filter intersects with scope (AND)', async () => {
+    const { service, prisma } = makeService({ okrsScope: 'SELF' });
+    await withCtx({ userId: 'me' }, () => service.list({ ownerUserId: 'someone' }));
+    const where = prisma.objective.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.AND).toBeDefined();
+  });
+
+  test('SELF getById ⇒ own objective visible, another owner ⇒ 404', async () => {
+    const { service } = makeService({ okrsScope: 'SELF' });
+    const mine = await withCtx({ userId: 'me' }, () =>
+      service.create({ name: 'Mine', ownerUserId: 'me', periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31') }),
+    );
+    const seen = await withCtx({ userId: 'me' }, () => service.getById(mine.id));
+    expect(seen.id).toBe(mine.id);
+    const theirs = await withCtx({ userId: 'me' }, () =>
+      service.create({ name: 'Theirs', ownerUserId: 'other', periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31') }),
+    );
+    await expect(withCtx({ userId: 'me' }, () => service.getById(theirs.id))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

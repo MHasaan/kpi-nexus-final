@@ -3,6 +3,8 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   CreateObjectiveDto,
@@ -37,17 +39,45 @@ export class ObjectivesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
+
+  /** `{ in: ids }` restricting objectives to owners in the OKRS scope, or
+   *  `undefined` (ORG / admin ⇒ no owner narrowing). Default OKRS scope is ORG ⇒
+   *  undefined ⇒ all objectives in tenant (parity). */
+  private async ownerScope(): Promise<{ in: string[] } | undefined> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    if (profile.isAdmin) return undefined;
+    const scope = profile.scopeByDomain.OKRS ?? 'ORG';
+    if (scope === 'ORG') return undefined;
+    const unitMemberUserIds = scope === 'UNITS' ? await this.accessContext.unitMemberUserIds() : [];
+    const ids = scopedUserIds(scope, {
+      userId: ctx.userId,
+      directReportIds: profile.context.directReportIds,
+      unitMemberUserIds,
+    })!; // non-null: scope !== ORG
+    return { in: ids };
+  }
 
   async list(query: ListObjectivesQuery): Promise<PublicObjective[]> {
     const ctx = RequestContextStore.require();
+    const ownerScope = await this.ownerScope();
+    const where: Prisma.ObjectiveWhereInput = {
+      organizationId: ctx.organizationId,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.parentObjectiveId ? { parentObjectiveId: query.parentObjectiveId } : {}),
+    };
+    // Owner: an explicit query filter is intersected with the scope ceiling.
+    if (ownerScope && query.ownerUserId) {
+      where.AND = [{ ownerUserId: query.ownerUserId }, { ownerUserId: ownerScope }];
+    } else if (ownerScope) {
+      where.ownerUserId = ownerScope;
+    } else if (query.ownerUserId) {
+      where.ownerUserId = query.ownerUserId;
+    }
     return this.prisma.objective.findMany({
-      where: {
-        organizationId: ctx.organizationId,
-        ...(query.status ? { status: query.status } : {}),
-        ...(query.ownerUserId ? { ownerUserId: query.ownerUserId } : {}),
-        ...(query.parentObjectiveId ? { parentObjectiveId: query.parentObjectiveId } : {}),
-      },
+      where,
       select: objectiveSelect,
       orderBy: [{ createdAt: 'asc' }],
     });
@@ -60,6 +90,10 @@ export class ObjectivesService {
       select: objectiveSelect,
     });
     if (!obj) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Objective not found' });
+    const ownerScope = await this.ownerScope();
+    if (ownerScope && (obj.ownerUserId == null || !ownerScope.in.includes(obj.ownerUserId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Objective not found' });
+    }
     return obj;
   }
 

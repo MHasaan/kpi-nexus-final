@@ -881,6 +881,39 @@ export async function setDefaultDashboard(id: string): Promise<Dashboard> {
   return api(`/dashboards/${id}/set-default`, { method: 'POST' });
 }
 
+// Dashboard → org-unit publishing (Phase 2.5 / 6b). Publishing a dashboard to
+// an org unit makes it visible to that unit's members under UNITS scope.
+
+export interface DashboardUnitAssignment {
+  orgUnitId: string;
+  createdAt: string;
+}
+
+export async function listDashboardUnitAssignments(
+  dashboardId: string,
+): Promise<DashboardUnitAssignment[]> {
+  return api(`/dashboards/${dashboardId}/unit-assignments`);
+}
+
+export async function assignDashboardToUnit(
+  dashboardId: string,
+  orgUnitId: string,
+): Promise<void> {
+  await api(`/dashboards/${dashboardId}/unit-assignments`, {
+    method: 'POST',
+    body: JSON.stringify({ orgUnitId }),
+  });
+}
+
+export async function unassignDashboardFromUnit(
+  dashboardId: string,
+  orgUnitId: string,
+): Promise<void> {
+  await api(`/dashboards/${dashboardId}/unit-assignments/${orgUnitId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function listArchivedDashboards(): Promise<Dashboard[]> {
   return api('/dashboards/archived');
 }

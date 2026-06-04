@@ -1,13 +1,21 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import {
   ApiError,
+  assignDashboardToUnit,
   getDashboard,
+  listDashboardUnitAssignments,
+  listOrgUnits,
+  unassignDashboardFromUnit,
   updateDashboard,
   type Dashboard,
+  type DashboardUnitAssignment,
+  type OrgUnitSummary,
 } from '../../lib/api-client';
+import { PermissionGuard } from '../auth/permission-guard';
+import { Badge, Button, Select } from '../ui';
 
 interface DashboardSettingsFormProps {
   dashboard: Dashboard;
@@ -212,6 +220,10 @@ export function DashboardSettingsForm({
         )}
       </form>
 
+      <PermissionGuard permission="DASHBOARD_MANAGE">
+        <DashboardUnitAssignments dashboardId={dashboard.id} />
+      </PermissionGuard>
+
       {conflict && (
         <ConflictDialog
           mine={conflict.mine}
@@ -223,6 +235,180 @@ export function DashboardSettingsForm({
         />
       )}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Published-to-units section (Phase 6b) — publish/unpublish this dashboard to
+// org units so unit members see it under UNITS scope. Gated DASHBOARD_MANAGE.
+// ---------------------------------------------------------------------------
+
+function DashboardUnitAssignments({ dashboardId }: { dashboardId: string }) {
+  const [assignments, setAssignments] = useState<DashboardUnitAssignment[]>([]);
+  const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const [units, assigned] = await Promise.all([
+        listOrgUnits(),
+        listDashboardUnitAssignments(dashboardId),
+      ]);
+      setOrgUnits(units);
+      setAssignments(assigned);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Failed to load published units.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [dashboardId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const unitName = useCallback(
+    (id: string) => orgUnits.find((u) => u.id === id)?.name ?? id,
+    [orgUnits],
+  );
+
+  const assignedIds = useMemo(
+    () => new Set(assignments.map((a) => a.orgUnitId)),
+    [assignments],
+  );
+  const availableUnits = useMemo(
+    () => orgUnits.filter((u) => !assignedIds.has(u.id)),
+    [orgUnits, assignedIds],
+  );
+
+  async function handleAdd() {
+    if (!selectedUnitId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await assignDashboardToUnit(dashboardId, selectedUnitId);
+      setSelectedUnitId('');
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Failed to publish to unit.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemove(orgUnitId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await unassignDashboardFromUnit(dashboardId, orgUnitId);
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Failed to unpublish from unit.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="dashboard-unit-assignments"
+      className="mt-6 border-t border-border pt-5"
+    >
+      <h3 className="text-sm font-semibold text-content-strong">
+        Published to units
+      </h3>
+      <p className="mt-1 text-xs text-content-muted">
+        Members of a published unit can see this dashboard under their UNITS
+        scope. Unit members otherwise only see it if it&rsquo;s shared or they
+        own it.
+      </p>
+
+      {loading ? (
+        <p className="mt-3 text-sm text-content-muted">Loading…</p>
+      ) : (
+        <>
+          {assignments.length === 0 ? (
+            <p className="mt-3 text-sm text-content-muted">
+              Not published to any unit yet — unit members only see it if it&rsquo;s
+              shared or they own it.
+            </p>
+          ) : (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {assignments.map((a) => (
+                <li key={a.orgUnitId} data-testid={`unit-row-${a.orgUnitId}`}>
+                  <Badge tone="neutral" className="flex items-center gap-2">
+                    <span>{unitName(a.orgUnitId)}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleRemove(a.orgUnitId)}
+                      disabled={busy}
+                      data-testid={`remove-unit-${a.orgUnitId}`}
+                      aria-label={`Remove ${unitName(a.orgUnitId)}`}
+                      className="text-content-muted hover:text-status-critical disabled:opacity-50"
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-4 flex items-end gap-2">
+            <Select
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              disabled={busy || availableUnits.length === 0}
+              data-testid="assign-unit-select"
+              className="w-64"
+              aria-label="Select a unit to publish to"
+            >
+              <option value="">
+                {availableUnits.length === 0
+                  ? 'No more units to publish to'
+                  : 'Select a unit…'}
+              </option>
+              {availableUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void handleAdd()}
+              disabled={busy || !selectedUnitId}
+              isLoading={busy}
+              data-testid="assign-unit-btn"
+            >
+              Add
+            </Button>
+          </div>
+        </>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          data-testid="dashboard-unit-assignments-error"
+          className="mt-3 text-sm text-status-critical"
+        >
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

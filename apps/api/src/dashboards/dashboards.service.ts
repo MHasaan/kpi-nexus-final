@@ -9,7 +9,6 @@ import type { Prisma } from '@kpi-nexus/db';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
@@ -73,7 +72,6 @@ export class DashboardsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly resolver: PermissionResolverService,
     private readonly accessContext: AccessContextService,
   ) {}
 
@@ -97,12 +95,14 @@ export class DashboardsService {
    * DIRECT_REPORTS=+reports, UNITS=+unit owners/assignments, ORG=all). Default
    * SELF ⇒ own ∪ isShared = parity. Admin ⇒ whole tenant.
    */
-  private async visibilityWhere(): Promise<Prisma.DashboardWhereInput> {
+  private async visibilityWhere(
+    deletedAt: Prisma.DashboardWhereInput['deletedAt'] = null,
+  ): Promise<Prisma.DashboardWhereInput> {
     const ctx = RequestContextStore.require();
     const profile = await this.accessContext.resolveForCurrentPrincipal();
     const where: Prisma.DashboardWhereInput = {
       organizationId: ctx.organizationId,
-      deletedAt: null,
+      deletedAt,
     };
     if (profile.isAdmin) return where;
 
@@ -121,6 +121,8 @@ export class DashboardsService {
       { ownerUserId: { in: ownerIds } },
       { isShared: true },
     ];
+    // Unit-published dashboards surface only at UNITS scope (by design — DIRECT_REPORTS
+    // widens by people, not by unit membership).
     if (scope === 'UNITS') {
       const myUnitIds = [
         ...new Set([...profile.context.managedOrgUnitIds, ...profile.context.memberOrgUnitIds]),
@@ -249,27 +251,10 @@ export class DashboardsService {
     });
   }
 
-  /** List soft-deleted (archived) dashboards in the tenant, respecting the same
-   *  owner/isShared visibility rule as list(). */
+  /** List soft-deleted (archived) dashboards visible to the current principal —
+   *  same DASHBOARDS-scope predicate as list(), but for deletedAt != null. */
   async listArchived(): Promise<PublicDashboard[]> {
-    const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForUser(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.roleId,
-    );
-
-    const where: Prisma.DashboardWhereInput = {
-      organizationId: ctx.organizationId,
-      deletedAt: { not: null },
-    };
-    if (!resolved.isAdmin) {
-      where.OR = [
-        { ownerUserId: ctx.userId },
-        { isShared: true },
-      ];
-    }
-
+    const where = await this.visibilityWhere({ not: null });
     return this.prisma.dashboard.findMany({
       where,
       select: dashboardSelect,

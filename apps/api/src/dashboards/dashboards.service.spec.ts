@@ -17,7 +17,6 @@ import { NotFoundException, PreconditionFailedException } from '@nestjs/common';
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import { DashboardsService, buildDashboardEtag, parseIfMatch } from './dashboards.service.js';
 
@@ -141,7 +140,9 @@ class FakePrisma {
     if (where.ownerUserId) {
       const cond = where.ownerUserId;
       if (typeof cond === 'object' && cond !== null && 'in' in (cond as Record<string, unknown>)) {
-        if (!(cond as { in: string[] }).in.includes(d.ownerUserId as string)) return false;
+        if (d.ownerUserId == null || !(cond as { in: string[] }).in.includes(d.ownerUserId)) {
+          return false;
+        }
       } else if (d.ownerUserId !== cond) {
         return false;
       }
@@ -173,14 +174,6 @@ class FakeAudit {
   record = vi.fn(async (input: Record<string, unknown>) => {
     this.records.push(input);
   });
-}
-
-class FakeResolver {
-  isAdmin = false;
-  resolveForUser = vi.fn(async () => ({
-    isAdmin: this.isAdmin,
-    permissions: new Set<string>(),
-  }));
 }
 
 class FakeAccessContext {
@@ -221,20 +214,17 @@ function makeService(): {
   service: DashboardsService;
   prisma: FakePrisma;
   audit: FakeAudit;
-  resolver: FakeResolver;
   accessContext: FakeAccessContext;
 } {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
-  const resolver = new FakeResolver();
   const accessContext = new FakeAccessContext();
   const service = new DashboardsService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
-    resolver as unknown as PermissionResolverService,
     accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, audit, resolver, accessContext };
+  return { service, prisma, audit, accessContext };
 }
 
 describe('parseIfMatch', () => {
@@ -359,8 +349,8 @@ describe('DashboardsService.getById', () => {
   });
 
   test('cross-tenant lookup returns 404', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1' }));
     await expect(
       withCtx({ userId: 'u1', organizationId: ORG }, () => service.getById('d1')),
@@ -464,8 +454,8 @@ describe('DashboardsService.remove', () => {
 
 describe('DashboardsService.listArchived', () => {
   test('returns only soft-deleted dashboards in tenant', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(
       makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date() }),
       makeRow({ id: 'd2', ownerUserId: 'u1', deletedAt: null }),
@@ -477,7 +467,7 @@ describe('DashboardsService.listArchived', () => {
 
   test('non-admin sees only own or shared archived dashboards', async () => {
     const { service, prisma } = makeService();
-    // resolver.isAdmin stays false
+    // accessContext.isAdmin stays false ⇒ default SELF scope ⇒ own ∪ shared
     prisma.store.push(
       makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: new Date(), isShared: false }),
       makeRow({ id: 'd2', ownerUserId: 'other', deletedAt: new Date(), isShared: true }),
@@ -489,8 +479,8 @@ describe('DashboardsService.listArchived', () => {
   });
 
   test('excludes dashboards from another tenant', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(
       makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1', deletedAt: new Date() }),
       makeRow({ id: 'd2', ownerUserId: 'u1', deletedAt: new Date() }),
@@ -503,8 +493,8 @@ describe('DashboardsService.listArchived', () => {
   });
 
   test('non-deleted dashboards are excluded', async () => {
-    const { service, prisma, resolver } = makeService();
-    resolver.isAdmin = true;
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
     prisma.store.push(makeRow({ id: 'd1', ownerUserId: 'u1', deletedAt: null }));
     const result = await withCtx({ userId: 'u1' }, () => service.listArchived());
     expect(result).toEqual([]);

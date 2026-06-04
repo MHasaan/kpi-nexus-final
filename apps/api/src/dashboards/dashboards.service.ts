@@ -265,9 +265,9 @@ export class DashboardsService {
   /** Restore a soft-deleted dashboard (set deletedAt = null). Throws 404 if not
    *  found in tenant or not currently archived. */
   async restore(id: string): Promise<PublicDashboard> {
-    const ctx = RequestContextStore.require();
+    const base = await this.visibilityWhere({ not: null });
     const existing = await this.prisma.dashboard.findFirst({
-      where: { id, organizationId: ctx.organizationId, deletedAt: { not: null } },
+      where: { ...base, id },
       select: { id: true, name: true },
     });
     if (!existing) {
@@ -291,9 +291,9 @@ export class DashboardsService {
    *  explicit child deletion is needed. Throws 404 if not found in tenant or not
    *  currently archived. */
   async purge(id: string): Promise<void> {
-    const ctx = RequestContextStore.require();
+    const base = await this.visibilityWhere({ not: null });
     const existing = await this.prisma.dashboard.findFirst({
-      where: { id, organizationId: ctx.organizationId, deletedAt: { not: null } },
+      where: { ...base, id },
       select: { id: true, name: true },
     });
     if (!existing) {

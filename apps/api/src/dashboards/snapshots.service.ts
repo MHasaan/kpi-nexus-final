@@ -232,6 +232,8 @@ export class SnapshotService {
         message: 'Snapshot not found',
       });
     }
+    // Enforce dashboard visibility/scope — mirrors list()/capture(); 404 if not visible.
+    await this.dashboards.getById(snapshot.dashboardId);
     return snapshot;
   }
 
@@ -248,6 +250,8 @@ export class SnapshotService {
         message: 'Snapshot not found',
       });
     }
+    // Enforce dashboard visibility/scope before deleting — 404 if not visible.
+    await this.dashboards.getById(existing.dashboardId);
     await this.prisma.dashboardSnapshot.delete({ where: { id: existing.id } });
     await this.audit.record({
       action: 'DELETE',

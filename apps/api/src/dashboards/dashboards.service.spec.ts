@@ -580,6 +580,30 @@ describe('DashboardsService.restore', () => {
     await withCtx({ userId: 'u1' }, () => service.restore('d1'));
     expect(audit.records.some((r) => r['action'] === 'UPDATE' && r['entityId'] === 'd1')).toBe(true);
   });
+
+  test('restore on an archived dashboard owned by someone else (not shared) throws 404 at SELF scope', async () => {
+    const { service, prisma } = makeService();
+    // non-admin default SELF scope; archived row owned by another, not shared ⇒ out of scope
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'someone_else', isShared: false, deletedAt: new Date() }),
+    );
+    await expect(
+      withCtx({ userId: 'u1' }, () => service.restore('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // Row must NOT be mutated
+    expect(prisma.store[0]!.deletedAt).not.toBeNull();
+  });
+
+  test('admin can restore any archived dashboard regardless of owner', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'someone_else', isShared: false, deletedAt: new Date() }),
+    );
+    const result = await withCtx({ userId: 'u1' }, () => service.restore('d1'));
+    expect(result.id).toBe('d1');
+    expect(prisma.store[0]!.deletedAt).toBeNull();
+  });
 });
 
 describe('DashboardsService.purge', () => {
@@ -618,6 +642,28 @@ describe('DashboardsService.purge', () => {
     expect(
       audit.records.some((r) => r['action'] === 'DELETE' && r['entityId'] === 'd1'),
     ).toBe(true);
+  });
+
+  test('purge on an archived dashboard owned by someone else (not shared) throws 404 at SELF scope', async () => {
+    const { service, prisma } = makeService();
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'someone_else', isShared: false, deletedAt: new Date() }),
+    );
+    await expect(
+      withCtx({ userId: 'u1' }, () => service.purge('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // Row must still exist (no side-effect)
+    expect(prisma.store).toHaveLength(1);
+  });
+
+  test('admin can purge any archived dashboard regardless of owner', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'someone_else', isShared: false, deletedAt: new Date() }),
+    );
+    await withCtx({ userId: 'u1' }, () => service.purge('d1'));
+    expect(prisma.store.find((d) => d.id === 'd1')).toBeUndefined();
   });
 });
 

@@ -166,12 +166,7 @@ export class ScheduledReportService {
   async update(id: string, patch: UpdateScheduledReportDto) {
     const ctx = RequestContextStore.require();
 
-    const existing = await this.prisma.scheduledReport.findFirst({
-      where: { id, organizationId: ctx.organizationId },
-    });
-    if (!existing) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Scheduled report not found' });
-    }
+    const existing = await this.get(id); // tenant + REPORTS-scope gate (404 if out of scope)
 
     const cronChanged = patch.cron !== undefined && patch.cron !== existing.cron;
     const isActiveChanged = patch.isActive !== undefined && patch.isActive !== existing.isActive;
@@ -217,14 +212,7 @@ export class ScheduledReportService {
   }
 
   async remove(id: string): Promise<void> {
-    const ctx = RequestContextStore.require();
-
-    const existing = await this.prisma.scheduledReport.findFirst({
-      where: { id, organizationId: ctx.organizationId },
-    });
-    if (!existing) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Scheduled report not found' });
-    }
+    const existing = await this.get(id); // tenant + REPORTS-scope gate (404 if out of scope)
 
     await this.removeRepeatableJob(id);
 
@@ -246,12 +234,7 @@ export class ScheduledReportService {
   async trigger(id: string): Promise<void> {
     const ctx = RequestContextStore.require();
 
-    const existing = await this.prisma.scheduledReport.findFirst({
-      where: { id, organizationId: ctx.organizationId },
-    });
-    if (!existing) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Scheduled report not found' });
-    }
+    await this.get(id); // tenant + REPORTS-scope gate (404 if out of scope)
 
     await this.queue.add('run', {
       scheduledReportId: id,

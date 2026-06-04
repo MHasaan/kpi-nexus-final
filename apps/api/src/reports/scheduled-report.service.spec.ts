@@ -410,4 +410,75 @@ describe('ScheduledReportService', () => {
       await expect(service.get(theirsId)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // 11. update() SELF scope — another creator's report ⇒ 404 (no mutation, no queue churn)
+  test('update() SELF ⇒ another creator report throws 404', async () => {
+    accessContext.reportsScope = 'SELF';
+    let theirsId = '';
+    await runAs(ORG_A, 'other', async () => {
+      const r = await service.create({ name: 'Theirs', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      theirsId = r.id;
+    });
+    await runAs(ORG_A, 'me', async () => {
+      queue.add.mockClear();
+      queue.removeRepeatableByKey.mockClear();
+      await expect(service.update(theirsId, { cron: '0 10 * * 2' })).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      // No queue side-effects and the stored cron is untouched.
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(queue.removeRepeatableByKey).not.toHaveBeenCalled();
+    });
+    expect(prisma.store.find((r) => r.id === theirsId)!.cron).toBe('0 9 * * 1');
+  });
+
+  // 12. remove() SELF scope — another creator's report ⇒ 404 (no delete)
+  test('remove() SELF ⇒ another creator report throws 404 (no delete)', async () => {
+    accessContext.reportsScope = 'SELF';
+    let theirsId = '';
+    await runAs(ORG_A, 'other', async () => {
+      const r = await service.create({ name: 'Theirs', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      theirsId = r.id;
+    });
+    await runAs(ORG_A, 'me', async () => {
+      queue.removeRepeatableByKey.mockClear();
+      await expect(service.remove(theirsId)).rejects.toBeInstanceOf(NotFoundException);
+      expect(queue.removeRepeatableByKey).not.toHaveBeenCalled();
+    });
+    // Row must still exist.
+    expect(prisma.store.find((r) => r.id === theirsId)).toBeDefined();
+  });
+
+  // 13. trigger() SELF scope — another creator's report ⇒ 404 (no enqueue)
+  test('trigger() SELF ⇒ another creator report throws 404 (no enqueue)', async () => {
+    accessContext.reportsScope = 'SELF';
+    let theirsId = '';
+    await runAs(ORG_A, 'other', async () => {
+      const r = await service.create({ name: 'Theirs', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      theirsId = r.id;
+    });
+    await runAs(ORG_A, 'me', async () => {
+      queue.add.mockClear();
+      await expect(service.trigger(theirsId)).rejects.toBeInstanceOf(NotFoundException);
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  // 14. update()/remove()/trigger() SELF scope — own report still succeeds (parity)
+  test('update()/remove()/trigger() SELF ⇒ own report succeeds', async () => {
+    accessContext.reportsScope = 'SELF';
+    await runAs(ORG_A, 'me', async () => {
+      const r = await service.create({ name: 'Mine', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      // update
+      const updated = await service.update(r.id, { name: 'Mine v2' });
+      expect(updated.name).toBe('Mine v2');
+      // trigger
+      queue.add.mockClear();
+      await service.trigger(r.id);
+      expect(queue.add).toHaveBeenCalledOnce();
+      // remove
+      await service.remove(r.id);
+      expect(prisma.store.find((x) => x.id === r.id)).toBeUndefined();
+    });
+  });
 });

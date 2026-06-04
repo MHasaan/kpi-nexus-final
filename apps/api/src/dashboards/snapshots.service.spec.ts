@@ -720,6 +720,47 @@ describe('SnapshotService.get', () => {
       withCtx({}, () => service.get('does_not_exist')),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  test('throws 404 when the snapshot exists but its dashboard is out of scope', async () => {
+    const prisma = new FakePrisma();
+    prisma.snapshotStore.push({
+      id: 'snap_1',
+      organizationId: ORG,
+      dashboardId: 'dash_hidden',
+      label: 'test',
+      payload: { capturedAt: '2026-01-01' },
+      takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
+      takenAt: new Date(),
+    });
+    // Dashboard is not visible to this principal ⇒ getById throws.
+    const dashboardStub = makeDashboardStub({ throws: true });
+    const { service } = makeService({ prisma, dashboardStub });
+    await expect(
+      withCtx({}, () => service.get('snap_1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // The scope gate must consult the dashboard visibility.
+    expect(dashboardStub.getById).toHaveBeenCalledWith('dash_hidden');
+  });
+
+  test('returns the snapshot when its dashboard is visible', async () => {
+    const prisma = new FakePrisma();
+    prisma.snapshotStore.push({
+      id: 'snap_1',
+      organizationId: ORG,
+      dashboardId: 'dash_1',
+      label: 'test',
+      payload: { capturedAt: '2026-01-01' },
+      takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
+      takenAt: new Date(),
+    });
+    const dashboardStub = makeDashboardStub(); // getById resolves
+    const { service } = makeService({ prisma, dashboardStub });
+    const result = await withCtx({}, () => service.get('snap_1'));
+    expect(result.id).toBe('snap_1');
+    expect(dashboardStub.getById).toHaveBeenCalledWith('dash_1');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -772,5 +813,27 @@ describe('SnapshotService.delete', () => {
     await expect(
       withCtx({}, () => service.delete('ghost')),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('throws 404 (and does not delete) when the dashboard is out of scope', async () => {
+    const prisma = new FakePrisma();
+    prisma.snapshotStore.push({
+      id: 'snap_hidden',
+      organizationId: ORG,
+      dashboardId: 'dash_hidden',
+      label: null,
+      payload: {},
+      takenById: 'u1',
+      takenBy: { id: 'u1', fullName: 'Test User', email: 'test@example.com' },
+      takenAt: new Date(),
+    });
+    const dashboardStub = makeDashboardStub({ throws: true });
+    const { service } = makeService({ prisma, dashboardStub });
+    await expect(
+      withCtx({}, () => service.delete('snap_hidden')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    // Scope gate runs before the delete ⇒ row is untouched.
+    expect(prisma.snapshotStore).toHaveLength(1);
+    expect(prisma.dashboardSnapshot.delete).not.toHaveBeenCalled();
   });
 });

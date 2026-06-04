@@ -4,7 +4,9 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
+import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateTaskDto, ListTasksQuery, UpdateTaskDto } from './dto/task.dto.js';
 
@@ -33,11 +35,31 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
+    private readonly accessContext: AccessContextService,
   ) {}
+
+  /**
+   * OR-clause restricting tasks to those created-by / assigned-to the scoped user
+   * set for the current principal's TASKS scope. `undefined` ⇒ no restriction
+   * (ORG / admin). Default scope SELF ⇒ ids = [me] ⇒ own-created ∪ own-assigned (parity).
+   */
+  private async taskScopeOr(): Promise<Prisma.TaskWhereInput[] | undefined> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    if (profile.isAdmin) return undefined;
+    const scope = profile.scopeByDomain.TASKS ?? 'SELF';
+    if (scope === 'ORG') return undefined;
+    const unitMemberUserIds = scope === 'UNITS' ? await this.accessContext.unitMemberUserIds() : [];
+    const ids = scopedUserIds(scope, {
+      userId: ctx.userId,
+      directReportIds: profile.context.directReportIds,
+      unitMemberUserIds,
+    })!; // non-null: scope !== ORG
+    return [{ createdById: { in: ids } }, { assigneeUserId: { in: ids } }];
+  }
 
   async list(query: ListTasksQuery): Promise<PublicTask[]> {
     const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForCurrentPrincipal();
 
     const where: Prisma.TaskWhereInput = { organizationId: ctx.organizationId };
     if (query.status) where.status = query.status;
@@ -51,11 +73,9 @@ export class TasksService {
       };
     }
 
-    // Entity-bound read visibility: non-admins see only tasks they created or
-    // are assigned to. Admins see every task in the tenant.
-    if (!resolved.isAdmin) {
-      where.OR = [{ createdById: ctx.userId }, { assigneeUserId: ctx.userId }];
-    }
+    // Read visibility driven by the AccessProfile's TASKS scope (default SELF = parity).
+    const or = await this.taskScopeOr();
+    if (or) where.OR = or;
 
     return this.prisma.task.findMany({
       where,
@@ -75,21 +95,21 @@ export class TasksService {
 
   async byKpi(kpiId: string): Promise<PublicTask[]> {
     const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForCurrentPrincipal();
     const where: Prisma.TaskWhereInput = { organizationId: ctx.organizationId, kpiId };
-    if (!resolved.isAdmin) {
-      where.OR = [{ createdById: ctx.userId }, { assigneeUserId: ctx.userId }];
-    }
+    const or = await this.taskScopeOr();
+    if (or) where.OR = or;
     return this.prisma.task.findMany({ where, select: taskSelect, orderBy: [{ createdAt: 'asc' }] });
   }
 
   async getById(id: string): Promise<PublicTask> {
-    const ctx = RequestContextStore.require();
-    const resolved = await this.resolver.resolveForCurrentPrincipal();
     const task = await this.loadInOrg(id);
-    if (!resolved.isAdmin && task.createdById !== ctx.userId && task.assigneeUserId !== ctx.userId) {
-      // Don't leak existence to users who can't see the task.
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Task not found' });
+    const or = await this.taskScopeOr();
+    if (or) {
+      const ids = (or[0] as { createdById: { in: string[] } }).createdById.in;
+      if (!ids.includes(task.createdById) && !ids.includes(task.assigneeUserId ?? '')) {
+        // Don't leak existence to users who can't see the task.
+        throw new NotFoundException({ code: 'NOT_FOUND', message: 'Task not found' });
+      }
     }
     return task;
   }

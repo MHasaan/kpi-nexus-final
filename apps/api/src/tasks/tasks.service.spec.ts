@@ -7,9 +7,11 @@
 import { describe, expect, test, vi } from 'vitest';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
+import type { Scope } from '@kpi-nexus/contracts';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import type { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import { TasksService } from './tasks.service.js';
@@ -41,7 +43,12 @@ function matchWhere(t: FakeTask, where: Record<string, unknown>): boolean {
       k === 'kpiId' ||
       k === 'createdById'
     ) {
-      if ((t as unknown as Record<string, unknown>)[k] !== v) return false;
+      const actual = (t as unknown as Record<string, unknown>)[k];
+      if (v && typeof v === 'object' && 'in' in (v as Record<string, unknown>)) {
+        if (!(v as { in: unknown[] }).in.includes(actual)) return false;
+      } else if (actual !== v) {
+        return false;
+      }
     } else if (k === 'dueAt') {
       const cond = v as { gte?: Date; lte?: Date };
       if (cond.gte && (!t.dueAt || t.dueAt < cond.gte)) return false;
@@ -117,6 +124,22 @@ class FakeResolver {
   }));
 }
 
+class FakeAccessContext {
+  isAdmin = false;
+  tasksScope: Scope = 'SELF';
+  directReportIds: string[] = [];
+  unitMemberIds: string[] = [];
+  resolveForCurrentPrincipal = vi.fn(async () => ({
+    isAdmin: this.isAdmin,
+    capabilities: [],
+    scopeByDomain: { TASKS: this.tasksScope },
+    dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+    dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: this.directReportIds },
+  }));
+  unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
+}
+
 const ORG = 'org_alpha';
 
 function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Promise<T> | T {
@@ -126,14 +149,23 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
   );
 }
 
-function makeService(resolver = new FakeResolver()) {
+function makeService(
+  opts: { isAdmin?: boolean; perms?: PermissionKey[]; tasksScope?: Scope; unitMemberIds?: string[]; directReportIds?: string[] } = {},
+) {
   const prisma = new FakePrisma();
+  const resolver = new FakeResolver(opts.isAdmin ?? false, opts.perms ?? []);
+  const accessContext = new FakeAccessContext();
+  accessContext.isAdmin = opts.isAdmin ?? false;
+  if (opts.tasksScope) accessContext.tasksScope = opts.tasksScope;
+  if (opts.unitMemberIds) accessContext.unitMemberIds = opts.unitMemberIds;
+  if (opts.directReportIds) accessContext.directReportIds = opts.directReportIds;
   const service = new TasksService(
     prisma as unknown as PrismaService,
     new FakeAudit() as unknown as AuditService,
     resolver as unknown as PermissionResolverService,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma };
+  return { service, prisma, accessContext };
 }
 
 describe('TasksService', () => {
@@ -146,8 +178,7 @@ describe('TasksService', () => {
   });
 
   test('list is org-scoped', async () => {
-    const admin = new FakeResolver(true);
-    const { service } = makeService(admin);
+    const { service } = makeService({ isAdmin: true });
     await withCtx({ userId: 'a' }, () => service.create({ title: 'A' }));
     await withCtx({ userId: 'a', organizationId: 'other' }, () => service.create({ title: 'B' }));
     const rows = await withCtx({ userId: 'a' }, () => service.list({}));
@@ -155,7 +186,7 @@ describe('TasksService', () => {
   });
 
   test('non-admin sees only own created + assigned tasks', async () => {
-    const { service, prisma } = makeService(new FakeResolver(false));
+    const { service, prisma } = makeService();
     // bob creates one assigned to carol; carol creates one for herself
     await withCtx({ userId: 'bob' }, () => service.create({ title: 'For carol', assigneeUserId: 'carol' }));
     await withCtx({ userId: 'carol' }, () => service.create({ title: 'Carol own' }));
@@ -166,7 +197,7 @@ describe('TasksService', () => {
   });
 
   test('admin sees all tasks', async () => {
-    const { service } = makeService(new FakeResolver(true));
+    const { service } = makeService({ isAdmin: true });
     await withCtx({ userId: 'bob' }, () => service.create({ title: 'X' }));
     await withCtx({ userId: 'carol' }, () => service.create({ title: 'Y' }));
     const rows = await withCtx({ userId: 'admin' }, () => service.list({}));
@@ -174,7 +205,7 @@ describe('TasksService', () => {
   });
 
   test('filters by status and priority', async () => {
-    const { service } = makeService(new FakeResolver(true));
+    const { service } = makeService({ isAdmin: true });
     await withCtx({ userId: 'a' }, () => service.create({ title: 'todo', priority: 'LOW' }));
     await withCtx({ userId: 'a' }, () => service.create({ title: 'urgent', priority: 'URGENT', status: 'IN_PROGRESS' }));
     const urgent = await withCtx({ userId: 'a' }, () => service.list({ priority: 'URGENT' }));
@@ -184,40 +215,39 @@ describe('TasksService', () => {
   });
 
   test('getById 404 for another tenant', async () => {
-    const { service } = makeService(new FakeResolver(true));
+    const { service } = makeService({ isAdmin: true });
     const t = await withCtx({ organizationId: 'org_a' }, () => service.create({ title: 'X' }));
     await expect(withCtx({ organizationId: 'org_b' }, () => service.getById(t.id))).rejects.toBeInstanceOf(NotFoundException);
   });
 
   test('non-admin getById 404 when not creator/assignee', async () => {
-    const { service } = makeService(new FakeResolver(false));
+    const { service } = makeService();
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 'secret' }));
     await expect(withCtx({ userId: 'eve' }, () => service.getById(t.id))).rejects.toBeInstanceOf(NotFoundException);
   });
 
   test('update allowed for creator', async () => {
-    const { service } = makeService(new FakeResolver(false));
+    const { service } = makeService();
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 'mine' }));
     const u = await withCtx({ userId: 'bob' }, () => service.update(t.id, { status: 'DONE' }));
     expect(u.status).toBe('DONE');
   });
 
   test('update allowed for assignee', async () => {
-    const { service } = makeService(new FakeResolver(false));
+    const { service } = makeService();
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 'for carol', assigneeUserId: 'carol' }));
     const u = await withCtx({ userId: 'carol' }, () => service.update(t.id, { status: 'IN_PROGRESS' }));
     expect(u.status).toBe('IN_PROGRESS');
   });
 
   test('update forbidden for unrelated non-manager (task exists in org → 403)', async () => {
-    const { service } = makeService(new FakeResolver(false));
+    const { service } = makeService();
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 'mine', assigneeUserId: 'bob' }));
     await expect(withCtx({ userId: 'eve' }, () => service.update(t.id, { status: 'DONE' }))).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   test('update allowed for USERS_MANAGE holder even if not creator/assignee', async () => {
-    const manager = new FakeResolver(false, [PermissionKey.USERS_MANAGE]);
-    const { service } = makeService(manager);
+    const { service } = makeService({ perms: [PermissionKey.USERS_MANAGE] });
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 'mine' }));
     const u = await withCtx({ userId: 'mgr' }, () => service.update(t.id, { priority: 'HIGH' }));
     expect(u.priority).toBe('HIGH');
@@ -225,13 +255,13 @@ describe('TasksService', () => {
 
   test('delete forbidden for non-creator without USERS_MANAGE (but visible)', async () => {
     // assignee can see but only creator/USERS_MANAGE/admin can delete
-    const { service } = makeService(new FakeResolver(false));
+    const { service } = makeService();
     const t = await withCtx({ userId: 'bob' }, () => service.create({ title: 't', assigneeUserId: 'carol' }));
     await expect(withCtx({ userId: 'carol' }, () => service.remove(t.id))).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   test('myTasks returns only tasks assigned to current user', async () => {
-    const { service } = makeService(new FakeResolver(true));
+    const { service } = makeService({ isAdmin: true });
     await withCtx({ userId: 'bob' }, () => service.create({ title: 'b1', assigneeUserId: 'carol' }));
     await withCtx({ userId: 'bob' }, () => service.create({ title: 'b2' }));
     const mine = await withCtx({ userId: 'carol' }, () => service.myTasks());
@@ -239,10 +269,50 @@ describe('TasksService', () => {
   });
 
   test('byKpi filters to a kpi (org-scoped)', async () => {
-    const { service } = makeService(new FakeResolver(true));
+    const { service } = makeService({ isAdmin: true });
     await withCtx({ userId: 'a' }, () => service.create({ title: 'linked', kpiId: 'kpi_1' }));
     await withCtx({ userId: 'a' }, () => service.create({ title: 'other', kpiId: 'kpi_2' }));
     const rows = await withCtx({ userId: 'a' }, () => service.byKpi('kpi_1'));
     expect(rows.map((r) => r.title)).toEqual(['linked']);
+  });
+});
+
+describe('TasksService TASKS scope (Phase 2.5)', () => {
+  test('default SELF ⇒ created-by-me OR assigned-to-me (parity)', async () => {
+    const { service, prisma } = makeService();
+    await withCtx({ userId: 'me' }, () => service.list({}));
+    const where = prisma.task.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toEqual([
+      { createdById: { in: ['me'] } },
+      { assigneeUserId: { in: ['me'] } },
+    ]);
+  });
+
+  test('UNITS ⇒ created/assigned by anyone in my units', async () => {
+    const { service, prisma } = makeService({ tasksScope: 'UNITS', unitMemberIds: ['peer1'] });
+    await withCtx({ userId: 'me' }, () => service.list({}));
+    const where = prisma.task.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toEqual([
+      { createdById: { in: expect.arrayContaining(['me', 'peer1']) } },
+      { assigneeUserId: { in: expect.arrayContaining(['me', 'peer1']) } },
+    ]);
+  });
+
+  test('ORG ⇒ no per-row filter', async () => {
+    const { service, prisma } = makeService({ tasksScope: 'ORG' });
+    await withCtx({ userId: 'me' }, () => service.list({}));
+    expect((prisma.task.findMany.mock.calls[0]![0]!.where as Record<string, unknown>).OR).toBeUndefined();
+  });
+
+  test('DIRECT_REPORTS getById ⇒ a report’s task is visible, a stranger’s is not', async () => {
+    const { service } = makeService({ tasksScope: 'DIRECT_REPORTS', directReportIds: ['rep'] });
+    const repTask = await withCtx({ userId: 'rep' }, () => service.create({ title: 'rep task' }));
+    // visible: created by my direct report
+    const seen = await withCtx({ userId: 'me' }, () => service.getById(repTask.id));
+    expect(seen.id).toBe(repTask.id);
+    const strangerTask = await withCtx({ userId: 'stranger' }, () => service.create({ title: 'x' }));
+    await expect(
+      withCtx({ userId: 'me' }, () => service.getById(strangerTask.id)),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

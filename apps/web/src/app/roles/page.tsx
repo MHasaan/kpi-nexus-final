@@ -7,6 +7,7 @@ import { Check, Plus, ShieldCheck } from 'lucide-react';
 import type { Domain, Scope } from '@kpi-nexus/contracts';
 
 import { AppShell } from '../../components/app-shell';
+import { PageAccessEditor } from '../../components/access/page-access-editor';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
 import {
@@ -35,6 +36,7 @@ import {
   type DataLimitsConfig,
   type DataTypeConfig,
   type KpiCategory,
+  type PageAccessConfig,
   type RolePreset,
   type RoleSummary,
   type ScopeConfig,
@@ -616,6 +618,12 @@ function RoleAccessConfig({
     const kc = role.dataTypeConfig?.kpiCategoryIds;
     return new Set(Array.isArray(kc) ? kc : []);
   });
+  // Page access (Layer-5). Initialize from the role so an untouched block still
+  // round-trips the persisted value on Save; the editor overwrites it on change.
+  const [pageAccess, setPageAccess] = useState<PageAccessConfig>(() => ({
+    allow: role.pageAccess?.allow ?? null,
+    deny: role.pageAccess?.deny ?? [],
+  }));
 
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -625,6 +633,7 @@ function RoleAccessConfig({
     scopeConfig: ScopeConfig;
     dataTypeConfig: DataTypeConfig;
     dataLimits: DataLimitsConfig;
+    pageAccess: PageAccessConfig;
   } {
     // Scope: only non-empty (non-inherit) entries; {} clears the role's scope config.
     const scopeConfig: ScopeConfig = {};
@@ -653,7 +662,9 @@ function RoleAccessConfig({
     // (no kpiCategoryIds key) resolves to null server-side, i.e. no restriction.
     const dataTypeConfig: DataTypeConfig = restrictCats ? { kpiCategoryIds: [...catIds] } : {};
 
-    return { scopeConfig, dataTypeConfig, dataLimits };
+    // Always send pageAccess reflecting the block state so { allow:null, deny:[] }
+    // clears any prior restriction.
+    return { scopeConfig, dataTypeConfig, dataLimits, pageAccess };
   }
 
   async function handleSave() {
@@ -815,6 +826,9 @@ function RoleAccessConfig({
             </div>
           ))}
       </div>
+
+      {/* Page access (Layer-5) */}
+      <PageAccessEditor value={role.pageAccess} onChange={setPageAccess} />
 
       {/* Actions */}
       <div className="mt-6 flex flex-wrap items-center gap-3">

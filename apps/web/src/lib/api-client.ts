@@ -9,6 +9,7 @@ import type {
   AccessProfile,
   DataLimitsConfig,
   DataTypeConfig,
+  PageAccessConfig,
   ScopeConfig,
   UserAccessOverride,
 } from '@kpi-nexus/contracts';
@@ -170,6 +171,7 @@ export interface RoleSummary {
   scopeConfig: ScopeConfig | null;
   dataTypeConfig: DataTypeConfig | null;
   dataLimits: DataLimitsConfig | null;
+  pageAccess: PageAccessConfig | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -180,7 +182,12 @@ export async function listRoles(): Promise<RoleSummary[]> {
 
 export async function updateRole(
   id: string,
-  patch: { scopeConfig?: ScopeConfig; dataTypeConfig?: DataTypeConfig; dataLimits?: DataLimitsConfig },
+  patch: {
+    scopeConfig?: ScopeConfig;
+    dataTypeConfig?: DataTypeConfig;
+    dataLimits?: DataLimitsConfig;
+    pageAccess?: PageAccessConfig;
+  },
 ): Promise<RoleSummary> {
   return api(`/roles/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
@@ -409,7 +416,14 @@ export async function previewInvitation(
 // =============================================================================
 
 // Re-export the access contract shapes so pages import everything from one place.
-export type { AccessProfile, ScopeConfig, DataTypeConfig, DataLimitsConfig, UserAccessOverride };
+export type {
+  AccessProfile,
+  ScopeConfig,
+  DataTypeConfig,
+  DataLimitsConfig,
+  PageAccessConfig,
+  UserAccessOverride,
+};
 
 /** Server shape of a persisted per-user override (JSON-serialized `updatedAt`). */
 export interface PublicAccessOverride {
@@ -419,6 +433,7 @@ export interface PublicAccessOverride {
   scopeConfig: ScopeConfig | null;
   dataTypeConfig: DataTypeConfig | null;
   dataLimits: DataLimitsConfig | null;
+  pageAccess?: PageAccessConfig | null;
   updatedById: string | null;
   updatedAt: string;
 }

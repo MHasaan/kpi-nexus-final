@@ -7,6 +7,7 @@ import { Check, Search, SlidersHorizontal, UserCog } from 'lucide-react';
 import type { Domain, PermissionKey, Scope } from '@kpi-nexus/contracts';
 
 import { AppShell } from '../../../components/app-shell';
+import { PageAccessEditor } from '../../../components/access/page-access-editor';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   Badge,
@@ -34,6 +35,7 @@ import {
   type AccessProfile,
   type DataLimitsConfig,
   type KpiCategory,
+  type PageAccessConfig,
   type PublicAccessOverride,
   type ScopeConfig,
   type UserAccessOverride,
@@ -234,6 +236,11 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
   const [limits, setLimits] = useState({ historyWindowDays: '', maxListRows: '', maxExportRows: '' });
   const [restrictCats, setRestrictCats] = useState(false);
   const [catIds, setCatIds] = useState<Set<string>>(new Set());
+  // Page access (Layer-5). Held as the latest config the editor emits; reset on
+  // (re)hydrate so it tracks the persisted override.
+  const [pageAccess, setPageAccess] = useState<PageAccessConfig>({ allow: null, deny: [] });
+  // Bump to force the PageAccessEditor to re-mount (re-hydrate) after save/clear.
+  const [pageAccessKey, setPageAccessKey] = useState(0);
 
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -260,6 +267,9 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
     const kc = ov?.dataTypeConfig?.kpiCategoryIds;
     setRestrictCats(Array.isArray(kc));
     setCatIds(new Set(Array.isArray(kc) ? kc : []));
+
+    setPageAccess({ allow: ov?.pageAccess?.allow ?? null, deny: ov?.pageAccess?.deny ?? [] });
+    setPageAccessKey((k) => k + 1);
   }, []);
 
   const load = useCallback(async () => {
@@ -320,6 +330,9 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
       scopeConfig: Object.keys(scopeConfig).length > 0 ? scopeConfig : undefined,
       dataTypeConfig: restrictCats ? { kpiCategoryIds: [...catIds] } : undefined,
       dataLimits: Object.keys(dl).length > 0 ? dl : undefined,
+      // Always send pageAccess (the editor already shapes it to
+      // { allow: restrictOn ? [...] : null, deny: [...] }) so clearing works.
+      pageAccess,
     };
   }
 
@@ -635,6 +648,13 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
               </div>
             ))}
         </div>
+
+        {/* Page access (Layer-5) */}
+        <PageAccessEditor
+          key={pageAccessKey}
+          value={override?.pageAccess ?? null}
+          onChange={setPageAccess}
+        />
 
         {/* Actions */}
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border-divider pt-4">

@@ -29,6 +29,10 @@ export type Domain = z.infer<typeof DomainSchema>;
 export const ScopeSchema = z.enum(['SELF', 'DIRECT_REPORTS', 'UNITS', 'ORG']);
 export type Scope = z.infer<typeof ScopeSchema>;
 
+/** Canonical verbs for ResourcePermission grants (Phase 3.5). */
+export const ResourceActionSchema = z.enum(['view', 'edit', 'delete', 'data_entry', 'manage']);
+export type ResourceAction = z.infer<typeof ResourceActionSchema>;
+
 /**
  * Layer-2 configuration carried on a role (later a per-user override): a partial
  * per-domain scope map. An unset domain falls back to the derived default

@@ -63,16 +63,19 @@ class FakePrisma {
   };
 
   orgUnitMember = {
-    findMany: vi.fn(
-      async ({
-        where,
-      }: {
-        where: { organizationId: string; userId: string; leftAt: null };
-      }) =>
-        this.memberships
+    findMany: vi.fn(async ({ where }: { where: any }) => {
+      // Shape A — membership-by-user (resolveForCurrentPrincipal).
+      if (where.userId !== undefined) {
+        return this.memberships
           .filter((m) => m.userId === where.userId && m.leftAt === null)
-          .map((m) => ({ orgUnitId: m.orgUnitId, memberRole: m.memberRole })),
-    ),
+          .map((m) => ({ orgUnitId: m.orgUnitId, memberRole: m.memberRole }));
+      }
+      // Shape B — members-of-units (unitMemberUserIds): where.orgUnitId.in.
+      const unitIds: string[] = where.orgUnitId?.in ?? [];
+      return this.memberships
+        .filter((m) => unitIds.includes(m.orgUnitId) && m.leftAt === null)
+        .map((m) => ({ userId: m.userId }));
+    }),
   };
 
   user = {
@@ -384,5 +387,64 @@ describe('AccessContextService', () => {
     svc.invalidate(ORG, 'm1');
     await run(() => svc.resolveForCurrentPrincipal());
     expect(prisma.orgUnitMember.findMany).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('AccessContextService.unitMemberUserIds (Phase 2.5)', () => {
+  test('returns distinct active members of the principal’s managed ∪ member units', async () => {
+    const prisma = new FakePrisma();
+    // m1 manages unitX and is a plain member of unitY; peers populate both units.
+    prisma.memberships = [
+      { userId: 'm1', orgUnitId: 'unitX', memberRole: 'MANAGER', leftAt: null },
+      { userId: 'm1', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
+      { userId: 'peer1', orgUnitId: 'unitX', memberRole: 'MEMBER', leftAt: null },
+      { userId: 'peer2', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
+      { userId: 'peer1', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null }, // same user, 2nd unit ⇒ dedup
+      { userId: 'gone', orgUnitId: 'unitX', memberRole: 'MEMBER', leftAt: new Date() }, // left ⇒ excluded
+    ];
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const ids = await run(() => svc.unitMemberUserIds());
+    expect(new Set(ids)).toEqual(new Set(['m1', 'peer1', 'peer2']));
+  });
+
+  test('admin ⇒ empty (admins never scope by unit membership)', async () => {
+    const prisma = new FakePrisma();
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+    expect(await run(() => svc.unitMemberUserIds())).toEqual([]);
+  });
+
+  test('principal in no units ⇒ empty', async () => {
+    const prisma = new FakePrisma();
+    prisma.memberships = []; // m1 belongs to nothing
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    expect(await run(() => svc.unitMemberUserIds())).toEqual([]);
+  });
+
+  test('caches per org:user; invalidate clears it', async () => {
+    const prisma = new FakePrisma();
+    prisma.memberships = [
+      { userId: 'm1', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
+      { userId: 'peer2', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
+    ];
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    await run(() => svc.unitMemberUserIds());
+    await run(() => svc.unitMemberUserIds());
+    // 1st call: membership-by-user (for the profile) + members-of-units. 2nd call: both cached.
+    expect(prisma.orgUnitMember.findMany).toHaveBeenCalledTimes(2);
+    svc.invalidate(ORG, 'm1');
+    await run(() => svc.unitMemberUserIds());
+    expect(prisma.orgUnitMember.findMany).toHaveBeenCalledTimes(4);
   });
 });

@@ -48,6 +48,7 @@ const MAX_REPORT_DEPTH = 10;
 @Injectable()
 export class AccessContextService {
   private readonly cache = new Map<string, { profile: AccessProfile; at: number }>();
+  private readonly unitMembersCache = new Map<string, { ids: string[]; at: number }>();
   private readonly ttlMs = 5 * 60 * 1000;
 
   constructor(
@@ -144,6 +145,38 @@ export class AccessContextService {
   }
 
   /**
+   * Distinct user-ids in the current principal's managed ∪ member org units —
+   * the "people in my units" set used by the derived domains' UNITS scope.
+   * Admins ⇒ [] (they never scope by membership). Cached per org:user (5-min TTL).
+   */
+  async unitMemberUserIds(): Promise<string[]> {
+    const ctx = RequestContextStore.require();
+    const key = `${ctx.organizationId}:${ctx.userId}`;
+    const hit = this.unitMembersCache.get(key);
+    if (hit && Date.now() - hit.at < this.ttlMs) return hit.ids;
+
+    const profile = await this.resolveForCurrentPrincipal();
+    if (profile.isAdmin) {
+      this.unitMembersCache.set(key, { ids: [], at: Date.now() });
+      return [];
+    }
+    const unitIds = [
+      ...new Set([...profile.context.managedOrgUnitIds, ...profile.context.memberOrgUnitIds]),
+    ];
+    if (unitIds.length === 0) {
+      this.unitMembersCache.set(key, { ids: [], at: Date.now() });
+      return [];
+    }
+    const rows = await this.prisma.orgUnitMember.findMany({
+      where: { organizationId: ctx.organizationId, orgUnitId: { in: unitIds }, leftAt: null },
+      select: { userId: true },
+    });
+    const ids = [...new Set(rows.map((r) => r.userId))];
+    this.unitMembersCache.set(key, { ids, at: Date.now() });
+    return ids;
+  }
+
+  /**
    * The current principal's Layer-4 {@link DataLimits} (all `null` ⇒ unlimited / admin).
    * Convenience for the user-facing KPI read paths that clamp history/rows via
    * `clampHistoryFrom` / `clampTake`.
@@ -229,10 +262,12 @@ export class AccessContextService {
 
   invalidate(organizationId: string, userId: string): void {
     this.cache.delete(`${organizationId}:${userId}`);
+    this.unitMembersCache.delete(`${organizationId}:${userId}`);
   }
 
   /** Clear every cached profile — call when a role's config/permissions change. */
   invalidateAll(): void {
     this.cache.clear();
+    this.unitMembersCache.clear();
   }
 }

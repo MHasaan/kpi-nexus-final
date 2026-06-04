@@ -5,6 +5,8 @@ import type { ReportFormat } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateScheduledReportDto, UpdateScheduledReportDto } from './dto/reports.dto.js';
 
@@ -33,9 +35,28 @@ export class ScheduledReportService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @InjectQueue(QUEUE_NAME) private readonly queue: Queue<ScheduledReportJobData>,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   // ── helpers ────────────────────────────────────────────────────────────────
+
+  /** `{ in: ids }` restricting scheduled reports to creators in the REPORTS scope,
+   *  or `undefined` (ORG / admin ⇒ no creator narrowing). Default REPORTS scope is
+   *  ORG ⇒ undefined ⇒ all reports in tenant (parity). */
+  private async creatorScope(): Promise<{ in: string[] } | undefined> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    if (profile.isAdmin) return undefined;
+    const scope = profile.scopeByDomain.REPORTS ?? 'ORG';
+    if (scope === 'ORG') return undefined;
+    const unitMemberUserIds = scope === 'UNITS' ? await this.accessContext.unitMemberUserIds() : [];
+    const ids = scopedUserIds(scope, {
+      userId: ctx.userId,
+      directReportIds: profile.context.directReportIds,
+      unitMemberUserIds,
+    })!; // non-null: scope !== ORG
+    return { in: ids };
+  }
 
   private jobId(id: string): string {
     return `scheduled-report:${id}`;
@@ -111,8 +132,12 @@ export class ScheduledReportService {
 
   async list() {
     const ctx = RequestContextStore.require();
+    const creatorScope = await this.creatorScope();
     return this.prisma.scheduledReport.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: {
+        organizationId: ctx.organizationId,
+        ...(creatorScope ? { createdById: creatorScope } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -129,6 +154,10 @@ export class ScheduledReportService {
       },
     });
     if (!row) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Scheduled report not found' });
+    }
+    const creatorScope = await this.creatorScope();
+    if (creatorScope && !creatorScope.in.includes(row.createdById)) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Scheduled report not found' });
     }
     return row;

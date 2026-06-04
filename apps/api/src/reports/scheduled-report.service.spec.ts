@@ -16,9 +16,12 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 
+import type { Scope } from '@kpi-nexus/contracts';
+
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { ScheduledReportService } from './scheduled-report.service.js';
 
 // ── Fake Prisma ───────────────────────────────────────────────────────────────
@@ -69,7 +72,18 @@ class FakePrisma {
     }),
 
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
-      return this.store.filter((r) => r.organizationId === where.organizationId);
+      return this.store.filter((r) => {
+        if (r.organizationId !== where.organizationId) return false;
+        const cond = where.createdById;
+        if (cond !== undefined) {
+          if (cond && typeof cond === 'object' && 'in' in (cond as Record<string, unknown>)) {
+            if (!(cond as { in: string[] }).in.includes(r.createdById)) return false;
+          } else if (r.createdById !== cond) {
+            return false;
+          }
+        }
+        return true;
+      });
     }),
 
     findFirst: vi.fn(
@@ -142,6 +156,24 @@ const fakeAudit: Pick<AuditService, 'record'> = {
   record: vi.fn(async () => undefined),
 };
 
+// ── Fake AccessContext ──────────────────────────────────────────────────────────
+
+class FakeAccessContext {
+  isAdmin = false;
+  reportsScope: Scope = 'ORG';
+  directReportIds: string[] = [];
+  unitMemberIds: string[] = [];
+  resolveForCurrentPrincipal = vi.fn(async () => ({
+    isAdmin: this.isAdmin,
+    capabilities: [],
+    scopeByDomain: { REPORTS: this.reportsScope },
+    dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+    dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: this.directReportIds },
+  }));
+  unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
+}
+
 // ── Request context helper ────────────────────────────────────────────────────
 
 const ORG_A = 'org_a';
@@ -163,15 +195,18 @@ function runAs(orgId: string, userId: string, fn: () => Promise<void>): Promise<
 describe('ScheduledReportService', () => {
   let prisma: FakePrisma;
   let queue: FakeQueue;
+  let accessContext: FakeAccessContext;
   let service: ScheduledReportService;
 
   beforeEach(() => {
     prisma = new FakePrisma();
     queue = new FakeQueue();
+    accessContext = new FakeAccessContext();
     service = new ScheduledReportService(
       prisma as unknown as PrismaService,
       fakeAudit as unknown as AuditService,
       queue as never, // Queue<ScheduledReportJobData>
+      accessContext as unknown as AccessContextService,
     );
     vi.clearAllMocks();
     // Reset internal state
@@ -333,6 +368,46 @@ describe('ScheduledReportService', () => {
 
       expect(queue.removeRepeatableByKey).toHaveBeenCalledOnce();
       expect(prisma.store.find((r) => r.id === row.id)).toBeUndefined();
+    });
+  });
+
+  // 8. list() default ORG scope — no createdById narrowing (parity)
+  test('list() default ORG ⇒ createdById unfiltered (parity)', async () => {
+    await runAs(ORG_A, USER_A, async () => {
+      await service.create({ name: 'R', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      await service.list();
+      const where = prisma.scheduledReport.findMany.mock.calls.at(-1)![0]!.where as Record<string, unknown>;
+      expect(where.createdById).toBeUndefined();
+    });
+  });
+
+  // 9. list() SELF scope — createdById narrowed to self
+  test('list() SELF ⇒ createdById IN {me}', async () => {
+    accessContext.reportsScope = 'SELF';
+    await runAs(ORG_A, 'me', async () => {
+      await service.list();
+      const where = prisma.scheduledReport.findMany.mock.calls.at(-1)![0]!.where as Record<string, unknown>;
+      expect(where.createdById).toEqual({ in: ['me'] });
+    });
+  });
+
+  // 10. get() SELF scope — own report visible; another creator ⇒ 404
+  test('get() SELF ⇒ own report visible; another creator ⇒ 404', async () => {
+    accessContext.reportsScope = 'SELF';
+    let mineId = '';
+    let theirsId = '';
+    await runAs(ORG_A, 'me', async () => {
+      const r = await service.create({ name: 'Mine', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      mineId = r.id;
+    });
+    await runAs(ORG_A, 'other', async () => {
+      const r = await service.create({ name: 'Theirs', cron: '0 9 * * 1', format: 'CSV', recipients: ['a@b.com'] });
+      theirsId = r.id;
+    });
+    await runAs(ORG_A, 'me', async () => {
+      const got = await service.get(mineId);
+      expect(got.id).toBe(mineId);
+      await expect(service.get(theirsId)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

@@ -3,6 +3,9 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
+import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
+import { buildKpiVisibilityWhere, kpiContextFromProfile } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   CreateAlertRuleDto,
@@ -37,12 +40,54 @@ export class AlertRulesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
+
+  /**
+   * KPI-visibility floor (a rule is visible only if its KPI is visible to the
+   * principal) + ALERTS-scope createdById narrowing. Admin ⇒ unchanged. ORG ⇒
+   * floor only. SELF/DIRECT_REPORTS/UNITS ⇒ createdById restricted to the scoped set.
+   */
+  private async applyVisibility(where: Prisma.AlertRuleWhereInput): Promise<Prisma.AlertRuleWhereInput> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    if (profile.isAdmin) return where;
+
+    const kpiWhere = buildKpiVisibilityWhere(
+      kpiContextFromProfile(ctx.organizationId, ctx.userId, profile),
+    ) as unknown as Prisma.KPIWhereInput;
+    const visibleKpis = await this.prisma.kPI.findMany({ where: kpiWhere, select: { id: true } });
+    const visibleIds = visibleKpis.map((k) => k.id);
+    if (typeof where.kpiId === 'string') {
+      where.kpiId = visibleIds.includes(where.kpiId) ? where.kpiId : { in: [] };
+    } else {
+      where.kpiId = { in: visibleIds };
+    }
+
+    const scope = profile.scopeByDomain.ALERTS ?? 'ORG';
+    if (scope === 'SELF') {
+      where.createdById = { in: [ctx.userId] };
+    } else if (scope === 'DIRECT_REPORTS') {
+      where.createdById = { in: [ctx.userId, ...profile.context.directReportIds] };
+    } else if (scope === 'UNITS') {
+      const ids = scopedUserIds('UNITS', {
+        userId: ctx.userId,
+        directReportIds: profile.context.directReportIds,
+        unitMemberUserIds: await this.accessContext.unitMemberUserIds(),
+      })!;
+      where.createdById = { in: ids };
+    }
+    // ORG ⇒ no createdById narrowing (floor only)
+    return where;
+  }
 
   async list(kpiId?: string): Promise<PublicAlertRule[]> {
     const ctx = RequestContextStore.require();
+    let where: Prisma.AlertRuleWhereInput = { organizationId: ctx.organizationId };
+    if (kpiId) where.kpiId = kpiId;
+    where = await this.applyVisibility(where);
     return this.prisma.alertRule.findMany({
-      where: { organizationId: ctx.organizationId, ...(kpiId ? { kpiId } : {}) },
+      where,
       select: alertRuleSelect,
       orderBy: [{ createdAt: 'desc' }],
     });
@@ -50,10 +95,8 @@ export class AlertRulesService {
 
   async getById(id: string): Promise<PublicAlertRule> {
     const ctx = RequestContextStore.require();
-    const rule = await this.prisma.alertRule.findFirst({
-      where: { id, organizationId: ctx.organizationId },
-      select: alertRuleSelect,
-    });
+    const where = await this.applyVisibility({ id, organizationId: ctx.organizationId } as Prisma.AlertRuleWhereInput);
+    const rule = await this.prisma.alertRule.findFirst({ where, select: alertRuleSelect });
     if (!rule) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Alert rule not found' });
     }

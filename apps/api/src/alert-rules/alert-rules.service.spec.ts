@@ -5,9 +5,11 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
+import type { Scope } from '@kpi-nexus/contracts';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import { AlertRulesService } from './alert-rules.service.js';
 import type { CreateAlertRuleDto } from './dto/alert-rule.dto.js';
@@ -36,6 +38,24 @@ interface FakeEsc {
   updatedAt: Date;
 }
 
+function matchRule(r: FakeRule, where: Record<string, unknown>): boolean {
+  if (where.organizationId && r.organizationId !== where.organizationId) return false;
+  if (where.id && r.id !== where.id) return false;
+  if (where.kpiId !== undefined) {
+    const c = where.kpiId;
+    if (c && typeof c === 'object' && 'in' in (c as Record<string, unknown>)) {
+      if (!(c as { in: string[] }).in.includes(r.kpiId)) return false;
+    } else if (r.kpiId !== c) return false;
+  }
+  if (where.createdById !== undefined) {
+    const c = where.createdById;
+    if (c && typeof c === 'object' && 'in' in (c as Record<string, unknown>)) {
+      if (!(c as { in: string[] }).in.includes(r.createdById)) return false;
+    } else if (r.createdById !== c) return false;
+  }
+  return true;
+}
+
 class FakePrisma {
   private n = 1;
   rules: FakeRule[] = [];
@@ -46,22 +66,15 @@ class FakePrisma {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
       this.kpis.find((k) => k.id === where.id && k.organizationId === where.organizationId) ?? null,
     ),
+    findMany: vi.fn(async () => this.kpis.map((k) => ({ id: k.id }))),
   };
 
   alertRule = {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
-      this.rules
-        .filter(
-          (r) =>
-            r.organizationId === where.organizationId &&
-            (where.kpiId === undefined || r.kpiId === where.kpiId),
-        )
-        .map((r) => this.materialize(r)),
+      this.rules.filter((r) => matchRule(r, where)).map((r) => this.materialize(r)),
     ),
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
-      const r = this.rules.find(
-        (r) => r.id === where.id && r.organizationId === where.organizationId,
-      );
+      const r = this.rules.find((r) => matchRule(r, where));
       return r ? this.materialize(r) : null;
     }),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -161,6 +174,23 @@ class FakeAudit {
   });
 }
 
+class FakeAccessContext {
+  isAdmin = false;
+  alertsScope: Scope = 'ORG';
+  kpisScope: Scope = 'UNITS';
+  directReportIds: string[] = [];
+  unitMemberIds: string[] = [];
+  resolveForCurrentPrincipal = vi.fn(async () => ({
+    isAdmin: this.isAdmin,
+    capabilities: [],
+    scopeByDomain: { ALERTS: this.alertsScope, KPIS: this.kpisScope },
+    dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+    dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: this.directReportIds },
+  }));
+  unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
+}
+
 const ORG = 'org_alpha';
 
 function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Promise<T> | T {
@@ -175,14 +205,22 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
   );
 }
 
-function makeService() {
+function makeService(
+  opts: { isAdmin?: boolean; alertsScope?: Scope; directReportIds?: string[]; unitMemberIds?: string[] } = {},
+) {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
+  const accessContext = new FakeAccessContext();
+  accessContext.isAdmin = opts.isAdmin ?? false;
+  if (opts.alertsScope) accessContext.alertsScope = opts.alertsScope;
+  if (opts.directReportIds) accessContext.directReportIds = opts.directReportIds;
+  if (opts.unitMemberIds) accessContext.unitMemberIds = opts.unitMemberIds;
   const service = new AlertRulesService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, audit };
+  return { service, prisma, audit, accessContext };
 }
 
 const staticDto = (overrides: Partial<CreateAlertRuleDto> = {}): CreateAlertRuleDto =>
@@ -237,6 +275,7 @@ describe('AlertRulesService.create', () => {
 describe('AlertRulesService list/get tenancy', () => {
   test('list is org-scoped', async () => {
     const { service, prisma } = makeService();
+    prisma.kpis.push({ id: 'k', organizationId: ORG });
     prisma.rules.push(
       { id: 'r1', organizationId: ORG, kpiId: 'k', name: 'a', description: null, ruleType: 'STATIC_THRESHOLD', config: {}, severity: 'LOW', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdById: 'u1' },
       { id: 'r2', organizationId: 'other', kpiId: 'k', name: 'b', description: null, ruleType: 'STATIC_THRESHOLD', config: {}, severity: 'LOW', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdById: 'u1' },
@@ -295,5 +334,61 @@ describe('AlertRulesService.remove', () => {
     const rule = await withCtx({}, () => service.create(staticDto()));
     await withCtx({}, () => service.remove(rule.id));
     expect(prisma.rules).toHaveLength(0);
+  });
+});
+
+describe('AlertRulesService visibility (Phase 2.5)', () => {
+  test('non-admin ORG ⇒ kpiId limited to visible KPIs (floor), no createdById narrowing', async () => {
+    const { service, prisma } = makeService();
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.alertRule.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.kpiId).toEqual({ in: ['k1'] });
+    expect(where.createdById).toBeUndefined();
+  });
+
+  test('SELF ⇒ createdById IN {me} AND the KPI floor', async () => {
+    const { service, prisma } = makeService({ alertsScope: 'SELF' });
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.alertRule.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.kpiId).toEqual({ in: ['k1'] });
+    expect(where.createdById).toEqual({ in: ['me'] });
+  });
+
+  test('DIRECT_REPORTS ⇒ createdById IN {me, reports}', async () => {
+    const { service, prisma } = makeService({ alertsScope: 'DIRECT_REPORTS', directReportIds: ['rep'] });
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.alertRule.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.createdById).toEqual({ in: expect.arrayContaining(['me', 'rep']) });
+  });
+
+  test('UNITS ⇒ createdById IN {me, peers}', async () => {
+    const { service, prisma } = makeService({ alertsScope: 'UNITS', unitMemberIds: ['peer'] });
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.alertRule.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.createdById).toEqual({ in: expect.arrayContaining(['me', 'peer']) });
+  });
+
+  test('admin ⇒ no floor, no createdById narrowing, KPI set not queried', async () => {
+    const { service, prisma } = makeService({ isAdmin: true });
+    await withCtx({ userId: 'admin' }, () => service.list());
+    const where = prisma.alertRule.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.kpiId).toBeUndefined();
+    expect(where.createdById).toBeUndefined();
+    expect(prisma.kPI.findMany).not.toHaveBeenCalled();
+  });
+
+  test('getById ⇒ 404 when the rule’s KPI is not visible', async () => {
+    const { service, prisma } = makeService();
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]); // only k1 visible
+    prisma.rules.push({
+      id: 'r1', organizationId: ORG, kpiId: 'kX', name: 'a', description: null,
+      ruleType: 'STATIC_THRESHOLD', config: {}, severity: 'LOW', isActive: true,
+      createdAt: new Date(), updatedAt: new Date(), createdById: 'me',
+    });
+    await expect(withCtx({ userId: 'me' }, () => service.getById('r1'))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

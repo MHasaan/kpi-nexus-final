@@ -15,6 +15,7 @@ import { PermissionKey } from '@kpi-nexus/contracts';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireResourceAccess } from '../rbac/decorators/require-resource-access.decorator.js';
 import {
   DashboardsService,
   type PublicDashboard,
@@ -97,6 +98,7 @@ export class DashboardsController {
 
   @Get(':id')
   @RequirePermissions(PermissionKey.DASHBOARD_VIEW)
+  @RequireResourceAccess('dashboard', 'id', 'view')
   async getById(@Param('id') id: string): Promise<PublicDashboard> {
     // Note: callers can also read the ETag from the response body's
     // `version` field; we surface the formatted ETag in the next PATCH
@@ -113,6 +115,7 @@ export class DashboardsController {
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @RequireResourceAccess('dashboard', 'id', 'manage')
   update(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -124,6 +127,7 @@ export class DashboardsController {
 
   @Delete(':id')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @RequireResourceAccess('dashboard', 'id', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string): Promise<void> {
     return this.dashboards.remove(id);

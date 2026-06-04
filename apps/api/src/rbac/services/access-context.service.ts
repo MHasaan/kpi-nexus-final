@@ -3,6 +3,7 @@ import {
   ALL_PERMISSIONS,
   DataLimitsConfigSchema,
   DataTypeConfigSchema,
+  PageAccessConfigSchema,
   ScopeConfigSchema,
 } from '@kpi-nexus/contracts';
 import type {
@@ -11,6 +12,7 @@ import type {
   DataLimitsConfig,
   DataTypeConfig,
   Domain,
+  PageAccessConfig,
   ResourceGrant,
   Scope,
   ScopeConfig,
@@ -134,6 +136,11 @@ export class AccessContextService {
       action: g.action as ResourceGrant['action'],
     }));
 
+    // Layer 5 (Phase 7) — page access. Admin ⇒ unrestricted. Else the override's
+    // pageAccess (when set) REPLACES the role's wholesale; unset everywhere ⇒ default.
+    const rawPage = isAdmin ? null : (override?.pageAccess ?? roleConfig.pageAccess ?? null);
+    const pageAccess = { allow: rawPage?.allow ?? null, deny: rawPage?.deny ?? [] };
+
     const profile: AccessProfile = {
       isAdmin,
       capabilities,
@@ -155,6 +162,7 @@ export class AccessContextService {
       },
       context: { managedOrgUnitIds, memberOrgUnitIds, directReportIds },
       resourceGrants,
+      pageAccess,
     };
     this.cache.set(key, { profile, at: Date.now() });
     return profile;
@@ -234,21 +242,28 @@ export class AccessContextService {
     isAdmin: boolean,
     organizationId: string,
     roleId: string | null,
-  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig; limits: DataLimitsConfig }> {
-    if (isAdmin || !roleId) return { scope: {}, dataType: {}, limits: {} };
+  ): Promise<{
+    scope: ScopeConfig;
+    dataType: DataTypeConfig;
+    limits: DataLimitsConfig;
+    pageAccess: PageAccessConfig;
+  }> {
+    if (isAdmin || !roleId) return { scope: {}, dataType: {}, limits: {}, pageAccess: {} };
     // Org-scoped read (defense in depth) — a foreign-tenant roleId must never load
     // another org's config; mirrors PermissionResolverService's org guard.
     const role = await this.prisma.roleDefinition.findFirst({
       where: { id: roleId, organizationId },
-      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true },
+      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true, pageAccess: true },
     });
     const scope = ScopeConfigSchema.safeParse(role?.scopeConfig ?? {});
     const dataType = DataTypeConfigSchema.safeParse(role?.dataTypeConfig ?? {});
     const limits = DataLimitsConfigSchema.safeParse(role?.dataLimits ?? {});
+    const pageAccess = PageAccessConfigSchema.safeParse(role?.pageAccess ?? {});
     return {
       scope: scope.success ? scope.data : {},
       dataType: dataType.success ? dataType.data : {},
       limits: limits.success ? limits.data : {},
+      pageAccess: pageAccess.success ? pageAccess.data : {},
     };
   }
 
@@ -260,19 +275,31 @@ export class AccessContextService {
   private async loadUserOverride(
     organizationId: string,
     userId: string,
-  ): Promise<{ scope: ScopeConfig; dataType: DataTypeConfig; limits: DataLimitsConfig }> {
+  ): Promise<{
+    scope: ScopeConfig;
+    dataType: DataTypeConfig;
+    limits: DataLimitsConfig;
+    /** Undefined ⇒ no page-access override set ⇒ the role's pageAccess wins. */
+    pageAccess?: PageAccessConfig;
+  }> {
     const ov = await this.prisma.userAccessOverride.findFirst({
       where: { organizationId, userId },
-      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true },
+      select: { scopeConfig: true, dataTypeConfig: true, dataLimits: true, pageAccess: true },
     });
     if (!ov) return { scope: {}, dataType: {}, limits: {} };
     const scope = ScopeConfigSchema.safeParse(ov.scopeConfig ?? {});
     const dataType = DataTypeConfigSchema.safeParse(ov.dataTypeConfig ?? {});
     const limits = DataLimitsConfigSchema.safeParse(ov.dataLimits ?? {});
+    // pageAccess REPLACES the role wholesale only when actually set on the override —
+    // a null/absent column leaves it undefined so the role's pageAccess applies.
+    const pageAccessParsed =
+      ov.pageAccess == null ? undefined : PageAccessConfigSchema.safeParse(ov.pageAccess);
     return {
       scope: scope.success ? scope.data : {},
       dataType: dataType.success ? dataType.data : {},
       limits: limits.success ? limits.data : {},
+      pageAccess:
+        pageAccessParsed && pageAccessParsed.success ? pageAccessParsed.data : undefined,
     };
   }
 

@@ -58,6 +58,7 @@ function profileFor(isAdmin: boolean): AccessProfile {
       directReportIds: isAdmin ? [] : ['report_1', 'report_2'],
     },
     resourceGrants: [],
+    pageAccess: { allow: null, deny: [] },
   };
 }
 

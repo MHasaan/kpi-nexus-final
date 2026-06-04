@@ -376,6 +376,9 @@ model RoleDefinition {
   // Layer-4 granular access: data limits (Zod DataLimitsConfig in contracts) —
   // historyWindowDays / maxListRows / maxExportRows. null ⇒ unlimited ⇒ parity.
   dataLimits       Json?
+  // Layer-5 granular access: page-access allow/deny lists (Zod PageAccessConfig in
+  // contracts). null/absent ⇒ no restriction ⇒ parity. Resolved onto the AccessProfile.
+  pageAccess       Json?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -459,7 +462,7 @@ model ResourcePermission {
 // Capabilities are grant/revoke deltas (applied in PermissionResolverService so the
 // guard honours them); scope/dataType/limits REPLACE the role value per-field when set
 // (applied in AccessContextService). null/absent ⇒ role value ⇒ parity. Admins are immune.
-// pageAccess deferred to Phase 7. Zod UserAccessOverride in contracts.
+// Zod UserAccessOverride in contracts.
 model UserAccessOverride {
   id                 String       @id @default(cuid())
   organizationId     String
@@ -471,6 +474,9 @@ model UserAccessOverride {
   scopeConfig        Json?
   dataTypeConfig     Json?
   dataLimits         Json?
+  // Layer-5 page-access override (Zod PageAccessConfig). When set, REPLACES the role's
+  // pageAccess wholesale (applied in AccessContextService). null/absent ⇒ role value.
+  pageAccess         Json?
   updatedById        String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt

@@ -90,6 +90,23 @@ export const DataLimitsConfigSchema = DataLimitsSchema.partial();
 export type DataLimitsConfig = z.infer<typeof DataLimitsConfigSchema>;
 
 /**
+ * Phase 7 — Layer-5 page access. `allow` (null/absent ⇒ no allowlist) and `deny`
+ * lists of route/page keys, stored on a role (and overridable per-user). Default/
+ * admin ⇒ `{ allow: null, deny: [] }` (no restriction).
+ */
+export const PageAccessConfigSchema = z.object({
+  allow: z.array(z.string()).nullable().optional(),
+  deny: z.array(z.string()).optional(),
+});
+export type PageAccessConfig = z.infer<typeof PageAccessConfigSchema>;
+
+export const PageAccessSchema = z.object({
+  allow: z.array(z.string()).nullable(),
+  deny: z.array(z.string()),
+});
+export type PageAccess = z.infer<typeof PageAccessSchema>;
+
+/**
  * Phase 5 — per-user override on top of the role. `grant`/`revokeCapabilities` are
  * capability deltas (revoke wins, applied in the resolver so the guard honours them);
  * scope/dataType/limits REPLACE the role value per-field when set. Unset ⇒ role value
@@ -101,6 +118,7 @@ export const UserAccessOverrideSchema = z.object({
   scopeConfig: ScopeConfigSchema.optional(),
   dataTypeConfig: DataTypeConfigSchema.optional(),
   dataLimits: DataLimitsConfigSchema.optional(),
+  pageAccess: PageAccessConfigSchema.optional(),
 });
 export type UserAccessOverride = z.infer<typeof UserAccessOverrideSchema>;
 
@@ -120,5 +138,6 @@ export const AccessProfileSchema = z.object({
   dataLimits: DataLimitsSchema,
   context: AccessMembershipSchema,
   resourceGrants: z.array(ResourceGrantSchema),
+  pageAccess: PageAccessSchema,
 });
 export type AccessProfile = z.infer<typeof AccessProfileSchema>;

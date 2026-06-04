@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 
 import type { Prisma } from '@kpi-nexus/db';
-import type { DataLimitsConfig, DataTypeConfig, ScopeConfig } from '@kpi-nexus/contracts';
+import type {
+  DataLimitsConfig,
+  DataTypeConfig,
+  PageAccessConfig,
+  ScopeConfig,
+} from '@kpi-nexus/contracts';
 
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -31,6 +36,7 @@ export interface PublicRole {
   scopeConfig: ScopeConfig | null;
   dataTypeConfig: DataTypeConfig | null;
   dataLimits: DataLimitsConfig | null;
+  pageAccess: PageAccessConfig | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +58,7 @@ const roleSelect = {
   scopeConfig: true,
   dataTypeConfig: true,
   dataLimits: true,
+  pageAccess: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -65,6 +72,7 @@ function toPublicRole(row: RoleRow): PublicRole {
     scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null,
     dataTypeConfig: (row.dataTypeConfig as DataTypeConfig | null) ?? null,
     dataLimits: (row.dataLimits as DataLimitsConfig | null) ?? null,
+    pageAccess: (row.pageAccess as PageAccessConfig | null) ?? null,
   };
 }
 
@@ -184,6 +192,7 @@ export class RolesService {
           scopeConfig: dto.scopeConfig ?? undefined,
           dataTypeConfig: dto.dataTypeConfig ?? undefined,
           dataLimits: dto.dataLimits ?? undefined,
+          pageAccess: dto.pageAccess ?? undefined,
         },
         select: roleSelect,
       });

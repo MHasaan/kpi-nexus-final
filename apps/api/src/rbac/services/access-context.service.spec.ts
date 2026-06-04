@@ -34,6 +34,7 @@ class FakePrisma {
   roleScopeConfig: unknown = null;
   roleDataTypeConfig: unknown = null;
   roleDataLimits: unknown = null;
+  rolePageAccess: unknown = null;
   /** the org the fake role actually belongs to — the org-scoped read must match it. */
   roleOrg: string = ORG;
 
@@ -44,6 +45,7 @@ class FakePrisma {
         scopeConfig: this.roleScopeConfig,
         dataTypeConfig: this.roleDataTypeConfig,
         dataLimits: this.roleDataLimits,
+        pageAccess: this.rolePageAccess,
       };
     }),
   };
@@ -86,6 +88,7 @@ class FakePrisma {
     scopeConfig?: unknown;
     dataTypeConfig?: unknown;
     dataLimits?: unknown;
+    pageAccess?: unknown;
   } | null = null;
   /** the org the override belongs to — the org-scoped read must match it. */
   userOverrideOrg: string = ORG;
@@ -373,6 +376,66 @@ describe('AccessContextService', () => {
     const adminProfile = await run(() => admin.resolveForCurrentPrincipal());
     expect(adminProfile.dataTypeFilters.kpiCategoryIds).toBeNull();
     expect(adminPrisma.roleDefinition.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('role pageAccess resolves onto the profile (Phase 7)', async () => {
+    const prisma = new FakePrisma();
+    prisma.rolePageAccess = { allow: ['/dashboards', '/kpis'], deny: ['/settings'] };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.pageAccess.allow).toEqual(['/dashboards', '/kpis']);
+    expect(profile.pageAccess.deny).toEqual(['/settings']);
+  });
+
+  test('role pageAccess with only deny ⇒ allow stays null (Phase 7)', async () => {
+    const prisma = new FakePrisma();
+    prisma.rolePageAccess = { deny: ['/settings/access'] };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.pageAccess.allow).toBeNull();
+    expect(profile.pageAccess.deny).toEqual(['/settings/access']);
+  });
+
+  test('override pageAccess REPLACES the role pageAccess wholesale (Phase 7)', async () => {
+    const prisma = new FakePrisma();
+    prisma.rolePageAccess = { allow: ['/dashboards'], deny: ['/settings'] };
+    prisma.userOverride = { pageAccess: { allow: ['/kpis'], deny: [] } };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.pageAccess.allow).toEqual(['/kpis']); // override replaced role
+    expect(profile.pageAccess.deny).toEqual([]);
+  });
+
+  test('admin ⇒ pageAccess is unrestricted {allow:null,deny:[]} (Phase 7)', async () => {
+    const prisma = new FakePrisma();
+    prisma.rolePageAccess = { allow: ['/dashboards'], deny: ['/settings'] };
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.pageAccess.allow).toBeNull();
+    expect(profile.pageAccess.deny).toEqual([]);
+  });
+
+  test('pageAccess unset everywhere ⇒ unrestricted {allow:null,deny:[]} (Phase 7)', async () => {
+    const prisma = new FakePrisma();
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.pageAccess.allow).toBeNull();
+    expect(profile.pageAccess.deny).toEqual([]);
   });
 
   test('a foreign-tenant roleId resolves to defaults, never another org config', async () => {

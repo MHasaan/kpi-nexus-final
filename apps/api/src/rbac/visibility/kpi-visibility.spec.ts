@@ -221,6 +221,7 @@ describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)
         directReportIds: [...ctx.directReportIds],
       },
       resourceGrants: [],
+      pageAccess: { allow: null, deny: [] },
     };
   }
 

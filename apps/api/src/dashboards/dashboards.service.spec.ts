@@ -242,6 +242,7 @@ class FakeAccessContext {
       directReportIds: this.directReportIds,
     },
     resourceGrants: this.resourceGrants,
+    pageAccess: { allow: null, deny: [] },
   }));
   unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
 }

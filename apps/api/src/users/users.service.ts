@@ -15,6 +15,7 @@ import type {
   AccessProfile,
   DataLimitsConfig,
   DataTypeConfig,
+  PageAccessConfig,
   PermissionKey,
   ScopeConfig,
   UserAccessOverride,
@@ -66,6 +67,7 @@ export interface PublicAccessOverride {
   scopeConfig: ScopeConfig | null;
   dataTypeConfig: DataTypeConfig | null;
   dataLimits: DataLimitsConfig | null;
+  pageAccess: PageAccessConfig | null;
   updatedById: string | null;
   updatedAt: Date;
 }
@@ -77,6 +79,7 @@ const accessOverrideSelect = {
   scopeConfig: true,
   dataTypeConfig: true,
   dataLimits: true,
+  pageAccess: true,
   updatedById: true,
   updatedAt: true,
 } as const;
@@ -90,6 +93,7 @@ function toPublicAccessOverride(row: AccessOverrideRow): PublicAccessOverride {
     scopeConfig: (row.scopeConfig as ScopeConfig | null) ?? null,
     dataTypeConfig: (row.dataTypeConfig as DataTypeConfig | null) ?? null,
     dataLimits: (row.dataLimits as DataLimitsConfig | null) ?? null,
+    pageAccess: (row.pageAccess as PageAccessConfig | null) ?? null,
   };
 }
 
@@ -218,6 +222,7 @@ export class UsersService {
       scopeConfig: dto.scopeConfig ?? undefined,
       dataTypeConfig: dto.dataTypeConfig ?? undefined,
       dataLimits: dto.dataLimits ?? undefined,
+      pageAccess: dto.pageAccess ?? undefined,
       updatedById: ctx.userId,
     };
     const ov = await this.prisma.userAccessOverride.upsert({

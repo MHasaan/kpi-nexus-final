@@ -14,6 +14,8 @@
 import { describe, expect, test, vi } from 'vitest';
 import { NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
+import type { ResourceGrant } from '@kpi-nexus/contracts';
+
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
@@ -160,7 +162,14 @@ class FakePrisma {
   };
 
   private matches(d: FakeDashboard, where: Record<string, unknown>): boolean {
-    if (where.id && d.id !== where.id) return false;
+    if (where.id) {
+      const cond = where.id;
+      if (typeof cond === 'object' && cond !== null && 'in' in (cond as Record<string, unknown>)) {
+        if (!(cond as { in: string[] }).in.includes(d.id)) return false;
+      } else if (d.id !== cond) {
+        return false;
+      }
+    }
     if (where.organizationId && d.organizationId !== where.organizationId) return false;
     if ('deletedAt' in where) {
       const cond = where.deletedAt;
@@ -220,6 +229,7 @@ class FakeAccessContext {
   managedOrgUnitIds: string[] = [];
   memberOrgUnitIds: string[] = [];
   unitMemberIds: string[] = [];
+  resourceGrants: ResourceGrant[] = [];
   resolveForCurrentPrincipal = vi.fn(async () => ({
     isAdmin: this.isAdmin,
     capabilities: [],
@@ -231,6 +241,7 @@ class FakeAccessContext {
       memberOrgUnitIds: this.memberOrgUnitIds,
       directReportIds: this.directReportIds,
     },
+    resourceGrants: this.resourceGrants,
   }));
   unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
 }
@@ -391,6 +402,30 @@ describe('DashboardsService.getById', () => {
     prisma.store.push(makeRow({ id: 'd1', organizationId: 'other_org', ownerUserId: 'u1' }));
     await expect(
       withCtx({ userId: 'u1', organizationId: ORG }, () => service.getById('d1')),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('a ResourcePermission view-grant surfaces an out-of-scope dashboard in list()/getById() (Phase 3.5)', async () => {
+    const { service, prisma, accessContext } = makeService();
+    // non-admin at default SELF scope; dX owned by someone else, not shared ⇒ normally invisible.
+    accessContext.resourceGrants = [
+      { resourceType: 'dashboard', resourceId: 'dX', action: 'view' },
+    ];
+    prisma.store.push(makeRow({ id: 'dX', ownerUserId: 'someone_else', isShared: false }));
+
+    const listed = await withCtx({ userId: 'u1' }, () => service.list());
+    expect(listed.map((d) => d.id)).toContain('dX');
+
+    const fetched = await withCtx({ userId: 'u1' }, () => service.getById('dX'));
+    expect(fetched.id).toBe('dX');
+  });
+
+  test('WITHOUT a grant the same out-of-scope dashboard 404s (Phase 3.5 control)', async () => {
+    const { service, prisma } = makeService();
+    // no resourceGrants; default SELF scope; not own, not shared ⇒ invisible.
+    prisma.store.push(makeRow({ id: 'dX', ownerUserId: 'someone_else', isShared: false }));
+    await expect(
+      withCtx({ userId: 'u1' }, () => service.getById('dX')),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

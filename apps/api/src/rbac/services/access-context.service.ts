@@ -11,6 +11,7 @@ import type {
   DataLimitsConfig,
   DataTypeConfig,
   Domain,
+  ResourceGrant,
   Scope,
   ScopeConfig,
 } from '@kpi-nexus/contracts';
@@ -109,6 +110,30 @@ export class AccessContextService {
       ]),
     ) as Record<Domain, Scope>;
 
+    // Phase 3.5 — per-entity ResourcePermission grants held by the user or their role.
+    // Admins bypass per-entity grants (they already see everything). Cached with the
+    // profile (5-min TTL); the guard path uses the uncached PermissionResolver.hasResourceGrant,
+    // so endpoint access is immediate — only the list-scoping reflects the cache.
+    const now = new Date();
+    const grantRows = isAdmin
+      ? []
+      : await this.prisma.resourcePermission.findMany({
+          where: {
+            organizationId: ctx.organizationId,
+            OR: [
+              { subjectType: 'user', subjectId: ctx.userId },
+              ...(ctx.roleId ? [{ subjectType: 'role' as const, subjectId: ctx.roleId }] : []),
+            ],
+            AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }],
+          },
+          select: { resourceType: true, resourceId: true, action: true },
+        });
+    const resourceGrants: ResourceGrant[] = grantRows.map((g) => ({
+      resourceType: g.resourceType,
+      resourceId: g.resourceId,
+      action: g.action as ResourceGrant['action'],
+    }));
+
     const profile: AccessProfile = {
       isAdmin,
       capabilities,
@@ -129,6 +154,7 @@ export class AccessContextService {
         maxExportRows: override?.limits.maxExportRows ?? roleConfig.limits.maxExportRows ?? null,
       },
       context: { managedOrgUnitIds, memberOrgUnitIds, directReportIds },
+      resourceGrants,
     };
     this.cache.set(key, { profile, at: Date.now() });
     return profile;
@@ -142,6 +168,14 @@ export class AccessContextService {
   async kpiCategoryAllowlist(): Promise<readonly string[] | null> {
     const profile = await this.resolveForCurrentPrincipal();
     return profile.isAdmin ? null : profile.dataTypeFilters.kpiCategoryIds;
+  }
+
+  /** Resource ids the principal holds a grant for, for a given type + acceptable actions. */
+  async grantedResourceIds(resourceType: string, actions: readonly string[]): Promise<string[]> {
+    const profile = await this.resolveForCurrentPrincipal();
+    return profile.resourceGrants
+      .filter((g) => g.resourceType === resourceType && actions.includes(g.action))
+      .map((g) => g.resourceId);
   }
 
   /**

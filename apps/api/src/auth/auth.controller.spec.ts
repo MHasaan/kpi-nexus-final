@@ -57,6 +57,7 @@ function profileFor(isAdmin: boolean): AccessProfile {
       memberOrgUnitIds: [],
       directReportIds: isAdmin ? [] : ['report_1', 'report_2'],
     },
+    resourceGrants: [],
   };
 }
 

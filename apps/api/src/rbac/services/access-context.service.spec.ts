@@ -48,6 +48,39 @@ class FakePrisma {
     }),
   };
 
+  /** Phase 3.5 — ResourcePermission grant rows. Each call returns the subset
+   *  matching the org + (user OR role) subject + non-expired-expiry where. */
+  grants: Array<{
+    organizationId: string;
+    subjectType: 'user' | 'role';
+    subjectId: string;
+    resourceType: string;
+    resourceId: string;
+    action: string;
+    expiresAt: Date | null;
+  }> = [];
+  resourcePermission = {
+    findMany: vi.fn(async ({ where }: { where: any }) => {
+      const now = new Date();
+      const subjectMatches = (g: { subjectType: string; subjectId: string }) =>
+        (where.OR as Array<{ subjectType: string; subjectId: string }>).some(
+          (s) => s.subjectType === g.subjectType && s.subjectId === g.subjectId,
+        );
+      return this.grants
+        .filter(
+          (g) =>
+            g.organizationId === where.organizationId &&
+            subjectMatches(g) &&
+            (g.expiresAt === null || g.expiresAt > now),
+        )
+        .map((g) => ({
+          resourceType: g.resourceType,
+          resourceId: g.resourceId,
+          action: g.action,
+        }));
+    }),
+  };
+
   /** Phase 5 — per-user override row (null ⇒ no override ⇒ role value). */
   userOverride: {
     scopeConfig?: unknown;
@@ -371,6 +404,131 @@ describe('AccessContextService', () => {
 
     expect(profile.scopeByDomain.KPIS).toBe('ORG');
     expect(prisma.roleDefinition.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('non-admin profile carries user + role ResourcePermission grants; expired excluded (Phase 3.5)', async () => {
+    const prisma = new FakePrisma();
+    prisma.grants = [
+      // user grant (m1) — included
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'dashboard',
+        resourceId: 'dUser',
+        action: 'view',
+        expiresAt: null,
+      },
+      // role grant (r1) — included
+      {
+        organizationId: ORG,
+        subjectType: 'role',
+        subjectId: 'r1',
+        resourceType: 'dashboard',
+        resourceId: 'dRole',
+        action: 'manage',
+        expiresAt: null,
+      },
+      // expired user grant — excluded
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'dashboard',
+        resourceId: 'dExpired',
+        action: 'view',
+        expiresAt: new Date(Date.now() - 1000),
+      },
+      // another user's grant — excluded (subject mismatch)
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'other',
+        resourceType: 'dashboard',
+        resourceId: 'dOther',
+        action: 'view',
+        expiresAt: null,
+      },
+    ];
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+
+    expect(profile.resourceGrants).toEqual(
+      expect.arrayContaining([
+        { resourceType: 'dashboard', resourceId: 'dUser', action: 'view' },
+        { resourceType: 'dashboard', resourceId: 'dRole', action: 'manage' },
+      ]),
+    );
+    expect(profile.resourceGrants).toHaveLength(2);
+    expect(profile.resourceGrants.map((g) => g.resourceId)).not.toContain('dExpired');
+    expect(profile.resourceGrants.map((g) => g.resourceId)).not.toContain('dOther');
+  });
+
+  test('grantedResourceIds filters by type + acceptable actions', async () => {
+    const prisma = new FakePrisma();
+    prisma.grants = [
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'dashboard',
+        resourceId: 'dView',
+        action: 'view',
+        expiresAt: null,
+      },
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'dashboard',
+        resourceId: 'dDelete',
+        action: 'delete',
+        expiresAt: null,
+      },
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'kpi',
+        resourceId: 'kView',
+        action: 'view',
+        expiresAt: null,
+      },
+    ];
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const ids = await run(() => svc.grantedResourceIds('dashboard', ['view', 'manage']));
+    expect(ids).toEqual(['dView']); // dDelete (wrong action) + kView (wrong type) excluded
+  });
+
+  test('admin ⇒ resourceGrants is empty and resourcePermission is not queried (Phase 3.5)', async () => {
+    const prisma = new FakePrisma();
+    prisma.grants = [
+      {
+        organizationId: ORG,
+        subjectType: 'user',
+        subjectId: 'm1',
+        resourceType: 'dashboard',
+        resourceId: 'dUser',
+        action: 'view',
+        expiresAt: null,
+      },
+    ];
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(true, []),
+    );
+
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(profile.resourceGrants).toEqual([]);
+    expect(prisma.resourcePermission.findMany).not.toHaveBeenCalled();
   });
 
   test('caches per org:user — a second resolve does not re-query; invalidate clears it', async () => {

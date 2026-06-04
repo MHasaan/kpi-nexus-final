@@ -131,6 +131,15 @@ export class DashboardsService {
         or.push({ unitAssignments: { some: { orgUnitId: { in: myUnitIds } } } });
       }
     }
+    // Phase 3.5 — per-entity ResourcePermission grants surface a dashboard the principal
+    // was explicitly granted (view/manage) even when their DASHBOARDS scope wouldn't show it.
+    // Coherent with the @RequireResourceAccess guard, which unlocks the endpoint.
+    const grantedIds = profile.resourceGrants
+      .filter((g) => g.resourceType === 'dashboard' && (g.action === 'view' || g.action === 'manage'))
+      .map((g) => g.resourceId);
+    if (grantedIds.length > 0) {
+      or.push({ id: { in: grantedIds } });
+    }
     where.OR = or;
     return where;
   }

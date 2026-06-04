@@ -220,6 +220,7 @@ describe('kpiContextFromProfile — AccessProfile → visibility bridge (parity)
         memberOrgUnitIds: [...ctx.memberOrgUnitIds],
         directReportIds: [...ctx.directReportIds],
       },
+      resourceGrants: [],
     };
   }
 

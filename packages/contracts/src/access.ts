@@ -34,6 +34,19 @@ export const ResourceActionSchema = z.enum(['view', 'edit', 'delete', 'data_entr
 export type ResourceAction = z.infer<typeof ResourceActionSchema>;
 
 /**
+ * A resolved per-entity grant (Phase 3.5) the principal holds — a row from
+ * `ResourcePermission` flattened into the profile. Consumers (e.g. DashboardsService)
+ * OR the granted ids into their visibility predicate so a granted resource surfaces
+ * even when the principal's domain scope wouldn't show it.
+ */
+export const ResourceGrantSchema = z.object({
+  resourceType: z.string(),
+  resourceId: z.string(),
+  action: ResourceActionSchema,
+});
+export type ResourceGrant = z.infer<typeof ResourceGrantSchema>;
+
+/**
  * Layer-2 configuration carried on a role (later a per-user override): a partial
  * per-domain scope map. An unset domain falls back to the derived default
  * (`UNITS` for non-admins). Stored as JSON on `RoleDefinition.scopeConfig`.
@@ -106,5 +119,6 @@ export const AccessProfileSchema = z.object({
   dataTypeFilters: DataTypeFiltersSchema,
   dataLimits: DataLimitsSchema,
   context: AccessMembershipSchema,
+  resourceGrants: z.array(ResourceGrantSchema),
 });
 export type AccessProfile = z.infer<typeof AccessProfileSchema>;

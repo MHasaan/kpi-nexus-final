@@ -169,7 +169,7 @@ describe('AccessContextService', () => {
     expect(profile.scopeByDomain.KPIS).toBe('UNITS');
   });
 
-  test('non-admin default scope is UNITS for every domain (parity baseline)', async () => {
+  test('non-admin default scope is per-domain (KPIS=UNITS, DASHBOARDS=SELF) — parity baseline', async () => {
     const prisma = new FakePrisma();
     prisma.memberships = [
       { userId: 'm1', orgUnitId: 'unitY', memberRole: 'MEMBER', leftAt: null },
@@ -183,7 +183,7 @@ describe('AccessContextService', () => {
 
     expect(profile.context.managedOrgUnitIds).toEqual([]);
     expect(profile.scopeByDomain.KPIS).toBe('UNITS');
-    expect(profile.scopeByDomain.DASHBOARDS).toBe('UNITS');
+    expect(profile.scopeByDomain.DASHBOARDS).toBe('SELF');
   });
 
   test('role scopeConfig overrides the default per domain', async () => {
@@ -198,7 +198,7 @@ describe('AccessContextService', () => {
 
     expect(profile.scopeByDomain.KPIS).toBe('SELF'); // narrowed by config
     expect(profile.scopeByDomain.DASHBOARDS).toBe('ORG'); // widened by config
-    expect(profile.scopeByDomain.ALERTS).toBe('UNITS'); // unset ⇒ default
+    expect(profile.scopeByDomain.ALERTS).toBe('ORG'); // unset ⇒ per-domain default (ALERTS=ORG)
   });
 
   test('role dataLimits resolve onto the profile; admin stays unlimited (null)', async () => {
@@ -243,7 +243,7 @@ describe('AccessContextService', () => {
     const profile = await run(() => svc.resolveForCurrentPrincipal());
 
     expect(profile.scopeByDomain.KPIS).toBe('SELF'); // override replaced role UNITS
-    expect(profile.scopeByDomain.DASHBOARDS).toBe('UNITS'); // unset everywhere ⇒ default
+    expect(profile.scopeByDomain.DASHBOARDS).toBe('SELF'); // unset everywhere ⇒ per-domain default (DASHBOARDS=SELF)
     expect(profile.dataTypeFilters.kpiCategoryIds).toEqual(['cat_user']); // override replaced
     expect(profile.dataLimits.historyWindowDays).toBe(7); // override tightened
     expect(profile.dataLimits.maxListRows).toBe(1000); // override unset ⇒ role value

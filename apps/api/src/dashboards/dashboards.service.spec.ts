@@ -37,6 +37,7 @@ interface FakeDashboard {
   createdAt: Date;
   updatedAt: Date;
   createdById: string | null;
+  unitAssignmentOrgUnitIds?: string[];
 }
 
 class FakePrisma {
@@ -137,7 +138,20 @@ class FakePrisma {
         d.deletedAt === null
       ) return false;
     }
-    if (where.ownerUserId && d.ownerUserId !== where.ownerUserId) return false;
+    if (where.ownerUserId) {
+      const cond = where.ownerUserId;
+      if (typeof cond === 'object' && cond !== null && 'in' in (cond as Record<string, unknown>)) {
+        if (!(cond as { in: string[] }).in.includes(d.ownerUserId as string)) return false;
+      } else if (d.ownerUserId !== cond) {
+        return false;
+      }
+    }
+    if (where.unitAssignments) {
+      const some = (where.unitAssignments as { some?: { orgUnitId?: { in?: string[] } } }).some;
+      const inIds = some?.orgUnitId?.in ?? [];
+      const assigned = d.unitAssignmentOrgUnitIds ?? [];
+      if (!assigned.some((u) => inIds.includes(u))) return false;
+    }
     if (typeof where.isShared === 'boolean' && d.isShared !== where.isShared) return false;
     if (typeof where.isDefault === 'boolean' && d.isDefault !== where.isDefault) return false;
     if (Array.isArray(where.OR)) {
@@ -171,15 +185,24 @@ class FakeResolver {
 
 class FakeAccessContext {
   isAdmin = false;
-  dashboardsScope: 'SELF' | 'DIRECT_REPORTS' | 'UNITS' | 'ORG' = 'UNITS';
+  dashboardsScope: 'SELF' | 'DIRECT_REPORTS' | 'UNITS' | 'ORG' = 'SELF';
+  directReportIds: string[] = [];
+  managedOrgUnitIds: string[] = [];
+  memberOrgUnitIds: string[] = [];
+  unitMemberIds: string[] = [];
   resolveForCurrentPrincipal = vi.fn(async () => ({
     isAdmin: this.isAdmin,
     capabilities: [],
     scopeByDomain: { DASHBOARDS: this.dashboardsScope },
     dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
     dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
-    context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: [] },
+    context: {
+      managedOrgUnitIds: this.managedOrgUnitIds,
+      memberOrgUnitIds: this.memberOrgUnitIds,
+      directReportIds: this.directReportIds,
+    },
   }));
+  unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
 }
 
 const ORG = 'org_alpha';
@@ -248,7 +271,7 @@ describe('DashboardsService.list', () => {
     expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2', 'd3']);
   });
 
-  test('non-admin at default (UNITS) scope sees owned or shared dashboards', async () => {
+  test('non-admin at default (SELF) scope sees own + shared dashboards (parity)', async () => {
     const { service, prisma } = makeService();
     prisma.store.push(
       makeRow({ id: 'd1', ownerUserId: 'u1', isShared: false }),
@@ -259,7 +282,7 @@ describe('DashboardsService.list', () => {
     expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
   });
 
-  test('SELF scope narrows to own dashboards only (shared excluded)', async () => {
+  test('SELF scope still includes shared (isShared floor)', async () => {
     const { service, prisma, accessContext } = makeService();
     accessContext.dashboardsScope = 'SELF';
     prisma.store.push(
@@ -267,7 +290,40 @@ describe('DashboardsService.list', () => {
       makeRow({ id: 'd2', ownerUserId: 'someone_else', isShared: true }),
     );
     const result = await withCtx({ userId: 'u1' }, () => service.list());
-    expect(result.map((d) => d.id)).toEqual(['d1']);
+    expect(result.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
+  });
+
+  test('UNITS scope ⇒ OR adds unit-owner set and unit-assigned dashboards', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.dashboardsScope = 'UNITS';
+    accessContext.unitMemberIds = ['peer1'];
+    accessContext.managedOrgUnitIds = ['g1'];
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.dashboard.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        { ownerUserId: { in: expect.arrayContaining(['me', 'peer1']) } },
+        { isShared: true },
+        { unitAssignments: { some: { orgUnitId: { in: ['g1'] } } } },
+      ]),
+    );
+  });
+
+  test('ORG scope ⇒ no OR filter (all dashboards in tenant)', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.dashboardsScope = 'ORG';
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.dashboard.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toBeUndefined();
+  });
+
+  test('default (SELF) scope ⇒ OR is own ∪ shared (parity)', async () => {
+    const { service, prisma } = makeService();
+    await withCtx({ userId: 'me' }, () => service.list());
+    const where = prisma.dashboard.findMany.mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toEqual(
+      expect.arrayContaining([{ ownerUserId: { in: ['me'] } }, { isShared: true }]),
+    );
   });
 
   test('does not leak deleted rows', async () => {

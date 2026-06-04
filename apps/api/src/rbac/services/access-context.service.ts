@@ -17,6 +17,7 @@ import type {
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
+import { DOMAIN_DEFAULT_SCOPE } from '../visibility/domain-visibility.js';
 import { PermissionResolverService } from './permission-resolver.service.js';
 
 const DOMAINS: readonly Domain[] = [
@@ -91,21 +92,20 @@ export class AccessContextService {
       directReportIds = await this.resolveReportsRecursive(ctx.organizationId, ctx.userId);
     }
 
-    // Derived default scope. Admin ⇒ ORG everywhere. For a non-admin the default is
-    // UNITS — its visibility mapping (managed∪member units + self∪reports) reproduces
-    // today's behaviour exactly, so an unset scopeConfig stays at parity. Phase 2:
-    // the role's per-domain scopeConfig overrides this default; narrower values
-    // (DIRECT_REPORTS/SELF) actually restrict, ORG widens.
-    const defaultScope: Scope = isAdmin ? 'ORG' : 'UNITS';
+    // Derived default scope. Admin ⇒ ORG everywhere. Phase 2: the role's per-domain
+    // scopeConfig overrides the default; narrower values (DIRECT_REPORTS/SELF) actually
+    // restrict, ORG widens.
     const roleConfig = await this.loadRoleConfig(isAdmin, ctx.organizationId, ctx.roleId);
     // Phase 5 — per-user override REPLACES the role value per-field when set (admins skip).
     // The capability layer is already merged in PermissionResolverService (the guard reads
     // that), so here we only override scope/dataType/limits. ?? chain ⇒ override → role → default.
     const override = isAdmin ? null : await this.loadUserOverride(ctx.organizationId, ctx.userId);
+    // Phase 2.5 — per-domain default reproduces each domain's current behaviour
+    // (KPIS=UNITS, DASHBOARDS/TASKS=SELF, OKRS/REPORTS/ALERTS=ORG). Admin ⇒ ORG.
     const scopeByDomain = Object.fromEntries(
       DOMAINS.map((d) => [
         d,
-        isAdmin ? 'ORG' : (override?.scope[d] ?? roleConfig.scope[d] ?? defaultScope),
+        isAdmin ? 'ORG' : (override?.scope[d] ?? roleConfig.scope[d] ?? DOMAIN_DEFAULT_SCOPE[d]),
       ]),
     ) as Record<Domain, Scope>;
 

@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
+import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   CreateDashboardDto,
@@ -77,28 +78,12 @@ export class DashboardsService {
   ) {}
 
   /**
-   * List dashboards visible to the current principal:
-   *   - Admin sees all (non-deleted)
-   *   - Otherwise: always own dashboards; shared dashboards are included unless the
-   *     principal's DASHBOARDS scope is SELF (Phase 2 — granular scope narrowing).
+   * List dashboards visible to the current principal — see {@link visibilityWhere}.
    * Role-based sharing (ownerRoleId) lands when the broader role-share
    * UI ships; the column is recorded but not yet filtered on.
    */
   async list(): Promise<PublicDashboard[]> {
-    const ctx = RequestContextStore.require();
-    const profile = await this.accessContext.resolveForCurrentPrincipal();
-
-    const where: Prisma.DashboardWhereInput = {
-      organizationId: ctx.organizationId,
-      deletedAt: null,
-    };
-    if (!profile.isAdmin) {
-      const seeShared = profile.scopeByDomain.DASHBOARDS !== 'SELF';
-      where.OR = seeShared
-        ? [{ ownerUserId: ctx.userId }, { isShared: true }]
-        : [{ ownerUserId: ctx.userId }];
-    }
-
+    const where = await this.visibilityWhere();
     return this.prisma.dashboard.findMany({
       where,
       select: dashboardSelect,
@@ -106,23 +91,55 @@ export class DashboardsService {
     });
   }
 
-  async getById(id: string): Promise<PublicDashboard> {
+  /**
+   * The dashboard `where` for the current principal. `isShared` is an always-on
+   * floor; the configured DASHBOARDS scope governs the *private* set (SELF=own,
+   * DIRECT_REPORTS=+reports, UNITS=+unit owners/assignments, ORG=all). Default
+   * SELF ⇒ own ∪ isShared = parity. Admin ⇒ whole tenant.
+   */
+  private async visibilityWhere(): Promise<Prisma.DashboardWhereInput> {
     const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    const where: Prisma.DashboardWhereInput = {
+      organizationId: ctx.organizationId,
+      deletedAt: null,
+    };
+    if (profile.isAdmin) return where;
+
+    // AccessContextService always populates every domain; coalesce defensively for the
+    // Partial<Record> type (z.record ⇒ value is Scope | undefined) ⇒ parity default SELF.
+    const scope = profile.scopeByDomain.DASHBOARDS ?? 'SELF';
+    if (scope === 'ORG') return where; // all dashboards in tenant
+
+    const unitMemberUserIds = scope === 'UNITS' ? await this.accessContext.unitMemberUserIds() : [];
+    const ownerIds = scopedUserIds(scope, {
+      userId: ctx.userId,
+      directReportIds: profile.context.directReportIds,
+      unitMemberUserIds,
+    })!; // non-null: scope !== ORG
+    const or: Prisma.DashboardWhereInput[] = [
+      { ownerUserId: { in: ownerIds } },
+      { isShared: true },
+    ];
+    if (scope === 'UNITS') {
+      const myUnitIds = [
+        ...new Set([...profile.context.managedOrgUnitIds, ...profile.context.memberOrgUnitIds]),
+      ];
+      if (myUnitIds.length > 0) {
+        or.push({ unitAssignments: { some: { orgUnitId: { in: myUnitIds } } } });
+      }
+    }
+    where.OR = or;
+    return where;
+  }
+
+  async getById(id: string): Promise<PublicDashboard> {
+    const where = await this.visibilityWhere();
     const dashboard = await this.prisma.dashboard.findFirst({
-      where: { id, organizationId: ctx.organizationId, deletedAt: null },
+      where: { ...where, id },
       select: dashboardSelect,
     });
     if (!dashboard) {
-      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Dashboard not found' });
-    }
-    // Visibility check: admin OR owner OR shared.
-    const resolved = await this.resolver.resolveForUser(
-      ctx.organizationId,
-      ctx.userId,
-      ctx.roleId,
-    );
-    if (!resolved.isAdmin && dashboard.ownerUserId !== ctx.userId && !dashboard.isShared) {
-      // Surface as 404 so we don't leak existence.
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Dashboard not found' });
     }
     return dashboard;

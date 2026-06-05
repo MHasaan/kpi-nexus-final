@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Archive,
@@ -13,6 +13,7 @@ import {
   LineChart,
   PieChart,
   Plus,
+  Search,
   Table as TableIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ import {
   deleteDashboard,
   getAccessToken,
   listDashboards,
+  meRequest,
   setDefaultDashboard,
   type Dashboard,
   type WidgetType,
@@ -41,9 +43,20 @@ import {
   Card,
   CardContent,
   EmptyState,
+  Input,
   PageHeader,
+  Select,
   Skeleton,
 } from '../../components/ui';
+
+type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
+
+const FILTER_OPTIONS: ReadonlyArray<{ value: DashboardFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'shared', label: 'Shared' },
+  { value: 'mine', label: 'Mine' },
+  { value: 'default', label: 'Default' },
+];
 
 const WIDGET_GLYPH_ICON: Record<WidgetType, LucideIcon> = {
   line: LineChart,
@@ -120,6 +133,9 @@ function DashboardsListInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<DashboardFilter>('all');
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -127,7 +143,30 @@ function DashboardsListInner() {
       return;
     }
     void refresh();
+    // Resolve the current user so the "Mine" filter can match ownerUserId.
+    // Non-fatal: if it fails, "Mine" simply yields no matches.
+    meRequest()
+      .then((res) => setCurrentUserId(res.user.id))
+      .catch(() => {
+        /* ignore — "Mine" filter degrades gracefully */
+      });
   }, [router]);
+
+  const visible = useMemo(() => {
+    if (dashboards === null) return null;
+    const q = search.trim().toLowerCase();
+    return dashboards.filter((d) => {
+      if (q && !d.name.toLowerCase().includes(q)) return false;
+      if (filter === 'shared') return d.isShared;
+      if (filter === 'default') return d.isDefault;
+      if (filter === 'mine') {
+        return currentUserId != null && d.ownerUserId === currentUserId;
+      }
+      return true;
+    });
+  }, [dashboards, search, filter, currentUserId]);
+
+  const hasFilters = search.trim().length > 0 || filter !== 'all';
 
   async function refresh() {
     setLoadError(null);
@@ -258,11 +297,81 @@ function DashboardsListInner() {
         )}
 
         {dashboards !== null && dashboards.length > 0 && (
+          <>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search
+                  aria-hidden
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted"
+                />
+                <Input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${pluralize(terminology.dashboardLabel).toLowerCase()}…`}
+                  aria-label={`Search ${pluralize(terminology.dashboardLabel).toLowerCase()}`}
+                  className="pl-9"
+                  data-testid="dashboard-search"
+                />
+              </div>
+              <Select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as DashboardFilter)}
+                aria-label="Filter dashboards"
+                className="sm:w-44"
+                data-testid="dashboard-filter"
+              >
+                {FILTER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {visible !== null && (
+              <p
+                className="text-xs tabular-nums text-content-muted"
+                data-testid="dashboards-result-count"
+              >
+                {visible.length}{' '}
+                {visible.length === 1
+                  ? terminology.dashboardLabel.toLowerCase()
+                  : pluralize(terminology.dashboardLabel).toLowerCase()}
+                {hasFilters ? ` of ${dashboards.length}` : ''}
+              </p>
+            )}
+
+            {visible !== null && visible.length === 0 && (
+              <Card data-testid="dashboards-no-matches">
+                <EmptyState
+                  icon={Search}
+                  title="No matches"
+                  description="Try a different search or filter."
+                  action={
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setSearch('');
+                        setFilter('all');
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  }
+                />
+              </Card>
+            )}
+          </>
+        )}
+
+        {visible !== null && visible.length > 0 && (
           <section
             className="kn-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
             data-testid="dashboards-grid"
           >
-            {dashboards.map((d) => (
+            {visible.map((d) => (
               <Card
                 key={d.id}
                 as="article"

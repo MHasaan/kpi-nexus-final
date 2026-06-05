@@ -64,32 +64,62 @@ export default function CascadeTreePage() {
 
         <div className="space-y-4" data-testid="tree-roots">
           {(tree ?? []).map((node) => (
-            <Card key={node.parentKpiId} style={{ marginLeft: `${node.level * 1.5}rem` }}>
-              <div className="p-5">
-                <div className="flex items-center gap-2">
-                  <Badge tone="neutral">L{node.level}</Badge>
-                  <h3 className="font-semibold text-content-strong">{node.parentName}</h3>
-                </div>
-                <ul className="mt-2 space-y-1">
-                  {node.children.map((c) => (
-                    <li
-                      key={c.childKpiId}
-                      className="flex items-center justify-between border-t border-border-divider py-1.5 text-sm"
-                    >
+            <div
+              key={node.parentKpiId}
+              style={{ marginLeft: `${node.level * 1.5}rem` }}
+              className={
+                node.level > 0
+                  ? 'border-l-2 border-border-strong pl-4'
+                  : undefined
+              }
+            >
+              <Card>
+                <div className="p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge tone="neutral">L{node.level}</Badge>
                       <Link
-                        href={`/kpis/${c.childKpiId}`}
-                        className="text-content-strong hover:text-accent-primary"
+                        href={`/kpis/${node.parentKpiId}`}
+                        className="font-semibold text-content-strong hover:text-accent-primary"
                       >
-                        ↳ {c.childName}
+                        {node.parentName}
                       </Link>
-                      <span className="tabular-nums text-content-muted">
-                        {c.method} · weight {c.weight}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Card>
+                    </div>
+                    <Link
+                      href={`/kpis/${node.parentKpiId}`}
+                      className="text-xs font-medium text-accent-primary hover:underline"
+                      data-testid={`tree-edit-cascades-${node.parentKpiId}`}
+                    >
+                      Edit cascades →
+                    </Link>
+                  </div>
+                  {/* Children, visually nested under the parent with a vertical guide line. */}
+                  <ul className="mt-3 space-y-0 border-l border-border-divider pl-4">
+                    {node.children.map((c) => (
+                      <li
+                        key={c.childKpiId}
+                        className="relative flex items-center justify-between py-1.5 text-sm"
+                      >
+                        {/* Connector tick joining the child row to the vertical guide. */}
+                        <span
+                          aria-hidden
+                          className="absolute -left-4 top-1/2 h-px w-3 bg-border-divider"
+                        />
+                        <Link
+                          href={`/kpis/${c.childKpiId}`}
+                          className="text-content-strong hover:text-accent-primary"
+                        >
+                          {c.childName}
+                        </Link>
+                        <span className="tabular-nums text-content-muted">
+                          {c.method} · weight {c.weight}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Card>
+            </div>
           ))}
           {tree && tree.length === 0 && (
             <Card>

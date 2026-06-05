@@ -30,6 +30,11 @@ export default function ArchivePage() {
   const router = useRouter();
   const [kpis, setKpis] = useState<KpiSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Row currently running a restore/purge request (disables its buttons).
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // Row whose purge is awaiting inline confirmation.
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     listArchivedKpis()
@@ -46,13 +51,30 @@ export default function ArchivePage() {
   }, [load, router]);
 
   const onRestore = async (id: string) => {
-    await restoreKpi(id).catch(() => undefined);
-    load();
+    setBusyId(id);
+    setActionError(null);
+    try {
+      await restoreKpi(id);
+      load();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Failed to restore KPI');
+    } finally {
+      setBusyId(null);
+    }
   };
-  const onPurge = async (id: string) => {
-    if (!window.confirm('Permanently delete this KPI and all its data? This cannot be undone.')) return;
-    await purgeKpi(id).catch(() => undefined);
-    load();
+
+  const onConfirmPurge = async (id: string) => {
+    setBusyId(id);
+    setActionError(null);
+    try {
+      await purgeKpi(id);
+      setConfirmingId(null);
+      load();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Failed to purge KPI');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -85,6 +107,16 @@ export default function ArchivePage() {
           </div>
         )}
 
+        {actionError && (
+          <div
+            role="alert"
+            data-testid="archive-error"
+            className="rounded-lg border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+          >
+            {actionError}
+          </div>
+        )}
+
         {kpis === null && !error && (
           <Card className="p-4">
             <div className="space-y-3">
@@ -98,6 +130,8 @@ export default function ArchivePage() {
         <Card className="overflow-hidden p-0" data-testid="archive-list">
           {(kpis ?? []).map((k) => {
             const remaining = daysUntilPurge(k.deletedAt);
+            const isBusy = busyId === k.id;
+            const isConfirming = confirmingId === k.id;
             return (
               <div
                 key={k.id}
@@ -117,19 +151,57 @@ export default function ArchivePage() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => onRestore(k.id)} data-testid={`restore-${k.id}`}>
-                    Restore
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onPurge(k.id)}
-                    data-testid={`purge-${k.id}`}
-                    className="text-status-critical hover:bg-status-critical-bg"
-                  >
-                    Purge now
-                  </Button>
+                <div className="flex items-center gap-2">
+                  {isConfirming ? (
+                    <>
+                      <span className="text-xs font-medium text-status-critical">Confirm purge?</span>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => void onConfirmPurge(k.id)}
+                        isLoading={isBusy}
+                        disabled={isBusy}
+                        data-testid={`purge-confirm-${k.id}`}
+                      >
+                        Confirm purge
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmingId(null)}
+                        disabled={isBusy}
+                        data-testid={`purge-cancel-${k.id}`}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void onRestore(k.id)}
+                        isLoading={isBusy}
+                        disabled={isBusy}
+                        data-testid={`restore-${k.id}`}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActionError(null);
+                          setConfirmingId(k.id);
+                        }}
+                        disabled={isBusy}
+                        data-testid={`purge-${k.id}`}
+                        className="text-status-critical hover:bg-status-critical-bg"
+                      >
+                        Purge now
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             );

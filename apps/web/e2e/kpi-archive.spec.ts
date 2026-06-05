@@ -49,8 +49,8 @@ test('archive page: restore + purge soft-deleted KPIs', async ({ page }) => {
   await page.getByTestId(`restore-${toRestore}`).click();
   await expect(page.getByText(`Restore Me ${stamp}`)).toHaveCount(0);
 
-  // Purge the other (accept the confirm dialog) → disappears.
-  page.on('dialog', (d) => d.accept());
+  // Purge the other via the inline two-step confirm → disappears.
   await page.getByTestId(`purge-${toPurge}`).click();
+  await page.getByTestId(`purge-confirm-${toPurge}`).click();
   await expect(page.getByText(`Purge Me ${stamp}`)).toHaveCount(0);
 });

@@ -91,8 +91,14 @@ test.describe('KPI bulk CSV import', () => {
     await expect(page.getByTestId('kpi-import-valid-count')).toContainText('1 valid', { timeout: 10_000 });
     await expect(page.getByTestId('kpi-import-error-count')).toContainText('0 errors');
 
+    // Preview table shows the KPI that will be created.
+    await expect(page.getByTestId('import-preview-table')).toBeVisible();
+    await expect(page.getByTestId('import-preview-table')).toContainText(name1);
+
     await page.getByTestId('kpi-import-commit').click();
     await expect(page.getByTestId('kpi-import-done')).toBeVisible({ timeout: 10_000 });
+    // Post-commit: a clear way forward to the KPI list.
+    await expect(page.getByTestId('import-view-kpis')).toBeVisible();
 
     // Verify via API the KPI now exists.
     const list = (await (await apiCtx.get('/kpis')).json()) as Array<{ name: string }>;

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -31,6 +32,25 @@ const SAMPLE = `KPI Name,Type,Direction,Target,Tags
 Monthly Recurring Revenue,CURRENCY,HIGHER_IS_BETTER,50000,finance;growth
 Net Promoter Score,NUMBER,HIGHER_IS_BETTER,40,cx
 Churn Rate,PERCENTAGE,LOWER_IS_BETTER,5,retention`;
+
+/** Shape of a validated dry-run row (subset of the backend `valid[]` entries). */
+interface ValidRow {
+  name?: unknown;
+  type?: unknown;
+  direction?: unknown;
+  targetValue?: unknown;
+  tags?: unknown;
+}
+
+function asText(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  return String(v);
+}
+
+function asTags(v: unknown): string {
+  if (Array.isArray(v) && v.length > 0) return v.map((t) => String(t)).join(', ');
+  return '—';
+}
 
 export default function KpiImportPage() {
   const router = useRouter();
@@ -78,6 +98,8 @@ export default function KpiImportPage() {
     }
   }
 
+  const validRows = (result?.valid ?? []) as ValidRow[];
+
   const canCommit = result !== null && result.errors.length === 0 && result.valid.length > 0;
 
   return (
@@ -99,17 +121,40 @@ export default function KpiImportPage() {
             Bulk import KPIs
           </h1>
           <p className="text-sm text-content-muted">
-            Paste CSV with a header row. Columns are matched case-insensitively (e.g.{' '}
-            <code className="rounded bg-surface-2 px-1 font-mono">KPI Name</code>,{' '}
-            <code className="rounded bg-surface-2 px-1 font-mono">Target</code>,{' '}
-            <code className="rounded bg-surface-2 px-1 font-mono">Type</code>). Run a dry-run to
-            validate, then commit. Creates ORG_WIDE KPIs.
+            Paste CSV with a header row, run a dry-run to validate, then commit. Imports create{' '}
+            <span className="font-medium text-content-strong">ORG_WIDE</span> KPIs.
           </p>
         </div>
 
         <KpiSubnav />
 
         <Card className="p-5">
+          <div
+            className="mb-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-xs text-content-muted"
+            data-testid="kpi-import-columns-help"
+          >
+            <p className="mb-1 font-medium text-content-strong">Expected columns (case-insensitive)</p>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1">
+              <li>
+                <code className="rounded bg-surface-bg px-1 font-mono">Name</code> — required
+              </li>
+              <li>
+                <code className="rounded bg-surface-bg px-1 font-mono">Type</code> — e.g. NUMBER, CURRENCY,
+                PERCENTAGE
+              </li>
+              <li>
+                <code className="rounded bg-surface-bg px-1 font-mono">Direction</code> — HIGHER_IS_BETTER /
+                LOWER_IS_BETTER
+              </li>
+              <li>
+                <code className="rounded bg-surface-bg px-1 font-mono">Target</code> — numeric
+              </li>
+              <li>
+                <code className="rounded bg-surface-bg px-1 font-mono">Tags</code> — separated by{' '}
+                <code className="rounded bg-surface-bg px-1 font-mono">;</code>
+              </li>
+            </ul>
+          </div>
           <Textarea
             value={csv}
             onChange={(e) => setCsv(e.target.value)}
@@ -157,9 +202,14 @@ export default function KpiImportPage() {
           <div
             role="status"
             data-testid="kpi-import-done"
-            className="rounded-lg border border-border bg-status-success-bg px-4 py-3 text-sm text-status-success"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-status-success-bg px-4 py-3 text-sm text-status-success"
           >
-            {done}
+            <span>{done}</span>
+            <Link href="/kpis" data-testid="import-view-kpis">
+              <Button size="sm" variant="secondary">
+                View KPIs
+              </Button>
+            </Link>
           </div>
         )}
 
@@ -176,6 +226,39 @@ export default function KpiImportPage() {
                 {result.errors.length} errors
               </Badge>
             </div>
+            {validRows.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-content-strong">
+                  {result.errors.length === 0
+                    ? `${validRows.length} KPI${validRows.length === 1 ? '' : 's'} will be created`
+                    : `${validRows.length} valid KPI${validRows.length === 1 ? '' : 's'} would be created (fix errors below first)`}
+                </p>
+                <Card className="overflow-hidden p-0" data-testid="import-preview-table">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Direction</TableHead>
+                        <TableHead className="text-right">Target</TableHead>
+                        <TableHead>Tags</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {validRows.map((r, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium text-content-strong">{asText(r.name)}</TableCell>
+                          <TableCell className="text-content-muted">{asText(r.type)}</TableCell>
+                          <TableCell className="text-content-muted">{asText(r.direction)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{asText(r.targetValue)}</TableCell>
+                          <TableCell className="text-content-muted">{asTags(r.tags)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </div>
+            )}
             {result.errors.length > 0 && (
               <Card className="overflow-hidden p-0" data-testid="kpi-import-errors-table">
                 <Table>

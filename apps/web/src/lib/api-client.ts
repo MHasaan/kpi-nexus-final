@@ -1023,7 +1023,7 @@ export async function updateWidgetPosition(
 export async function updateWidget(
   dashboardId: string,
   widgetId: string,
-  patch: Partial<Pick<DashboardWidget, 'title' | 'config' | 'position'>>,
+  patch: Partial<Pick<DashboardWidget, 'widgetType' | 'title' | 'config' | 'position'>>,
 ): Promise<DashboardWidget> {
   return api(`/dashboards/${dashboardId}/widgets/${widgetId}`, {
     method: 'PATCH',

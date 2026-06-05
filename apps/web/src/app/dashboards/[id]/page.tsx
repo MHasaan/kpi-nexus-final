@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Camera, Pencil, Plus, Printer, Settings as SettingsIcon, Share2 } from 'lucide-react';
 
 import {
@@ -14,10 +14,13 @@ import {
   deleteWidget,
   getAccessToken,
   getDashboard,
+  updateWidget,
   type Dashboard,
   type DashboardWidget,
   type WidgetType,
 } from '../../../lib/api-client';
+import { WidgetEditor } from '../../../components/dashboard-grid/widget-editor';
+import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
 import {
   TerminologyProvider,
   useTerminology,
@@ -32,10 +35,8 @@ import {
   Card,
   CardContent,
   Input,
-  Label,
   PageHeader,
   Segmented,
-  Select,
   Skeleton,
 } from '../../../components/ui';
 
@@ -90,13 +91,15 @@ function DashboardDetailInner() {
         ? presetToRange(preset)
         : undefined;
 
-  // Add-widget form state
+  // Add-widget editor state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newType, setNewType] = useState<WidgetType>('number');
-  const [newTitle, setNewTitle] = useState('');
-  const [newKpiId, setNewKpiId] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Edit-widget editor state
+  const [editingWidget, setEditingWidget] = useState<DashboardWidget | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Per-widget delete tracking (for backward compat with e2e testids on grid)
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -138,20 +141,20 @@ function DashboardDetailInner() {
     void refresh();
   }, [router, refresh]);
 
-  async function handleAddWidget(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleAddWidget(body: {
+    widgetType: WidgetType;
+    title?: string;
+    config: Record<string, unknown>;
+  }) {
     setAdding(true);
     setAddError(null);
     try {
       const rows = dashboard?.widgets.length ?? 0;
+      const size = WIDGET_META[body.widgetType].defaultSize;
       await addWidget(dashboardId, {
-        widgetType: newType,
-        title: newTitle.trim() || undefined,
-        config: newKpiId.trim() ? { kpiId: newKpiId.trim() } : {},
-        position: { x: 0, y: rows * 2, w: 6, h: 3 },
+        ...body,
+        position: { x: 0, y: rows * 2, w: size.w, h: size.h },
       });
-      setNewTitle('');
-      setNewKpiId('');
       setShowAddForm(false);
       await refresh();
     } catch (err) {
@@ -160,6 +163,33 @@ function DashboardDetailInner() {
       );
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleSaveWidget(body: {
+    widgetType: WidgetType;
+    title?: string;
+    config: Record<string, unknown>;
+  }) {
+    if (!editingWidget) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await updateWidget(dashboardId, editingWidget.id, {
+        title: body.title,
+        config: body.config,
+        ...(body.widgetType !== editingWidget.widgetType
+          ? { widgetType: body.widgetType }
+          : {}),
+      });
+      setEditingWidget(null);
+      await refresh();
+    } catch (err) {
+      setEditError(
+        err instanceof ApiError ? err.message : 'Failed to save widget',
+      );
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -446,6 +476,30 @@ function DashboardDetailInner() {
               )}
             </div>
 
+            {/* Edit-widget editor (takes precedence — shown when a widget is selected) */}
+            {editingWidget && (
+              <Card data-testid="dashboard-edit-widget-section">
+                <CardContent>
+                  <h2 className="text-base font-semibold text-content-strong">
+                    Edit widget
+                  </h2>
+                  <p className="mt-1 mb-4 text-sm text-content-muted">
+                    Change the type, {terminology.kpiLabel}, title, or display
+                    options. The preview updates live.
+                  </p>
+                  <WidgetEditor
+                    key={editingWidget.id}
+                    mode="edit"
+                    initial={editingWidget}
+                    busy={savingEdit}
+                    error={editError}
+                    onSubmit={handleSaveWidget}
+                    onCancel={() => setEditingWidget(null)}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Add-widget section */}
             {showAddForm && (
               <Card data-testid="dashboard-add-widget-section">
@@ -453,86 +507,17 @@ function DashboardDetailInner() {
                   <h2 className="text-base font-semibold text-content-strong">
                     Add widget
                   </h2>
-                  <p className="mt-1 text-sm text-content-muted">
-                    Pick a widget type and (optionally) the {terminology.kpiLabel}{' '}
-                    ID it should display.
+                  <p className="mt-1 mb-4 text-sm text-content-muted">
+                    Pick a widget type and the {terminology.kpiLabel} it should
+                    display. The preview updates live.
                   </p>
-                  <form
+                  <WidgetEditor
+                    mode="add"
+                    busy={adding}
+                    error={addError}
                     onSubmit={handleAddWidget}
-                    className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.5fr_1.5fr_auto] sm:items-end"
-                  >
-                    <div className="space-y-1.5">
-                      <Label htmlFor="widget-type">Type</Label>
-                      <Select
-                        id="widget-type"
-                        value={newType}
-                        onChange={(e) => setNewType(e.target.value as WidgetType)}
-                        disabled={adding}
-                        data-testid="widget-type-select"
-                      >
-                        <option value="kpi_card">KPI card</option>
-                        <option value="line">Line chart</option>
-                        <option value="bar">Bar chart</option>
-                        <option value="pie">Pie chart</option>
-                        <option value="gauge">Gauge</option>
-                        <option value="number">Number</option>
-                        <option value="list">List</option>
-                        <option value="trend">Trend</option>
-                        <option value="activity">Activity</option>
-                        <option value="strategy_map">Strategy map</option>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="widget-title">
-                        Title{' '}
-                        <span className="font-normal text-content-muted">
-                          (optional)
-                        </span>
-                      </Label>
-                      <Input
-                        id="widget-title"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        disabled={adding}
-                        data-testid="widget-title-input"
-                        maxLength={120}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="widget-kpiid">
-                        {terminology.kpiLabel} ID{' '}
-                        <span className="font-normal text-content-muted">
-                          (optional)
-                        </span>
-                      </Label>
-                      <Input
-                        id="widget-kpiid"
-                        value={newKpiId}
-                        onChange={(e) => setNewKpiId(e.target.value)}
-                        disabled={adding}
-                        data-testid="widget-kpiid-input"
-                        placeholder="cmpm…"
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={adding}
-                      isLoading={adding}
-                      data-testid="widget-add-submit"
-                    >
-                      {adding ? 'Adding…' : 'Add'}
-                    </Button>
-                  </form>
-                  {addError && (
-                    <p
-                      role="alert"
-                      data-testid="widget-add-error"
-                      className="mt-3 text-sm text-status-critical"
-                    >
-                      {addError}
-                    </p>
-                  )}
+                    onCancel={() => setShowAddForm(false)}
+                  />
                 </CardContent>
               </Card>
             )}
@@ -579,6 +564,10 @@ function DashboardDetailInner() {
               editMode={editMode}
               dateRange={dateRange}
               onWidgetDeleted={handleWidgetDeleted}
+              onEditWidget={(w) => {
+                setEditError(null);
+                setEditingWidget(w);
+              }}
               onLayoutSaved={refresh}
             />
           </div>

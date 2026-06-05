@@ -3,6 +3,7 @@
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
+import { Pencil } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import GridLayout, { type Layout } from 'react-grid-layout';
 
@@ -15,6 +16,7 @@ interface DashboardGridProps {
   editMode: boolean;
   dateRange?: { from?: string; to?: string };
   onWidgetDeleted: (widgetId: string) => void;
+  onEditWidget?: (widget: DashboardWidget) => void;
   onLayoutSaved?: () => void;
 }
 
@@ -36,6 +38,7 @@ export function DashboardGrid({
   editMode,
   dateRange,
   onWidgetDeleted,
+  onEditWidget,
   onLayoutSaved,
 }: DashboardGridProps) {
   const [layout, setLayout] = useState<Layout[]>(() => widgetsToLayout(widgets));
@@ -167,6 +170,17 @@ export function DashboardGrid({
               {editMode && (
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="text-xs text-content-muted select-none">⠿</span>
+                  {onEditWidget && (
+                    <button
+                      type="button"
+                      onClick={() => onEditWidget(widget)}
+                      data-testid={`widget-edit-${widget.id}`}
+                      aria-label={`Edit ${widget.title ?? widget.widgetType} widget`}
+                      className="widget-no-drag ml-1 rounded px-1.5 py-0.5 text-content-muted hover:bg-surface-2 hover:text-content-strong"
+                    >
+                      <Pencil className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => void handleDelete(widget.id)}

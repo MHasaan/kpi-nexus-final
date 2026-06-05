@@ -119,16 +119,16 @@ test.describe('Dashboard builder — widget add + persistence', () => {
       // No widgets yet — empty state
       await expect(page.getByTestId('dashboard-widgets-empty')).toBeVisible();
 
-      // 1. Open the add-widget form
+      // 1. Open the add-widget editor
       await page.getByTestId('dashboard-add-widget-toggle').click();
-      await expect(page.getByTestId('dashboard-add-widget-section')).toBeVisible({
+      await expect(page.getByTestId('widget-editor')).toBeVisible({
         timeout: 5000,
       });
 
-      // 2. Select widget type "KPI card", set title, enter kpi id
-      await page.getByTestId('widget-type-select').selectOption('kpi_card');
-      await page.getByTestId('widget-title-input').fill(`My KPI Card ${stamp}`);
-      await page.getByTestId('widget-kpiid-input').fill(kpi.id);
+      // 2. Pick the "KPI card" type, set a title, pick the KPI from the picker
+      await page.getByTestId('widget-type-kpi_card').click();
+      await page.getByTestId('widget-title').fill(`My KPI Card ${stamp}`);
+      await page.getByTestId(`kpi-picker-option-${kpi.id}`).click();
 
       // 3. Submit and wait for the POST /dashboards/:id/widgets response
       const addResponse = page.waitForResponse(
@@ -136,7 +136,7 @@ test.describe('Dashboard builder — widget add + persistence', () => {
           r.url().includes(`/dashboards/${dash.id}/widgets`) &&
           r.request().method() === 'POST',
       );
-      await page.getByTestId('widget-add-submit').click();
+      await page.getByTestId('widget-editor-submit').click();
       const addResp = await addResponse;
       expect(addResp.status()).toBe(201);
       const addedWidget = (await addResp.json()) as { id: string };

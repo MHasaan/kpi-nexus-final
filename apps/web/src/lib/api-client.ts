@@ -1993,6 +1993,15 @@ export async function instantiateTemplate(id: string, body: { name?: string; tar
   return api(`/kpi-templates/${id}/instantiate`, { method: 'POST', body: JSON.stringify(body) });
 }
 
+/**
+ * Fetch a single template by id. There is no single-template GET endpoint —
+ * this lists templates and finds the match client-side.
+ */
+export async function getKpiTemplate(id: string): Promise<KpiTemplate | null> {
+  const templates = await listTemplates();
+  return templates.find((t) => t.id === id) ?? null;
+}
+
 // =============================================================================
 // KPI formula, cascades, versions (detail-page Formula/Cascade/Audit tabs)
 // =============================================================================

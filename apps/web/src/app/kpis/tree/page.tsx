@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, getAccessToken, getCascadeTree, type CascadeTreeNode } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, EmptyState, Skeleton } from '../../../components/ui';
 
 export default function CascadeTreePage() {
@@ -41,6 +42,8 @@ export default function CascadeTreePage() {
             Parent KPIs and the children that roll up into them, by BFS level.
           </p>
         </div>
+
+        <KpiSubnav />
 
         {error && (
           <div

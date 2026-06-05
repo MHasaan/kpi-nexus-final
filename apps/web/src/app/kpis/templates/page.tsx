@@ -12,6 +12,7 @@ import {
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import {
   Badge,
   Button,
@@ -83,6 +84,8 @@ export default function TemplatesPage() {
             Start from a curated metric and instantiate it into your organization as a draft.
           </p>
         </div>
+
+        <KpiSubnav />
 
         <form onSubmit={onSearch} className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">

@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
+import { KpiSubnav } from '../../components/kpis/kpi-subnav';
 import {
   ApiError,
   clearTokens,
@@ -48,15 +49,6 @@ import {
   TableRow,
   type BadgeTone,
 } from '../../components/ui';
-
-const SUBNAV: Array<{ href: string; label: string }> = [
-  { href: '/kpis/categories', label: 'Categories' },
-  { href: '/kpis/templates', label: 'Templates' },
-  { href: '/kpis/tree', label: 'Tree' },
-  { href: '/kpis/scorecard', label: 'Scorecard' },
-  { href: '/kpis/import', label: 'Import' },
-  { href: '/kpis/archive', label: 'Archive' },
-];
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -283,17 +275,7 @@ function KpisPageInner() {
         </div>
 
         {/* Sub-nav */}
-        <nav className="flex flex-wrap items-center gap-1.5">
-          {SUBNAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md border border-border bg-surface-bg px-3 py-1.5 text-sm font-medium text-content transition-colors hover:bg-surface-hover hover:text-content-strong"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <KpiSubnav />
 
         {loadError && (
           <div

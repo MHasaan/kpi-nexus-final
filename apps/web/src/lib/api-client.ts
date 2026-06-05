@@ -742,19 +742,42 @@ export async function listKpis(): Promise<KpiSummary[]> {
   return api('/kpis');
 }
 
-export async function createKpi(body: {
+/**
+ * Full create/update DTO for a KPI — mirrors the fields the backend
+ * `POST /kpis` and `PATCH /kpis/:id` accept. `createKpi` requires
+ * `name` + `scope`; `updateKpi` takes a `Partial<>` of the same shape.
+ */
+export interface KpiWriteBody {
   name: string;
+  description?: string;
+  unit?: string;
+  categoryId?: string;
   scope: KpiScope;
   type?: KpiType;
-  unit?: string;
-  description?: string;
+  direction?: KpiDirection;
   frequency?: KpiFrequency;
+  aggregationMethod?: string;
+  status?: KpiStatus;
   targetValue?: number;
+  warningThreshold?: number;
+  criticalThreshold?: number;
+  allowNegative?: boolean;
   scorecardQuadrant?: string;
+  ownerUserId?: string;
+  tags?: string[];
   orgUnitIds?: string[];
   userIds?: string[];
-}): Promise<KpiSummary> {
+}
+
+export async function createKpi(body: KpiWriteBody): Promise<KpiSummary> {
   return api('/kpis', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function updateKpi(
+  id: string,
+  patch: Partial<KpiWriteBody>,
+): Promise<KpiSummary> {
+  return api(`/kpis/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
 export async function deleteKpi(id: string): Promise<void> {

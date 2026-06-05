@@ -13,6 +13,7 @@ import {
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import {
   Badge,
   Button,
@@ -105,6 +106,8 @@ export default function KpiImportPage() {
             validate, then commit. Creates ORG_WIDE KPIs.
           </p>
         </div>
+
+        <KpiSubnav />
 
         <Card className="p-5">
           <Textarea

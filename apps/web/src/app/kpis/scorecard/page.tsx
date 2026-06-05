@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, getAccessToken, getDashboardSummary, type DashboardSummaryRow } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
 
 const QUADRANTS: Array<{ key: string; label: string }> = [
@@ -51,6 +52,8 @@ export default function ScorecardPage() {
             KPIs grouped into the four BSC perspectives, with latest value vs target.
           </p>
         </div>
+
+        <KpiSubnav />
 
         {error && (
           <div

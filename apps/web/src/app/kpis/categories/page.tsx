@@ -17,6 +17,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import {
   Button,
   Card,
@@ -154,6 +155,8 @@ export default function KpiCategoriesPage() {
             Group KPIs by category. A category color is used as the KPI accent in lists and charts.
           </p>
         </div>
+
+        <KpiSubnav />
 
         <PermissionGuard permission="KPI_EDIT">
         <Card className="p-0">

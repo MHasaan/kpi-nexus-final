@@ -709,6 +709,7 @@ export interface KpiSummary {
   warningThreshold: number | null;
   criticalThreshold: number | null;
   allowNegative: boolean;
+  scorecardQuadrant: string | null;
   ownerUserId: string | null;
   tags: string[];
   isActive: boolean;

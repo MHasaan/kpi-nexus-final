@@ -10,7 +10,7 @@ function suffix(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-test('templates page: browse + filter + instantiate', async ({ page }) => {
+test('templates page: browse + filter + use template (prefilled create)', async ({ page }) => {
   const stamp = suffix();
   const anon = await request.newContext({ baseURL: API_URL });
   let reg: { accessToken: string; refreshToken: string };
@@ -42,7 +42,8 @@ test('templates page: browse + filter + instantiate', async ({ page }) => {
   // Global catalog is lazily seeded on first list — expect cards.
   await expect(page.getByTestId('tmpl-grid').getByRole('heading')).not.toHaveCount(0);
 
-  // Instantiate the MRR template (slug monthly-recurring-revenue).
+  // "Use template" now opens the rich, prefilled create form at /kpis/new?template=<id>.
   await page.getByTestId('tmpl-use-monthly-recurring-revenue').click();
-  await expect(page.getByTestId('tmpl-msg')).toContainText('Created');
+  await expect(page).toHaveURL(/\/kpis\/new\?template=/);
+  await expect(page.getByTestId('kpi-template-note')).toContainText('Starting from template');
 });

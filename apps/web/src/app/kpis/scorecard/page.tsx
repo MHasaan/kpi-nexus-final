@@ -8,7 +8,7 @@ import { ApiError, getAccessToken, getDashboardSummary, type DashboardSummaryRow
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
-import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
+import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, StatTile } from '../../../components/ui';
 
 const QUADRANTS: Array<{ key: string; label: string }> = [
   { key: 'FINANCIAL', label: 'Financial' },
@@ -16,6 +16,28 @@ const QUADRANTS: Array<{ key: string; label: string }> = [
   { key: 'INTERNAL_PROCESS', label: 'Internal Process' },
   { key: 'LEARNING_GROWTH', label: 'Learning & Growth' },
 ];
+
+/**
+ * Whether a row is on target. Mirrors the per-row logic exactly:
+ * a row is comparable only when both target and latest values exist,
+ * and is on-target when latest >= target. Returns null when not comparable.
+ */
+function isOnTarget(r: DashboardSummaryRow): boolean | null {
+  return r.targetValue !== null && r.latestValue !== null ? r.latestValue >= r.targetValue : null;
+}
+
+/** Count comparable rows (have both target + latest) and how many are on target. */
+function onTargetTally(rows: DashboardSummaryRow[]): { onTarget: number; comparable: number } {
+  let onTarget = 0;
+  let comparable = 0;
+  for (const r of rows) {
+    const result = isOnTarget(r);
+    if (result === null) continue;
+    comparable += 1;
+    if (result) onTarget += 1;
+  }
+  return { onTarget, comparable };
+}
 
 export default function ScorecardPage() {
   const router = useRouter();
@@ -34,6 +56,7 @@ export default function ScorecardPage() {
 
   const byQuadrant = (key: string) => (rows ?? []).filter((r) => r.scorecardQuadrant === key);
   const unassigned = (rows ?? []).filter((r) => !r.scorecardQuadrant);
+  const overall = rows ? onTargetTally(rows) : null;
 
   return (
     <RequirePermission permission="KPI_VIEW">
@@ -54,6 +77,21 @@ export default function ScorecardPage() {
         </div>
 
         <KpiSubnav />
+
+        {overall && (
+          <div className="grid gap-4 sm:grid-cols-3" data-testid="scorecard-summary">
+            <StatTile
+              label="On target"
+              value={`${overall.onTarget} / ${overall.comparable}`}
+              unit="KPIs"
+            />
+            <StatTile label="Tracked" value={rows?.length ?? 0} unit="KPIs" />
+            <StatTile
+              label="On-target rate"
+              value={overall.comparable > 0 ? `${Math.round((overall.onTarget / overall.comparable) * 100)}%` : '—'}
+            />
+          </div>
+        )}
 
         {error && (
           <div
@@ -87,17 +125,24 @@ export default function ScorecardPage() {
 }
 
 function QuadrantCard({ label, rows, testid }: { label: string; rows: DashboardSummaryRow[]; testid: string }) {
+  const tally = onTargetTally(rows);
   return (
     <Card data-testid={testid}>
       <CardHeader>
         <CardTitle>{label}</CardTitle>
-        <Badge tone="neutral">{rows.length}</Badge>
+        <div className="flex items-center gap-2">
+          {tally.comparable > 0 && (
+            <Badge tone={tally.onTarget === tally.comparable ? 'success' : 'warning'} data-testid={`${testid}-ontarget`}>
+              {tally.onTarget}/{tally.comparable} on target
+            </Badge>
+          )}
+          <Badge tone="neutral">{rows.length}</Badge>
+        </div>
       </CardHeader>
       <CardContent>
         <ul className="space-y-1">
           {rows.map((r) => {
-            const onTarget =
-              r.targetValue !== null && r.latestValue !== null ? r.latestValue >= r.targetValue : null;
+            const onTarget = isOnTarget(r);
             return (
               <li
                 key={r.kpiId}

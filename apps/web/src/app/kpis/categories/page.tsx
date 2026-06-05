@@ -32,6 +32,11 @@ import {
   TableRow,
 } from '../../../components/ui';
 
+/** A valid 3/6-digit hex color usable by <input type="color">. */
+function toColorInputValue(value: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(value) || /^#[0-9a-fA-F]{3}$/.test(value) ? value : '#4f46e5';
+}
+
 export default function KpiCategoriesPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<KpiCategory[] | null>(null);
@@ -39,6 +44,7 @@ export default function KpiCategoriesPage() {
 
   const [name, setName] = useState('');
   const [color, setColor] = useState('');
+  const [icon, setIcon] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -46,6 +52,7 @@ export default function KpiCategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editIcon, setEditIcon] = useState('');
   const [editSortOrder, setEditSortOrder] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -76,9 +83,14 @@ export default function KpiCategoriesPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createKpiCategory({ name: name.trim(), color: color.trim() || undefined });
+      await createKpiCategory({
+        name: name.trim(),
+        color: color.trim() || undefined,
+        icon: icon.trim() || undefined,
+      });
       setName('');
       setColor('');
+      setIcon('');
       await refresh();
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Failed to create category');
@@ -104,6 +116,7 @@ export default function KpiCategoriesPage() {
     setEditingId(category.id);
     setEditName(category.name);
     setEditColor(category.color ?? '');
+    setEditIcon(category.icon ?? '');
     setEditSortOrder(String(category.sortOrder));
     setEditError(null);
   }
@@ -118,10 +131,12 @@ export default function KpiCategoriesPage() {
     setEditError(null);
     try {
       const trimmedColor = editColor.trim();
+      const trimmedIcon = editIcon.trim();
       const parsedSortOrder = Number.parseInt(editSortOrder, 10);
       await updateKpiCategory(id, {
         name: editName.trim(),
         color: trimmedColor || undefined,
+        icon: trimmedIcon || undefined,
         sortOrder: Number.isNaN(parsedSortOrder) ? undefined : parsedSortOrder,
       });
       setEditingId(null);
@@ -152,7 +167,7 @@ export default function KpiCategoriesPage() {
             KPI categories
           </h1>
           <p className="text-sm text-content-muted">
-            Group KPIs by category. A category color is used as the KPI accent in lists and charts.
+            Group KPIs by category. A category color and icon are used as the KPI accent in lists and charts.
           </p>
         </div>
 
@@ -187,14 +202,38 @@ export default function KpiCategoriesPage() {
                 <Label htmlFor="category-color">
                   Color <span className="text-content-muted">(optional)</span>
                 </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    aria-label="Pick color"
+                    value={toColorInputValue(color)}
+                    onChange={(e) => setColor(e.target.value)}
+                    data-testid="category-color-swatch"
+                    className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-surface-bg p-0.5"
+                  />
+                  <Input
+                    id="category-color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    data-testid="category-color-input"
+                    placeholder="#4f46e5"
+                    className="w-32"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="category-icon">
+                  Icon <span className="text-content-muted">(optional)</span>
+                </Label>
                 <Input
-                  id="category-color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  data-testid="category-color-input"
-                  placeholder="#4f46e5"
-                  className="w-32"
+                  id="category-icon"
+                  value={icon}
+                  onChange={(e) => setIcon(e.target.value)}
+                  data-testid="category-icon-input"
+                  placeholder="TrendingUp"
+                  className="w-40"
                 />
+                <span className="text-xs text-content-muted">lucide icon name</span>
               </div>
               <Button type="submit" disabled={creating} isLoading={creating} data-testid="category-create-submit">
                 Add
@@ -244,7 +283,9 @@ export default function KpiCategoriesPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Color</TableHead>
+                  <TableHead>Icon</TableHead>
                   <TableHead className="text-right">KPIs</TableHead>
+                  <TableHead className="text-right">Sort</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -253,7 +294,15 @@ export default function KpiCategoriesPage() {
                   const isEditing = editingId === c.id;
                   const inUse = c._count.kpis > 0;
                   return (
-                  <TableRow key={c.id} data-testid={`category-row-${c.id}`}>
+                  <TableRow
+                    key={c.id}
+                    data-testid={`category-row-${c.id}`}
+                    className={
+                      isEditing
+                        ? 'bg-accent-bg hover:bg-accent-bg ring-1 ring-inset ring-accent-primary/40'
+                        : undefined
+                    }
+                  >
                     <TableCell className="font-medium text-content-strong">
                       {isEditing ? (
                         <Input
@@ -270,14 +319,24 @@ export default function KpiCategoriesPage() {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input
-                          value={editColor}
-                          onChange={(e) => setEditColor(e.target.value)}
-                          placeholder="#4f46e5"
-                          aria-label="Category color"
-                          data-testid={`category-edit-color-${c.id}`}
-                          className="w-32"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            aria-label="Pick category color"
+                            value={toColorInputValue(editColor)}
+                            onChange={(e) => setEditColor(e.target.value)}
+                            data-testid={`category-edit-color-swatch-${c.id}`}
+                            className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-border bg-surface-bg p-0.5"
+                          />
+                          <Input
+                            value={editColor}
+                            onChange={(e) => setEditColor(e.target.value)}
+                            placeholder="#4f46e5"
+                            aria-label="Category color"
+                            data-testid={`category-edit-color-${c.id}`}
+                            className="w-28"
+                          />
+                        </div>
                       ) : c.color ? (
                         <span className="inline-flex items-center gap-2">
                           <span
@@ -290,6 +349,25 @@ export default function KpiCategoriesPage() {
                         <span className="text-content-muted">—</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={editIcon}
+                          onChange={(e) => setEditIcon(e.target.value)}
+                          placeholder="TrendingUp"
+                          aria-label="Category icon (lucide name)"
+                          data-testid={`category-edit-icon-${c.id}`}
+                          className="w-36"
+                        />
+                      ) : c.icon ? (
+                        <span className="font-mono text-xs text-content-muted">{c.icon}</span>
+                      ) : (
+                        <span className="text-content-muted">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-content-muted">
+                      {c._count.kpis}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums text-content-muted">
                       {isEditing ? (
                         <Input
@@ -301,7 +379,7 @@ export default function KpiCategoriesPage() {
                           className="ml-auto w-20 text-right tabular-nums"
                         />
                       ) : (
-                        c._count.kpis
+                        c.sortOrder
                       )}
                     </TableCell>
                     <TableCell className="text-right">

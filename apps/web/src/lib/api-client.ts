@@ -1264,13 +1264,17 @@ export interface PublicWidget {
   sortOrder: number;
 }
 
+/**
+ * A single captured KPI value in a public-share payload.
+ *
+ * The backend returns `kpiValues` as an object map keyed by `kpiId`
+ * (`Record<string, { latestValue, latestRecordedAt }>`) — it does NOT carry
+ * per-KPI `name`/`unit`/`thresholdStatus`. The viewer derives a display name
+ * from the widget `title`/`config` instead.
+ */
 export interface PublicKpiValue {
-  kpiId: string;
-  name: string;
-  unit: string | null;
   latestValue: number | null;
   latestRecordedAt: string | null;
-  thresholdStatus: string | null;
 }
 
 export interface PublicDashboardPayload {
@@ -1280,8 +1284,8 @@ export interface PublicDashboardPayload {
     description: string | null;
   };
   widgets: PublicWidget[];
-  kpiValues: PublicKpiValue[];
-  viewCount?: number;
+  /** Object map keyed by kpiId — NOT an array. */
+  kpiValues: Record<string, PublicKpiValue>;
 }
 
 export interface SparklinePoint {

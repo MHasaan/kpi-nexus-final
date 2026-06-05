@@ -12,6 +12,7 @@ import {
   deleteSnapshot,
   getAccessToken,
   getDashboard,
+  getSnapshot,
   listSnapshots,
   type Dashboard,
   type DashboardSnapshot,
@@ -54,8 +55,56 @@ function SnapshotsInner() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Expanded snapshot payload view
+  // Expanded snapshot payload view. The LIST response carries no `payload`
+  // (only id/label/takenBy/takenAt), so we lazily fetch the full snapshot via
+  // getSnapshot(id) when a row is expanded and cache it here by id.
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [payloadById, setPayloadById] = useState<
+    Record<string, Record<string, unknown>>
+  >({});
+  const [payloadLoadingId, setPayloadLoadingId] = useState<string | null>(null);
+  const [payloadErrorById, setPayloadErrorById] = useState<
+    Record<string, string>
+  >({});
+
+  async function handleToggleView(snap: DashboardSnapshot) {
+    // Collapse if already expanded.
+    if (expandedId === snap.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(snap.id);
+
+    // Already loaded? Nothing to fetch.
+    if (payloadById[snap.id]) return;
+
+    setPayloadLoadingId(snap.id);
+    setPayloadErrorById((prev) => {
+      const next = { ...prev };
+      delete next[snap.id];
+      return next;
+    });
+    try {
+      const full = await getSnapshot(snap.id);
+      setPayloadById((prev) => ({
+        ...prev,
+        [snap.id]: full.payload ?? {},
+      }));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearTokens();
+        router.replace('/login');
+        return;
+      }
+      setPayloadErrorById((prev) => ({
+        ...prev,
+        [snap.id]:
+          err instanceof ApiError ? err.message : 'Failed to load snapshot',
+      }));
+    } finally {
+      setPayloadLoadingId((cur) => (cur === snap.id ? null : cur));
+    }
+  }
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -232,9 +281,9 @@ function SnapshotsInner() {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      onClick={() =>
-                        setExpandedId(expandedId === snap.id ? null : snap.id)
-                      }
+                      onClick={() => void handleToggleView(snap)}
+                      disabled={payloadLoadingId === snap.id}
+                      isLoading={payloadLoadingId === snap.id}
                       data-testid={`snapshot-view-${snap.id}`}
                     >
                       {expandedId === snap.id ? 'Collapse' : 'View'}
@@ -261,7 +310,25 @@ function SnapshotsInner() {
                     <p className="mb-2 text-xs font-medium text-content-muted">
                       Frozen payload (read-only)
                     </p>
-                    <SnapshotPayloadView payload={snap.payload} />
+                    {payloadLoadingId === snap.id && (
+                      <div className="space-y-2" data-testid={`snapshot-payload-loading-${snap.id}`}>
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    )}
+                    {payloadErrorById[snap.id] && (
+                      <p
+                        role="alert"
+                        data-testid={`snapshot-payload-error-${snap.id}`}
+                        className="text-sm text-status-critical"
+                      >
+                        {payloadErrorById[snap.id]}
+                      </p>
+                    )}
+                    {payloadById[snap.id] && (
+                      <SnapshotPayloadView payload={payloadById[snap.id]!} />
+                    )}
                   </div>
                 )}
               </Card>
@@ -278,26 +345,140 @@ interface SnapshotPayloadViewProps {
   payload: Record<string, unknown>;
 }
 
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+}
+
+/**
+ * Render a frozen snapshot payload defensively.
+ *
+ * The canonical shape (SnapshotPayload, from snapshots.service.ts) is:
+ *   { dashboard: {...}, widgets: Widget[],
+ *     kpiValues: Record<kpiId, { latestValue, latestRecordedAt }>,
+ *     capturedAt }
+ * — note `kpiValues` is an OBJECT MAP keyed by kpiId, not an array.
+ *
+ * Older seed snapshots may instead carry `{ dashboardName, capturedAt, kpis }`.
+ * We render whatever is present and never crash; anything unrecognised falls
+ * back to pretty-printed JSON.
+ */
 function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
-  // Try to render widgets from payload if they exist in a structured way.
-  // Fall back to pretty-printed JSON.
-  const widgets = payload['widgets'];
-  if (Array.isArray(widgets) && widgets.length > 0) {
+  const widgets = Array.isArray(payload['widgets'])
+    ? (payload['widgets'] as unknown[])
+    : null;
+  const kpiValuesMap = asRecord(payload['kpiValues']);
+  const dashboardMeta = asRecord(payload['dashboard']);
+  const capturedAt =
+    typeof payload['capturedAt'] === 'string'
+      ? (payload['capturedAt'] as string)
+      : null;
+
+  // Recognise the canonical captured shape.
+  const hasCanonical = widgets !== null || kpiValuesMap !== null;
+
+  if (hasCanonical) {
+    return (
+      <div className="space-y-3">
+        {(dashboardMeta?.['name'] || capturedAt) && (
+          <p className="text-xs tabular-nums text-content-muted">
+            {dashboardMeta?.['name'] ? String(dashboardMeta['name']) : null}
+            {dashboardMeta?.['name'] && capturedAt ? ' · ' : null}
+            {capturedAt ? `Captured ${new Date(capturedAt).toLocaleString()}` : null}
+          </p>
+        )}
+
+        {widgets && widgets.length > 0 && (
+          <div className="space-y-2">
+            {widgets.map((w, i) => {
+              const widget = asRecord(w) ?? {};
+              const cfg = asRecord(widget['config']);
+              const kpiId =
+                cfg && typeof cfg['kpiId'] === 'string'
+                  ? (cfg['kpiId'] as string)
+                  : null;
+              // Look the captured value up from the kpiValues OBJECT MAP.
+              const kv = kpiId ? asRecord(kpiValuesMap?.[kpiId]) : null;
+              const latestValue = kv?.['latestValue'];
+              return (
+                <div
+                  key={String(widget['id'] ?? i)}
+                  className="rounded border border-border bg-surface-bg px-3 py-2 text-sm"
+                >
+                  <p className="font-semibold text-content-strong">
+                    {String(
+                      widget['title'] ?? widget['widgetType'] ?? `Widget ${i + 1}`,
+                    )}
+                  </p>
+                  {latestValue !== undefined && latestValue !== null ? (
+                    <p className="text-xs tabular-nums text-content-muted">
+                      Latest value: {String(latestValue)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-content-muted">No data</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* No widgets but we do have a kpiValues map — list raw entries. */}
+        {(!widgets || widgets.length === 0) &&
+          kpiValuesMap &&
+          Object.keys(kpiValuesMap).length > 0 && (
+            <div className="space-y-2">
+              {Object.entries(kpiValuesMap).map(([kpiId, raw]) => {
+                const kv = asRecord(raw);
+                const latestValue = kv?.['latestValue'];
+                return (
+                  <div
+                    key={kpiId}
+                    className="rounded border border-border bg-surface-bg px-3 py-2 text-sm"
+                  >
+                    <p className="font-mono text-xs text-content-muted">{kpiId}</p>
+                    <p className="text-xs tabular-nums text-content-strong">
+                      {latestValue === undefined || latestValue === null
+                        ? 'No data'
+                        : String(latestValue)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+      </div>
+    );
+  }
+
+  // Older seed shape: { dashboardName, capturedAt, kpis: [...] }.
+  const seedKpis = Array.isArray(payload['kpis'])
+    ? (payload['kpis'] as unknown[])
+    : null;
+  if (seedKpis && seedKpis.length > 0) {
     return (
       <div className="space-y-2">
-        {widgets.map((w, i) => {
-          const widget = w as Record<string, unknown>;
+        {(payload['dashboardName'] || capturedAt) && (
+          <p className="text-xs tabular-nums text-content-muted">
+            {payload['dashboardName'] ? String(payload['dashboardName']) : null}
+            {payload['dashboardName'] && capturedAt ? ' · ' : null}
+            {capturedAt ? `Captured ${new Date(capturedAt).toLocaleString()}` : null}
+          </p>
+        )}
+        {seedKpis.map((k, i) => {
+          const kpi = asRecord(k) ?? {};
           return (
             <div
-              key={String(widget['id'] ?? i)}
+              key={String(kpi['id'] ?? kpi['kpiId'] ?? i)}
               className="rounded border border-border bg-surface-bg px-3 py-2 text-sm"
             >
               <p className="font-semibold text-content-strong">
-                {String(widget['title'] ?? widget['widgetType'] ?? `Widget ${i + 1}`)}
+                {String(kpi['name'] ?? kpi['title'] ?? `KPI ${i + 1}`)}
               </p>
-              {widget['latestValue'] !== undefined && (
+              {kpi['latestValue'] !== undefined && kpi['latestValue'] !== null && (
                 <p className="text-xs tabular-nums text-content-muted">
-                  Latest value: {String(widget['latestValue'])}
+                  Latest value: {String(kpi['latestValue'])}
                 </p>
               )}
             </div>
@@ -307,6 +488,7 @@ function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
     );
   }
 
+  // Unknown shape — never crash; show the raw JSON.
   return (
     <pre className="max-h-80 overflow-auto rounded border border-border bg-surface-bg p-3 text-xs text-content-muted">
       {JSON.stringify(payload, null, 2)}

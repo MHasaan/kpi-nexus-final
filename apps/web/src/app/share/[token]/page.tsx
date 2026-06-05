@@ -23,53 +23,30 @@ type PageState =
   | { kind: 'expired' }
   | { kind: 'error'; message: string };
 
-function statusColor(status: string | null): string {
-  if (!status) return 'text-content-strong';
-  const s = status.toUpperCase();
-  if (s === 'CRITICAL' || s === 'RED') return 'text-status-critical';
-  if (s === 'WARNING' || s === 'AMBER') return 'text-status-warning';
-  if (s === 'OK' || s === 'GREEN') return 'text-status-success';
-  return 'text-content-strong';
-}
-
-function KpiValueCard({ kv }: { kv: PublicKpiValue }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface-1 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-content-muted">
-        {kv.name}
-      </p>
-      {kv.latestValue !== null ? (
-        <p className={`mt-1 text-2xl font-bold tabular-nums ${statusColor(kv.thresholdStatus)}`}>
-          {kv.latestValue.toLocaleString()}
-          {kv.unit && (
-            <span className="ml-1 text-sm font-normal text-content-muted">{kv.unit}</span>
-          )}
-        </p>
-      ) : (
-        <p className="mt-1 text-sm text-content-muted">No data</p>
-      )}
-      {kv.latestRecordedAt && (
-        <p className="mt-1 text-xs text-content-muted">
-          {new Date(kv.latestRecordedAt).toLocaleDateString()}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /**
  * Resolve the captured KPI value a widget points at, if any.
- * Widget `config` may hold `{ kpiId }` (see dashboard add-widget form). The
- * public payload carries no per-widget series, so the captured value is the
- * only honest data available for a visual.
+ *
+ * The public payload carries `kpiValues` as an object map keyed by `kpiId`
+ * (`Record<string, { latestValue, latestRecordedAt }>`). A widget's `config`
+ * may hold `{ kpiId }` (see the dashboard add-widget form); we look the
+ * captured value up directly. Returns `null` when the widget has no kpiId or
+ * no captured value exists for it.
  */
 function resolveWidgetValue(
   widget: PublicWidget,
-  kpiValues: PublicKpiValue[],
+  kpiValues: Record<string, PublicKpiValue>,
 ): PublicKpiValue | null {
   const kpiId = widget.config?.['kpiId'];
   if (typeof kpiId !== 'string') return null;
-  return kpiValues.find((kv) => kv.kpiId === kpiId) ?? null;
+  return kpiValues[kpiId] ?? null;
+}
+
+/** Derive a human label for a widget from its title/config (no per-KPI name in payload). */
+function widgetLabel(widget: PublicWidget): string {
+  if (widget.title) return widget.title;
+  const cfgLabel = widget.config?.['label'] ?? widget.config?.['kpiName'];
+  if (typeof cfgLabel === 'string' && cfgLabel.length > 0) return cfgLabel;
+  return widget.widgetType.replace(/_/g, ' ');
 }
 
 function ShareWidgetCard({
@@ -77,11 +54,12 @@ function ShareWidgetCard({
   kpiValues,
 }: {
   widget: PublicWidget;
-  kpiValues: PublicKpiValue[];
+  kpiValues: Record<string, PublicKpiValue>;
 }) {
   const kv = resolveWidgetValue(widget, kpiValues);
   const value = kv?.latestValue ?? null;
   const typeLabel = widget.widgetType.replace(/_/g, ' ');
+  const label = widgetLabel(widget);
 
   return (
     <div
@@ -89,9 +67,7 @@ function ShareWidgetCard({
       data-testid={`share-widget-${widget.id}`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-content-default">
-          {widget.title ?? kv?.name ?? typeLabel}
-        </p>
+        <p className="text-sm font-medium text-content-default">{label}</p>
         <p className="text-xs text-content-muted capitalize">{typeLabel}</p>
       </div>
 
@@ -104,19 +80,21 @@ function ShareWidgetCard({
           widget.widgetType === 'trend' ? (
             <div className="mt-3">
               <BarChart
-                data={[{ label: kv?.name ?? typeLabel, value }]}
+                data={[{ label, value }]}
                 width={240}
                 height={64}
-                aria-label={`${kv?.name ?? typeLabel}: ${value}`}
+                aria-label={`${label}: ${value}`}
               />
             </div>
           ) : null}
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${statusColor(kv?.thresholdStatus ?? null)}`}>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-content-strong">
             {value.toLocaleString()}
-            {kv?.unit && (
-              <span className="ml-1 text-sm font-normal text-content-muted">{kv.unit}</span>
-            )}
           </p>
+          {kv?.latestRecordedAt && (
+            <p className="mt-1 text-xs text-content-muted">
+              {new Date(kv.latestRecordedAt).toLocaleDateString()}
+            </p>
+          )}
         </>
       ) : (
         <p className="mt-2 text-sm text-content-muted">No data</p>
@@ -310,47 +288,25 @@ export default function PublicSharePage() {
           {payload.dashboard.description && (
             <p className="mt-0.5 text-sm text-content-muted">{payload.dashboard.description}</p>
           )}
-          {payload.viewCount !== undefined && (
-            <p className="mt-1 text-xs text-content-muted">
-              {payload.viewCount} view{payload.viewCount === 1 ? '' : 's'}
-            </p>
-          )}
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-6 py-8">
-        {payload.kpiValues.length === 0 && payload.widgets.length === 0 ? (
+        {payload.widgets.length === 0 ? (
           <p className="text-sm text-content-muted" data-testid="share-empty">
             No data to display.
           </p>
         ) : (
-          <>
-            {/* Render KPI values as simple cards */}
-            {payload.kpiValues.length > 0 && (
-              <section className="mb-8" data-testid="share-kpi-values">
-                <h2 className="mb-4 text-lg font-semibold text-content-strong">KPI Overview</h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {payload.kpiValues.map((kv) => (
-                    <KpiValueCard key={kv.kpiId} kv={kv} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Widgets (read-only). Rendered whenever widgets exist — alongside
-                KPI values when both are present. Each widget shows a minimal
-                visual built from its captured KPI value. */}
-            {payload.widgets.length > 0 && (
-              <section data-testid="share-widgets">
-                <h2 className="mb-4 text-lg font-semibold text-content-strong">Widgets</h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {payload.widgets.map((w) => (
-                    <ShareWidgetCard key={w.id} widget={w} kpiValues={payload.kpiValues} />
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
+          /* Widgets (read-only). Each widget shows a minimal visual built from
+             its captured KPI value, looked up from the `kpiValues` object map. */
+          <section data-testid="share-widgets">
+            <h2 className="mb-4 text-lg font-semibold text-content-strong">Widgets</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {payload.widgets.map((w) => (
+                <ShareWidgetCard key={w.id} widget={w} kpiValues={payload.kpiValues} />
+              ))}
+            </div>
+          </section>
         )}
       </div>
 

@@ -20,6 +20,7 @@ import { AuthController } from './auth.controller.js';
 import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import type { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import type { AuthService } from './auth.service.js';
+import type { AccountService } from './services/account.service.js';
 
 // ---------------------------------------------------------------------------
 // Shared fake context
@@ -83,10 +84,11 @@ function makeController(
     resolveForCurrentPrincipal: vi.fn().mockResolvedValue(accessProfile),
   } as unknown as AccessContextService;
 
-  // AuthService is required by the constructor but not used by me()
+  // AuthService + AccountService are required by the constructor but not used by me()
   const auth = {} as AuthService;
+  const account = {} as AccountService;
 
-  return new AuthController(auth, prisma, resolver, accessContext);
+  return new AuthController(auth, prisma, resolver, accessContext, account);
 }
 
 // ---------------------------------------------------------------------------

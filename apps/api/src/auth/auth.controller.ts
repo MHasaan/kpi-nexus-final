@@ -19,6 +19,7 @@ import { PermissionResolverService } from '../rbac/services/permission-resolver.
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from './auth.service.js';
+import { AccountService, type SelfUser } from './services/account.service.js';
 import { AcceptInvitationDtoSchema } from './dto/accept-invitation.dto.js';
 import { InvitationPreviewDtoSchema } from './dto/invitation-preview.dto.js';
 import { LoginDtoSchema, RefreshDtoSchema } from './dto/login.dto.js';
@@ -30,6 +31,19 @@ const NotificationSettingsDtoSchema = z
     muteStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     muteEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     mutedChannelKinds: z.array(z.string()).max(10).optional(),
+  })
+  .strict();
+
+const UpdateProfileDtoSchema = z
+  .object({
+    fullName: z.string().trim().min(1).max(120),
+  })
+  .strict();
+
+const ChangePasswordDtoSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(256),
+    newPassword: z.string().min(1).max(256),
   })
   .strict();
 
@@ -52,6 +66,7 @@ export class AuthController {
     private readonly prisma: PrismaService,
     private readonly permissionResolver: PermissionResolverService,
     private readonly accessContext: AccessContextService,
+    private readonly account: AccountService,
   ) {}
 
   @Public()
@@ -155,5 +170,28 @@ export class AuthController {
       select: { notificationSettings: true },
     });
     return { notificationSettings: updated.notificationSettings };
+  }
+
+  /**
+   * Update the current user's own profile. Self-service: authenticated-only,
+   * no permission gate. Only `fullName` is mutable — role/status/email are not.
+   */
+  @Patch('me')
+  async updateProfile(@Body() body: unknown): Promise<{ user: SelfUser }> {
+    const dto = parse(UpdateProfileDtoSchema, body);
+    const user = await this.account.updateProfile(dto);
+    return { user };
+  }
+
+  /**
+   * Change the current user's own password. Verifies the current password and
+   * validates the new one against the org policy. Self-service: authenticated
+   * only, operates on the current principal.
+   */
+  @Post('me/change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changePassword(@Body() body: unknown): Promise<void> {
+    const dto = parse(ChangePasswordDtoSchema, body);
+    await this.account.changePassword(dto);
   }
 }

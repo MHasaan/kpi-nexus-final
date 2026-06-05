@@ -155,6 +155,26 @@ export async function meRequest(): Promise<{ user: AuthUser; accessProfile?: Acc
   return result;
 }
 
+/** Update the current user's own profile (fullName only). Self-service. */
+export async function updateMyProfile(body: { fullName: string }): Promise<AuthUser> {
+  const result = await api<{ user: AuthUser }>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return result.user;
+}
+
+/** Change the current user's own password. Self-service. */
+export async function changeMyPassword(body: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await api('/auth/me/change-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 // =============================================================================
 // Resource helpers
 // =============================================================================

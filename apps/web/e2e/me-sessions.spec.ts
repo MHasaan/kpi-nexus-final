@@ -118,6 +118,9 @@ test.describe('Active sessions page (/me/sessions)', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     await page.goto('/profile');
+    // The sessions section (and its "full session manager" link) lives under the
+    // Security tab on the rebuilt Account-settings page.
+    await page.getByRole('tab', { name: 'Security' }).click();
     const link = page.getByTestId('manage-sessions-link');
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', '/me/sessions');

@@ -80,12 +80,15 @@ test.describe('/profile page — account + MFA UI', () => {
 
     await page.goto('/profile');
     await expect(page.getByTestId('profile-heading')).toBeVisible();
+
+    // Account info renders the email we registered with (Account tab is default)
+    await expect(page.locator('body')).toContainText(reg.user.email);
+
+    // MFA lives under the Security tab on the rebuilt Account-settings page.
+    await page.getByRole('tab', { name: 'Security' }).click();
     await expect(page.getByTestId('security-section')).toBeVisible();
     await expect(page.getByTestId('mfa-status')).toHaveText(/not enabled/i);
     await expect(page.getByTestId('enable-mfa-button')).toBeVisible();
-
-    // Account info renders the email we registered with
-    await expect(page.locator('body')).toContainText(reg.user.email);
   });
 
   test('Enable MFA → enrollment panel shows secret + otpauth URL + 10 recovery codes', async ({
@@ -96,6 +99,7 @@ test.describe('/profile page — account + MFA UI', () => {
     await registerAndSeedTokens(page, suffix());
 
     await page.goto('/profile');
+    await page.getByRole('tab', { name: 'Security' }).click();
     await page.getByTestId('enable-mfa-button').click();
 
     const panel = page.getByTestId('mfa-enrollment-panel');
@@ -130,6 +134,7 @@ test.describe('/profile page — account + MFA UI', () => {
     await registerAndSeedTokens(page, suffix());
 
     await page.goto('/profile');
+    await page.getByRole('tab', { name: 'Security' }).click();
     await page.getByTestId('enable-mfa-button').click();
     await expect(page.getByTestId('mfa-enrollment-panel')).toBeVisible();
 
@@ -150,6 +155,7 @@ test.describe('/profile page — account + MFA UI', () => {
     await registerAndSeedTokens(page, suffix());
 
     await page.goto('/profile');
+    await page.getByRole('tab', { name: 'Security' }).click();
     await page.getByTestId('enable-mfa-button').click();
     await expect(page.getByTestId('mfa-enrollment-panel')).toBeVisible();
 

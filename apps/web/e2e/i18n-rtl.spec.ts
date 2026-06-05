@@ -48,6 +48,8 @@ test('switch to ur-PK → document flips to RTL + translated label renders', asy
   await seedSession(page);
 
   await page.goto('/profile');
+  // Language lives under the Preferences tab on the rebuilt Account-settings page.
+  await page.getByRole('tab', { name: 'Preferences' }).click();
   await expect(page.getByTestId('locale-select')).toBeVisible({ timeout: 15_000 });
 
   // Default is LTR English.

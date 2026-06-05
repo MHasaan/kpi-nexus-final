@@ -135,7 +135,7 @@ function SnapshotsInner() {
         {loadError && (
           <div
             role="alert"
-            data-testid="snapshots-load-error"
+            data-testid="snapshots-error"
             className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
             {loadError}
@@ -235,9 +235,9 @@ function SnapshotsInner() {
                       onClick={() =>
                         setExpandedId(expandedId === snap.id ? null : snap.id)
                       }
-                      data-testid={`snapshot-expand-${snap.id}`}
+                      data-testid={`snapshot-view-${snap.id}`}
                     >
-                      {expandedId === snap.id ? 'Collapse' : 'View payload'}
+                      {expandedId === snap.id ? 'Collapse' : 'View'}
                     </Button>
                     <Button
                       type="button"

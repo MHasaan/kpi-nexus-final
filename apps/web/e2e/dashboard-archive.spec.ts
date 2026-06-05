@@ -85,7 +85,7 @@ test('dashboard archive page: soft-delete → listed in archive → restore → 
   await expect(page.getByText(`Archive Test ${stamp}`)).toBeVisible();
 
   // 5. Click Restore — the row should disappear.
-  await page.getByTestId(`restore-${dashboard.id}`).click();
+  await page.getByTestId(`dash-restore-${dashboard.id}`).click();
   await expect(page.getByText(`Archive Test ${stamp}`)).toHaveCount(0);
 });
 
@@ -135,8 +135,8 @@ test('dashboard archive page: soft-delete → purge → gone', async ({ page }) 
   await page.goto('/dashboards/archive');
   await expect(page.getByText(`Purge Test ${stamp}`)).toBeVisible();
 
-  // Accept the confirm dialog, then click Purge.
-  page.on('dialog', (d) => d.accept());
-  await page.getByTestId(`purge-${dashboard.id}`).click();
+  // Inline two-step confirm (no browser dialog): Purge → Confirm purge.
+  await page.getByTestId(`dash-purge-${dashboard.id}`).click();
+  await page.getByTestId(`dash-purge-confirm-${dashboard.id}`).click();
   await expect(page.getByText(`Purge Test ${stamp}`)).toHaveCount(0);
 });

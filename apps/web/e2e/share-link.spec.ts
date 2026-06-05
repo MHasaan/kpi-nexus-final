@@ -135,7 +135,7 @@ test.describe('Share link — public dashboard access', () => {
       await incognito.close();
 
       // 8. Back on the share page — get the link id to click its revoke button
-      //    The revoke button has testid `share-link-revoke-<linkId>`.
+      //    The revoke button has testid `share-revoke-<linkId>`.
       //    We can get the linkId from the API.
       const linksRes = await apiCtx.get(`/dashboards/${dash.id}/share`);
       expect(linksRes.status()).toBe(200);
@@ -150,7 +150,7 @@ test.describe('Share link — public dashboard access', () => {
 
       // 9. Revoke the link via UI — handle the window.confirm dialog
       page.on('dialog', (dialog) => void dialog.accept());
-      const revokeButton = page.getByTestId(`share-link-revoke-${linkId}`);
+      const revokeButton = page.getByTestId(`share-revoke-${linkId}`);
       await expect(revokeButton).toBeVisible();
       await revokeButton.click();
 

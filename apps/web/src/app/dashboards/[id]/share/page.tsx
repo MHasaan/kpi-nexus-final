@@ -163,7 +163,7 @@ export default function DashboardSharePage() {
         {actionError && (
           <div
             role="alert"
-            data-testid="share-action-error"
+            data-testid="share-error"
             className="rounded-md border border-border bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
             {actionError}
@@ -174,7 +174,11 @@ export default function DashboardSharePage() {
         <Card data-testid="share-create-section">
           <CardContent>
             <h2 className="mb-4 text-base font-semibold text-content-strong">Create link</h2>
-            <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
+            <form
+              onSubmit={(e) => void handleCreate(e)}
+              className="space-y-4"
+              data-testid="share-create"
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="share-expires">
@@ -187,7 +191,7 @@ export default function DashboardSharePage() {
                     value={expiresAt}
                     onChange={(e) => setExpiresAt(e.target.value)}
                     disabled={creating}
-                    data-testid="share-expires-input"
+                    data-testid="share-expiry"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -201,7 +205,7 @@ export default function DashboardSharePage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={creating}
-                    data-testid="share-password-input"
+                    data-testid="share-password"
                     placeholder="Leave blank for no password"
                   />
                 </div>
@@ -250,7 +254,7 @@ export default function DashboardSharePage() {
                     variant="secondary"
                     size="sm"
                     onClick={() => void handleCopy(publicUrl(newLink.token), newLink.id + '-new')}
-                    data-testid="share-new-link-copy"
+                    data-testid="share-copy"
                     leftIcon={<Copy className="h-4 w-4" />}
                   >
                     {copiedId === newLink.id + '-new' ? 'Copied!' : 'Copy'}
@@ -306,7 +310,10 @@ export default function DashboardSharePage() {
                             )}
                           </div>
                           <div className="mt-2 flex items-center gap-2">
-                            <code className="min-w-0 flex-1 truncate rounded bg-surface-1 px-2 py-1 font-mono text-xs text-content">
+                            <code
+                              className="min-w-0 flex-1 truncate rounded bg-surface-1 px-2 py-1 font-mono text-xs text-content"
+                              data-testid="share-link-url"
+                            >
                               {url}
                             </code>
                             <Button
@@ -329,7 +336,7 @@ export default function DashboardSharePage() {
                           onClick={() => void handleRevoke(link.id)}
                           disabled={revokingId === link.id}
                           isLoading={revokingId === link.id}
-                          data-testid={`share-link-revoke-${link.id}`}
+                          data-testid={`share-revoke-${link.id}`}
                         >
                           {revokingId === link.id ? 'Revoking…' : 'Revoke'}
                         </Button>

@@ -18,9 +18,11 @@ import {
 } from '../../../../../lib/api-client';
 import { TerminologyProvider } from '../../../../../lib/terminology-context';
 import { AppShell } from '../../../../../components/app-shell';
+import { PermissionGuard } from '../../../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../../../components/auth/require-permission';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Input,
@@ -37,7 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../../../components/ui';
-import { CircleCheck, CircleDashed, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CircleCheck, CircleDashed, Pencil, TriangleAlert } from 'lucide-react';
 
 // Recharts must be client-only
 const DrillDownChart = dynamic(() => import('./drill-down-chart').then((m) => m.DrillDownChart), {
@@ -187,11 +189,20 @@ function DrillDownInner() {
           ) : undefined
         }
         actions={
-          <Link href={`/dashboards/${dashboardId}`}>
-            <span className="text-sm text-content-muted transition-colors hover:text-content-strong">
-              Back to dashboard
-            </span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/dashboards/${dashboardId}`} data-testid="drilldown-back">
+              <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />}>
+                Back to dashboard
+              </Button>
+            </Link>
+            <PermissionGuard permission="DASHBOARD_MANAGE">
+              <Link href={`/dashboards/${dashboardId}`} data-testid="drilldown-edit-widget">
+                <Button variant="secondary" size="sm" leftIcon={<Pencil className="h-4 w-4" />}>
+                  Edit widget
+                </Button>
+              </Link>
+            </PermissionGuard>
+          </div>
         }
       />
 

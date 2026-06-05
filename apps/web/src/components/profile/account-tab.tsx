@@ -53,6 +53,11 @@ export function AccountTab({ user, onUserChange }: AccountTabProps) {
       const updated = await updateMyProfile({ fullName: trimmed });
       onUserChange(updated);
       setFullName(updated.fullName);
+      // Let the app-shell (which loads its own copy of the user) refresh the
+      // header/footer identity so the new name shows everywhere immediately.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kpi-nexus:profile-updated'));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {

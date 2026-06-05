@@ -341,19 +341,30 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
     }
   }, []);
 
-  // Best-effort load of the signed-in user for the sidebar footer.
+  // Best-effort load of the signed-in user for the sidebar footer + header
+  // identity. Re-runs when the profile page edits the name (custom event) so
+  // the displayed identity stays in sync without a full reload.
   useEffect(() => {
     let cancelled = false;
-    if (!getAccessToken()) return;
-    void meRequest()
-      .then((res) => {
-        if (!cancelled) setUser(res.user);
-      })
-      .catch(() => {
-        /* footer identity is non-critical */
-      });
+    const loadUser = () => {
+      if (!getAccessToken()) return;
+      void meRequest()
+        .then((res) => {
+          if (!cancelled) setUser(res.user);
+        })
+        .catch(() => {
+          /* footer identity is non-critical */
+        });
+    };
+    loadUser();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kpi-nexus:profile-updated', loadUser);
+    }
     return () => {
       cancelled = true;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('kpi-nexus:profile-updated', loadUser);
+      }
     };
   }, []);
 

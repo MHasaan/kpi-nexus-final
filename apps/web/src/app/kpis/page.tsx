@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
@@ -11,21 +11,17 @@ import { KpiSubnav } from '../../components/kpis/kpi-subnav';
 import {
   ApiError,
   clearTokens,
-  createKpi,
   deleteKpi,
   getAccessToken,
+  listKpiCategories,
   listKpiDataPoints,
   listKpis,
-  listOrgUnits,
-  listUsers,
   recordOrgWideDataPoint,
   type DataPoint,
+  type KpiCategory,
   type KpiScope,
   type KpiStatus,
   type KpiSummary,
-  type KpiType,
-  type OrgUnitSummary,
-  type UserSummary,
 } from '../../lib/api-client';
 import {
   pluralize,
@@ -38,6 +34,7 @@ import {
   Card,
   Input,
   Label,
+  PageHeader,
   ScopeBadge,
   Select,
   Skeleton,
@@ -62,6 +59,8 @@ const KPI_STATUS_TONE: Record<KpiStatus, BadgeTone> = {
   ARCHIVED: 'neutral',
 };
 
+const KPI_STATUSES = Object.keys(KPI_STATUS_TONE) as KpiStatus[];
+
 export default function KpisPage() {
   return (
     <TerminologyProvider>
@@ -74,20 +73,8 @@ function KpisPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
   const [kpis, setKpis] = useState<KpiSummary[] | null>(null);
-  const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[] | null>(null);
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
+  const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Create-KPI form state
-  const [newName, setNewName] = useState('');
-  const [newScope, setNewScope] = useState<KpiScope>('ORG_WIDE');
-  const [newType, setNewType] = useState<KpiType>('NUMBER');
-  const [newUnit, setNewUnit] = useState('');
-  const [newTarget, setNewTarget] = useState('');
-  const [newOrgUnitIds, setNewOrgUnitIds] = useState<string[]>([]);
-  const [newUserIds, setNewUserIds] = useState<string[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   // Expanded-KPI state (showing data points + record form)
   const [expandedKpiId, setExpandedKpiId] = useState<string | null>(null);
@@ -104,7 +91,10 @@ function KpisPageInner() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Catalog scope filter (visual facet over the loaded list)
+  // Toolbar filters (client-side facets over the loaded list)
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | KpiStatus>('ALL');
   const [scopeFilter, setScopeFilter] = useState<'ALL' | KpiScope>('ALL');
 
   useEffect(() => {
@@ -118,10 +108,9 @@ function KpisPageInner() {
   async function refresh() {
     setLoadError(null);
     try {
-      const [k, u, units] = await Promise.all([listKpis(), listUsers(), listOrgUnits()]);
+      const [k, cats] = await Promise.all([listKpis(), listKpiCategories()]);
       setKpis(k);
-      setUsers(u);
-      setOrgUnits(units);
+      setCategories(cats);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -129,48 +118,6 @@ function KpisPageInner() {
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load KPIs');
-    }
-  }
-
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const target = newTarget.trim() ? Number.parseFloat(newTarget) : undefined;
-      await createKpi({
-        name: newName.trim(),
-        scope: newScope,
-        type: newType,
-        unit: newUnit.trim() || undefined,
-        targetValue: target,
-        orgUnitIds: newScope === 'PER_UNIT' ? newOrgUnitIds : undefined,
-        userIds: newScope === 'PER_USER' ? newUserIds : undefined,
-      });
-      setNewName('');
-      setNewUnit('');
-      setNewTarget('');
-      setNewOrgUnitIds([]);
-      setNewUserIds([]);
-      await refresh();
-    } catch (err) {
-      setCreateError(
-        err instanceof ApiError ? err.message : 'Failed to create KPI',
-      );
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function toggleSelection(
-    set: string[],
-    setter: (next: string[]) => void,
-    id: string,
-  ) {
-    if (set.includes(id)) {
-      setter(set.filter((x) => x !== id));
-    } else {
-      setter([...set, id]);
     }
   }
 
@@ -249,30 +196,55 @@ function KpisPageInner() {
   }
 
   const kpiLabelPlural = pluralize(terminology.kpiLabel);
-  const visibleKpis =
-    kpis && scopeFilter !== 'ALL' ? kpis.filter((k) => k.scope === scopeFilter) : kpis;
+
+  const filtersActive =
+    search.trim() !== '' ||
+    categoryFilter !== 'ALL' ||
+    statusFilter !== 'ALL' ||
+    scopeFilter !== 'ALL';
+
+  const visibleKpis = useMemo(() => {
+    if (!kpis) return [];
+    const needle = search.trim().toLowerCase();
+    return kpis.filter((k) => {
+      if (needle && !k.name.toLowerCase().includes(needle)) return false;
+      if (categoryFilter !== 'ALL' && k.categoryId !== categoryFilter) return false;
+      if (statusFilter !== 'ALL' && k.status !== statusFilter) return false;
+      if (scopeFilter !== 'ALL' && k.scope !== scopeFilter) return false;
+      return true;
+    });
+  }, [kpis, search, categoryFilter, statusFilter, scopeFilter]);
+
+  function clearFilters() {
+    setSearch('');
+    setCategoryFilter('ALL');
+    setStatusFilter('ALL');
+    setScopeFilter('ALL');
+  }
 
   return (
     <RequirePermission permission="KPI_VIEW">
     <AppShell title={kpiLabelPlural} crumbs={[{ label: 'Home', href: '/' }, { label: kpiLabelPlural }]}>
       <div className="space-y-6">
-        {/* Page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <h1
-              className="text-2xl font-bold tracking-tight text-content-strong"
-              data-testid="kpis-heading"
-            >
-              {kpiLabelPlural}
-            </h1>
-            <p className="max-w-2xl text-sm text-content-muted">
+        <PageHeader
+          title={kpiLabelPlural}
+          titleTestId="kpis-heading"
+          subtitle={
+            <>
               Track outcomes that matter. {kpiLabelPlural} have a scope: ORG_WIDE
               (one value per period for the whole org), PER_UNIT (one value per
               unit), or PER_USER (each {terminology.memberLabel.toLowerCase()} tracks
               their own).
-            </p>
-          </div>
-        </div>
+            </>
+          }
+          actions={
+            <PermissionGuard permission="KPI_CREATE">
+              <Link href="/kpis/new" data-testid="new-kpi-button">
+                <Button>New {terminology.kpiLabel}</Button>
+              </Link>
+            </PermissionGuard>
+          }
+        />
 
         {/* Sub-nav */}
         <KpiSubnav />
@@ -287,217 +259,90 @@ function KpisPageInner() {
           </div>
         )}
 
-        {/* Create KPI */}
-        <PermissionGuard permission="KPI_CREATE">
-          <Card className="overflow-hidden p-0" data-testid="create-kpi-section">
-            <div className="border-b border-border-divider px-5 py-4">
-              <h2 className="text-sm font-semibold text-content-strong">
-                Create a {terminology.kpiLabel}
-              </h2>
-              <p className="mt-1 text-sm text-content-muted">
-                ORG_WIDE: one value per period for the whole organization. PER_UNIT:
-                one value per selected {pluralize(terminology.groupLabel.toLowerCase())}.
-                PER_USER: each selected {terminology.memberLabel.toLowerCase()} tracks
-                their own. Scope is immutable after creation.
-              </p>
-            </div>
-            <div className="p-5">
-              <form
-                onSubmit={handleCreate}
-                className="grid gap-4 sm:grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_auto] sm:items-end"
-              >
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kpi-name" required>
-                    Name
-                  </Label>
-                  <Input
-                    id="kpi-name"
-                    required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    disabled={creating}
-                    data-testid="kpi-name-input"
-                    placeholder="Monthly revenue"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kpi-scope">Scope</Label>
-                  <Select
-                    id="kpi-scope"
-                    value={newScope}
-                    onChange={(e) => setNewScope(e.target.value as KpiScope)}
-                    disabled={creating}
-                    data-testid="kpi-scope-select"
-                  >
-                    <option value="ORG_WIDE">ORG_WIDE</option>
-                    <option value="PER_UNIT">PER_UNIT</option>
-                    <option value="PER_USER">PER_USER</option>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kpi-type">Type</Label>
-                  <Select
-                    id="kpi-type"
-                    value={newType}
-                    onChange={(e) => setNewType(e.target.value as KpiType)}
-                    disabled={creating}
-                    data-testid="kpi-type-select"
-                  >
-                    <option value="NUMBER">Number</option>
-                    <option value="PERCENTAGE">Percentage</option>
-                    <option value="CURRENCY">Currency</option>
-                    <option value="COUNT">Count</option>
-                    <option value="DURATION">Duration</option>
-                    <option value="RATING">Rating</option>
-                    <option value="BOOLEAN">Boolean</option>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kpi-unit">Unit</Label>
-                  <Input
-                    id="kpi-unit"
-                    value={newUnit}
-                    onChange={(e) => setNewUnit(e.target.value)}
-                    disabled={creating}
-                    data-testid="kpi-unit-input"
-                    placeholder="$, %, ms"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="kpi-target">Target</Label>
-                  <Input
-                    id="kpi-target"
-                    type="number"
-                    step="any"
-                    value={newTarget}
-                    onChange={(e) => setNewTarget(e.target.value)}
-                    disabled={creating}
-                    data-testid="kpi-target-input"
-                    placeholder="optional"
-                  />
-                </div>
-                <Button type="submit" disabled={creating} isLoading={creating} data-testid="kpi-submit-button">
-                  Create
-                </Button>
-              </form>
-
-              {newScope === 'PER_UNIT' && (
-                <div className="mt-4" data-testid="kpi-orgunit-picker">
-                  <span className="text-sm font-medium text-content-strong">
-                    Assigned {pluralize(terminology.groupLabel.toLowerCase())}
-                  </span>
-                  <p className="text-xs text-content-muted">
-                    Each selected unit will track its own value for this KPI.
-                  </p>
-                  {orgUnits === null && (
-                    <p className="mt-2 text-sm text-content-muted">Loading…</p>
-                  )}
-                  {orgUnits && orgUnits.length === 0 && (
-                    <p
-                      className="mt-2 text-sm text-content-muted"
-                      data-testid="kpi-no-orgunits"
-                    >
-                      Create at least one {terminology.groupLabel.toLowerCase()} on{' '}
-                      <Link href="/org-units" className="text-accent-primary underline">
-                        /org-units
-                      </Link>{' '}
-                      first.
-                    </p>
-                  )}
-                  {orgUnits && orgUnits.length > 0 && (
-                    <ul className="mt-2 grid gap-1.5 sm:grid-cols-3">
-                      {orgUnits.map((u) => (
-                        <li key={u.id}>
-                          <label className="flex items-center gap-2 rounded-md border border-border bg-surface-bg px-2.5 py-1.5 text-sm text-content">
-                            <input
-                              type="checkbox"
-                              checked={newOrgUnitIds.includes(u.id)}
-                              onChange={() =>
-                                toggleSelection(newOrgUnitIds, setNewOrgUnitIds, u.id)
-                              }
-                              data-testid={`orgunit-checkbox-${u.name}`}
-                              disabled={creating}
-                              className="rounded border-border text-accent-primary focus-visible:ring-ring"
-                            />
-                            <span>{u.name}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              {newScope === 'PER_USER' && (
-                <div className="mt-4" data-testid="kpi-user-picker">
-                  <span className="text-sm font-medium text-content-strong">
-                    Assigned {pluralize(terminology.memberLabel.toLowerCase())}
-                  </span>
-                  <p className="text-xs text-content-muted">
-                    Each selected {terminology.memberLabel.toLowerCase()} will record
-                    their own values via /user-kpis/my-kpis.
-                  </p>
-                  {users && users.length === 0 && (
-                    <p className="mt-2 text-sm text-content-muted">
-                      No {pluralize(terminology.memberLabel.toLowerCase())} yet.
-                    </p>
-                  )}
-                  {users && users.length > 0 && (
-                    <ul className="mt-2 grid gap-1.5 sm:grid-cols-3">
-                      {users.map((u) => (
-                        <li key={u.id}>
-                          <label className="flex items-center gap-2 rounded-md border border-border bg-surface-bg px-2.5 py-1.5 text-sm text-content">
-                            <input
-                              type="checkbox"
-                              checked={newUserIds.includes(u.id)}
-                              onChange={() =>
-                                toggleSelection(newUserIds, setNewUserIds, u.id)
-                              }
-                              data-testid={`user-checkbox-${u.email}`}
-                              disabled={creating}
-                              className="rounded border-border text-accent-primary focus-visible:ring-ring"
-                            />
-                            <span>{u.email}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              {createError && (
-                <p
-                  role="alert"
-                  data-testid="kpi-error"
-                  className="mt-3 text-sm text-status-critical"
-                >
-                  {createError}
-                </p>
-              )}
-            </div>
-          </Card>
-        </PermissionGuard>
-
         {/* Catalog */}
         <section data-testid="kpis-list-section" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">
-              Catalog
-            </h2>
+          {/* Search + filters toolbar */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-col gap-1.5 sm:max-w-xs sm:flex-1">
+                <Label htmlFor="kpi-search">Search</Label>
+                <Input
+                  id="kpi-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${kpiLabelPlural.toLowerCase()}…`}
+                  data-testid="kpi-search"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="kpi-filter-category">Category</Label>
+                <Select
+                  id="kpi-filter-category"
+                  className="w-auto"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  data-testid="kpi-filter-category"
+                >
+                  <option value="ALL">All categories</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="kpi-filter-status">Status</Label>
+                <Select
+                  id="kpi-filter-status"
+                  className="w-auto"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'ALL' | KpiStatus)}
+                  data-testid="kpi-filter-status"
+                >
+                  <option value="ALL">All statuses</option>
+                  {KPI_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="kpis-scope-filter">Scope</Label>
+                <Select
+                  id="kpis-scope-filter"
+                  className="w-auto"
+                  value={scopeFilter}
+                  onChange={(e) => setScopeFilter(e.target.value as 'ALL' | KpiScope)}
+                  aria-label="Filter by scope"
+                  data-testid="kpis-scope-filter"
+                >
+                  <option value="ALL">All scopes</option>
+                  <option value="ORG_WIDE">ORG_WIDE</option>
+                  <option value="PER_UNIT">PER_UNIT</option>
+                  <option value="PER_USER">PER_USER</option>
+                </Select>
+              </div>
+            </div>
+
             {kpis && kpis.length > 0 && (
-              <Select
-                className="w-auto"
-                value={scopeFilter}
-                onChange={(e) => setScopeFilter(e.target.value as 'ALL' | KpiScope)}
-                aria-label="Filter by scope"
-                data-testid="kpis-scope-filter"
-              >
-                <option value="ALL">All scopes</option>
-                <option value="ORG_WIDE">ORG_WIDE</option>
-                <option value="PER_UNIT">PER_UNIT</option>
-                <option value="PER_USER">PER_USER</option>
-              </Select>
+              <div className="flex items-center gap-3 text-sm text-content-muted">
+                <span data-testid="kpis-result-count" className="tabular-nums">
+                  {visibleKpis.length} of {kpis.length}
+                </span>
+                {filtersActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    data-testid="kpis-clear-filters"
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -522,17 +367,43 @@ function KpisPageInner() {
                   className="max-w-sm text-sm text-content-muted"
                   data-testid="kpis-empty"
                 >
-                  Create your first {terminology.kpiLabel.toLowerCase()} above, or start
+                  Create your first {terminology.kpiLabel.toLowerCase()}, or start
                   from a template.
                 </p>
-                <Link href="/kpis/templates">
-                  <Button variant="secondary">Browse templates</Button>
-                </Link>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <PermissionGuard permission="KPI_CREATE">
+                    <Link href="/kpis/new">
+                      <Button>New {terminology.kpiLabel}</Button>
+                    </Link>
+                  </PermissionGuard>
+                  <Link href="/kpis/templates">
+                    <Button variant="secondary">Browse templates</Button>
+                  </Link>
+                </div>
               </div>
             </Card>
           )}
 
-          {kpis && kpis.length > 0 && (
+          {kpis && kpis.length > 0 && visibleKpis.length === 0 && (
+            <Card>
+              <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+                <h3 className="text-base font-semibold text-content-strong">
+                  No matches
+                </h3>
+                <p
+                  className="max-w-sm text-sm text-content-muted"
+                  data-testid="kpis-no-matches"
+                >
+                  No {kpiLabelPlural.toLowerCase()} match your filters.
+                </p>
+                <Button variant="secondary" onClick={clearFilters} data-testid="kpis-no-matches-clear">
+                  Clear filters
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {kpis && kpis.length > 0 && visibleKpis.length > 0 && (
             <Card className="overflow-hidden p-0">
               <Table data-testid="kpis-list">
                 <TableHeader sticky>
@@ -547,7 +418,7 @@ function KpisPageInner() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(visibleKpis ?? []).map((kpi) => (
+                  {visibleKpis.map((kpi) => (
                     <KpiRow
                       key={kpi.id}
                       kpi={kpi}
@@ -685,6 +556,13 @@ function KpiRow({
                 </Button>
               </PermissionGuard>
             )}
+            <PermissionGuard permission="KPI_EDIT">
+              <Link href={`/kpis/${kpi.id}/edit`} data-testid={`kpi-edit-${kpi.id}`}>
+                <Button variant="ghost" size="sm">
+                  Edit
+                </Button>
+              </Link>
+            </PermissionGuard>
             <PermissionGuard permission="KPI_DELETE">
               <Button
                 variant="ghost"

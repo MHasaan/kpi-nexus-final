@@ -286,8 +286,8 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(empPage).toHaveURL(/\/dashboard$/);
 
     await empPage.goto('/kpis');
-    // Employee lacks KPI_CREATE — the "Create KPI" submit button should NOT appear
-    await expect(empPage.getByTestId('kpi-submit-button')).toHaveCount(0);
+    // Employee lacks KPI_CREATE — the "New KPI" button should NOT appear
+    await expect(empPage.getByTestId('new-kpi-button')).toHaveCount(0);
     // Employee also lacks KPI_DELETE — no Delete buttons visible
     // (list may be empty so we just confirm no delete buttons exist in DOM)
     const deleteButtons = empPage.getByTestId(/^delete-kpi-/);
@@ -308,7 +308,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(adminPage).toHaveURL(/\/dashboard$/);
 
     await adminPage.goto('/kpis');
-    await expect(adminPage.getByTestId('kpi-submit-button')).toBeVisible();
+    await expect(adminPage.getByTestId('new-kpi-button')).toBeVisible();
     await adminContext.close();
   });
 });

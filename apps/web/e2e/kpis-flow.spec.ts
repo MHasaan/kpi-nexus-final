@@ -1,10 +1,11 @@
 /**
  * /kpis page e2e — admin CRUD + inline ORG_WIDE data entry.
  *
- * Admin registers → /kpis renders empty → creates an ORG_WIDE KPI with
- * type CURRENCY and a target → row appears with scope/type/frequency
- * badges → clicks "Record value" → fills the inline form → row appears
- * in the recent-values list → deletes the KPI.
+ * Creation now lives on the dedicated /kpis/new page (the inline create form
+ * was removed in the KPI Pages Overhaul). These tests drive the "New KPI"
+ * button from the catalog into /kpis/new (the rich KpiForm), then return to
+ * the catalog to exercise the inline ORG_WIDE record-value expansion, the Edit
+ * row action, and Delete.
  */
 import { expect, request, test } from '@playwright/test';
 
@@ -63,8 +64,22 @@ async function registerAndSeed(
   return reg;
 }
 
+/** Fill the /kpis/new KpiForm for an ORG_WIDE KPI and submit. */
+async function createOrgWideKpi(
+  page: import('@playwright/test').Page,
+  name: string,
+  opts: { type?: string; unit?: string; target?: string } = {},
+): Promise<void> {
+  await expect(page.getByTestId('kpi-form')).toBeVisible();
+  await page.getByTestId('kpi-name').fill(name);
+  if (opts.type) await page.getByTestId('kpi-type').selectOption(opts.type);
+  if (opts.unit) await page.getByTestId('kpi-unit').fill(opts.unit);
+  if (opts.target) await page.getByTestId('kpi-target').fill(opts.target);
+  await page.getByTestId('kpi-submit').click();
+}
+
 test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
-  test('admin creates ORG_WIDE KPI → records a value → it appears in the data list → deletes', async ({
+  test('admin creates ORG_WIDE KPI via New KPI → records a value → it appears in the data list → deletes', async ({
     page,
   }) => {
     test.skip(!apiAvailable, 'api not reachable');
@@ -76,19 +91,19 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     await expect(page.getByTestId('kpis-heading')).toBeVisible();
     await expect(page.getByTestId('kpis-empty')).toBeVisible();
 
-    // 1. Create an ORG_WIDE KPI
-    const kpiName = `Revenue ${stamp}`;
-    await page.getByTestId('kpi-name-input').fill(kpiName);
-    await page.getByTestId('kpi-type-select').selectOption('CURRENCY');
-    await page.getByTestId('kpi-unit-input').fill('USD');
-    await page.getByTestId('kpi-target-input').fill('100000');
-    await page.getByTestId('kpi-submit-button').click();
+    // 1. "New KPI" navigates to the dedicated create page
+    await page.getByTestId('new-kpi-button').click();
+    await expect(page).toHaveURL(/\/kpis\/new$/);
 
+    const kpiName = `Revenue ${stamp}`;
+    await createOrgWideKpi(page, kpiName, { type: 'CURRENCY', unit: 'USD', target: '100000' });
+
+    // KpiForm redirects to the KPI detail page on success; go back to catalog.
+    await page.goto('/kpis');
     const row = page.getByTestId(`kpi-row-${kpiName}`);
     await expect(row).toBeVisible();
     await expect(row.getByTestId('kpi-scope-badge')).toHaveText('ORG_WIDE');
     await expect(row).toContainText('CURRENCY');
-    await expect(row).toContainText('MONTHLY');
 
     // 2. Click "Record value" → inline panel appears
     await row.getByTestId(`expand-kpi-${kpiName}`).click();
@@ -117,16 +132,37 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     await expect(page.getByTestId('kpis-empty')).toBeVisible();
   });
 
-  test('create with name shorter than 2 chars → api validation error surfaces', async ({
+  test('Edit row action navigates to the KPI edit page', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    await registerAndSeed(page, stamp);
+
+    await page.goto('/kpis/new');
+    const kpiName = `Editable ${stamp}`;
+    await createOrgWideKpi(page, kpiName);
+
+    await page.goto('/kpis');
+    const row = page.getByTestId(`kpi-row-${kpiName}`);
+    await expect(row).toBeVisible();
+
+    await row.getByText('Edit', { exact: true }).click();
+    await expect(page).toHaveURL(/\/kpis\/[^/]+\/edit$/);
+  });
+
+  test('New KPI button → create page → short name surfaces a validation error', async ({
     page,
   }) => {
     test.skip(!apiAvailable, 'api not reachable');
     await registerAndSeed(page, suffix());
 
     await page.goto('/kpis');
-    await page.getByTestId('kpi-name-input').fill('X');
-    await page.getByTestId('kpi-submit-button').click();
-    await expect(page.getByTestId('kpi-error')).toBeVisible();
+    await page.getByTestId('new-kpi-button').click();
+    await expect(page).toHaveURL(/\/kpis\/new$/);
+
+    await page.getByTestId('kpi-name').fill('X');
+    await page.getByTestId('kpi-submit').click();
+    await expect(page.getByTestId('kpi-form-error')).toBeVisible();
   });
 
   test('/kpis without a token redirects to /login', async ({ page }) => {
@@ -140,82 +176,37 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test('PER_UNIT KPI: scope change reveals org-unit picker, selecting one creates an assigned KPI', async ({
-    page,
-  }) => {
-    test.skip(!apiAvailable, 'api not reachable');
-
-    const stamp = suffix();
-    const reg = await registerAndSeed(page, stamp);
-    // Need at least one org-unit. Create via the api so the page sees it
-    // when it loads.
-    const apiCtx = await request.newContext({ baseURL: API_URL });
-    const unitName = `Engineering ${stamp}`;
-    const unitRes = await apiCtx.post('/org-units', {
-      headers: { authorization: `Bearer ${reg.accessToken}` },
-      data: { name: unitName },
-    });
-    expect(unitRes.status()).toBe(201);
-
-    await page.goto('/kpis');
-    // PER_UNIT picker is hidden by default
-    await expect(page.getByTestId('kpi-orgunit-picker')).toHaveCount(0);
-
-    await page.getByTestId('kpi-scope-select').selectOption('PER_UNIT');
-    await expect(page.getByTestId('kpi-orgunit-picker')).toBeVisible();
-
-    const kpiName = `Velocity ${stamp}`;
-    await page.getByTestId('kpi-name-input').fill(kpiName);
-    await page.getByTestId(`orgunit-checkbox-${unitName}`).check();
-    await page.getByTestId('kpi-submit-button').click();
-
-    const row = page.getByTestId(`kpi-row-${kpiName}`);
-    await expect(row).toBeVisible();
-    await expect(row.getByTestId('kpi-scope-badge')).toHaveText('PER_UNIT');
-    await expect(
-      page.getByTestId(`kpi-assignment-count-${kpiName}`),
-    ).toContainText('1 unit');
-  });
-
-  test('PER_USER KPI: scope change reveals user picker, selecting self creates an assigned KPI', async ({
+  test('catalog filters: search + scope narrow the list and Clear filters resets', async ({
     page,
   }) => {
     test.skip(!apiAvailable, 'api not reachable');
 
     const stamp = suffix();
     await registerAndSeed(page, stamp);
-    const adminEmail = `admin-${stamp}@kpis.test.local`;
+
+    const alpha = `Alpha ${stamp}`;
+    const beta = `Beta ${stamp}`;
+
+    await page.goto('/kpis/new');
+    await createOrgWideKpi(page, alpha);
+    await page.goto('/kpis/new');
+    await createOrgWideKpi(page, beta);
 
     await page.goto('/kpis');
-    await expect(page.getByTestId('kpi-user-picker')).toHaveCount(0);
+    await expect(page.getByTestId(`kpi-row-${alpha}`)).toBeVisible();
+    await expect(page.getByTestId(`kpi-row-${beta}`)).toBeVisible();
 
-    await page.getByTestId('kpi-scope-select').selectOption('PER_USER');
-    await expect(page.getByTestId('kpi-user-picker')).toBeVisible();
+    // Search narrows by name
+    await page.getByTestId('kpi-search').fill(alpha);
+    await expect(page.getByTestId(`kpi-row-${alpha}`)).toBeVisible();
+    await expect(page.getByTestId(`kpi-row-${beta}`)).toHaveCount(0);
 
-    const kpiName = `Sales Calls ${stamp}`;
-    await page.getByTestId('kpi-name-input').fill(kpiName);
-    await page.getByTestId(`user-checkbox-${adminEmail}`).check();
-    await page.getByTestId('kpi-submit-button').click();
+    // Clear filters restores both rows
+    await page.getByTestId('kpis-clear-filters').click();
+    await expect(page.getByTestId(`kpi-row-${beta}`)).toBeVisible();
 
-    const row = page.getByTestId(`kpi-row-${kpiName}`);
-    await expect(row).toBeVisible();
-    await expect(row.getByTestId('kpi-scope-badge')).toHaveText('PER_USER');
-    await expect(
-      page.getByTestId(`kpi-assignment-count-${kpiName}`),
-    ).toContainText('1');
-  });
-
-  test('PER_UNIT without any unit selected → api 400 surfaces inline', async ({
-    page,
-  }) => {
-    test.skip(!apiAvailable, 'api not reachable');
-    const stamp = suffix();
-    await registerAndSeed(page, stamp);
-
-    await page.goto('/kpis');
-    await page.getByTestId('kpi-scope-select').selectOption('PER_UNIT');
-    await page.getByTestId('kpi-name-input').fill(`Bad ${stamp}`);
-    await page.getByTestId('kpi-submit-button').click();
-    await expect(page.getByTestId('kpi-error')).toBeVisible();
+    // A non-matching search shows the friendly no-matches empty state
+    await page.getByTestId('kpi-search').fill('zzz-no-such-kpi');
+    await expect(page.getByTestId('kpis-no-matches')).toBeVisible();
   });
 });

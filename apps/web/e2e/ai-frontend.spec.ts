@@ -114,7 +114,7 @@ test('ask page returns an answer from a question', async ({ page }) => {
   await page.goto('/ask');
   await expect(page.getByTestId('ask-empty')).toBeVisible();
   await page.getByTestId('ask-input').fill('What KPIs do we track?');
-  await page.getByTestId('ask-submit').click();
+  await page.getByTestId('ask-send').click();
   // Live model — allow generous time for the answer bubble to render.
   await expect(page.getByTestId('ask-answer')).toBeVisible({ timeout: 60_000 });
 });

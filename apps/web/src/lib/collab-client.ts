@@ -14,6 +14,7 @@ export interface Task {
   title: string;
   description: string | null;
   kpiId: string | null;
+  alertId: string | null;
   assigneeUserId: string | null;
   dueAt: string | null;
   status: TaskStatus;
@@ -101,6 +102,7 @@ export interface KeyResult {
   id: string;
   objectiveId: string;
   name: string;
+  description: string | null;
   kpiId: string | null;
   baselineValue: number | null;
   targetValue: number;
@@ -115,6 +117,15 @@ export function listObjectives(): Promise<Objective[]> {
 export function getObjective(id: string): Promise<Objective> {
   return api(`/objectives/${id}`);
 }
+export interface ObjectiveWriteBody {
+  name?: string;
+  description?: string | null;
+  ownerUserId?: string;
+  parentObjectiveId?: string | null;
+  periodStart?: string;
+  periodEnd?: string;
+  status?: ObjectiveStatus;
+}
 export function createObjective(body: {
   name: string;
   description?: string;
@@ -126,11 +137,18 @@ export function createObjective(body: {
 }): Promise<Objective> {
   return api('/objectives', { method: 'POST', body: JSON.stringify(body) });
 }
+export function updateObjective(id: string, body: ObjectiveWriteBody): Promise<Objective> {
+  return api(`/objectives/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+export function deleteObjective(id: string): Promise<void> {
+  return api(`/objectives/${id}`, { method: 'DELETE' });
+}
 export function listKeyResults(objectiveId: string): Promise<KeyResult[]> {
   return api(`/objectives/${objectiveId}/key-results`);
 }
 export function createKeyResult(objectiveId: string, body: {
   name: string;
+  description?: string;
   kpiId?: string;
   baselineValue?: number;
   targetValue: number;
@@ -141,6 +159,9 @@ export function createKeyResult(objectiveId: string, body: {
 }
 export function updateKeyResult(objectiveId: string, krId: string, body: Partial<KeyResult>): Promise<KeyResult> {
   return api(`/objectives/${objectiveId}/key-results/${krId}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+export function deleteKeyResult(objectiveId: string, krId: string): Promise<void> {
+  return api(`/objectives/${objectiveId}/key-results/${krId}`, { method: 'DELETE' });
 }
 export function syncObjectiveFromKpis(id: string): Promise<Objective> {
   return api(`/objectives/${id}/sync-from-linked-kpis`, { method: 'POST' });

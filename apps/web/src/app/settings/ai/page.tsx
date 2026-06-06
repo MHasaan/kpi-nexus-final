@@ -2,9 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, OctagonAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, OctagonAlert } from 'lucide-react';
 
-import { ApiError, api, getAccessToken } from '../../../lib/api-client';
+import {
+  ApiError,
+  api,
+  getAccessToken,
+  listAiConfigs,
+  resetAiFeatureConfig,
+  updateAiFeatureConfig,
+} from '../../../lib/api-client';
+import type { AiFeatureConfig, AiProviderKey } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
@@ -18,6 +26,7 @@ import {
   Input,
   Label,
   Metric,
+  Select,
   Table,
   TableHeader,
   TableBody,
@@ -34,18 +43,31 @@ interface Budget {
   circuitBreaker: 'FAIL_CLOSED' | 'FALLBACK';
 }
 
-interface FeatureConfig {
-  feature: string;
-  provider: string;
-  model: string;
-  isOverride: boolean;
-}
-
 interface ByoProvider {
   key: string;
   displayName: string;
   configured: boolean;
 }
+
+/** Selectable model vendors for the per-feature routing dropdown. */
+const PROVIDER_OPTIONS: { value: AiProviderKey; label: string }[] = [
+  { value: 'GEMINI', label: 'Gemini' },
+  { value: 'CLAUDE', label: 'Claude' },
+  { value: 'OPENAI', label: 'OpenAI' },
+  { value: 'OLLAMA', label: 'Ollama (local)' },
+];
+
+/**
+ * Common model identifiers per provider, surfaced as a datalist of suggestions
+ * on the model input. This is advisory only — the field stays free-text so an
+ * org can route to any model the provider supports without a code change.
+ */
+const MODEL_SUGGESTIONS: Record<AiProviderKey, string[]> = {
+  GEMINI: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-embedding-001'],
+  CLAUDE: ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-7'],
+  OPENAI: ['gpt-4o', 'gpt-4o-mini', 'openai-text-embedding-3-small'],
+  OLLAMA: ['llama3.1', 'qwen2.5', 'nomic-embed-text'],
+};
 
 /** Spend tile: eyebrow label + large tabular value + sub-line cap. */
 function SpendTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -118,14 +140,138 @@ function BudgetMeter({
   );
 }
 
+/** Editable routing row: provider Select + free-text model Input + Save / Reset. */
+function RoutingRow({
+  config,
+  onSave,
+  onReset,
+}: {
+  config: AiFeatureConfig;
+  onSave: (feature: string, provider: AiProviderKey, model: string) => Promise<void>;
+  onReset: (feature: string) => Promise<void>;
+}) {
+  const [provider, setProvider] = useState<AiProviderKey>(config.provider);
+  const [model, setModel] = useState(config.model);
+  const [busy, setBusy] = useState(false);
+
+  // Re-sync local state when the row's effective config changes after a reload.
+  useEffect(() => {
+    setProvider(config.provider);
+    setModel(config.model);
+  }, [config.provider, config.model]);
+
+  const dirty = provider !== config.provider || model.trim() !== config.model;
+  const canSave = dirty && model.trim().length > 0 && !busy;
+  const listId = `ai-models-${config.feature}`;
+
+  const save = async () => {
+    if (!canSave) return;
+    setBusy(true);
+    try {
+      await onSave(config.feature, provider, model.trim());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = async () => {
+    setBusy(true);
+    try {
+      await onReset(config.feature);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <TableRow data-testid={`ai-config-${config.feature}`}>
+      <TableCell className="font-medium align-top">{config.feature}</TableCell>
+      <TableCell>
+        <Select
+          aria-label={`Provider for ${config.feature}`}
+          data-testid={`ai-config-${config.feature}-provider`}
+          value={provider}
+          disabled={busy}
+          onChange={(e) => setProvider(e.target.value as AiProviderKey)}
+        >
+          {PROVIDER_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </Select>
+      </TableCell>
+      <TableCell>
+        <Input
+          aria-label={`Model for ${config.feature}`}
+          data-testid={`ai-config-${config.feature}-model`}
+          className="font-mono"
+          list={listId}
+          value={model}
+          disabled={busy}
+          onChange={(e) => setModel(e.target.value)}
+        />
+        <datalist id={listId}>
+          {MODEL_SUGGESTIONS[provider].map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
+      </TableCell>
+      <TableCell className="align-top">
+        <Badge tone={config.isOverride ? 'info' : 'neutral'}>
+          {config.isOverride ? 'Override' : 'Default'}
+        </Badge>
+      </TableCell>
+      <TableCell className="align-top">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            data-testid={`ai-config-${config.feature}-save`}
+            disabled={!canSave}
+            onClick={save}
+          >
+            Save
+          </Button>
+          {config.isOverride && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              data-testid={`ai-config-${config.feature}-reset`}
+              disabled={busy}
+              onClick={reset}
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function AiSettingsPage() {
   const router = useRouter();
   const [budget, setBudget] = useState<Budget | null>(null);
-  const [configs, setConfigs] = useState<FeatureConfig[]>([]);
+  const [configs, setConfigs] = useState<AiFeatureConfig[]>([]);
   const [byo, setByo] = useState<ByoProvider[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [dailyCap, setDailyCap] = useState('');
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
+
+  /** Flash a transient success toast (auto-clears after 4s). */
+  const flash = useCallback((msg: string) => {
+    setError(null);
+    setSuccess(msg);
+  }, []);
+
+  useEffect(() => {
+    if (!success) return;
+    const t = setTimeout(() => setSuccess(null), 4000);
+    return () => clearTimeout(t);
+  }, [success]);
 
   const load = useCallback(() => {
     api<Budget>('/ai/budget')
@@ -134,7 +280,7 @@ export default function AiSettingsPage() {
         setDailyCap(String(b.dailyCapUsd));
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load budget'));
-    api<FeatureConfig[]>('/ai/configs').then(setConfigs).catch(() => undefined);
+    listAiConfigs().then(setConfigs).catch(() => undefined);
     api<ByoProvider[]>('/ai/providers/byok').then(setByo).catch(() => undefined);
   }, []);
 
@@ -150,9 +296,35 @@ export default function AiSettingsPage() {
     setError(null);
     try {
       await api('/ai/budget', { method: 'PATCH', body: JSON.stringify({ dailyCapUsd: Number(dailyCap) }) });
+      flash('Daily cap updated.');
       load();
     } catch (e) {
+      setSuccess(null);
       setError(e instanceof ApiError ? e.message : 'Save failed');
+    }
+  };
+
+  const saveConfig = async (feature: string, provider: AiProviderKey, model: string) => {
+    setError(null);
+    try {
+      await updateAiFeatureConfig(feature, { providerId: provider, model });
+      flash(`${feature} now routes to ${provider} / ${model}.`);
+      load();
+    } catch (e) {
+      setSuccess(null);
+      setError(e instanceof ApiError ? e.message : 'Routing update failed');
+    }
+  };
+
+  const resetConfig = async (feature: string) => {
+    setError(null);
+    try {
+      await resetAiFeatureConfig(feature);
+      flash(`${feature} reverted to its default route.`);
+      load();
+    } catch (e) {
+      setSuccess(null);
+      setError(e instanceof ApiError ? e.message : 'Reset failed');
     }
   };
 
@@ -163,17 +335,22 @@ export default function AiSettingsPage() {
     try {
       await api(`/ai/providers/${key}/byok`, { method: 'POST', body: JSON.stringify({ apiKey }) });
       setKeyInputs((s) => ({ ...s, [key]: '' }));
+      flash(`${key} key saved.`);
       load();
     } catch (e) {
+      setSuccess(null);
       setError(e instanceof ApiError ? e.message : 'Key save failed');
     }
   };
 
   const clearKey = async (key: string) => {
+    setError(null);
     try {
       await api(`/ai/providers/${key}/byok`, { method: 'DELETE' });
+      flash(`${key} key cleared.`);
       load();
     } catch (e) {
+      setSuccess(null);
       setError(e instanceof ApiError ? e.message : 'Clear failed');
     }
   };
@@ -198,6 +375,17 @@ export default function AiSettingsPage() {
           </div>
         )}
 
+        {success && (
+          <div
+            role="status"
+            data-testid="ai-settings-success"
+            className="flex items-center gap-2 rounded-lg border border-status-success bg-status-success-bg px-4 py-3 text-sm font-medium text-status-success"
+          >
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {success}
+          </div>
+        )}
+
         {/* Budget */}
         <section className="space-y-3" data-testid="ai-budget-section">
           <h2 className="text-sm font-semibold text-content-strong">Spend budget</h2>
@@ -219,6 +407,14 @@ export default function AiSettingsPage() {
                   <Badge tone={budget.circuitBreaker === 'FAIL_CLOSED' ? 'warning' : 'info'}>
                     {budget.circuitBreaker === 'FAIL_CLOSED' ? 'Fail closed' : 'Fallback'}
                   </Badge>
+                  <p
+                    className="mt-0.5 text-xs leading-snug text-content-muted"
+                    data-testid="ai-circuit-breaker-help"
+                  >
+                    {budget.circuitBreaker === 'FAIL_CLOSED'
+                      ? 'Blocks AI calls once the daily cap is reached.'
+                      : 'Skips to a cheaper fallback model once over budget.'}
+                  </p>
                 </CardContent>
               </Card>
               <Card>
@@ -260,7 +456,13 @@ export default function AiSettingsPage() {
                   testId="ai-budget-meter-monthly"
                 />
                 <p className="text-xs text-content-muted" data-testid="ai-budget-resets">
-                  Daily usage resets 00:00 UTC.
+                  Daily usage resets at 00:00 UTC; the monthly cap resets on the 1st (UTC).
+                </p>
+                <p className="text-xs text-content-muted" data-testid="ai-circuit-breaker-legend">
+                  <span className="font-medium text-content-strong">Over budget?</span>{' '}
+                  <span className="font-medium">Fail closed</span> blocks further AI calls until
+                  the cap resets. <span className="font-medium">Fallback</span> keeps AI working by
+                  switching each feature to its cheaper fallback model.
                 </p>
               </CardContent>
             </Card>
@@ -269,7 +471,13 @@ export default function AiSettingsPage() {
 
         {/* Per-feature config */}
         <section className="space-y-3" data-testid="ai-configs-section">
-          <h2 className="text-sm font-semibold text-content-strong">Feature routing</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-content-strong">Feature routing</h2>
+            <p className="mt-0.5 text-xs text-content-muted">
+              Choose which provider and model power each AI feature. Saving creates an org
+              override; Reset reverts a feature to its built-in default.
+            </p>
+          </div>
           <Card className="overflow-hidden">
             <Table>
               <TableHeader>
@@ -278,20 +486,17 @@ export default function AiSettingsPage() {
                   <TableHead>Provider</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {configs.map((c) => (
-                  <TableRow key={c.feature} data-testid={`ai-config-${c.feature}`}>
-                    <TableCell className="font-medium">{c.feature}</TableCell>
-                    <TableCell className="text-content-muted">{c.provider}</TableCell>
-                    <TableCell className="font-mono text-content-muted">{c.model}</TableCell>
-                    <TableCell>
-                      <Badge tone={c.isOverride ? 'info' : 'neutral'}>
-                        {c.isOverride ? 'Override' : 'Default'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                  <RoutingRow
+                    key={c.feature}
+                    config={c}
+                    onSave={saveConfig}
+                    onReset={resetConfig}
+                  />
                 ))}
               </TableBody>
             </Table>

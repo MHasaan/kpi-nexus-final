@@ -1940,6 +1940,52 @@ export async function generateInsightsBatch(
   return res.insights;
 }
 
+// =============================================================================
+// AI feature routing config + budget (P5 settings)
+// =============================================================================
+
+export type AiProviderKey = 'GEMINI' | 'CLAUDE' | 'OPENAI' | 'OLLAMA';
+
+/** Effective per-feature route (override or default) as returned by GET /ai/configs. */
+export interface AiFeatureConfig {
+  feature: string;
+  provider: AiProviderKey;
+  model: string;
+  isOverride: boolean;
+  fallback?: { provider: AiProviderKey; model: string };
+  perFeatureCapUsd?: number;
+}
+
+export async function listAiConfigs(): Promise<AiFeatureConfig[]> {
+  return api('/ai/configs');
+}
+
+/**
+ * Override a feature's routing (org-scoped upsert of the AiFeatureConfig).
+ * Mirrors `PUT /ai/configs/:feature` — body keys are `providerId`/`model`
+ * (NOT `provider`), with optional fallback + per-feature cap.
+ */
+export async function updateAiFeatureConfig(
+  feature: string,
+  body: {
+    providerId: AiProviderKey;
+    model: string;
+    fallbackProviderId?: AiProviderKey;
+    fallbackModel?: string;
+    perFeatureCapUsd?: number;
+  },
+): Promise<AiFeatureConfig> {
+  return api(`/ai/configs/${encodeURIComponent(feature)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Clear an org override, reverting the feature to its built-in default route. */
+export async function resetAiFeatureConfig(feature: string): Promise<void> {
+  await api(`/ai/configs/${encodeURIComponent(feature)}`, { method: 'DELETE' });
+}
+
 /** Generate (and persist) a fresh insight for one KPI. Returns null if too few points. */
 export async function generateInsight(kpiId: string): Promise<Insight | null> {
   const res = await api<{ insight: Insight | null }>('/insights/generate', {

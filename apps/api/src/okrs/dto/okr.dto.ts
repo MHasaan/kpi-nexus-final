@@ -15,7 +15,13 @@ export const CreateObjectiveDtoSchema = z
   .strict();
 export type CreateObjectiveDto = z.infer<typeof CreateObjectiveDtoSchema>;
 
-export const UpdateObjectiveDtoSchema = CreateObjectiveDtoSchema.partial().strict();
+export const UpdateObjectiveDtoSchema = CreateObjectiveDtoSchema.partial()
+  .extend({
+    // Allow explicitly clearing optional links on update by sending null.
+    description: z.string().trim().max(2000).nullable().optional(),
+    parentObjectiveId: z.string().trim().min(1).nullable().optional(),
+  })
+  .strict();
 export type UpdateObjectiveDto = z.infer<typeof UpdateObjectiveDtoSchema>;
 
 export const ListObjectivesQuerySchema = z
@@ -40,5 +46,10 @@ export const CreateKeyResultDtoSchema = z
   .strict();
 export type CreateKeyResultDto = z.infer<typeof CreateKeyResultDtoSchema>;
 
-export const UpdateKeyResultDtoSchema = CreateKeyResultDtoSchema.partial().strict();
+export const UpdateKeyResultDtoSchema = CreateKeyResultDtoSchema.partial()
+  .extend({
+    // Allow explicitly clearing the linked KPI by sending null.
+    kpiId: z.string().trim().min(1).nullable().optional(),
+  })
+  .strict();
 export type UpdateKeyResultDto = z.infer<typeof UpdateKeyResultDtoSchema>;

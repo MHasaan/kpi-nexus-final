@@ -314,11 +314,11 @@ export default function ObjectiveDetailPage() {
     try {
       await updateKeyResult(id, krId, {
         name: krEdit.name.trim(),
-        description: krEdit.description.trim() || null,
+        description: krEdit.description.trim() || undefined,
         kpiId: krEdit.kpiId ?? null,
-        baselineValue: krEdit.baselineValue.trim() === '' ? null : Number(krEdit.baselineValue),
+        baselineValue: krEdit.baselineValue.trim() === '' ? undefined : Number(krEdit.baselineValue),
         targetValue: Number(krEdit.targetValue),
-        currentValue: krEdit.currentValue.trim() === '' ? null : Number(krEdit.currentValue),
+        currentValue: krEdit.currentValue.trim() === '' ? undefined : Number(krEdit.currentValue),
         weight: krEdit.weight.trim() === '' ? 1 : Number(krEdit.weight),
       });
       cancelKrEdit();

@@ -135,6 +135,7 @@ export {
   NotificationChannelKind,
   NotificationDeliveryStatus,
   KPITargetType,
+  KPIDirection,
   AiProviderKey,
   AiCallStatus,
   CircuitBreakerMode,

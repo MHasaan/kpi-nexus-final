@@ -1,11 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, AlertTriangle } from 'lucide-react';
 
-import { ApiError, api, getAccessToken } from '../../lib/api-client';
+import {
+  ApiError,
+  getAccessToken,
+  listRecommendations,
+  setRecommendationStatus,
+  type Recommendation,
+  type RecommendationSuggestedAction,
+} from '../../lib/api-client';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import {
@@ -15,29 +22,11 @@ import {
   CardFooter,
   Button,
   Badge,
+  Select,
   EmptyState,
   Skeleton,
   type BadgeTone,
 } from '../../components/ui';
-
-interface SuggestedAction {
-  action: string;
-  rationale: string;
-  priority: 'P1' | 'P2' | 'P3';
-}
-
-interface Recommendation {
-  id: string;
-  kpiId: string;
-  status: 'PENDING' | 'ACTIONED' | 'DISMISSED';
-  confidence: number;
-  createdAt: string;
-  content: {
-    summary?: string;
-    rootCauseHypotheses?: string[];
-    suggestedActions?: SuggestedAction[];
-  };
-}
 
 // Status → Badge tone (icon/label keeps it readable; never colour-only).
 const STATUS_TONE: Record<Recommendation['status'], BadgeTone> = {
@@ -53,19 +42,35 @@ const STATUS_LABEL: Record<Recommendation['status'], string> = {
 };
 
 // Priority pill tone — P1 most urgent.
-const PRIORITY_TONE: Record<SuggestedAction['priority'], BadgeTone> = {
+const PRIORITY_TONE: Record<RecommendationSuggestedAction['priority'], BadgeTone> = {
   P1: 'error',
   P2: 'warning',
   P3: 'info',
 };
 
+const PRIORITY_RANK: Record<RecommendationSuggestedAction['priority'], number> = {
+  P1: 1,
+  P2: 2,
+  P3: 3,
+};
+
+/** A recommendation's effective priority = the most urgent of its actions (P1 < P2 < P3). */
+function topPriorityRank(r: Recommendation): number {
+  const actions = r.content.suggestedActions ?? [];
+  if (actions.length === 0) return 99; // no actions sort last
+  return Math.min(...actions.map((a) => PRIORITY_RANK[a.priority]));
+}
+
+type SortKey = 'priority' | 'recency';
+
 export default function RecommendationsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Recommendation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>('priority');
 
   const load = useCallback(() => {
-    api<Recommendation[]>('/recommendations')
+    listRecommendations()
       .then(setRows)
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
   }, []);
@@ -81,12 +86,26 @@ export default function RecommendationsPage() {
   const setStatus = async (id: string, status: 'ACTIONED' | 'DISMISSED') => {
     setError(null);
     try {
-      await api(`/recommendations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await setRecommendationStatus(id, status);
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Update failed');
     }
   };
+
+  // Client-side sort: priority (P1→P3) then confidence desc; or recency.
+  const visibleRows = useMemo(() => {
+    const base = [...(rows ?? [])];
+    base.sort((a, b) => {
+      if (sort === 'recency') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      const pr = topPriorityRank(a) - topPriorityRank(b);
+      if (pr !== 0) return pr;
+      return b.confidence - a.confidence;
+    });
+    return base;
+  }, [rows, sort]);
 
   const loading = rows === null && !error;
 
@@ -110,6 +129,23 @@ export default function RecommendationsPage() {
           </div>
         )}
 
+        {!loading && (rows?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap items-center gap-3" data-testid="recs-controls">
+            <label className="flex items-center gap-2 text-xs font-medium text-content-muted">
+              Sort
+              <Select
+                data-testid="recs-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="h-8 w-44"
+              >
+                <option value="priority">Priority, then confidence</option>
+                <option value="recency">Most recent</option>
+              </Select>
+            </label>
+          </div>
+        )}
+
         {loading && (
           <div className="space-y-4" data-testid="recs-loading">
             {[0, 1].map((i) => (
@@ -126,7 +162,7 @@ export default function RecommendationsPage() {
 
         {!loading && (
           <div className="space-y-4" data-testid="recs-list">
-            {(rows ?? []).map((r) => (
+            {visibleRows.map((r) => (
               <Card key={r.id} data-testid={`rec-row-${r.id}`}>
                 <CardContent className="space-y-3">
                   <div className="flex items-start justify-between gap-4">
@@ -177,6 +213,17 @@ export default function RecommendationsPage() {
                       <Link href={`/kpis/${r.kpiId}`} data-testid={`rec-kpi-${r.id}`}>
                         <Badge tone="info" className="transition-colors hover:brightness-95">
                           KPI {r.kpiId.slice(0, 8)}…
+                        </Badge>
+                      </Link>
+                    )}
+                    {r.alertId && (
+                      <Link href={`/alerts/${r.alertId}`} data-testid={`rec-alert-${r.id}`}>
+                        <Badge
+                          tone="warning"
+                          className="inline-flex items-center gap-1 transition-colors hover:brightness-95"
+                        >
+                          <AlertTriangle aria-hidden className="h-3 w-3" />
+                          From alert
                         </Badge>
                       </Link>
                     )}

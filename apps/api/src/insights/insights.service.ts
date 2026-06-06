@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { KPIInsight } from '@kpi-nexus/db';
+import type { KPIDirection, KPIInsight } from '@kpi-nexus/db';
 
 import { AiConfigsService } from '../ai/ai-configs.service.js';
 import { AiRouterService } from '../ai/ai-router.service.js';
@@ -25,8 +25,40 @@ function deriveConfidence(stats: WindowStats): number {
 
 const SYSTEM_PROMPT = [
   'You are a data analyst. In 2-3 sentences, explain what a KPI metric did over the window and why it matters.',
-  'Be specific with numbers. No preamble, no markdown headers — just the narrative.',
+  'Be specific with numbers. When a target is given, say how the latest value compares to it (e.g. "12% below its target of Y"). No preamble, no markdown headers — just the narrative.',
 ].join('\n');
+
+/** Fields pulled from the KPI to ground the insight narrative. */
+interface KpiGrounding {
+  id: string;
+  name: string;
+  unit: string | null;
+  direction: KPIDirection;
+  targetValue: number | null;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+}
+
+/**
+ * On/under/over-target status honoring direction — mirrors NLQ. Only meaningful
+ * when a target is set and a value is present (caller guards). TARGET_IS_BEST /
+ * NEUTRAL have no simple over/under reading, so they return null.
+ */
+function targetStatus(value: number, target: number, direction: KPIDirection): string | null {
+  switch (direction) {
+    case 'HIGHER_IS_BETTER':
+      return value >= target ? 'on target' : 'below target';
+    case 'LOWER_IS_BETTER':
+      return value <= target ? 'on target' : 'above target';
+    default:
+      return null;
+  }
+}
+
+/** Compact number formatting: keep integers integer, round others to 2dp. */
+function formatNum(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
 
 /**
  * Generates AI narratives about KPI trends. `generate` summarizes one KPI;
@@ -55,13 +87,28 @@ export class InsightsService {
     return points.map((p) => p.value).reverse();
   }
 
-  private buildPrompt(name: string, stats: WindowStats): string {
-    return [
-      `KPI: ${name}`,
+  private buildPrompt(kpi: KpiGrounding, stats: WindowStats): string {
+    const header = `KPI: ${kpi.name}${kpi.unit ? ` (${kpi.unit})` : ''} (direction: ${kpi.direction})`;
+    const lines: string[] = [
+      header,
       `Points: ${stats.count}, first ${stats.first}, last ${stats.last}, avg ${stats.avg.toFixed(2)}, min ${stats.min}, max ${stats.max}.`,
       `Change first→last: ${stats.changePct.toFixed(1)}%.`,
-      'Write the narrative.',
-    ].join('\n');
+    ];
+
+    // Target + on/off-target status of the latest value (computed via direction).
+    if (kpi.targetValue != null) {
+      const status = targetStatus(stats.last, kpi.targetValue, kpi.direction);
+      lines.push(`Target: ${formatNum(kpi.targetValue)}${status ? ` (latest is ${status})` : ''}.`);
+    }
+
+    // Thresholds (only those that are set).
+    const th: string[] = [];
+    if (kpi.warningThreshold != null) th.push(`warning ${formatNum(kpi.warningThreshold)}`);
+    if (kpi.criticalThreshold != null) th.push(`critical ${formatNum(kpi.criticalThreshold)}`);
+    if (th.length > 0) lines.push(`Thresholds: ${th.join(', ')}.`);
+
+    lines.push('Write the narrative.');
+    return lines.join('\n');
   }
 
   /** Generate + persist an insight for one KPI. Returns null when too few points. */
@@ -69,7 +116,15 @@ export class InsightsService {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        direction: true,
+        targetValue: true,
+        warningThreshold: true,
+        criticalThreshold: true,
+      },
     });
     if (!kpi) return null;
 
@@ -79,7 +134,7 @@ export class InsightsService {
     const route = await this.configs.resolve('INSIGHTS');
     const result = await this.aiRouter.complete('INSIGHTS', {
       systemPrompt: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: this.buildPrompt(kpi.name, stats) }],
+      messages: [{ role: 'user', content: this.buildPrompt(kpi, stats) }],
       maxTokens: 400,
     });
 

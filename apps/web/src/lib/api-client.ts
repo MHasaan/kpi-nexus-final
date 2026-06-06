@@ -1910,6 +1910,96 @@ export async function askNlq(question: string): Promise<NlqAnswer> {
   return api('/nlq/ask', { method: 'POST', body: JSON.stringify({ question }) });
 }
 
+// =============================================================================
+// AI Insights (P5)
+// =============================================================================
+
+export interface Insight {
+  id: string;
+  kpiId: string;
+  narrative: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  generatedAt: string;
+  status: string;
+  confidence: number;
+}
+
+export async function listInsights(): Promise<Insight[]> {
+  return api('/insights');
+}
+
+export async function generateInsightsBatch(
+  body: { thresholdChangePct?: number; topN?: number } = {},
+): Promise<Insight[]> {
+  const res = await api<{ insights: Insight[] }>('/insights/generate-batch', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return res.insights;
+}
+
+/** Generate (and persist) a fresh insight for one KPI. Returns null if too few points. */
+export async function generateInsight(kpiId: string): Promise<Insight | null> {
+  const res = await api<{ insight: Insight | null }>('/insights/generate', {
+    method: 'POST',
+    body: JSON.stringify({ kpiId }),
+  });
+  return res.insight;
+}
+
+export async function dismissInsight(id: string): Promise<Insight> {
+  return api(`/insights/${id}/dismiss`, { method: 'POST' });
+}
+
+// =============================================================================
+// AI Recommendations (P5)
+// =============================================================================
+
+export interface RecommendationSuggestedAction {
+  action: string;
+  rationale: string;
+  priority: 'P1' | 'P2' | 'P3';
+}
+
+export interface Recommendation {
+  id: string;
+  kpiId: string;
+  alertId: string | null;
+  status: 'PENDING' | 'ACTIONED' | 'DISMISSED';
+  confidence: number;
+  createdAt: string;
+  content: {
+    summary?: string;
+    rootCauseHypotheses?: string[];
+    suggestedActions?: RecommendationSuggestedAction[];
+  };
+}
+
+export async function listRecommendations(filter: {
+  kpiId?: string;
+  alertId?: string;
+  status?: Recommendation['status'];
+} = {}): Promise<Recommendation[]> {
+  const params = new URLSearchParams();
+  if (filter.kpiId) params.set('kpiId', filter.kpiId);
+  if (filter.alertId) params.set('alertId', filter.alertId);
+  if (filter.status) params.set('status', filter.status);
+  const q = params.toString();
+  return api(`/recommendations${q ? `?${q}` : ''}`);
+}
+
+export async function setRecommendationStatus(
+  id: string,
+  status: 'ACTIONED' | 'DISMISSED',
+): Promise<Recommendation> {
+  return api(`/recommendations/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
 export interface ThresholdBand {
   id: string;
   kpiId: string;

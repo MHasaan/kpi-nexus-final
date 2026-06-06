@@ -32,7 +32,17 @@ interface FakeInsight {
 class FakePrisma {
   insights: FakeInsight[] = [];
   // KPI rows and their data-point values (oldest→newest) keyed by kpiId.
-  kpis: Array<{ id: string; organizationId: string; name: string; deletedAt: Date | null }> = [];
+  kpis: Array<{
+    id: string;
+    organizationId: string;
+    name: string;
+    deletedAt: Date | null;
+    unit: string | null;
+    direction: string;
+    targetValue: number | null;
+    warningThreshold: number | null;
+    criticalThreshold: number | null;
+  }> = [];
   dataPoints: Record<string, number[]> = {};
   private insightSeq = 0;
 
@@ -44,7 +54,17 @@ class FakePrisma {
           k.organizationId === where.organizationId &&
           k.deletedAt === (where.deletedAt as Date | null),
       );
-      return row ? { id: row.id, name: row.name } : null;
+      return row
+        ? {
+            id: row.id,
+            name: row.name,
+            unit: row.unit,
+            direction: row.direction,
+            targetValue: row.targetValue,
+            warningThreshold: row.warningThreshold,
+            criticalThreshold: row.criticalThreshold,
+          }
+        : null;
     }),
   };
 
@@ -94,8 +114,30 @@ class FakePrisma {
     }),
   };
 
-  seedKpi(id: string, organizationId: string, values: number[], name = 'KPI'): void {
-    this.kpis.push({ id, organizationId, name, deletedAt: null });
+  seedKpi(
+    id: string,
+    organizationId: string,
+    values: number[],
+    name = 'KPI',
+    extra: Partial<{
+      unit: string | null;
+      direction: string;
+      targetValue: number | null;
+      warningThreshold: number | null;
+      criticalThreshold: number | null;
+    }> = {},
+  ): void {
+    this.kpis.push({
+      id,
+      organizationId,
+      name,
+      deletedAt: null,
+      unit: extra.unit ?? null,
+      direction: extra.direction ?? 'HIGHER_IS_BETTER',
+      targetValue: extra.targetValue ?? null,
+      warningThreshold: extra.warningThreshold ?? null,
+      criticalThreshold: extra.criticalThreshold ?? null,
+    });
     this.dataPoints[id] = values;
   }
 
@@ -133,6 +175,14 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
   );
 }
 
+/** Pull the user-message string out of the last aiRouter.complete(...) call. */
+function lastUserMessage(aiRouter: AiRouterService): string {
+  const mock = (aiRouter.complete as unknown as { mock: { calls: unknown[][] } }).mock;
+  const lastCall = mock.calls[mock.calls.length - 1]!;
+  const opts = lastCall[1] as { messages: Array<{ role: string; content: string }> };
+  return opts.messages.find((m) => m.role === 'user')!.content;
+}
+
 function makeService() {
   const prisma = new FakePrisma();
   // Deterministic AI stubs so generate() can run without a real provider.
@@ -146,7 +196,7 @@ function makeService() {
     resolve: vi.fn(async () => ({ model: 'test-model' })),
   } as unknown as AiConfigsService;
   const service = new InsightsService(prisma as unknown as PrismaService, aiRouter, configs);
-  return { service, prisma };
+  return { service, prisma, aiRouter };
 }
 
 describe('InsightsService.dismiss', () => {
@@ -245,5 +295,54 @@ describe('InsightsService.generate confidence', () => {
     const insight = await withCtx({}, () => service.generate('kpi_max'));
 
     expect(insight!.confidence).toBe(1);
+  });
+});
+
+describe('InsightsService.generate enriched grounding', () => {
+  test('prompt includes unit, direction, target, status, and thresholds', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    // HIGHER_IS_BETTER, latest 80 below target 100 → "below target".
+    prisma.seedKpi('kpi_g', ORG, [50, 80], 'Revenue', {
+      unit: 'USD',
+      direction: 'HIGHER_IS_BETTER',
+      targetValue: 100,
+      warningThreshold: 70,
+      criticalThreshold: 40,
+    });
+
+    await withCtx({}, () => service.generate('kpi_g'));
+
+    const msg = lastUserMessage(aiRouter);
+    expect(msg).toContain('Revenue (USD)');
+    expect(msg).toContain('direction: HIGHER_IS_BETTER');
+    expect(msg).toContain('Target: 100');
+    expect(msg).toContain('below target');
+    expect(msg).toContain('warning 70');
+    expect(msg).toContain('critical 40');
+  });
+
+  test('marks the latest value on target when it meets the target', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_on', ORG, [90, 120], 'Signups', {
+      direction: 'HIGHER_IS_BETTER',
+      targetValue: 100,
+    });
+
+    await withCtx({}, () => service.generate('kpi_on'));
+
+    const msg = lastUserMessage(aiRouter);
+    expect(msg).toContain('Target: 100');
+    expect(msg).toContain('on target');
+  });
+
+  test('omits target/threshold lines when the KPI has none', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_bare', ORG, [10, 11], 'Bare');
+
+    await withCtx({}, () => service.generate('kpi_bare'));
+
+    const msg = lastUserMessage(aiRouter);
+    expect(msg).not.toContain('Target:');
+    expect(msg).not.toContain('Thresholds:');
   });
 });

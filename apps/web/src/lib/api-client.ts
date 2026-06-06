@@ -1894,6 +1894,22 @@ export async function deleteTarget(kpiId: string, targetId: string): Promise<voi
   return api(`/kpis/${kpiId}/targets/${targetId}`, { method: 'DELETE' });
 }
 
+export interface NlqSource {
+  kpiId: string;
+  name: string;
+}
+export interface NlqAnswer {
+  answer: string;
+  sources: NlqSource[];
+  latencyMs?: number;
+  costUsd: number;
+  provider: string;
+  model: string;
+}
+export async function askNlq(question: string): Promise<NlqAnswer> {
+  return api('/nlq/ask', { method: 'POST', body: JSON.stringify({ question }) });
+}
+
 export interface ThresholdBand {
   id: string;
   kpiId: string;

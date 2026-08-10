@@ -17,10 +17,10 @@
   "dependencies": {
     "@kpi-nexus/contracts": "workspace:*",
     "@kpi-nexus/db": "workspace:*",
-    "@nestjs/bullmq": "^11.0.0",
-    "@nestjs/common": "^11.0.0",
+    "@nestjs/bullmq": "^11.0.5",
+    "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.0",
-    "@nestjs/core": "^11.0.0",
+    "@nestjs/core": "^11.1.28",
     "bullmq": "^5.34.0",
     "ioredis": "^5.4.1",
     "nestjs-pino": "^4.1.0",
@@ -31,9 +31,9 @@
   },
   "devDependencies": {
     "@kpi-nexus/config": "workspace:*",
-    "@nestjs/cli": "^11.0.0",
+    "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.0.0",
-    "@nestjs/testing": "^11.0.0",
+    "@nestjs/testing": "^11.1.28",
     "@types/node": "^20.12.0",
     "typescript": "^5.5.4",
     "vitest": "^1.6.0"

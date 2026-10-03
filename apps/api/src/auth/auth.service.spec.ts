@@ -120,3 +120,19 @@ describe('AuthService.previewInvitation()', () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });
+
+describe('AuthService.login() — attempt auditing (OT-009)', () => {
+  test('records the client IP and user agent on the login attempt', async () => {
+    const create = vi.fn().mockResolvedValue({});
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
+      loginAttempt: { create },
+    };
+    await expect(
+      makeService(prisma).login({ email: 'nobody@example.test', password: 'x' }, { ip: '203.0.113.9', userAgent: 'audit-agent/1.0' }),
+    ).rejects.toThrow();
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ email: 'nobody@example.test', status: 'USER_NOT_FOUND', ipAddress: '203.0.113.9', userAgent: 'audit-agent/1.0' }),
+    });
+  });
+});

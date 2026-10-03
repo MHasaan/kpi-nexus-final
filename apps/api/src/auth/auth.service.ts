@@ -146,7 +146,10 @@ export class AuthService {
     });
   }
 
-  async login(dto: LoginDto): Promise<AuthPair & { user: PublicUser }> {
+  async login(
+    dto: LoginDto,
+    client: { ip?: string; userAgent?: string } = {},
+  ): Promise<AuthPair & { user: PublicUser }> {
     return RequestContextStore.runWithBypass('login', async () => {
       // Find user (within org if specified, else first ACTIVE match across orgs).
       const where = dto.organizationId
@@ -179,6 +182,8 @@ export class AuthService {
             userId: user?.id,
             status,
             reason,
+            ipAddress: client.ip,
+            userAgent: client.userAgent?.slice(0, 500),
           },
         });
 

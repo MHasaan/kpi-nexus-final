@@ -121,7 +121,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Impact:** a deployment that forgets both variables stores Slack / Teams webhook URLs and other channel config encrypted under a key that is in the public repo.
 - **Similar fallbacks:** `ML_SIDECAR_HMAC_SECRET ?? 'dev-ml-shared-secret'` (`apps/api/src/ml/ml-client.service.ts:16` — the ML side refuses the default only when `ENV=production`, a variable the Node app doesn't use) and `ONBOARDING_DRAFT_SECRET ?? JWT_SECRET ?? 'dev-onboarding-secret'` (`onboarding/onboarding.service.ts:11`).
 
-### OT-009 · Medium · Client IP is spoofable and never recorded on login attempts
+### OT-009 · Medium · Client IP is spoofable and never recorded on login attempts — ✅ FIXED
+- **Fix:** `trustProxy` now comes from `TRUST_PROXY` (unset = don't trust XFF; `1`/`2` = hop count; `true`; or a CIDR list) via `src/config/trust-proxy.ts`. Login attempts record `ipAddress` and `userAgent`. Verified live: a spoofed `X-Forwarded-For` is ignored and the socket IP is recorded.
 - `apps/api/src/main.ts:22` sets `trustProxy: true` unconditionally, so `req.ip` comes from the client-controlled `X-Forwarded-For` whenever the API isn't behind a proxy that overwrites it. The rate limiter keys on `req.ip` (`rate-limit.guard.ts`), so per-IP limits (once enabled — see BE-017) can be bypassed by rotating the header.
 - `LoginAttempt.ipAddress` is empty for attempts (checked after a failed login) → the security audit trail has no IPs.
 - **Expected:** set `trustProxy` to the real proxy hop count / CIDR via env; record `req.ip` on login attempts.

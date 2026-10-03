@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
@@ -80,9 +81,10 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() body: unknown) {
+  login(@Body() body: unknown, @Req() req: { ip?: string; headers: Record<string, string | string[] | undefined> }) {
     const dto = parse(LoginDtoSchema, body);
-    return this.auth.login(dto);
+    const ua = req.headers['user-agent'];
+    return this.auth.login(dto, { ip: req.ip, userAgent: Array.isArray(ua) ? ua[0] : ua });
   }
 
   @Public()

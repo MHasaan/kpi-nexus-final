@@ -62,7 +62,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Evidence:** the API log repeatedly prints `[ioredis] Unhandled error event: Error: read ECONNRESET`. Clients created without `.on('error')`: `apps/api/src/ai/ai-budget.service.ts:37`, `apps/api/src/health/redis-health.service.ts:7`, `apps/api/src/rate-limit/rate-limit.service.ts:20`. `realtime.service.ts` does attach listeners.
 - **To check in 1e:** behaviour of login and rate limiting when Redis is unavailable.
 
-### BE-007 · Critical · Password-reset link (with plaintext token) is written to the API log instead of being emailed
+### BE-007 · Critical · Password-reset link (with plaintext token) is written to the API log instead of being emailed — ✅ FIXED
+- **Fix:** `PasswordResetService` now emails the link via `EmailService` to `WEB_APP_URL/reset-password?token=…` and logs only `password-reset email sent (user <id>)`. Delivery failures are logged without the link and still return 202. The old link pointed to a page that didn't exist (`/auth/password/reset`); the web app now has `/forgot-password` and `/reset-password` plus a "Forgot password?" link on sign-in (FE-018).
 - **Repro:** `POST /auth/password/request-reset {"email":"<user>"}` → the API log prints `[password-reset] link for <email>: <reset URL with token>`.
 - **Code:** `apps/api/src/password/password-reset.service.ts:61-64` — `// TODO(p1-email): hand off to EmailService — for now, log the link`. Not gated to dev; runs in every environment.
 - **Impact:** (1) security — anyone who can read application logs (log shipping, Sentry/OTel exporters, support staff) can reset and take over any account that requests a reset; (2) functional — no reset email is ever sent, so in production "forgot password" doesn't work.

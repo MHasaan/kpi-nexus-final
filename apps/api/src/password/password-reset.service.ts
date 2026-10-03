@@ -11,6 +11,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { RefreshTokenService } from '../auth/services/refresh-token.service.js';
+import { EmailService } from '../email/email.service.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import {
   checkPasswordPolicy,
   resolvePasswordPolicy,
@@ -26,12 +28,14 @@ export class PasswordResetService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly email: EmailService,
   ) {}
 
   /**
-   * Always returns void (caller responds 202). Email is logged for the
-   * Mailhog wiring that lands with the EmailService task. We don't reveal
-   * whether the email exists.
+   * Always returns void (caller responds 202) and never reveals whether the
+   * email exists. Known users are emailed a single-use link to the web app's
+   * /reset-password page. The token only ever leaves in that email — it is
+   * never logged.
    */
   async request(email: string): Promise<void> {
     await RequestContextStore.runWithBypass('password-reset-request', async () => {
@@ -58,11 +62,7 @@ export class PasswordResetService {
         data: { userId: user.id, hashedToken, expiresAt },
       });
 
-      // TODO(p1-email): hand off to EmailService — for now, log the link
-      // so dev can copy it from the api stdout / Pino transport.
-      this.logger.log(
-        `[password-reset] link for ${user.email}: ${this.resetUrl(plaintext)} (expires ${expiresAt.toISOString()})`,
-      );
+      await this.sendResetEmail(user.id, user.email, plaintext);
 
       await this.audit.record({
         action: 'UPDATE',
@@ -144,8 +144,27 @@ export class PasswordResetService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private resetUrl(token: string): string {
-    const webUrl = process.env.NEXT_PUBLIC_API_URL?.replace(':4000', ':3000') ?? 'http://localhost:3000';
-    return `${webUrl}/auth/password/reset?token=${token}`;
+  /**
+   * Delivery failures are logged (without the link) and swallowed: the caller
+   * always gets the same 202, so a failure can't be used to probe accounts.
+   */
+  private async sendResetEmail(userId: string, to: string, token: string): Promise<void> {
+    const link = webAppUrl(`/reset-password?token=${encodeURIComponent(token)}`);
+    const minutes = Math.round(this.tokenTtlMs / 60_000);
+    try {
+      await this.email.send({
+        to,
+        subject: 'Reset your KPI Nexus password',
+        html:
+          `<p>We received a request to reset the password for your KPI Nexus account.</p>` +
+          `<p><a href="${link}">Choose a new password</a></p>` +
+          `<p>This link expires in ${minutes} minutes and can be used once. ` +
+          `If you didn't ask for this, you can ignore this email — your password won't change.</p>`,
+        text: `Reset your KPI Nexus password: ${link}\n\nThis link expires in ${minutes} minutes and can be used once. If you didn't ask for this, ignore this email.`,
+      });
+      this.logger.log(`password-reset email sent (user ${userId})`);
+    } catch (err) {
+      this.logger.warn(`password-reset email failed (user ${userId}): ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 }

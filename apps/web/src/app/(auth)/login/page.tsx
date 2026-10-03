@@ -118,6 +118,11 @@ export default function LoginPage() {
         >
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+        <p className="text-right text-sm">
+          <Link href="/forgot-password" className="font-medium text-accent-primary hover:underline">
+            Forgot password?
+          </Link>
+        </p>
       </form>
 
       <p className="mt-6 text-center text-sm text-content-muted">

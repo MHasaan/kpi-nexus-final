@@ -59,6 +59,10 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Cause:** `deriveStatus()` / `attainmentPct()` in `apps/web/src/app/dashboard/page.tsx:149-162` use `latest / target ≥ 0.95` and ignore KPI direction and threshold bands.
 - **Expected:** direction-aware status (ideally server-computed so web and API agree).
 
+### FE-018 · High · No forgot-password / reset-password flow in the web app — ✅ FIXED
+- **Found while fixing BE-007:** there was no "Forgot password?" link, no request page, no reset page and no API-client calls, so users who forgot their password had no self-service path. The API's reset email (once sent) would have linked to a non-existent page.
+- **Fix:** `app/(auth)/forgot-password` and `app/(auth)/reset-password` pages, `requestPasswordReset` / `confirmPasswordReset` client calls, and a link on `/login`. Covered by `e2e/password-reset.spec.ts` (full flow via Mailhog).
+
 ### FE-014 · Medium · 12 pages open for users who can't load their data (gating gaps)
 - **Repro (crawl, contributor `tom.becker@helios.io`):** these pages render, but their API calls return **403**, leaving broken or empty screens instead of the unauthorized page or hidden actions:
 

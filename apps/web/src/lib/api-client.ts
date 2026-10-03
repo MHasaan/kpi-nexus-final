@@ -431,6 +431,24 @@ export async function previewInvitation(
   });
 }
 
+/** Emails a reset link if the account exists. Always resolves the same way. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api('/auth/password/request-reset', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    auth: false,
+  });
+}
+
+/** Completes a reset with the token from the emailed link. */
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await api('/auth/password/confirm-reset', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+    auth: false,
+  });
+}
+
 // =============================================================================
 // Access Center (granular access — Phase 5/6)
 // =============================================================================

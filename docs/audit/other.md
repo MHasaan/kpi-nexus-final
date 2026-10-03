@@ -94,8 +94,17 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Cause:** the seed's 12 monthly periods end at the anchor month, and `periodEnd()` is the 28th (`packages/db/prisma/seed.ts`). The original seed had the same property relative to its fixed "now" (5 June with a June 28 period end). Anchoring to the current month in commit `2971f87` (this audit's setup fix) made it visible today.
 - **Expected:** anchor to the last *completed* month, or clamp `periodEnd` / `recordedAt` to `SEED_NOW`.
 
-### OT-016 · Low · Private KPI templates are orphaned when their organization is deleted
-- **Evidence:** 2 `KPITemplate` rows with `isGlobal = false` and `organizationId = NULL` ("Private KPI …", left by deleted E2E orgs). They aren't visible to other orgs (checked), but they are dead rows. The relation should cascade-delete private templates, or the column should be non-null for private templates.
+### OT-016 · Medium · 39 tenant tables have no foreign key to `Organization` — deleting an org leaves its data behind
+- **Evidence (found during audit cleanup):** these tables have an `organizationId` column with no FK constraint:
+  - **Auth & security:** `ScimToken`, `SsoConfig`, `LoginAttempt`
+  - **AI:** `AiProvider` (BYOK credentials), `AiBudget`, `AiCallLog`, `AiFeatureConfig`, `NLQQuery`, `KPIInsight`, `Recommendation`, `KpiCatalogEmbedding`, `AnomalyDetection`, `Forecast`
+  - **Collaboration:** `Comment`, `Mention`, `Task`, `Objective`, `KeyResult`, `ApprovalRequest`, `ApprovalWorkflow`, `Workflow`, `OnboardingSession`, `OnboardingTask`
+  - **KPI engine:** `KPITarget`, `KPIThresholdBand`, `KPIBenchmark`, `KPICascade`, `KPIDependency`, `KPIAssignmentOrgUnit`, `KPIAssignmentUser`, `FormulaExpression`, `LineageEdge`, `KPITemplate`
+  - **Integrations:** `Connector`, `IntegrationConnection`, `Pipeline`, `Plugin`
+  - **Other:** `OrgTemplate`
+- **Repro:** deleting the 277 test orgs left orphan rows in 31 of those tables — e.g. `LoginAttempt` 196, `KpiCatalogEmbedding` 157, `AiCallLog` 62, `AiBudget` 35, `LineageEdge` 13, `KPITarget` 10, plus SCIM tokens, an SSO config and a BYOK AI provider. They were cleaned up by hand.
+- **Impact:** tenant offboarding / deletion (and the GDPR-style tenant export & delete the spec describes) can't rely on cascades. Secrets (SCIM tokens, BYOK keys, SSO config) survive their org. The same gap lets rows reference non-existent orgs or KPIs (dangling ids) without the database objecting.
+- **Expected:** add `@relation(... onDelete: Cascade)` FKs for these tables, or an explicit, tested org-purge routine.
 
 ### OT-017 · Info · `setupScripts/start.ps1` not cold-run end to end
 - Not executed during the audit, because it restarts every service the audit depended on. Its pieces were exercised individually during the 2026-10-03 setup fixes (Docker start, `pnpm install`, `docker:up`, `db:setup`, the ML venv via `uv`, `pnpm dev`). A cold run on a clean machine is still worth doing once the fixes land.

@@ -140,7 +140,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | OT-013 vulnerable dependencies | ✅ fixed (2 unfixable prod-path items documented) | `d52b012` | `pnpm audit`, builds, unit + integration suites, 14 E2E specs |
 | BE-016 SSRF | ✅ fixed | `da4340d` | `src/outbound/outbound-fetch.spec.ts` (41), `test/integration/ssrf-guard.spec.ts` (17) |
 | OT-009 spoofable client IP / IP not recorded | ✅ fixed | `b541281` | `trust-proxy.spec.ts` (11), `auth.service.spec.ts`, `test/integration/client-ip.spec.ts` |
-| BE-017 no brute-force protection by default | ✅ fixed | _this commit_ | `rate-limit-policy.spec.ts` (7), `rate-limit.guard.spec.ts` (4) + live check |
+| BE-017 no brute-force protection by default | ✅ fixed | `fdcce5c` | `rate-limit-policy.spec.ts` (7), `rate-limit.guard.spec.ts` (4) + live check |
 
 ## Cleanup performed
 

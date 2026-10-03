@@ -133,7 +133,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Finding | Status | Commit | Regression test |
 |---|---|---|---|
 | BE-014 Jira webhook | ✅ fixed | `4263927` | `apps/api/test/integration/jira-webhook.spec.ts` (7) + `provider-handlers.spec.ts` |
-| BE-015 Slack signature fail-open | ✅ fixed | _this commit_ | `slack-interactive.controller.spec.ts` (8) |
+| BE-015 Slack signature fail-open | ✅ fixed | `e46e7d1` | `slack-interactive.controller.spec.ts` (8) |
 
 ## Cleanup performed
 

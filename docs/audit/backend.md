@@ -108,7 +108,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Repro:** `GET /platform/admins` as the org Administrator → `403 {"code":"FORBIDDEN","message":"Authentication required"}`.
 - **Expected:** the 403 is correct (platform admin is a separate super-role), but the message should say the caller isn't a platform admin.
 
-### BE-014 · Critical · Unauthenticated cross-tenant task updates via the Jira webhook
+### BE-014 · Critical · Unauthenticated cross-tenant task updates via the Jira webhook — ✅ FIXED
+- **Fix:** route is now `POST /integrations/jira/webhook/:connectionId?secret=…`. The secret is checked against the connection's encrypted `webhookSecret` (constant-time; fails closed when unset or the connection is unknown). Task lookup is scoped to the connection's org with an exact key match (bare key or `…/browse/<KEY>`); the old global route is removed. **Setup:** store `webhookSecret` in the Jira connection's `tokens`, and register the URL above in Jira.
 - **Repro (proven on an audit org):** create a task with `externalRef: "https://jira.audit.test/browse/AUDZ-…-7"` (status `TODO`). Then, with **no auth**: `POST /integrations/jira/webhook {"issue":{"key":"AUDZ-…-7","fields":{"status":{"name":"Done"}}}}` → `200 {"updated":true}`. Task is now `DONE`.
 - **Cause:** `apps/api/src/integrations/providers/integration-providers.controller.ts:44-48` (`@Public`, no signature/secret check) → Jira service `handleWebhook()`: `prisma.task.findFirst({ where: { externalRef: { contains: key } } })` with **no `organizationId` filter**, then `task.update`.
 - **Impact:** anyone on the internet can change the status of tasks in any tenant. `contains` makes short keys match arbitrary refs.

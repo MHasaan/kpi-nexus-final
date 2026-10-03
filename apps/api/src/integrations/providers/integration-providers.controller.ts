@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 
 import { Public } from '../../rbac/decorators/public.decorator.js';
 import { JiraService, type JiraWebhookPayload } from './jira.service.js';
@@ -7,8 +7,9 @@ import { verifySlackSignature } from './slack-format.js';
 
 /**
  * Public provider callbacks. Slack interactive button clicks (signature-verified
- * when SLACK_SIGNING_SECRET is set) and Jira issue-update webhooks. The acting
- * org/principal is resolved inside the services from the external identity.
+ * when SLACK_SIGNING_SECRET is set) and per-connection, secret-authenticated
+ * Jira issue-update webhooks. The acting org is resolved inside the services
+ * from the external identity / connection.
  */
 @Controller('integrations')
 export class IntegrationProvidersController {
@@ -40,10 +41,21 @@ export class IntegrationProvidersController {
     return this.slack.handleInteractive(payload);
   }
 
+  /**
+   * Jira issue webhook for one connection. Register in Jira as
+   * `<api>/integrations/jira/webhook/<connectionId>?secret=<webhookSecret>`
+   * (Jira's webhook UI can't add headers, so the query string carries the
+   * secret; `x-webhook-secret` is accepted too).
+   */
   @Public()
-  @Post('jira/webhook')
+  @Post('jira/webhook/:connectionId')
   @HttpCode(HttpStatus.OK)
-  jiraWebhook(@Body() body: JiraWebhookPayload): Promise<{ updated: boolean }> {
-    return this.jira.handleWebhook(body);
+  jiraWebhook(
+    @Param('connectionId') connectionId: string,
+    @Body() body: JiraWebhookPayload,
+    @Query('secret') querySecret?: string,
+    @Headers('x-webhook-secret') headerSecret?: string,
+  ): Promise<{ updated: boolean }> {
+    return this.jira.handleWebhook(connectionId, headerSecret ?? querySecret, body);
   }
 }

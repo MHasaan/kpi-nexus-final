@@ -126,6 +126,14 @@ The sweep and CRUD scripts need the stack running and `helios` seeded. The CRUD 
    - FE-008.
 4. **UX, consistency and docs:** remaining Medium / Low items — FE-002 permission editing, FE-007 terminology in nav, FE-010/011/015/016/017, BE-012/013/020/022/023/024/025, OT-003/004/005/011/012/015, and OT-016 (missing tenant FKs — do before any real tenant deletion).
 
+## Fix log
+
+Fixes land one finding at a time on `fix/full-audit`, each with a failing test first.
+
+| Finding | Status | Commit | Regression test |
+|---|---|---|---|
+| BE-014 Jira webhook | ✅ fixed | _this commit_ | `apps/api/test/integration/jira-webhook.spec.ts` (7) + `provider-handlers.spec.ts` |
+
 ## Cleanup performed
 
 - Deleted 277 test orgs (audit + E2E runs, incl. 3 from June) and 68 unclaimed onboarding drafts; removed the orphan rows they left in 31 FK-less tables (OT-016); reseeded `helios`.

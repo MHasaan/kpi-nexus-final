@@ -3,6 +3,8 @@ import type { ConnectorType, Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { KpiDataService } from '../kpis/kpi-data.service.js';
+import { assertOutboundUrl } from '../outbound/assert-outbound-url.js';
+import { outboundFetch } from '../outbound/outbound-fetch.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import {
@@ -61,6 +63,7 @@ export class ConnectorsService {
   }
 
   async create(dto: CreateConnectorDto): Promise<PublicConnector> {
+    await assertOutboundUrl(dto.config.url, 'config.url');
     const ctx = RequestContextStore.require();
     const created = await this.prisma.connector.create({
       data: {
@@ -80,6 +83,7 @@ export class ConnectorsService {
 
   async update(id: string, dto: UpdateConnectorDto): Promise<PublicConnector> {
     await this.getById(id);
+    await assertOutboundUrl(dto.config?.url, 'config.url');
     const updated = await this.prisma.connector.update({
       where: { id },
       data: {
@@ -160,13 +164,13 @@ export class ConnectorsService {
   private async runRest(config: RestConfig): Promise<ExtractedRow[]> {
     const url = new URL(config.url);
     for (const [k, v] of Object.entries(config.queryParams ?? {})) url.searchParams.set(k, v);
-    const res = await fetch(url.toString(), { method: config.method ?? 'GET', headers: config.headers });
+    const res = await outboundFetch(url.toString(), { method: config.method ?? 'GET', headers: config.headers });
     if (!res.ok) throw new Error(`REST connector got HTTP ${res.status}`);
     return extractRestRows(await res.json(), config);
   }
 
   private async runGraphql(config: GraphqlConfig): Promise<ExtractedRow[]> {
-    const res = await fetch(config.url, {
+    const res = await outboundFetch(config.url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(config.headers ?? {}) },
       body: JSON.stringify({ query: config.query, variables: config.variables ?? {} }),

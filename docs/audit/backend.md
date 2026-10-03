@@ -123,7 +123,12 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Repro:** `POST /integrations/slack/interactive` with no signature headers → `200 {"handled":false}` (no Slack connection matched). With a connected workspace's `team_id` and an alert id, an anonymous caller can acknowledge that org's alerts.
 - **Expected:** require and verify the signature whenever a signing secret is configured; reject otherwise.
 
-### BE-016 · High · SSRF: tenant-supplied URLs are fetched with no private-address filtering
+### BE-016 · High · SSRF: tenant-supplied URLs are fetched with no private-address filtering — ✅ FIXED
+- **Fix:**
+  - New `src/outbound/outbound-fetch.ts`: an undici `Agent` whose DNS lookup refuses private / loopback / link-local / CGNAT / multicast / reserved ranges (IPv4, IPv6, IPv4-mapped) at **connect time**, so DNS rebinding is covered. IP literals are checked before connecting; only http/https are allowed; redirects are followed manually (max 5) with every hop re-checked.
+  - Used by notification channels (a blocked target is non-retryable), outbound webhooks and REST/GraphQL connectors.
+  - Create/update of webhooks, channels (`url` / `webhookUrl`) and connectors now returns 400 for internal targets. Hosts that don't resolve yet are allowed; delivery re-checks them.
+  - `OUTBOUND_ALLOWED_HOSTS` explicitly allows specific internal hosts (default none).
 - **Notification channels:** `WEBHOOK` / `SLACK` / `TEAMS` — `apps/api/src/notifications/notification-adapters.service.ts:43-55,85-95` POST to `config.url` / `config.webhookUrl`.
   - **Repro:** create a `WEBHOOK` channel with `config.url = http://127.0.0.1:<port>/hook` → `201`; `POST /notification-channels/:id/test` → the API made the request to the loopback listener.
 - **REST / GraphQL connectors (full-read SSRF):** `apps/api/src/connectors/connectors.service.ts:160-176` GET/POST `config.url` and **read the response back** into KPI data.

@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 
+import { outboundFetch } from '../outbound/outbound-fetch.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { signWebhook } from './webhooks-signing.js';
@@ -50,7 +51,7 @@ export class OutboundWebhookProcessor extends WorkerHost {
         let status: number | null = null;
         let ok = false;
         try {
-          const res = await fetch(webhook.url, {
+          const res = await outboundFetch(webhook.url, {
             method: 'POST',
             headers: {
               'content-type': 'application/json',

@@ -6,6 +6,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { assertOutboundUrl } from '../outbound/assert-outbound-url.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 
 export const OUTBOUND_WEBHOOK_QUEUE = 'outbound-webhook';
@@ -62,6 +63,7 @@ export class WebhooksService {
     url: string;
     events: string[];
   }): Promise<{ webhook: PublicWebhook; secret: string }> {
+    await assertOutboundUrl(input.url);
     const ctx = RequestContextStore.require();
     const secret = newSecret();
     const webhook = await this.prisma.webhookSubscription.create({

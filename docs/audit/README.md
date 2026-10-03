@@ -138,6 +138,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-007 reset link logged, not emailed + FE-018 no reset UI | ✅ fixed | `e39802f` | `test/integration/password-reset.spec.ts` (4), `password-reset.service.spec.ts` (4), `e2e/password-reset.spec.ts` (2) |
 | BE-008 invitations never emailed | ✅ fixed | `7cc5a3a` | `test/integration/invitation-email.spec.ts` (2) |
 | OT-013 vulnerable dependencies | ✅ fixed (2 unfixable prod-path items documented) | `d52b012` | `pnpm audit`, builds, unit + integration suites, 14 E2E specs |
+| BE-016 SSRF | ✅ fixed | _this commit_ | `src/outbound/outbound-fetch.spec.ts` (41), `test/integration/ssrf-guard.spec.ts` (17) |
 
 ## Cleanup performed
 

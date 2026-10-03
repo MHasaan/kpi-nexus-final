@@ -132,7 +132,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 
 | Finding | Status | Commit | Regression test |
 |---|---|---|---|
-| BE-014 Jira webhook | ✅ fixed | _this commit_ | `apps/api/test/integration/jira-webhook.spec.ts` (7) + `provider-handlers.spec.ts` |
+| BE-014 Jira webhook | ✅ fixed | `4263927` | `apps/api/test/integration/jira-webhook.spec.ts` (7) + `provider-handlers.spec.ts` |
 
 ## Cleanup performed
 

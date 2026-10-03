@@ -137,7 +137,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** in a hosted deployment a tenant admin can reach cloud metadata (`169.254.169.254`), Redis/Postgres admin ports and other internal services. Connectors can exfiltrate response values.
 - **Expected:** resolve and block private / loopback / link-local ranges (re-check after redirects), or route egress through an allow-listed proxy.
 
-### BE-017 · Medium · No brute-force protection by default
+### BE-017 · Medium · No brute-force protection by default — ✅ FIXED
+- **Fix:** the rate limiter is ON unless `RATE_LIMIT_ENABLED=false`. Login also gets a per-account bucket (20 attempts / 15 min per email by default), so distributed brute force on one account is capped. Budgets are configurable (`RATE_LIMIT_AUTH_PER_MIN`, `RATE_LIMIT_LOGIN_PER_ACCOUNT`, `RATE_LIMIT_ORG_PER_MIN`); the local `.env` relaxes per-IP budgets for test suites. Verified live: attempts 1–100 → 401, then 429 for that account, while another account from the same IP still logs in.
 - **Repro:** 25 failed logins for one email, 12 different emails from one IP, and 15 wrong passwords for a real account followed by the right one → all `401` and then `200`. No `429`, no lockout.
 - **Cause:** `apps/api/src/rate-limit/rate-limit.guard.ts` is a no-op unless `RATE_LIMIT_ENABLED === 'true'`, and that variable isn't in any `.env.example`, so a deployment from the templates runs without rate limiting. No account-lockout logic exists.
 - **Also:** while Redis is unavailable, login still succeeds, so the limiter fails open (acceptable if intentional; worth documenting). Turning the limiter on is also the main mitigation for BE-010.

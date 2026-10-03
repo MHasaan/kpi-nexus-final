@@ -32,7 +32,46 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Expected:** use `test.skipIf(!apiAvailable)` / `describe.skipIf` (as `redis-health.spec.ts` does) so skips are visible, or fail when `REQUIRE_LIVE_API=1`.
 - **Note:** in this audit the API was up (no `[skip]` warnings printed), so the 89 passes are real.
 
-### OT-013 · Critical · Known-vulnerable dependencies in the request path (incl. Next.js RCE advisories)
+### OT-013 · Critical · Known-vulnerable dependencies in the request path (incl. Next.js RCE advisories) — ✅ FIXED (residual noted)
+- **Fix:** next 15.5.18 → 15.5.27; fastify → 5.12.5; all `@nestjs/*` → 11.2.7; nodemailer 8 → 10.0.13; bcrypt 5 → 6.0.0 (drops the `tar` chain; existing `$2b# Audit — everything else (packages, worker, infra, CI, security, docs)
+
+_Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass happens after backend and frontend._
+
+## Findings
+
+### OT-001 · Low · Lint fails (12 errors)
+- **Repro:** `pnpm turbo lint`
+- **Actual:** `@kpi-nexus/api` 11 errors, `@kpi-nexus/db` 1 error (+96 `sort-imports` warnings, all auto-fixable). CI's lint step would fail.
+- **Evidence:** unused vars — `apps/api/src/auth/me-sessions.controller.spec.ts:36` (`past`), `apps/api/src/nlq/reembed.spec.ts:14-19,92` (5 unused imports + `capturedOrgId`), `apps/api/src/onboarding/onboarding-cleanup.spec.ts:9`, `apps/api/src/reports/services/pdf-generator.ts:158` (`sparkY`), `apps/api/test/integration/cross-tenant.fuzz.spec.ts:26` (`Endpoint`), `apps/api/test/integration/owner-override.spec.ts:87` (`bobPw`), `packages/db/prisma/seed.ts:994` (`recChurn`); explicit `any` — `apps/api/src/rbac/services/access-context.service.spec.ts:65,102`.
+- **Note:** `pdf-generator.ts:158` is the only one in product code — an unused `sparkY` may mean the sparkline is drawn at the wrong y-position; check during the reports audit.
+
+### OT-002 · Low · Contracts test drift — `AccessProfile` fixture missing new required fields
+- **Repro:** `pnpm --filter @kpi-nexus/contracts test`
+- **Actual:** `src/access.spec.ts > parses a valid profile` fails: schema now requires `resourceGrants` (array) and `pageAccess` (object); the fixture predates them.
+- **Expected:** fixture updated alongside the schema.
+- **Location:** `packages/contracts/src/access.spec.ts:14-21`, schema `packages/contracts/src/access.ts`.
+
+### OT-003 · Medium · Worker app is a stub
+- **Actual:** `apps/worker/src` contains only `main.ts`, `app.module.ts` and an `echo` module. README describes the worker as "NestJS + BullMQ processors, same modules as api"; queue processors (alert engine, webhooks, …) actually live in the API process.
+- **Verified:** all 10 BullMQ processors (`alert-engine`, `calculation-engine`, `escalation`, `insights`, `reembed`, `notification-digest`, `notification-retry`, `onboarding-cleanup`, `scheduled-report`, `outbound-webhook`) are registered in `apps/api`. The worker registers only an `echo` processor. Background work therefore runs in the API process — it works (alerts, emails and reports were delivered in Part 1), but there's no isolation or independent scaling, and the worker deployable is dead weight.
+
+### OT-004 · Low · Status docs contradict each other
+- `ROADMAP.md`: P0–P9 all ✅.
+- `TODOS.md`: 77 checked / 354 unchecked.
+- `README.md` "Current status": "P0 merged… P1 is next".
+- `NEXT-SESSION.md`: "Nothing is coded yet."
+
+### OT-006 · Low · API integration specs pass silently when the API is down
+- **Evidence:** `apps/api/test/integration/cross-tenant.fuzz.spec.ts:140-163`, among others — `beforeAll` sets `apiAvailable = false` when `/health` is unreachable, and each test starts with `if (skipIfNoApi()) return;`. The test body is skipped but the test is reported as **passed**.
+- **Impact:** a CI run without a live API shows a green "cross-tenant fuzz" that tested nothing.
+- **Expected:** use `test.skipIf(!apiAvailable)` / `describe.skipIf` (as `redis-health.spec.ts` does) so skips are visible, or fail when `REQUIRE_LIVE_API=1`.
+- **Note:** in this audit the API was up (no `[skip]` warnings printed), so the 89 passes are real.
+
+ hashes verified); OpenTelemetry sdk-node 0.57 → 0.222 / resources 1.30 → 2.11 (`Resource` → `resourceFromAttributes`). Root `pnpm.overrides` pin patched transitive versions within their parents' ranges: fastify, find-my-way, fast-uri, @grpc/grpc-js, postcss, nanoid@3, browserslist, sharp, brace-expansion@1/@2.
+- **Audit:** 4 critical · 62 high · 32 moderate · 3 low → **1 critical · 11 high · 9 moderate · 2 low**. Everything left is dev-only (vitest UI, vite, js-yaml, brace-expansion@5 via tooling) except two items in production paths:
+  - `deepmerge-ts`, internal to `@prisma/client` 6.19 — the fix needs deepmerge-ts 8, which Prisma doesn't support yet;
+  - `braces`, via tailwindcss's chokidar — build-time only, and no patched version exists.
+- **Verified:** typecheck; unit suites unchanged (api 1382, web 92, ai 42, worker 2); `next build` + `nest build`; integration suite 102 / 105 (3 intentional skips); 14 E2E specs; OTel span exported to Jaeger.
 - **Repro:** `pnpm audit --audit-level low` (the CI `pnpm-audit` job never got this far — OT-007) → **4 critical · 62 high · 32 moderate · 3 low**.
 - **Production / runtime path:**
 
@@ -60,6 +99,12 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
   - The database-layer safety net the design spec promises (spec §3.1 / §5.1, P1 exit criterion "Postgres RLS enforced") does not exist at runtime.
   - Running the app as a superuser also means any SQL-execution bug yields full cluster control (e.g. `COPY … PROGRAM`).
 - **Expected:** connect the API as `kpi_app` (non-owner, `NOBYPASSRLS`); enable + `FORCE ROW LEVEL SECURITY` on every tenant table; keep the owner role for migrations only.
+
+### OT-018 · Medium · OpenTelemetry tracing never starts, and would record nothing if it did
+- **Evidence:** `apps/api/src/main.ts:1` imports `./instrumentation.js` first, but `OTEL_EXPORTER_OTLP_ENDPOINT` lives in `apps/api/.env`, which `@nestjs/config` loads later. At import time the variable is unset, so the SDK never starts — Jaeger has never seen the `kpi-nexus-api` service.
+- **Also:** `NodeSDK` is created with no `instrumentations` (no HTTP / Fastify / Prisma / ioredis), so even when started it records no spans automatically.
+- **Status:** the upgraded SDK itself works (a manual span reached Jaeger during the OT-013 fix). Found while verifying OT-013.
+- **Expected:** load `.env` before instrumentation (e.g. `node --env-file` or `dotenv/config` at the top of `instrumentation.ts`) and register `getNodeAutoInstrumentations()` or explicit HTTP / Fastify / Prisma instrumentations.
 
 ### OT-007 · High · CI has never passed — 0 of 40 runs since 2026-05-25
 - **Evidence:** `gh run list --workflow CI` → 40 runs (35 `pull_request`, 5 `push`), 0 successes. Every pnpm-based job dies in ~40 s at `pnpm/action-setup@v4`: *"Multiple versions of pnpm specified: version 9 in the GitHub Action config … "* — `.github/workflows/ci.yml` passes `version: 9` while `package.json` declares `"packageManager": "pnpm@9.15.0"`.

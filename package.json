@@ -32,5 +32,20 @@
   "devDependencies": {
     "pg": "^8.13.0",
     "turbo": "^2.9.14"
+  },
+  "pnpm": {
+    "//": "Security pins for transitive deps (audit OT-013). Each stays within the range its parent supports; drop a pin once the parent ships the patched version.",
+    "overrides": {
+      "fastify": "^5.12.5",
+      "find-my-way": "^9.7.0",
+      "fast-uri": "^3.1.7",
+      "@grpc/grpc-js": "^1.14.5",
+      "postcss": "^8.5.18",
+      "nanoid@^3": "^3.3.18",
+      "browserslist": "^4.28.7",
+      "sharp": "^0.35.5",
+      "brace-expansion@^2": "^2.1.2",
+      "brace-expansion@^1": "^1.1.20"
+    }
   }
 }

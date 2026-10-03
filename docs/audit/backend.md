@@ -69,7 +69,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** (1) security — anyone who can read application logs (log shipping, Sentry/OTel exporters, support staff) can reset and take over any account that requests a reset; (2) functional — no reset email is ever sent, so in production "forgot password" doesn't work.
 - **Good:** known and unknown emails both get `202 {"accepted":true}` → no account enumeration.
 
-### BE-008 · High · Invitations are never emailed
+### BE-008 · High · Invitations are never emailed — ✅ FIXED
+- **Fix:** `UsersService.invite()` now emails the accept link (`WEB_APP_URL/accept-invitation?token=…`, naming the org and inviter) via `EmailService`; the response gains `emailSent`. The link is no longer logged. The dev-only `inviteToken` / `acceptUrl` response fields are kept for E2E.
 - **Repro:** `POST /users {email, fullName}` → user created as `INVITED`; nothing arrives in Mailhog. The run's audit also found Mailhog holds only alert and scheduled-report mail.
 - **Code:** `apps/api/src/users/users.service.ts:400-470` — "the email handoff goes through EmailService when that module lands". `EmailService` exists (used by notifications and reports) but `invite()` never calls it. In non-production the response carries `inviteToken` + `acceptUrl` and the link is logged (`[invite] … → <acceptUrl>`); in production both are omitted.
 - **Impact:** in production, invited users have no way to get their accept link → onboarding of team members is broken.

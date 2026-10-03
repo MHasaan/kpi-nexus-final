@@ -22,6 +22,8 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { AuditService } from '../audit/audit.service.js';
+import { EmailService } from '../email/email.service.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -46,6 +48,8 @@ export interface InviteResult {
   inviteToken?: string;
   /** Frontend accept-invitation URL — only when NODE_ENV !== 'production'. */
   acceptUrl?: string;
+  /** Whether the invitation email was handed to the mail server. */
+  emailSent: boolean;
 }
 
 const userSelect = {
@@ -108,6 +112,7 @@ export class UsersService {
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
     private readonly accessContext: AccessContextService,
+    private readonly email: EmailService,
   ) {}
 
   list(): Promise<PublicUser[]> {
@@ -479,27 +484,45 @@ export class UsersService {
       metadata: { reason: 'invited', email: dto.email },
     });
 
-    const isDev = process.env.NODE_ENV !== 'production';
-    const acceptUrl = isDev ? this.acceptUrlForDev(plaintext) : undefined;
-    if (isDev) {
-      this.logger.log(`[invite] ${dto.email} → ${acceptUrl} (expires ${expiresAt.toISOString()})`);
-    }
+    const link = webAppUrl(`/accept-invitation?token=${encodeURIComponent(plaintext)}`);
+    const emailSent = await this.sendInviteEmail(user.id, dto.email, link, expiresAt);
 
+    const isDev = process.env.NODE_ENV !== 'production';
     return {
       user,
       inviteToken: isDev ? plaintext : undefined,
-      acceptUrl,
+      acceptUrl: isDev ? link : undefined,
+      emailSent,
     };
+  }
+
+  /** Emails the accept link (never logged). Returns false if delivery failed. */
+  private async sendInviteEmail(userId: string, to: string, link: string, expiresAt: Date): Promise<boolean> {
+    const ctx = RequestContextStore.require();
+    const [org, inviter] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { name: true } }),
+      ctx.userId ? this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { fullName: true } }) : null,
+    ]);
+    const orgName = org?.name ?? 'your organization';
+    const who = inviter?.fullName ? `${inviter.fullName} has` : "You've been";
+    try {
+      await this.email.send({
+        to,
+        subject: `You're invited to ${orgName} on KPI Nexus`,
+        html:
+          `<p>${who} invited you to join <strong>${orgName}</strong> on KPI Nexus.</p>` +
+          `<p><a href="${link}">Accept the invitation</a></p>` +
+          `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
+        text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expiresAt.toUTCString()}`,
+      });
+      return true;
+    } catch (err) {
+      this.logger.warn(`invitation email failed (user ${userId}): ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   }
 
   private hash(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  private acceptUrlForDev(token: string): string {
-    const webBase =
-      process.env.NEXT_PUBLIC_WEB_URL ??
-      (process.env.NEXT_PUBLIC_API_URL?.replace(':4000', ':3000') ?? 'http://localhost:3000');
-    return `${webBase}/accept-invitation?token=${token}`;
   }
 }

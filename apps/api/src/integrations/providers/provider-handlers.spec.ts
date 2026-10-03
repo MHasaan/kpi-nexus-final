@@ -33,6 +33,17 @@ describe('SlackService.handleInteractive', () => {
     expect(alerts.acknowledge).toHaveBeenCalledWith('al_1');
   });
 
+  test("real Slack block_actions shape (team: { id }) resolves the org and acks (BE-029)", async () => {
+    const { service, alerts } = make();
+    const res = await service.handleInteractive({
+      type: 'block_actions',
+      team: { id: 'T123', domain: 'helios' },
+      actions: [{ action_id: 'acknowledge_alert', value: 'al_1' }],
+    });
+    expect(res.handled).toBe(true);
+    expect(alerts.acknowledge).toHaveBeenCalledWith('al_1');
+  });
+
   test('unknown team → not handled, no ack', async () => {
     const { service, alerts } = make();
     const res = await service.handleInteractive({ team_id: 'T_UNKNOWN', actions: [{ action_id: 'acknowledge_alert', value: 'al_1' }] });

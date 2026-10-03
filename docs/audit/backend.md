@@ -207,7 +207,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** live dashboard refresh (P3 "SSE real-time") never works in a browser, because the web and API are always on different origins. The `uc05-realtime` E2E passes only because it doesn't go through a browser `fetch`.
 - **Expected:** set the CORS headers (origin from the allow-list + credentials) on `raw` before writing, or avoid `hijack()`.
 
-### BE-029 · Medium · Slack interactive handler reads `team_id`, but Slack sends `team.id`
+### BE-029 · Medium · Slack interactive handler reads `team_id`, but Slack sends `team.id` — ✅ FIXED
+- **Fix:** resolve the workspace from `team.id` (falling back to legacy `team_id`); no team → not handled.
 - **Evidence:** `apps/api/src/integrations/providers/slack.service.ts` — `SlackInteractivePayload.team_id` → `resolveOrg(payload.team_id)`. Slack `block_actions` payloads carry the workspace as `team: { id }`, with no top-level `team_id`. So a genuine, correctly signed button click never resolves an org, and "Acknowledge" from Slack never works. Found while fixing BE-015.
 
 ## Verified working (no finding)

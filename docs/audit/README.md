@@ -134,7 +134,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 |---|---|---|---|
 | BE-014 Jira webhook | ✅ fixed | `4263927` | `apps/api/test/integration/jira-webhook.spec.ts` (7) + `provider-handlers.spec.ts` |
 | BE-015 Slack signature fail-open | ✅ fixed | `e46e7d1` | `slack-interactive.controller.spec.ts` (8) |
-| BE-029 Slack `team.id` payload shape | ✅ fixed | _this commit_ | `provider-handlers.spec.ts` |
+| BE-029 Slack `team.id` payload shape | ✅ fixed | `2f623e1` | `provider-handlers.spec.ts` |
 
 ## Cleanup performed
 

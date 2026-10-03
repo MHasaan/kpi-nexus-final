@@ -21,6 +21,10 @@ export default defineConfig({
     reporters: ['verbose'],
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // Every spec drives the same live API process (and registers orgs, each a
+    // bcrypt hash). Running files in parallel starves it: per-file health
+    // probes time out and whole files silently skip. Run them one at a time.
+    fileParallelism: false,
   },
   esbuild: {
     target: 'es2022',

@@ -136,7 +136,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-015 Slack signature fail-open | ✅ fixed | `e46e7d1` | `slack-interactive.controller.spec.ts` (8) |
 | BE-029 Slack `team.id` payload shape | ✅ fixed | `2f623e1` | `provider-handlers.spec.ts` |
 | BE-007 reset link logged, not emailed + FE-018 no reset UI | ✅ fixed | `e39802f` | `test/integration/password-reset.spec.ts` (4), `password-reset.service.spec.ts` (4), `e2e/password-reset.spec.ts` (2) |
-| BE-008 invitations never emailed | ✅ fixed | _this commit_ | `test/integration/invitation-email.spec.ts` (2) |
+| BE-008 invitations never emailed | ✅ fixed | `7cc5a3a` | `test/integration/invitation-email.spec.ts` (2) |
 
 ## Cleanup performed
 

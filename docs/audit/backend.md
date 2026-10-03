@@ -115,7 +115,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** anyone on the internet can change the status of tasks in any tenant. `contains` makes short keys match arbitrary refs.
 - **Expected:** verify a per-connection Jira webhook secret, resolve the org from the connection, and match `externalRef` exactly within that org.
 
-### BE-015 · High · Slack interactive endpoint skips signature verification when headers are absent
+### BE-015 · High · Slack interactive endpoint skips signature verification when headers are absent — ✅ FIXED
+- **Fix:** always verify (`SLACK_SIGNING_SECRET` required — fails closed when unset); missing headers, bad/stale signature or no raw body → 401 before parsing. Verification now runs over the exact request bytes (`rawBody: true` in `main.ts`) instead of a re-serialised body, which could never match a real Slack signature.
 - **Code:** `integration-providers.controller.ts:33-40` — `if (secret && signature && timestamp) { verify… }`. A request that simply omits `x-slack-signature` / `x-slack-request-timestamp` is never verified (fail-open). It then runs `alerts.acknowledge(action.value)` for the org resolved from `payload.team_id`.
 - **Repro:** `POST /integrations/slack/interactive` with no signature headers → `200 {"handled":false}` (no Slack connection matched). With a connected workspace's `team_id` and an alert id, an anonymous caller can acknowledge that org's alerts.
 - **Expected:** require and verify the signature whenever a signing secret is configured; reject otherwise.
@@ -205,6 +206,9 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Cause:** `apps/api/src/realtime/realtime.controller.ts:49-56` calls `reply.hijack()` and writes headers on `reply.raw`, bypassing `@fastify/cors`'s hooks.
 - **Impact:** live dashboard refresh (P3 "SSE real-time") never works in a browser, because the web and API are always on different origins. The `uc05-realtime` E2E passes only because it doesn't go through a browser `fetch`.
 - **Expected:** set the CORS headers (origin from the allow-list + credentials) on `raw` before writing, or avoid `hijack()`.
+
+### BE-029 · Medium · Slack interactive handler reads `team_id`, but Slack sends `team.id`
+- **Evidence:** `apps/api/src/integrations/providers/slack.service.ts` — `SlackInteractivePayload.team_id` → `resolveOrg(payload.team_id)`. Slack `block_actions` payloads carry the workspace as `team: { id }`, with no top-level `team_id`. So a genuine, correctly signed button click never resolves an org, and "Acknowledge" from Slack never works. Found while fixing BE-015.
 
 ## Verified working (no finding)
 

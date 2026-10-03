@@ -177,6 +177,34 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 ### BE-025 · Low · `POST /insights/generate` for another tenant's KPI returns `201 {"insight":null}`
 - No data is exposed, but it should be `404` like the other KPI-scoped endpoints.
 
+### BE-026 · High · AI features fail intermittently: Gemini key failover stops on a retired-model 404
+- **Evidence (`AiCallLog`, last 12 h):** `gemini-2.5-flash` 30 × SUCCESS, **17 × FAILED 404**, 4 × 503. Every fallback then hits Claude models with no API key configured (`claude-opus-4-7` / `claude-haiku-4-5` → 21 × 401). KPI_SUGGESTIONS failed 3/3; RECOMMENDATIONS 11 × 404.
+- **Root cause (probed each of the 8 configured `GEMINI_API_KEYS` with a tiny `generateContent`):**
+  - keys #1–#2 → `429 RESOURCE_EXHAUSTED` (quota). This one is handled: rotate to the next key.
+  - keys #3–#4 → `404 NOT_FOUND: "This model models/gemini-2.5-flash is no longer available to new users"`.
+  - keys #5–#8 → OK.
+- **The 404 path:** `packages/ai/src/providers/gemini.ts:88-90` treats only 429/401/403 as key-level. A 404 is thrown as request-level (`:127-128`) without trying the remaining keys, so whenever the round-robin lands on #3/#4 the call fails.
+- **Compounding:**
+  - the configured default model (`apps/api/src/ai/default-fyp-config.ts`) is being retired by Google;
+  - fallbacks point at a provider with no key;
+  - the provider's error text is discarded (the call log stores only the status code, the API returns a bare `503` / `AiProviderUnavailableError`, nothing is logged), which made this hard to diagnose.
+- **Impact:** about 1 in 4 AI requests fail (recommendations, KPI suggestions, onboarding co-pilot, NLQ, insights). This accounts for 7 of the 32 E2E failures.
+- **Expected:** treat "model not available for this key" as key-level (or fall back to a supported model), move defaults to a current model, only configure fallbacks with keys, and log/store the provider error message.
+
+### BE-027 · High · Board-pack API returns a shape the web doesn't expect, and no values
+- **Shape:** `GET /reports/board-pack?sinceDays=30` returns `quadrants: [{ name, health: {ok,warning,critical,unknown}, topKpis: [{ kpiId, name, latestValue }] }]`. The web contract (`apps/web/src/lib/api-client.ts:1316-1334`) expects `quadrants: [{ name, kpis: [{ kpiId, name, value, status }], healthDistribution }]` → the page crashes (FE-012).
+- **Data:** on seeded `helios` (data through the current month) every quadrant reports `health.unknown = N`, every `latestValue: null`, and `topMovers: []`. The board pack finds no data even when the shape is right.
+- **Location:** `apps/api/src/reports/` board-pack service vs `apps/web/src/app/reports/board-pack/page.tsx`.
+
+### BE-028 · High · Real-time stream (SSE) is blocked by CORS in the browser
+- **Repro:**
+  - `curl -H "Origin: http://localhost:3000" -H "authorization: Bearer …" /realtime/stream?dashboardId=x` → `200 text/event-stream` with **no** `Access-Control-Allow-Origin`.
+  - The same request to `/kpis` → `access-control-allow-origin: http://localhost:3000`.
+  - The browser logs on every dashboard page: "Access to fetch at '…/realtime/stream?dashboardId=…' … blocked by CORS policy".
+- **Cause:** `apps/api/src/realtime/realtime.controller.ts:49-56` calls `reply.hijack()` and writes headers on `reply.raw`, bypassing `@fastify/cors`'s hooks.
+- **Impact:** live dashboard refresh (P3 "SSE real-time") never works in a browser, because the web and API are always on different origins. The `uc05-realtime` E2E passes only because it doesn't go through a browser `fetch`.
+- **Expected:** set the CORS headers (origin from the allow-list + credentials) on `raw` before writing, or avoid `hijack()`.
+
 ## Verified working (no finding)
 
 - **NLQ tenant isolation:** org B asked "list every KPI you know about" → no org-A or `helios` KPIs.

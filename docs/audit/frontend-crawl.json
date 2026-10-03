@@ -1,0 +1,3986 @@
+{
+  "generatedAt": "2026-10-03T06:21:07.655Z",
+  "routes": 80,
+  "results": [
+    {
+      "route": "/",
+      "url": "/",
+      "persona": "admin",
+      "finalPath": "/dashboard",
+      "ms": 3599,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/accept-invitation",
+      "url": "/accept-invitation",
+      "persona": "admin",
+      "finalPath": "/accept-invitation",
+      "ms": 13261,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/activity",
+      "url": "/activity",
+      "persona": "admin",
+      "finalPath": "/activity",
+      "ms": 12213,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts",
+      "url": "/alerts",
+      "persona": "admin",
+      "finalPath": "/alerts",
+      "ms": 11550,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/[id]",
+      "url": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "persona": "admin",
+      "finalPath": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "ms": 11552,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/channels",
+      "url": "/alerts/channels",
+      "persona": "admin",
+      "finalPath": "/alerts/channels",
+      "ms": 9105,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/new",
+      "url": "/alerts/new",
+      "persona": "admin",
+      "finalPath": "/alerts/new",
+      "ms": 6599,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/approvals",
+      "url": "/approvals",
+      "persona": "admin",
+      "finalPath": "/approvals",
+      "ms": 10114,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/ask",
+      "url": "/ask",
+      "persona": "admin",
+      "finalPath": "/ask",
+      "ms": 9873,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/billing",
+      "url": "/billing",
+      "persona": "admin",
+      "finalPath": "/billing",
+      "ms": 7279,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors",
+      "url": "/connectors",
+      "persona": "admin",
+      "finalPath": "/connectors",
+      "ms": 5733,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors/[id]",
+      "url": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "persona": "admin",
+      "finalPath": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "ms": 8485,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboard",
+      "url": "/dashboard",
+      "persona": "admin",
+      "finalPath": "/dashboard",
+      "ms": 3257,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards",
+      "url": "/dashboards",
+      "persona": "admin",
+      "finalPath": "/dashboards",
+      "ms": 18893,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "persona": "admin",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "ms": 13438,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/share",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "persona": "admin",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "ms": 6339,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/snapshots",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "persona": "admin",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "ms": 13177,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/widgets/[wid]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "persona": "admin",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "ms": 11124,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/archive",
+      "url": "/dashboards/archive",
+      "persona": "admin",
+      "finalPath": "/dashboards/archive",
+      "ms": 17149,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/new",
+      "url": "/dashboards/new",
+      "persona": "admin",
+      "finalPath": "/dashboards/new",
+      "ms": 10175,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/embed/kpi/[token]",
+      "url": "/embed/kpi/<token>",
+      "persona": "admin",
+      "finalPath": "/embed/kpi/<token>",
+      "ms": 8391,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/insights",
+      "url": "/insights",
+      "persona": "admin",
+      "finalPath": "/insights",
+      "ms": 7314,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/integrations",
+      "url": "/integrations",
+      "persona": "admin",
+      "finalPath": "/integrations",
+      "ms": 7001,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis",
+      "url": "/kpis",
+      "persona": "admin",
+      "finalPath": "/kpis",
+      "ms": 5278,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]",
+      "url": "/kpis/cmure3474007vhi4c6htru75t",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t",
+      "ms": 6671,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/anomalies",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "ms": 6462,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/edit",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "ms": 6956,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/embed",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "ms": 9385,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/forecast",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "ms": 5578,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/whatif",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "persona": "admin",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "ms": 4420,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/archive",
+      "url": "/kpis/archive",
+      "persona": "admin",
+      "finalPath": "/kpis/archive",
+      "ms": 4494,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/categories",
+      "url": "/kpis/categories",
+      "persona": "admin",
+      "finalPath": "/kpis/categories",
+      "ms": 6238,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/import",
+      "url": "/kpis/import",
+      "persona": "admin",
+      "finalPath": "/kpis/import",
+      "ms": 4834,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/new",
+      "url": "/kpis/new",
+      "persona": "admin",
+      "finalPath": "/kpis/new",
+      "ms": 5938,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/scorecard",
+      "url": "/kpis/scorecard",
+      "persona": "admin",
+      "finalPath": "/kpis/scorecard",
+      "ms": 7682,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/templates",
+      "url": "/kpis/templates",
+      "persona": "admin",
+      "finalPath": "/kpis/templates",
+      "ms": 4476,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/tree",
+      "url": "/kpis/tree",
+      "persona": "admin",
+      "finalPath": "/kpis/tree",
+      "ms": 4535,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/login",
+      "url": "/login",
+      "persona": "admin",
+      "finalPath": "/login",
+      "ms": 3190,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/mentions",
+      "url": "/me/mentions",
+      "persona": "admin",
+      "finalPath": "/me/mentions",
+      "ms": 21756,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/sessions",
+      "url": "/me/sessions",
+      "persona": "admin",
+      "finalPath": "/me/sessions",
+      "ms": 4794,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/my-kpis",
+      "url": "/my-kpis",
+      "persona": "admin",
+      "finalPath": "/my-kpis",
+      "ms": 6656,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs",
+      "url": "/okrs",
+      "persona": "admin",
+      "finalPath": "/okrs",
+      "ms": 7282,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs/[id]",
+      "url": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "persona": "admin",
+      "finalPath": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "ms": 3524,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/org-units",
+      "url": "/org-units",
+      "persona": "admin",
+      "finalPath": "/org-units",
+      "ms": 3507,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/plugins",
+      "url": "/plugins",
+      "persona": "admin",
+      "finalPath": "/plugins",
+      "ms": 6808,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/positions",
+      "url": "/positions",
+      "persona": "admin",
+      "finalPath": "/positions",
+      "ms": 3961,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/profile",
+      "url": "/profile",
+      "persona": "admin",
+      "finalPath": "/profile",
+      "ms": 4281,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/recommendations",
+      "url": "/recommendations",
+      "persona": "admin",
+      "finalPath": "/recommendations",
+      "ms": 4129,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/register",
+      "url": "/register",
+      "persona": "admin",
+      "finalPath": "/register",
+      "ms": 3875,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports",
+      "url": "/reports",
+      "persona": "admin",
+      "finalPath": "/reports",
+      "ms": 4713,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/[id]",
+      "url": "/reports/cmurohem0044hhixg3vf5enz9",
+      "persona": "admin",
+      "finalPath": "/reports/cmurohem0044hhixg3vf5enz9",
+      "ms": 7270,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/board-pack",
+      "url": "/reports/board-pack",
+      "persona": "admin",
+      "finalPath": "/reports/board-pack",
+      "ms": 13254,
+      "consoleErrors": [],
+      "pageErrors": [
+        "TypeError: Cannot read properties of undefined (reading 'length')"
+      ],
+      "failedRequests": [],
+      "errorScreen": "Application error",
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/new",
+      "url": "/reports/new",
+      "persona": "admin",
+      "finalPath": "/reports/new",
+      "ms": 4369,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/roles",
+      "url": "/roles",
+      "persona": "admin",
+      "finalPath": "/roles",
+      "ms": 4125,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings",
+      "url": "/settings",
+      "persona": "admin",
+      "finalPath": "/settings",
+      "ms": 11746,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/access",
+      "url": "/settings/access",
+      "persona": "admin",
+      "finalPath": "/settings/access",
+      "ms": 9082,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/ai",
+      "url": "/settings/ai",
+      "persona": "admin",
+      "finalPath": "/settings/ai",
+      "ms": 6118,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/api-keys",
+      "url": "/settings/api-keys",
+      "persona": "admin",
+      "finalPath": "/settings/api-keys",
+      "ms": 4802,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/audit",
+      "url": "/settings/audit",
+      "persona": "admin",
+      "finalPath": "/settings/audit",
+      "ms": 6624,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/branding",
+      "url": "/settings/branding",
+      "persona": "admin",
+      "finalPath": "/settings/branding",
+      "ms": 4824,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/custom-domain",
+      "url": "/settings/custom-domain",
+      "persona": "admin",
+      "finalPath": "/settings/custom-domain",
+      "ms": 6484,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/fiscal",
+      "url": "/settings/fiscal",
+      "persona": "admin",
+      "finalPath": "/settings/fiscal",
+      "ms": 4006,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/notifications",
+      "url": "/settings/notifications",
+      "persona": "admin",
+      "finalPath": "/settings/notifications",
+      "ms": 6820,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/notifications/dlq",
+      "url": "/settings/notifications/dlq",
+      "persona": "admin",
+      "finalPath": "/settings/notifications/dlq",
+      "ms": 4403,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/organization",
+      "url": "/settings/organization",
+      "persona": "admin",
+      "finalPath": "/settings/organization",
+      "ms": 4102,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/password-policy",
+      "url": "/settings/password-policy",
+      "persona": "admin",
+      "finalPath": "/settings/password-policy",
+      "ms": 4030,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/retention",
+      "url": "/settings/retention",
+      "persona": "admin",
+      "finalPath": "/settings/retention",
+      "ms": 6170,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/scim",
+      "url": "/settings/scim",
+      "persona": "admin",
+      "finalPath": "/settings/scim",
+      "ms": 5035,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/sso",
+      "url": "/settings/sso",
+      "persona": "admin",
+      "finalPath": "/settings/sso",
+      "ms": 5602,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/webhooks",
+      "url": "/settings/webhooks",
+      "persona": "admin",
+      "finalPath": "/settings/webhooks",
+      "ms": 4241,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/share/[token]",
+      "url": "/share/<token>",
+      "persona": "admin",
+      "finalPath": "/share/<token>",
+      "ms": 4152,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup",
+      "url": "/signup",
+      "persona": "admin",
+      "finalPath": "/signup",
+      "ms": 5791,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup/wizard",
+      "url": "/signup/wizard",
+      "persona": "admin",
+      "finalPath": "/signup",
+      "ms": 3949,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/status",
+      "url": "/status",
+      "persona": "admin",
+      "finalPath": "/status",
+      "ms": 3894,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/tasks",
+      "url": "/tasks",
+      "persona": "admin",
+      "finalPath": "/tasks",
+      "ms": 4088,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/team",
+      "url": "/team",
+      "persona": "admin",
+      "finalPath": "/team",
+      "ms": 5065,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/unauthorized",
+      "url": "/unauthorized",
+      "persona": "admin",
+      "finalPath": "/unauthorized",
+      "ms": 6453,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/users",
+      "url": "/users",
+      "persona": "admin",
+      "finalPath": "/users",
+      "ms": 4281,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/users/[id]",
+      "url": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "persona": "admin",
+      "finalPath": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "ms": 10536,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/workflows",
+      "url": "/workflows",
+      "persona": "admin",
+      "finalPath": "/workflows",
+      "ms": 7152,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/",
+      "url": "/",
+      "persona": "anon",
+      "finalPath": "/",
+      "ms": 4045,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/accept-invitation",
+      "url": "/accept-invitation",
+      "persona": "anon",
+      "finalPath": "/accept-invitation",
+      "ms": 3995,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/activity",
+      "url": "/activity",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4238,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts",
+      "url": "/alerts",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4246,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/[id]",
+      "url": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4364,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/channels",
+      "url": "/alerts/channels",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4159,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/new",
+      "url": "/alerts/new",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4149,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/approvals",
+      "url": "/approvals",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4202,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/ask",
+      "url": "/ask",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4180,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/billing",
+      "url": "/billing",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4089,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors",
+      "url": "/connectors",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4148,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors/[id]",
+      "url": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4255,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboard",
+      "url": "/dashboard",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4879,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me",
+        "401 GET /approvals/requests?status=PENDING"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards",
+      "url": "/dashboards",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5472,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5470,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/share",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4518,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/snapshots",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4425,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/widgets/[wid]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4423,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/archive",
+      "url": "/dashboards/archive",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4342,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/new",
+      "url": "/dashboards/new",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4255,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/embed/kpi/[token]",
+      "url": "/embed/kpi/<token>",
+      "persona": "anon",
+      "finalPath": "/embed/kpi/<token>",
+      "ms": 4413,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/insights",
+      "url": "/insights",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4388,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/integrations",
+      "url": "/integrations",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5252,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me",
+        "401 GET /integrations"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis",
+      "url": "/kpis",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4360,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]",
+      "url": "/kpis/cmure3474007vhi4c6htru75t",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4738,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/anomalies",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5084,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/edit",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4721,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/embed",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "persona": "anon",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "ms": 10022,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": true
+    },
+    {
+      "route": "/kpis/[id]/forecast",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 18840,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/whatif",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5205,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/archive",
+      "url": "/kpis/archive",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4170,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/categories",
+      "url": "/kpis/categories",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4048,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/import",
+      "url": "/kpis/import",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4096,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/new",
+      "url": "/kpis/new",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4037,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/scorecard",
+      "url": "/kpis/scorecard",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4113,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/templates",
+      "url": "/kpis/templates",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4075,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/tree",
+      "url": "/kpis/tree",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4334,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/login",
+      "url": "/login",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 3150,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/mentions",
+      "url": "/me/mentions",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 7067,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/sessions",
+      "url": "/me/sessions",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 5058,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/my-kpis",
+      "url": "/my-kpis",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 3289,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs",
+      "url": "/okrs",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4271,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs/[id]",
+      "url": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4552,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/org-units",
+      "url": "/org-units",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4338,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/plugins",
+      "url": "/plugins",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4168,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/positions",
+      "url": "/positions",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4374,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/profile",
+      "url": "/profile",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4310,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/recommendations",
+      "url": "/recommendations",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4155,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/register",
+      "url": "/register",
+      "persona": "anon",
+      "finalPath": "/register",
+      "ms": 4145,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports",
+      "url": "/reports",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4236,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/[id]",
+      "url": "/reports/cmurohem0044hhixg3vf5enz9",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4431,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/board-pack",
+      "url": "/reports/board-pack",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 5332,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/new",
+      "url": "/reports/new",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 5174,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/roles",
+      "url": "/roles",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4229,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings",
+      "url": "/settings",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4254,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/access",
+      "url": "/settings/access",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5126,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/ai",
+      "url": "/settings/ai",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4855,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/api-keys",
+      "url": "/settings/api-keys",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4623,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/audit",
+      "url": "/settings/audit",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4317,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/branding",
+      "url": "/settings/branding",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4219,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/custom-domain",
+      "url": "/settings/custom-domain",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4180,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/fiscal",
+      "url": "/settings/fiscal",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4554,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/notifications",
+      "url": "/settings/notifications",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 5088,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/notifications/dlq",
+      "url": "/settings/notifications/dlq",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4358,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/organization",
+      "url": "/settings/organization",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4715,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/password-policy",
+      "url": "/settings/password-policy",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4231,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/retention",
+      "url": "/settings/retention",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4133,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/scim",
+      "url": "/settings/scim",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4067,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/sso",
+      "url": "/settings/sso",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4134,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/webhooks",
+      "url": "/settings/webhooks",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4245,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/share/[token]",
+      "url": "/share/<token>",
+      "persona": "anon",
+      "finalPath": "/share/<token>",
+      "ms": 4811,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup",
+      "url": "/signup",
+      "persona": "anon",
+      "finalPath": "/signup",
+      "ms": 5453,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup/wizard",
+      "url": "/signup/wizard",
+      "persona": "anon",
+      "finalPath": "/signup",
+      "ms": 4157,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/status",
+      "url": "/status",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4148,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/tasks",
+      "url": "/tasks",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4377,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me",
+        "401 GET /users",
+        "401 GET /kpis"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/team",
+      "url": "/team",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4330,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/unauthorized",
+      "url": "/unauthorized",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4243,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/users",
+      "url": "/users",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 4640,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/users/[id]",
+      "url": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "persona": "anon",
+      "finalPath": "/unauthorized",
+      "ms": 5115,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/workflows",
+      "url": "/workflows",
+      "persona": "anon",
+      "finalPath": "/login",
+      "ms": 4855,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "401 GET /auth/me"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/",
+      "url": "/",
+      "persona": "contrib",
+      "finalPath": "/",
+      "ms": 3372,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": true
+    },
+    {
+      "route": "/accept-invitation",
+      "url": "/accept-invitation",
+      "persona": "contrib",
+      "finalPath": "/accept-invitation",
+      "ms": 10801,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/activity",
+      "url": "/activity",
+      "persona": "contrib",
+      "finalPath": "/activity",
+      "ms": 7298,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts",
+      "url": "/alerts",
+      "persona": "contrib",
+      "finalPath": "/alerts",
+      "ms": 8853,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/[id]",
+      "url": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "persona": "contrib",
+      "finalPath": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "ms": 7657,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /notification-deliveries"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/alerts/channels",
+      "url": "/alerts/channels",
+      "persona": "contrib",
+      "finalPath": "/alerts/channels",
+      "ms": 6262,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /notification-channels"
+      ],
+      "emptyMain": true
+    },
+    {
+      "route": "/alerts/new",
+      "url": "/alerts/new",
+      "persona": "contrib",
+      "finalPath": "/alerts/new",
+      "ms": 7768,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /notification-channels"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/approvals",
+      "url": "/approvals",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 13592,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /approvals/workflows"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/ask",
+      "url": "/ask",
+      "persona": "contrib",
+      "finalPath": "/ask",
+      "ms": 10285,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/billing",
+      "url": "/billing",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 6198,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /billing"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors",
+      "url": "/connectors",
+      "persona": "contrib",
+      "finalPath": "/connectors",
+      "ms": 9822,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /connectors"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/connectors/[id]",
+      "url": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "persona": "contrib",
+      "finalPath": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "ms": 11585,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /connectors/cmure36dm00ibhi4cd3xvwemk",
+        "403 GET /connectors/cmure36dm00ibhi4cd3xvwemk/runs"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboard",
+      "url": "/dashboard",
+      "persona": "contrib",
+      "finalPath": "/dashboard",
+      "ms": 4462,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards",
+      "url": "/dashboards",
+      "persona": "contrib",
+      "finalPath": "/dashboards",
+      "ms": 10043,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "persona": "contrib",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "ms": 13967,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/share",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "persona": "contrib",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "ms": 10617,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/snapshots",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "persona": "contrib",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "ms": 9232,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/[id]/widgets/[wid]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "persona": "contrib",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "ms": 7094,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/archive",
+      "url": "/dashboards/archive",
+      "persona": "contrib",
+      "finalPath": "/dashboards/archive",
+      "ms": 7978,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/dashboards/new",
+      "url": "/dashboards/new",
+      "persona": "contrib",
+      "finalPath": "/dashboards/new",
+      "ms": 5439,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/embed/kpi/[token]",
+      "url": "/embed/kpi/<token>",
+      "persona": "contrib",
+      "finalPath": "/embed/kpi/<token>",
+      "ms": 6510,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/insights",
+      "url": "/insights",
+      "persona": "contrib",
+      "finalPath": "/insights",
+      "ms": 6310,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/integrations",
+      "url": "/integrations",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5165,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /integrations"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis",
+      "url": "/kpis",
+      "persona": "contrib",
+      "finalPath": "/kpis",
+      "ms": 8331,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]",
+      "url": "/kpis/cmure3474007vhi4c6htru75t",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t",
+      "ms": 10262,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/anomalies",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "ms": 11114,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/edit",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "ms": 7198,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/embed",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "ms": 9311,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/forecast",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "ms": 9834,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/[id]/whatif",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "persona": "contrib",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "ms": 10510,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/archive",
+      "url": "/kpis/archive",
+      "persona": "contrib",
+      "finalPath": "/kpis/archive",
+      "ms": 7816,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/categories",
+      "url": "/kpis/categories",
+      "persona": "contrib",
+      "finalPath": "/kpis/categories",
+      "ms": 4352,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/import",
+      "url": "/kpis/import",
+      "persona": "contrib",
+      "finalPath": "/kpis/import",
+      "ms": 3892,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/new",
+      "url": "/kpis/new",
+      "persona": "contrib",
+      "finalPath": "/kpis/new",
+      "ms": 3828,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/scorecard",
+      "url": "/kpis/scorecard",
+      "persona": "contrib",
+      "finalPath": "/kpis/scorecard",
+      "ms": 3818,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/templates",
+      "url": "/kpis/templates",
+      "persona": "contrib",
+      "finalPath": "/kpis/templates",
+      "ms": 3798,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/kpis/tree",
+      "url": "/kpis/tree",
+      "persona": "contrib",
+      "finalPath": "/kpis/tree",
+      "ms": 3775,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/login",
+      "url": "/login",
+      "persona": "contrib",
+      "finalPath": "/login",
+      "ms": 5756,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/mentions",
+      "url": "/me/mentions",
+      "persona": "contrib",
+      "finalPath": "/me/mentions",
+      "ms": 5419,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/me/sessions",
+      "url": "/me/sessions",
+      "persona": "contrib",
+      "finalPath": "/me/sessions",
+      "ms": 3941,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/my-kpis",
+      "url": "/my-kpis",
+      "persona": "contrib",
+      "finalPath": "/my-kpis",
+      "ms": 6210,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs",
+      "url": "/okrs",
+      "persona": "contrib",
+      "finalPath": "/okrs",
+      "ms": 4165,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/okrs/[id]",
+      "url": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "persona": "contrib",
+      "finalPath": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "ms": 5264,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/org-units",
+      "url": "/org-units",
+      "persona": "contrib",
+      "finalPath": "/org-units",
+      "ms": 6701,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/plugins",
+      "url": "/plugins",
+      "persona": "contrib",
+      "finalPath": "/plugins",
+      "ms": 4771,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /plugins"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/positions",
+      "url": "/positions",
+      "persona": "contrib",
+      "finalPath": "/positions",
+      "ms": 4119,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/profile",
+      "url": "/profile",
+      "persona": "contrib",
+      "finalPath": "/profile",
+      "ms": 5403,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/recommendations",
+      "url": "/recommendations",
+      "persona": "contrib",
+      "finalPath": "/recommendations",
+      "ms": 5066,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/register",
+      "url": "/register",
+      "persona": "contrib",
+      "finalPath": "/register",
+      "ms": 5835,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports",
+      "url": "/reports",
+      "persona": "contrib",
+      "finalPath": "/reports",
+      "ms": 5253,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/[id]",
+      "url": "/reports/cmurohem0044hhixg3vf5enz9",
+      "persona": "contrib",
+      "finalPath": "/reports/cmurohem0044hhixg3vf5enz9",
+      "ms": 5299,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/board-pack",
+      "url": "/reports/board-pack",
+      "persona": "contrib",
+      "finalPath": "/reports/board-pack",
+      "ms": 4116,
+      "consoleErrors": [],
+      "pageErrors": [
+        "TypeError: Cannot read properties of undefined (reading 'length')"
+      ],
+      "failedRequests": [],
+      "errorScreen": "Application error",
+      "emptyMain": false
+    },
+    {
+      "route": "/reports/new",
+      "url": "/reports/new",
+      "persona": "contrib",
+      "finalPath": "/reports/new",
+      "ms": 4108,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/roles",
+      "url": "/roles",
+      "persona": "contrib",
+      "finalPath": "/roles",
+      "ms": 4008,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /roles/presets/list"
+      ],
+      "emptyMain": true
+    },
+    {
+      "route": "/settings",
+      "url": "/settings",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 6182,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/access",
+      "url": "/settings/access",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 4372,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/ai",
+      "url": "/settings/ai",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5179,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /ai/budget",
+        "403 GET /ai/configs",
+        "403 GET /ai/providers/byok"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/api-keys",
+      "url": "/settings/api-keys",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5232,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /api-keys"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/audit",
+      "url": "/settings/audit",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5035,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /audit?limit=100"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/branding",
+      "url": "/settings/branding",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5065,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/custom-domain",
+      "url": "/settings/custom-domain",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 6777,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /custom-domains"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/fiscal",
+      "url": "/settings/fiscal",
+      "persona": "contrib",
+      "finalPath": "/settings/fiscal",
+      "ms": 4999,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": true
+    },
+    {
+      "route": "/settings/notifications",
+      "url": "/settings/notifications",
+      "persona": "contrib",
+      "finalPath": "/settings/notifications",
+      "ms": 22269,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/notifications/dlq",
+      "url": "/settings/notifications/dlq",
+      "persona": "contrib",
+      "finalPath": "/settings/notifications/dlq",
+      "ms": 19872,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /notification-deliveries?status=FAILED"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/organization",
+      "url": "/settings/organization",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 6049,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/password-policy",
+      "url": "/settings/password-policy",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 4185,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/retention",
+      "url": "/settings/retention",
+      "persona": "contrib",
+      "finalPath": "/settings/retention",
+      "ms": 5557,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /retention-policies",
+        "403 GET /retention-policies/tiers/list"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/scim",
+      "url": "/settings/scim",
+      "persona": "contrib",
+      "finalPath": "/settings/scim",
+      "ms": 4053,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /scim/tokens"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/sso",
+      "url": "/settings/sso",
+      "persona": "contrib",
+      "finalPath": "/settings/sso",
+      "ms": 5473,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /sso/config"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/settings/webhooks",
+      "url": "/settings/webhooks",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 5471,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /webhooks",
+        "403 GET /webhooks/events"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/share/[token]",
+      "url": "/share/<token>",
+      "persona": "contrib",
+      "finalPath": "/share/<token>",
+      "ms": 9960,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup",
+      "url": "/signup",
+      "persona": "contrib",
+      "finalPath": "/signup",
+      "ms": 8952,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/signup/wizard",
+      "url": "/signup/wizard",
+      "persona": "contrib",
+      "finalPath": "/signup",
+      "ms": 6699,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/status",
+      "url": "/status",
+      "persona": "contrib",
+      "finalPath": "/status",
+      "ms": 6270,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/tasks",
+      "url": "/tasks",
+      "persona": "contrib",
+      "finalPath": "/tasks",
+      "ms": 7550,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/team",
+      "url": "/team",
+      "persona": "contrib",
+      "finalPath": "/team",
+      "ms": 6831,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/unauthorized",
+      "url": "/unauthorized",
+      "persona": "contrib",
+      "finalPath": "/unauthorized",
+      "ms": 3096,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/users",
+      "url": "/users",
+      "persona": "contrib",
+      "finalPath": "/users",
+      "ms": 7289,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/users/[id]",
+      "url": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "persona": "contrib",
+      "finalPath": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "ms": 12030,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false
+    },
+    {
+      "route": "/workflows",
+      "url": "/workflows",
+      "persona": "contrib",
+      "finalPath": "/workflows",
+      "ms": 5317,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "pageErrors": [],
+      "failedRequests": [
+        "403 GET /workflows"
+      ],
+      "emptyMain": false
+    },
+    {
+      "route": "/",
+      "url": "/",
+      "persona": "admin@375px",
+      "finalPath": "/",
+      "ms": 13551,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": true,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/accept-invitation",
+      "url": "/accept-invitation",
+      "persona": "admin@375px",
+      "finalPath": "/accept-invitation",
+      "ms": 9779,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/activity",
+      "url": "/activity",
+      "persona": "admin@375px",
+      "finalPath": "/activity",
+      "ms": 5467,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/alerts",
+      "url": "/alerts",
+      "persona": "admin@375px",
+      "finalPath": "/alerts",
+      "ms": 7255,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/alerts/[id]",
+      "url": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "persona": "admin@375px",
+      "finalPath": "/alerts/cmure360t00gdhi4clmbw7s1e",
+      "ms": 12133,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/alerts/channels",
+      "url": "/alerts/channels",
+      "persona": "admin@375px",
+      "finalPath": "/alerts/channels",
+      "ms": 7476,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/alerts/new",
+      "url": "/alerts/new",
+      "persona": "admin@375px",
+      "finalPath": "/alerts/new",
+      "ms": 7285,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/approvals",
+      "url": "/approvals",
+      "persona": "admin@375px",
+      "finalPath": "/approvals",
+      "ms": 5672,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/ask",
+      "url": "/ask",
+      "persona": "admin@375px",
+      "finalPath": "/ask",
+      "ms": 6987,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/billing",
+      "url": "/billing",
+      "persona": "admin@375px",
+      "finalPath": "/billing",
+      "ms": 5479,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/connectors",
+      "url": "/connectors",
+      "persona": "admin@375px",
+      "finalPath": "/connectors",
+      "ms": 3999,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/connectors/[id]",
+      "url": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "persona": "admin@375px",
+      "finalPath": "/connectors/cmure36dm00ibhi4cd3xvwemk",
+      "ms": 4275,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboard",
+      "url": "/dashboard",
+      "persona": "admin@375px",
+      "finalPath": "/dashboard",
+      "ms": 3208,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards",
+      "url": "/dashboards",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards",
+      "ms": 7094,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards/[id]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o",
+      "ms": 10501,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards/[id]/share",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/share",
+      "ms": 5304,
+      "consoleErrors": [
+        "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=cmure35rn00e5hi4cnhfgwh9o' from origin 'http://localhost:3000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards/[id]/snapshots",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/snapshots",
+      "ms": 6053,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards/[id]/widgets/[wid]",
+      "url": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/cmure35rn00e5hi4cnhfgwh9o/widgets/cmure35s100e7hi4cep6pzv1z",
+      "ms": 4846,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 93
+    },
+    {
+      "route": "/dashboards/archive",
+      "url": "/dashboards/archive",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/archive",
+      "ms": 6639,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/dashboards/new",
+      "url": "/dashboards/new",
+      "persona": "admin@375px",
+      "finalPath": "/dashboards/new",
+      "ms": 18106,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/embed/kpi/[token]",
+      "url": "/embed/kpi/<token>",
+      "persona": "admin@375px",
+      "finalPath": "/embed/kpi/<token>",
+      "ms": 20055,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/insights",
+      "url": "/insights",
+      "persona": "admin@375px",
+      "finalPath": "/insights",
+      "ms": 13920,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/integrations",
+      "url": "/integrations",
+      "persona": "admin@375px",
+      "finalPath": "/integrations",
+      "ms": 6907,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis",
+      "url": "/kpis",
+      "persona": "admin@375px",
+      "finalPath": "/kpis",
+      "ms": 4377,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]",
+      "url": "/kpis/cmure3474007vhi4c6htru75t",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t",
+      "ms": 10262,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]/anomalies",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/anomalies",
+      "ms": 10777,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]/edit",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/edit",
+      "ms": 7436,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]/embed",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/embed",
+      "ms": 5112,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]/forecast",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/forecast",
+      "ms": 5052,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/[id]/whatif",
+      "url": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/cmure3474007vhi4c6htru75t/whatif",
+      "ms": 6929,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/archive",
+      "url": "/kpis/archive",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/archive",
+      "ms": 4788,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/categories",
+      "url": "/kpis/categories",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/categories",
+      "ms": 4972,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/import",
+      "url": "/kpis/import",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/import",
+      "ms": 4636,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/new",
+      "url": "/kpis/new",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/new",
+      "ms": 4677,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/scorecard",
+      "url": "/kpis/scorecard",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/scorecard",
+      "ms": 4742,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/templates",
+      "url": "/kpis/templates",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/templates",
+      "ms": 4788,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/kpis/tree",
+      "url": "/kpis/tree",
+      "persona": "admin@375px",
+      "finalPath": "/kpis/tree",
+      "ms": 5964,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/login",
+      "url": "/login",
+      "persona": "admin@375px",
+      "finalPath": "/login",
+      "ms": 7583,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/me/mentions",
+      "url": "/me/mentions",
+      "persona": "admin@375px",
+      "finalPath": "/me/mentions",
+      "ms": 7527,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/me/sessions",
+      "url": "/me/sessions",
+      "persona": "admin@375px",
+      "finalPath": "/me/sessions",
+      "ms": 4867,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/my-kpis",
+      "url": "/my-kpis",
+      "persona": "admin@375px",
+      "finalPath": "/my-kpis",
+      "ms": 9389,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/okrs",
+      "url": "/okrs",
+      "persona": "admin@375px",
+      "finalPath": "/okrs",
+      "ms": 4704,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/okrs/[id]",
+      "url": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "persona": "admin@375px",
+      "finalPath": "/okrs/cmure36bf00hyhi4cuy1ot3gr",
+      "ms": 7763,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/org-units",
+      "url": "/org-units",
+      "persona": "admin@375px",
+      "finalPath": "/org-units",
+      "ms": 7493,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/plugins",
+      "url": "/plugins",
+      "persona": "admin@375px",
+      "finalPath": "/plugins",
+      "ms": 7581,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/positions",
+      "url": "/positions",
+      "persona": "admin@375px",
+      "finalPath": "/positions",
+      "ms": 4941,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/profile",
+      "url": "/profile",
+      "persona": "admin@375px",
+      "finalPath": "/profile",
+      "ms": 10632,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/recommendations",
+      "url": "/recommendations",
+      "persona": "admin@375px",
+      "finalPath": "/recommendations",
+      "ms": 7405,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/register",
+      "url": "/register",
+      "persona": "admin@375px",
+      "finalPath": "/register",
+      "ms": 4452,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/reports",
+      "url": "/reports",
+      "persona": "admin@375px",
+      "finalPath": "/reports",
+      "ms": 8142,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/reports/[id]",
+      "url": "/reports/cmurohem0044hhixg3vf5enz9",
+      "persona": "admin@375px",
+      "finalPath": "/reports/cmurohem0044hhixg3vf5enz9",
+      "ms": 6789,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/reports/board-pack",
+      "url": "/reports/board-pack",
+      "persona": "admin@375px",
+      "finalPath": "/reports/board-pack",
+      "ms": 4807,
+      "consoleErrors": [],
+      "pageErrors": [
+        "TypeError: Cannot read properties of undefined (reading 'length')"
+      ],
+      "failedRequests": [],
+      "errorScreen": "Application error",
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/reports/new",
+      "url": "/reports/new",
+      "persona": "admin@375px",
+      "finalPath": "/reports/new",
+      "ms": 5794,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/roles",
+      "url": "/roles",
+      "persona": "admin@375px",
+      "finalPath": "/roles",
+      "ms": 4759,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings",
+      "url": "/settings",
+      "persona": "admin@375px",
+      "finalPath": "/settings",
+      "ms": 7663,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/access",
+      "url": "/settings/access",
+      "persona": "admin@375px",
+      "finalPath": "/settings/access",
+      "ms": 5137,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/ai",
+      "url": "/settings/ai",
+      "persona": "admin@375px",
+      "finalPath": "/settings/ai",
+      "ms": 4637,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/api-keys",
+      "url": "/settings/api-keys",
+      "persona": "admin@375px",
+      "finalPath": "/settings/api-keys",
+      "ms": 7724,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/audit",
+      "url": "/settings/audit",
+      "persona": "admin@375px",
+      "finalPath": "/settings/audit",
+      "ms": 4653,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/branding",
+      "url": "/settings/branding",
+      "persona": "admin@375px",
+      "finalPath": "/settings/branding",
+      "ms": 5539,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/custom-domain",
+      "url": "/settings/custom-domain",
+      "persona": "admin@375px",
+      "finalPath": "/settings/custom-domain",
+      "ms": 8418,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/fiscal",
+      "url": "/settings/fiscal",
+      "persona": "admin@375px",
+      "finalPath": "/settings/fiscal",
+      "ms": 4777,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/notifications",
+      "url": "/settings/notifications",
+      "persona": "admin@375px",
+      "finalPath": "/settings/notifications",
+      "ms": 7951,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/notifications/dlq",
+      "url": "/settings/notifications/dlq",
+      "persona": "admin@375px",
+      "finalPath": "/settings/notifications/dlq",
+      "ms": 4767,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/organization",
+      "url": "/settings/organization",
+      "persona": "admin@375px",
+      "finalPath": "/settings/organization",
+      "ms": 5252,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/password-policy",
+      "url": "/settings/password-policy",
+      "persona": "admin@375px",
+      "finalPath": "/settings/password-policy",
+      "ms": 5641,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/retention",
+      "url": "/settings/retention",
+      "persona": "admin@375px",
+      "finalPath": "/settings/retention",
+      "ms": 8318,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/scim",
+      "url": "/settings/scim",
+      "persona": "admin@375px",
+      "finalPath": "/settings/scim",
+      "ms": 4667,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/sso",
+      "url": "/settings/sso",
+      "persona": "admin@375px",
+      "finalPath": "/settings/sso",
+      "ms": 4467,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/settings/webhooks",
+      "url": "/settings/webhooks",
+      "persona": "admin@375px",
+      "finalPath": "/settings/webhooks",
+      "ms": 4807,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/share/[token]",
+      "url": "/share/<token>",
+      "persona": "admin@375px",
+      "finalPath": "/share/<token>",
+      "ms": 4621,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/signup",
+      "url": "/signup",
+      "persona": "admin@375px",
+      "finalPath": "/signup",
+      "ms": 8217,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/signup/wizard",
+      "url": "/signup/wizard",
+      "persona": "admin@375px",
+      "finalPath": "/signup",
+      "ms": 4668,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/status",
+      "url": "/status",
+      "persona": "admin@375px",
+      "finalPath": "/status",
+      "ms": 4548,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/tasks",
+      "url": "/tasks",
+      "persona": "admin@375px",
+      "finalPath": "/tasks",
+      "ms": 4836,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/team",
+      "url": "/team",
+      "persona": "admin@375px",
+      "finalPath": "/team",
+      "ms": 7657,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/unauthorized",
+      "url": "/unauthorized",
+      "persona": "admin@375px",
+      "finalPath": "/unauthorized",
+      "ms": 9066,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/users",
+      "url": "/users",
+      "persona": "admin@375px",
+      "finalPath": "/users",
+      "ms": 4886,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/users/[id]",
+      "url": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "persona": "admin@375px",
+      "finalPath": "/users/cmure33vw003rhi4cfy8l0jbm",
+      "ms": 7840,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    },
+    {
+      "route": "/workflows",
+      "url": "/workflows",
+      "persona": "admin@375px",
+      "finalPath": "/workflows",
+      "ms": 5405,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "emptyMain": false,
+      "horizontalOverflowPx": 0
+    }
+  ]
+}

@@ -1,0 +1,409 @@
+{
+  "generatedAt": "2026-10-03T00:50:51.812Z",
+  "mlUrl": "http://127.0.0.1:8000",
+  "results": [
+    {
+      "name": "anomaly ensemble",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 417,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"anomalies\":[{\"index\":20,\"score\":1.0798904091644361,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+    },
+    {
+      "name": "anomaly isolation_forest",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 313,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"anomalies\":[{\"index\":0,\"score\":0.7036494508279392,\"methodHits\":{\"zscore\":1.6529820017857846,\"ewma\":0.0,\"isolation_forest\":0.7036494508279392}},{\"index\":20,\"score\":0.7943008348492254,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+    },
+    {
+      "name": "anomaly zscore",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 340,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"anomalies\":[]}"
+    },
+    {
+      "name": "anomaly ewma",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 246,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"anomalies\":[{\"index\":20,\"score\":4.871376194541788,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+    },
+    {
+      "name": "anomaly unknown method",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 234,
+      "ok": false,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"anomalies\":[{\"index\":20,\"score\":1.0798904091644361,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+    },
+    {
+      "name": "anomaly empty series",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 5,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"anomalies\":[]}"
+    },
+    {
+      "name": "anomaly single point",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 4,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"anomalies\":[]}"
+    },
+    {
+      "name": "anomaly constant series",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 216,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"anomalies\":[]}"
+    },
+    {
+      "name": "anomaly timestamps length mismatch",
+      "path": "/anomaly/detect",
+      "status": 200,
+      "ms": 229,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"anomalies\":[{\"index\":20,\"score\":1.0798904091644361,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+    },
+    {
+      "name": "forecast naive",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 5,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
+    },
+    {
+      "name": "forecast prophet (deferred)",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 4,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
+    },
+    {
+      "name": "forecast horizon 0",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 4,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593}],\"fitMetrics\":{\"rmse\":10.789261748269803,\"mape\":5.244622821180607},\"model\":\"naive\"}"
+    },
+    {
+      "name": "forecast negative horizon",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 4,
+      "ok": false,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593}],\"fitMetrics\":{\"rmse\":10.789261748269803,\"mape\":5.244622821180607},\"model\":\"naive\"}"
+    },
+    {
+      "name": "forecast huge horizon (1e6)",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 18436,
+      "ok": false,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
+    },
+    {
+      "name": "forecast empty series",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 23,
+      "ok": false,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_95\":0.0,\"yhat_upper_95\":0.0},{\"ds\":\"t+2\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_95\":0.0,\"yhat_upper_95\":0.0},{\"ds\":\"t+3\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_9"
+    },
+    {
+      "name": "forecast single point",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 7,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,\"yhat_lower_95\":42.0,\"yhat_upper_95\":42.0},{\"ds\":\"t+2\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,\"yhat_lower_95\":42.0,\"yhat_upper_95\":42.0},{\"ds\":\"t+3\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,"
+    },
+    {
+      "name": "correlation pearson",
+      "path": "/correlation",
+      "status": 200,
+      "ms": 10,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":1.0,\"p\":0.0}]}"
+    },
+    {
+      "name": "correlation spearman",
+      "path": "/correlation",
+      "status": 200,
+      "ms": 8,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"method\":\"spearman\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":-1.0,\"p\":0.0}]}"
+    },
+    {
+      "name": "correlation unequal lengths",
+      "path": "/correlation",
+      "status": 200,
+      "ms": 6,
+      "ok": false,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":0.9981387914636444,\"p\":0.03884722679401931}]}"
+    },
+    {
+      "name": "correlation single series",
+      "path": "/correlation",
+      "status": 200,
+      "ms": 3,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"method\":\"pearson\",\"pairs\":[]}"
+    },
+    {
+      "name": "correlation constant series (zero variance)",
+      "path": "/correlation",
+      "status": 200,
+      "ms": 17,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":null,\"p\":null}]}"
+    },
+    {
+      "name": "seasonality monthly",
+      "path": "/seasonality",
+      "status": 200,
+      "ms": 5,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122.0,124.00000000000001,126.0,130.5,134.99999999999997,137.0,139.0,140.99999999999997,143.0,145.0,147.0,148.99999999999997,150.99999999999997,153.0,155.0,154.500000"
+    },
+    {
+      "name": "seasonality auto period",
+      "path": "/seasonality",
+      "status": 200,
+      "ms": 5,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122.0,124.00000000000001,126.0,130.5,134.99999999999997,137.0,139.0,140.99999999999997,143.0,145.0,147.0,148.99999999999997,150.99999999999997,153.0,155.0,154.500000"
+    },
+    {
+      "name": "seasonality too short for period",
+      "path": "/seasonality",
+      "status": 422,
+      "ms": 4,
+      "ok": true,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"detail\":\"Series too short for period=12: need at least 24 points, got 5. Provide more data or specify a smaller period.\"}"
+    },
+    {
+      "name": "seasonality multiplicative with zeros",
+      "path": "/seasonality",
+      "status": 422,
+      "ms": 3,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"detail\":\"Multiplicative seasonality is not appropriate for zero and negative values\"}"
+    },
+    {
+      "name": "whatif percent",
+      "path": "/whatif",
+      "status": 200,
+      "ms": 6,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"baseline\":[100.0,107.0,112.66025403784438,116.0,116.66025403784438,115.0,112.0,109.0,107.33974596215562,108.0,111.33974596215562,117.0,124.0,131.0,136.6602540378444,140.0,140.6602540378444,139.0,136.0,133.0,191.3397459621556,132.0,135.3397459621556,141.0,148.0,155.0,160.6602540378444,164.0,164.660"
+    },
+    {
+      "name": "whatif unknown scenario type",
+      "path": "/whatif",
+      "status": 200,
+      "ms": 4,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"baseline\":[100.0,107.0,112.66025403784438,116.0,116.66025403784438,115.0,112.0,109.0,107.33974596215562,108.0,111.33974596215562,117.0,124.0,131.0,136.6602540378444,140.0,140.6602540378444,139.0,136.0,133.0,191.3397459621556,132.0,135.3397459621556,141.0,148.0,155.0,160.6602540378444,164.0,164.660"
+    },
+    {
+      "name": "whatif empty baseline",
+      "path": "/whatif",
+      "status": 200,
+      "ms": 3,
+      "ok": true,
+      "expect": [
+        200,
+        400,
+        422
+      ],
+      "excerpt": "{\"baseline\":[],\"scenarios\":[{\"values\":[],\"aggregateLift\":0,\"aggregateLiftPct\":0.0}]}"
+    },
+    {
+      "name": "malformed JSON body",
+      "path": "/forecast",
+      "status": 422,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        400,
+        422
+      ],
+      "excerpt": "{\"detail\":[{\"type\":\"json_invalid\",\"loc\":[\"body\",16],\"msg\":\"JSON decode error\",\"input\":{},\"ctx\":{\"error\":\"Expecting value\"}}]}"
+    },
+    {
+      "name": "auth: no signature headers",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Missing signature headers\"}"
+    },
+    {
+      "name": "auth: wrong secret",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    },
+    {
+      "name": "auth: stale timestamp (10 min old)",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    },
+    {
+      "name": "auth: future timestamp (10 min ahead)",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 1,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    },
+    {
+      "name": "auth: non-numeric timestamp",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    }
+  ]
+}

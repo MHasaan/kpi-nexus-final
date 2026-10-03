@@ -1,0 +1,4098 @@
+{
+  "generatedAt": "2026-10-03T00:50:13.615Z",
+  "run": "murocsmn",
+  "orgA": "audit-a-murocsmn",
+  "orgB": "audit-b-murocsmn",
+  "results": [
+    {
+      "domain": "setup",
+      "name": "register org a",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 1037
+    },
+    {
+      "domain": "setup",
+      "name": "register org b",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 844
+    },
+    {
+      "domain": "identity",
+      "name": "register (invalid payload → 400)",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "identity",
+      "name": "login wrong password → 401",
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 401,
+      "expect": [
+        401
+      ],
+      "ok": true,
+      "ms": 658
+    },
+    {
+      "domain": "identity",
+      "name": "refresh token",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 56
+    },
+    {
+      "domain": "identity",
+      "name": "refresh token reuse → 401",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "status": 401,
+      "expect": [
+        401
+      ],
+      "ok": true,
+      "ms": 36
+    },
+    {
+      "domain": "identity",
+      "name": "PATCH /auth/me",
+      "method": "PATCH",
+      "path": "/auth/me",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 39
+    },
+    {
+      "domain": "identity",
+      "name": "PATCH /auth/me/notification-settings",
+      "method": "PATCH",
+      "path": "/auth/me/notification-settings",
+      "status": 400,
+      "expect": [
+        200,
+        201,
+        204,
+        400
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "identity",
+      "name": "PATCH /organizations/me",
+      "method": "PATCH",
+      "path": "/organizations/me",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 38
+    },
+    {
+      "domain": "identity",
+      "name": "PATCH /organizations/me (invalid payload → 400)",
+      "method": "PATCH",
+      "path": "/organizations/me",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "identity",
+      "name": "create role",
+      "method": "POST",
+      "path": "/roles",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 18
+    },
+    {
+      "domain": "identity",
+      "name": "create role (invalid payload → 400)",
+      "method": "POST",
+      "path": "/roles",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "identity",
+      "name": "get role",
+      "method": "GET",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "identity",
+      "name": "update role",
+      "method": "PATCH",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 29
+    },
+    {
+      "domain": "identity",
+      "name": "update role scopeConfig",
+      "method": "PATCH",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 29
+    },
+    {
+      "domain": "identity",
+      "name": "apply preset",
+      "method": "POST",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8/apply-preset",
+      "status": 400,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 10
+    },
+    {
+      "domain": "identity",
+      "name": "get role (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "identity",
+      "name": "update role (cross-tenant → 403/404)",
+      "method": "PATCH",
+      "path": "/roles/cmurocwmc03qhhixghjljscp8",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "identity",
+      "name": "create position",
+      "method": "POST",
+      "path": "/positions",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "identity",
+      "name": "create position (invalid payload → 400)",
+      "method": "POST",
+      "path": "/positions",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "identity",
+      "name": "update position",
+      "method": "PATCH",
+      "path": "/positions/cmurocwqb03qjhixg30q0d1oe",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "identity",
+      "name": "update position (cross-tenant → 403/404)",
+      "method": "PATCH",
+      "path": "/positions/cmurocwqb03qjhixg30q0d1oe",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "identity",
+      "name": "invite user",
+      "method": "POST",
+      "path": "/users",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 99
+    },
+    {
+      "domain": "identity",
+      "name": "invite user (invalid payload → 400)",
+      "method": "POST",
+      "path": "/users",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "identity",
+      "name": "invite duplicate email → 409",
+      "method": "POST",
+      "path": "/users",
+      "status": 409,
+      "expect": [
+        409,
+        400
+      ],
+      "ok": true,
+      "ms": 10
+    },
+    {
+      "domain": "identity",
+      "name": "invitation email delivered to Mailhog (known gap BE-008)",
+      "ok": false,
+      "status": "missing",
+      "expect": [
+        "found"
+      ]
+    },
+    {
+      "domain": "identity",
+      "name": "invitation preview",
+      "method": "POST",
+      "path": "/auth/invitation-preview",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "identity",
+      "name": "accept invitation",
+      "method": "POST",
+      "path": "/auth/accept-invitation",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 554
+    },
+    {
+      "domain": "identity",
+      "name": "accept invitation twice → 4xx",
+      "method": "POST",
+      "path": "/auth/accept-invitation",
+      "status": 401,
+      "expect": [
+        400,
+        401,
+        404,
+        409,
+        410
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "identity",
+      "name": "invitee can log in",
+      "ok": true,
+      "status": 200,
+      "expect": [
+        200
+      ]
+    },
+    {
+      "domain": "identity",
+      "name": "invitee (KPI_VIEW only) cannot create role → 403",
+      "method": "POST",
+      "path": "/roles",
+      "status": 403,
+      "expect": [
+        403
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "identity",
+      "name": "invitee change password",
+      "method": "POST",
+      "path": "/auth/me/change-password",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 852
+    },
+    {
+      "domain": "identity",
+      "name": "get user",
+      "method": "GET",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "identity",
+      "name": "get user (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "identity",
+      "name": "put access-override",
+      "method": "PUT",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/access-override",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 21
+    },
+    {
+      "domain": "identity",
+      "name": "get access-profile reflects override",
+      "method": "GET",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/access-profile",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 37
+    },
+    {
+      "domain": "identity",
+      "name": "delete access-override",
+      "method": "DELETE",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/access-override",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "identity",
+      "name": "suspend user",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/suspend",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 28
+    },
+    {
+      "domain": "identity",
+      "name": "suspended user cannot log in",
+      "ok": true,
+      "status": 401,
+      "expect": [
+        401,
+        403
+      ]
+    },
+    {
+      "domain": "identity",
+      "name": "suspended user's existing access token is rejected",
+      "ok": false,
+      "status": 200,
+      "expect": [
+        401,
+        403
+      ]
+    },
+    {
+      "domain": "identity",
+      "name": "reactivate user",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/reactivate",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 18
+    },
+    {
+      "domain": "identity",
+      "name": "suspend user (cross-tenant → 403/404)",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/suspend",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "identity",
+      "name": "create delegation",
+      "method": "POST",
+      "path": "/permission-delegations",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "identity",
+      "name": "create delegation (validTo < validFrom) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/permission-delegations",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "identity",
+      "name": "delete delegation",
+      "method": "DELETE",
+      "path": "/permission-delegations/cmurod6gu03r6hixgno2j6bx6",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "identity",
+      "name": "mfa enroll",
+      "method": "POST",
+      "path": "/mfa/enroll",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "identity",
+      "name": "mfa confirm with bad code → 400/401",
+      "method": "POST",
+      "path": "/mfa/confirm",
+      "status": 400,
+      "expect": [
+        400,
+        401
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "identity",
+      "name": "list sessions",
+      "method": "GET",
+      "path": "/me/sessions",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "domain": "identity",
+      "name": "request password reset (known email)",
+      "method": "POST",
+      "path": "/auth/password/request-reset",
+      "status": 202,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 27,
+      "excerpt": "{\"accepted\":true}"
+    },
+    {
+      "domain": "identity",
+      "name": "request password reset (unknown email) — same status",
+      "method": "POST",
+      "path": "/auth/password/request-reset",
+      "status": 202,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 6,
+      "excerpt": "{\"accepted\":true}"
+    },
+    {
+      "domain": "identity",
+      "name": "confirm reset with bogus token → 4xx",
+      "method": "POST",
+      "path": "/auth/password/confirm-reset",
+      "status": 400,
+      "expect": [
+        400,
+        401,
+        404,
+        410
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "org",
+      "name": "create org-unit type",
+      "method": "POST",
+      "path": "/org-unit-types",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "org",
+      "name": "create org-unit dimension",
+      "method": "POST",
+      "path": "/org-unit-dimensions",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "org",
+      "name": "create org unit",
+      "method": "POST",
+      "path": "/org-units",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 23
+    },
+    {
+      "domain": "org",
+      "name": "create child unit",
+      "method": "POST",
+      "path": "/org-units",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 31
+    },
+    {
+      "domain": "org",
+      "name": "create org unit (invalid payload → 400)",
+      "method": "POST",
+      "path": "/org-units",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "org",
+      "name": "create unit with foreign parent → 4xx",
+      "method": "POST",
+      "path": "/org-units",
+      "status": 400,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "org",
+      "name": "update unit",
+      "method": "PATCH",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 22
+    },
+    {
+      "domain": "org",
+      "name": "cycle: make parent a child of its child → 4xx",
+      "method": "PATCH",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt",
+      "status": 200,
+      "expect": [
+        400,
+        409,
+        422
+      ],
+      "ok": false,
+      "ms": 22,
+      "excerpt": "{\"id\":\"cmurod6kt03rnhixg9dusgujt\",\"name\":\"Audit Parent murocsmn\",\"code\":null,\"description\":\"audit\",\"orgUnitTypeId\":\"cmurod6jt03rfhixgp5flvkwl\",\"parentUnitId\":\"cmurod6lq03rrhixgzgdd8q26\",\"headUserId\":null,\"status\":\"ACTIVE\",\"visibilityInherits\":true,\"effectiveFrom\":null,\"effectiveTo\":null,\"metadata\":null,\"isActive\":true,\"createdAt\":\"2026-10-03T00:49:52.781Z\",\"updatedAt\":\"2026-10-03T00:49:52.876Z\"}"
+    },
+    {
+      "domain": "org",
+      "name": "rename unit",
+      "method": "POST",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt/rename",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 25
+    },
+    {
+      "domain": "org",
+      "name": "name history",
+      "method": "GET",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt/name-history",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "org",
+      "name": "add member",
+      "method": "POST",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt/members",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 28
+    },
+    {
+      "domain": "org",
+      "name": "add member twice → 409/200",
+      "method": "POST",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt/members",
+      "status": 409,
+      "expect": [
+        200,
+        201,
+        409
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "org",
+      "name": "move users",
+      "method": "POST",
+      "path": "/org-units/move-users",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 44
+    },
+    {
+      "domain": "org",
+      "name": "memberships by user",
+      "method": "GET",
+      "path": "/org-units/by-user/cmurocwsq03qlhixgkp5lzwlk/memberships",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "org",
+      "name": "split unit",
+      "method": "POST",
+      "path": "/org-units/cmurod6lq03rrhixgzgdd8q26/split",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "org",
+      "name": "merge split back",
+      "method": "POST",
+      "path": "/org-units/cmurod6rm03sbhixgkbyivlmp/merge-into",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 33
+    },
+    {
+      "domain": "org",
+      "name": "get unit (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "org",
+      "name": "delete unit (cross-tenant → 403/404)",
+      "method": "DELETE",
+      "path": "/org-units/cmurod6kt03rnhixg9dusgujt",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "org",
+      "name": "update unit type",
+      "method": "PATCH",
+      "path": "/org-unit-types/cmurod6jt03rfhixgp5flvkwl",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 22
+    },
+    {
+      "domain": "org",
+      "name": "update dimension",
+      "method": "PATCH",
+      "path": "/org-unit-dimensions/cmurod6k903rjhixgpmfpog0f",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "org",
+      "name": "delete dimension",
+      "method": "DELETE",
+      "path": "/org-unit-dimensions/cmurod6k903rjhixgpmfpog0f",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "org",
+      "name": "org templates list",
+      "method": "GET",
+      "path": "/org-templates",
+      "status": 500,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 51,
+      "excerpt": "{\"statusCode\":500,\"message\":\"Internal server error\"}"
+    },
+    {
+      "domain": "org",
+      "name": "org template preview (public)",
+      "method": "POST",
+      "path": "/org-templates/preview",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 43
+    },
+    {
+      "domain": "kpi",
+      "name": "create category",
+      "method": "POST",
+      "path": "/kpi-categories",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "kpi",
+      "name": "create category (invalid payload → 400)",
+      "method": "POST",
+      "path": "/kpi-categories",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "kpi",
+      "name": "update category",
+      "method": "PATCH",
+      "path": "/kpi-categories/cmurod6xu03svhixgezjmrsvl",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 29
+    },
+    {
+      "domain": "kpi",
+      "name": "create ORG_WIDE KPI",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 54
+    },
+    {
+      "domain": "kpi",
+      "name": "create 2nd KPI (cascade child)",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 41
+    },
+    {
+      "domain": "kpi",
+      "name": "create KPI (invalid payload → 400)",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "kpi",
+      "name": "PER_UNIT KPI without orgUnitIds → 400",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 10
+    },
+    {
+      "domain": "kpi",
+      "name": "KPI with foreign category → 4xx",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 400,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "kpi",
+      "name": "create PER_UNIT KPI",
+      "method": "POST",
+      "path": "/kpis",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 57
+    },
+    {
+      "domain": "kpi",
+      "name": "PER_UNIT data via org-wide endpoint → 422",
+      "method": "POST",
+      "path": "/kpis/cmurod73703tdhixgx1kcatof/data",
+      "status": 422,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "kpi",
+      "name": "get KPI",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 10
+    },
+    {
+      "domain": "kpi",
+      "name": "update KPI",
+      "method": "PATCH",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 46
+    },
+    {
+      "domain": "kpi",
+      "name": "transition DRAFT → ACTIVE",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/transition",
+      "status": 422,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 10,
+      "excerpt": "{\"code\":\"INVALID_STATUS_TRANSITION\",\"message\":\"Cannot transition KPI from DRAFT to ACTIVE\",\"details\":{\"from\":\"DRAFT\",\"to\":\"ACTIVE\"}}"
+    },
+    {
+      "domain": "kpi",
+      "name": "versions",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/versions",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "kpi",
+      "name": "get KPI (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "domain": "kpi",
+      "name": "update KPI (cross-tenant → 403/404)",
+      "method": "PATCH",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-10",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 107
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-9",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 132
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-8",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 63
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-7",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 46
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-6",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 56
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-5",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 51
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-4",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 53
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-3",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 170
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-2",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 58
+    },
+    {
+      "domain": "kpi",
+      "name": "record data point d-1",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 53
+    },
+    {
+      "domain": "kpi",
+      "name": "record data (periodEnd < periodStart) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "kpi",
+      "name": "record data (non-numeric value) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "kpi",
+      "name": "record data (cross-tenant → 403/404)",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "list data",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data?limit=50",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 45
+    },
+    {
+      "domain": "kpi",
+      "name": "list data returns the 10 recorded points",
+      "ok": true,
+      "status": 10,
+      "expect": [
+        ">=10"
+      ]
+    },
+    {
+      "domain": "kpi",
+      "name": "create target",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/targets",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 36
+    },
+    {
+      "domain": "kpi",
+      "name": "active target",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/targets/active",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "kpi",
+      "name": "update target",
+      "method": "PATCH",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/targets/cmurod7ux03urhixgtv2uxyok",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 28
+    },
+    {
+      "domain": "kpi",
+      "name": "delete target",
+      "method": "DELETE",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/targets/cmurod7ux03urhixgtv2uxyok",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "kpi",
+      "name": "create target (invalid payload → 400)",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/targets",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "kpi",
+      "name": "create threshold band",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/threshold-bands",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "kpi",
+      "name": "threshold status",
+      "method": "GET",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/threshold-bands/status",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 32
+    },
+    {
+      "domain": "kpi",
+      "name": "update band",
+      "method": "PATCH",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/threshold-bands/cmurod7xf03uyhixgk3zoxe6d",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 18
+    },
+    {
+      "domain": "kpi",
+      "name": "delete band",
+      "method": "DELETE",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/threshold-bands/cmurod7xf03uyhixgk3zoxe6d",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 17
+    },
+    {
+      "domain": "kpi",
+      "name": "band with lower > upper → 400",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/threshold-bands",
+      "status": 201,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": false,
+      "ms": 17,
+      "excerpt": "{\"id\":\"cmurod7zu03v5hixgtdfaq2tg\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"kpiId\":\"cmurod6zy03t1hixg95ojgzg7\",\"name\":\"Bad\",\"lower\":900,\"upper\":100,\"color\":\"#000000\",\"order\":1,\"consecutivePointsRequired\":1,\"createdAt\":\"2026-10-03T00:49:54.618Z\",\"createdById\":\"cmuroctc803pghixg0f15g39u\"}"
+    },
+    {
+      "domain": "kpi",
+      "name": "create benchmark",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/benchmarks",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "kpi",
+      "name": "compute benchmark",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/benchmarks/compute",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 22
+    },
+    {
+      "domain": "kpi",
+      "name": "delete benchmark",
+      "method": "DELETE",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/benchmarks/cmurod80c03v8hixg2f66plcp",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "kpi",
+      "name": "attach formula",
+      "method": "PUT",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 35
+    },
+    {
+      "domain": "kpi",
+      "name": "formula sandbox rejects: constructor.constructor('return process'",
+      "method": "PUT",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "kpi",
+      "name": "formula sandbox rejects: this.constructor.constructor('return glo",
+      "method": "PUT",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "domain": "kpi",
+      "name": "formula sandbox rejects: require('fs')",
+      "method": "PUT",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "formula sandbox rejects: while(true){}",
+      "method": "PUT",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "API still healthy after sandbox probes",
+      "ok": true,
+      "status": 200,
+      "expect": [
+        200
+      ]
+    },
+    {
+      "domain": "kpi",
+      "name": "get formula",
+      "method": "GET",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 200,
+      "expect": [
+        200,
+        404
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "kpi",
+      "name": "recompute",
+      "method": "POST",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/recompute",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 30
+    },
+    {
+      "domain": "kpi",
+      "name": "delete formula",
+      "method": "DELETE",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/formula",
+      "status": 204,
+      "expect": [
+        200,
+        204,
+        404
+      ],
+      "ok": true,
+      "ms": 26
+    },
+    {
+      "domain": "kpi",
+      "name": "attach cascade",
+      "method": "POST",
+      "path": "/kpi-cascades",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 44
+    },
+    {
+      "domain": "kpi",
+      "name": "cascade cycle (child → parent) → 4xx",
+      "method": "POST",
+      "path": "/kpi-cascades",
+      "status": 400,
+      "expect": [
+        400,
+        409,
+        422
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "kpi",
+      "name": "cascade self-loop → 4xx",
+      "method": "POST",
+      "path": "/kpi-cascades",
+      "status": 400,
+      "expect": [
+        400,
+        409,
+        422
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "kpi",
+      "name": "cascade with foreign KPI → 4xx",
+      "method": "POST",
+      "path": "/kpi-cascades",
+      "status": 404,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "kpi",
+      "name": "rollup",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/rollup",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 81
+    },
+    {
+      "domain": "kpi",
+      "name": "lineage upstream",
+      "method": "GET",
+      "path": "/lineage/kpi/cmurod6zy03t1hixg95ojgzg7/upstream",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "detach cascade",
+      "method": "DELETE",
+      "path": "/kpi-cascades/cmurod86y03vohixgc271scqr",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 22
+    },
+    {
+      "domain": "kpi",
+      "name": "anomaly detect",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/anomalies/detect",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 296
+    },
+    {
+      "domain": "kpi",
+      "name": "forecast",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/forecasts",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 58
+    },
+    {
+      "domain": "kpi",
+      "name": "what-if",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/whatif",
+      "status": 400,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "kpi",
+      "name": "seasonality",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/seasonality",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 41
+    },
+    {
+      "domain": "kpi",
+      "name": "list templates",
+      "method": "GET",
+      "path": "/kpi-templates",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "kpi",
+      "name": "import dry-run",
+      "method": "POST",
+      "path": "/kpis/import/dry-run",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "kpi",
+      "name": "archive KPI 2",
+      "method": "DELETE",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 35
+    },
+    {
+      "domain": "kpi",
+      "name": "restore KPI 2",
+      "method": "POST",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/restore",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 25
+    },
+    {
+      "domain": "kpi",
+      "name": "archive KPI 2 again",
+      "method": "DELETE",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "kpi",
+      "name": "purge KPI 2 (cross-tenant → 403/404)",
+      "method": "DELETE",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/purge",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "kpi",
+      "name": "purge KPI 2",
+      "method": "DELETE",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv/purge",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 47
+    },
+    {
+      "domain": "kpi",
+      "name": "get purged KPI → 404",
+      "method": "GET",
+      "path": "/kpis/cmurod71903t7hixgey7cwybv",
+      "status": 404,
+      "expect": [
+        404
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "viz",
+      "name": "create dashboard",
+      "method": "POST",
+      "path": "/dashboards",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "viz",
+      "name": "create dashboard (invalid payload → 400)",
+      "method": "POST",
+      "path": "/dashboards",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "viz",
+      "name": "add widget",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 27
+    },
+    {
+      "domain": "viz",
+      "name": "add widget (x out of grid) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "viz",
+      "name": "widget referencing foreign KPI → 4xx",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets",
+      "status": 201,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 23,
+      "excerpt": "{\"id\":\"cmurod8sv03wehixgyrw9vstf\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"dashboardId\":\"cmurod8r303w6hixggmn0pzye\",\"widgetType\":\"kpi_card\",\"title\":null,\"config\":{\"kpiId\":\"cmure3474007vhi4c6htru75t\"},\"position\":{\"h\":2,\"w\":3,\"x\":6,\"y\":0},\"sortOrder\":1,\"createdAt\":\"2026-10-03T00:49:55.663Z\",\"updatedAt\":\"2026-10-03T00:49:55.663Z\"}"
+    },
+    {
+      "domain": "viz",
+      "name": "update widget",
+      "method": "PATCH",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets/cmurod8s403wahixgpx3x7r3n",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 29
+    },
+    {
+      "domain": "viz",
+      "name": "move widget",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets/cmurod8s403wahixgpx3x7r3n/position",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 20
+    },
+    {
+      "domain": "viz",
+      "name": "update dashboard",
+      "method": "PATCH",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 31
+    },
+    {
+      "domain": "viz",
+      "name": "set default",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/set-default",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 27
+    },
+    {
+      "domain": "viz",
+      "name": "capture snapshot",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/snapshots",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 46
+    },
+    {
+      "domain": "viz",
+      "name": "get snapshot",
+      "method": "GET",
+      "path": "/dashboards/snapshots/cmurod8x103wmhixgt3k841pr",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "viz",
+      "name": "create share link",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/share",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 23
+    },
+    {
+      "domain": "viz",
+      "name": "public share resolves (no auth)",
+      "method": "GET",
+      "path": "/public/dashboards/D3NWvas8xZ_2Nba-So81joUfSi_58EahWkpGSeZUr_8",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 43
+    },
+    {
+      "domain": "viz",
+      "name": "revoke share link",
+      "method": "DELETE",
+      "path": "/dashboards/share/cmurod8y203wqhixg0i4orm6d",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 21
+    },
+    {
+      "domain": "viz",
+      "name": "revoked share → 404/410",
+      "method": "GET",
+      "path": "/public/dashboards/D3NWvas8xZ_2Nba-So81joUfSi_58EahWkpGSeZUr_8",
+      "status": 404,
+      "expect": [
+        401,
+        403,
+        404,
+        410
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "viz",
+      "name": "create password-protected share",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/share",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        400
+      ],
+      "ok": true,
+      "ms": 472
+    },
+    {
+      "domain": "viz",
+      "name": "protected share without password → 401/403",
+      "method": "GET",
+      "path": "/public/dashboards/vIYPvnsdj7sj4LeBBdUF6JiolCCc3o1VPQfLKJEvs4g",
+      "status": 401,
+      "expect": [
+        401,
+        403
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "viz",
+      "name": "protected share wrong password → 401/403",
+      "method": "POST",
+      "path": "/public/dashboards/vIYPvnsdj7sj4LeBBdUF6JiolCCc3o1VPQfLKJEvs4g",
+      "status": 401,
+      "expect": [
+        401,
+        403
+      ],
+      "ok": true,
+      "ms": 481
+    },
+    {
+      "domain": "viz",
+      "name": "protected share right password",
+      "method": "POST",
+      "path": "/public/dashboards/vIYPvnsdj7sj4LeBBdUF6JiolCCc3o1VPQfLKJEvs4g",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 635
+    },
+    {
+      "domain": "viz",
+      "name": "assign dashboard to unit",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/unit-assignments",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 41
+    },
+    {
+      "domain": "viz",
+      "name": "unassign",
+      "method": "DELETE",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/unit-assignments/cmurod6kt03rnhixg9dusgujt",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 36
+    },
+    {
+      "domain": "viz",
+      "name": "get dashboard (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "viz",
+      "name": "add widget (cross-tenant → 403/404)",
+      "method": "POST",
+      "path": "/dashboards/cmurod8r303w6hixggmn0pzye/widgets",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "viz",
+      "name": "generate CSV report",
+      "method": "POST",
+      "path": "/reports/generate",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 172
+    },
+    {
+      "domain": "viz",
+      "name": "generate EXCEL report",
+      "method": "POST",
+      "path": "/reports/generate",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 145
+    },
+    {
+      "domain": "viz",
+      "name": "generate PDF report",
+      "method": "POST",
+      "path": "/reports/generate",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 142
+    },
+    {
+      "domain": "viz",
+      "name": "board pack",
+      "method": "GET",
+      "path": "/reports/board-pack?sinceDays=30",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 103
+    },
+    {
+      "domain": "viz",
+      "name": "create scheduled report",
+      "method": "POST",
+      "path": "/scheduled-reports",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 54
+    },
+    {
+      "domain": "viz",
+      "name": "scheduled report with bad cron (invalid payload → 400)",
+      "method": "POST",
+      "path": "/scheduled-reports",
+      "status": 500,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": false,
+      "ms": 14,
+      "excerpt": "{\"statusCode\":500,\"message\":\"Internal server error\"}"
+    },
+    {
+      "domain": "viz",
+      "name": "update scheduled report",
+      "method": "PATCH",
+      "path": "/scheduled-reports/cmurodar803x6hixg5f8lhugm",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 44
+    },
+    {
+      "domain": "viz",
+      "name": "trigger scheduled report",
+      "method": "POST",
+      "path": "/scheduled-reports/cmurodar803x6hixg5f8lhugm/trigger",
+      "status": 202,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 18,
+      "excerpt": "{\"message\":\"Report generation queued\"}"
+    },
+    {
+      "domain": "viz",
+      "name": "triggered report emailed (Mailhog) within 45 s",
+      "ok": true,
+      "status": "delivered",
+      "expect": [
+        "delivered"
+      ]
+    },
+    {
+      "domain": "viz",
+      "name": "delete scheduled report",
+      "method": "DELETE",
+      "path": "/scheduled-reports/cmurodar803x6hixg5f8lhugm",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 52
+    },
+    {
+      "domain": "viz",
+      "name": "search",
+      "method": "GET",
+      "path": "/search?q=Audit%20Revenue",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 86
+    },
+    {
+      "domain": "viz",
+      "name": "realtime SSE opens",
+      "method": "GET",
+      "path": "/realtime/stream",
+      "status": 200,
+      "expect": [
+        200
+      ],
+      "ok": true,
+      "ms": 23
+    },
+    {
+      "domain": "viz",
+      "name": "create 2nd dashboard",
+      "method": "POST",
+      "path": "/dashboards",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 68
+    },
+    {
+      "domain": "viz",
+      "name": "archive dashboard",
+      "method": "DELETE",
+      "path": "/dashboards/cmurodbea03xihixgf4wb2yd3",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 47
+    },
+    {
+      "domain": "viz",
+      "name": "restore dashboard",
+      "method": "POST",
+      "path": "/dashboards/cmurodbea03xihixgf4wb2yd3/restore",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 66
+    },
+    {
+      "domain": "viz",
+      "name": "archive again",
+      "method": "DELETE",
+      "path": "/dashboards/cmurodbea03xihixgf4wb2yd3",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 45
+    },
+    {
+      "domain": "viz",
+      "name": "purge dashboard",
+      "method": "DELETE",
+      "path": "/dashboards/cmurodbea03xihixgf4wb2yd3/purge",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 56
+    },
+    {
+      "domain": "alerting",
+      "name": "create WEBHOOK channel → internal 127.0.0.1 URL",
+      "method": "POST",
+      "path": "/notification-channels",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 64
+    },
+    {
+      "domain": "alerting",
+      "name": "channel creation rejects internal/loopback URL (SSRF guard)",
+      "ok": false,
+      "status": "accepted",
+      "expect": [
+        "rejected"
+      ]
+    },
+    {
+      "domain": "alerting",
+      "name": "create EMAIL channel",
+      "method": "POST",
+      "path": "/notification-channels",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 42
+    },
+    {
+      "domain": "alerting",
+      "name": "create channel (bad kind) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/notification-channels",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "alerting",
+      "name": "test WEBHOOK channel",
+      "method": "POST",
+      "path": "/notification-channels/cmurodbox03xuhixgoj5sfamw/test",
+      "status": 202,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 42,
+      "excerpt": "{\"sent\":true}"
+    },
+    {
+      "domain": "alerting",
+      "name": "API delivered to internal 127.0.0.1 listener (SSRF)",
+      "ok": false,
+      "status": "reached internal host",
+      "expect": [
+        "not reached"
+      ]
+    },
+    {
+      "domain": "alerting",
+      "name": "update channel",
+      "method": "PATCH",
+      "path": "/notification-channels/cmurodbqd03xyhixgkk3bp1me",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 69
+    },
+    {
+      "domain": "alerting",
+      "name": "update channel (cross-tenant → 403/404)",
+      "method": "PATCH",
+      "path": "/notification-channels/cmurodbqd03xyhixgkk3bp1me",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "alerting",
+      "name": "create STATIC_THRESHOLD rule",
+      "method": "POST",
+      "path": "/alert-rules",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 112
+    },
+    {
+      "domain": "alerting",
+      "name": "create rule (config mismatch) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/alert-rules",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "alerting",
+      "name": "rule on foreign KPI → 4xx",
+      "method": "POST",
+      "path": "/alert-rules",
+      "status": 404,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "alerting",
+      "name": "list alerts (before)",
+      "method": "GET",
+      "path": "/alerts",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "alerting",
+      "name": "record breaching data point (9999 > 5000)",
+      "method": "POST",
+      "path": "/kpis/cmurod6zy03t1hixg95ojgzg7/data",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 572
+    },
+    {
+      "domain": "alerting",
+      "name": "alert raised within 20 s of breaching data point",
+      "ok": true,
+      "status": "588 ms",
+      "expect": [
+        "alert"
+      ]
+    },
+    {
+      "domain": "alerting",
+      "name": "alert email delivered to Mailhog",
+      "ok": true,
+      "status": "delivered",
+      "expect": [
+        "delivered"
+      ]
+    },
+    {
+      "domain": "alerting",
+      "name": "alert email HTML-escapes user-controlled rule/KPI text",
+      "ok": true,
+      "status": "escaped",
+      "expect": [
+        "escaped"
+      ]
+    },
+    {
+      "domain": "alerting",
+      "name": "acknowledge alert",
+      "method": "POST",
+      "path": "/alerts/cmurodcc803yehixghzfk7pe9/acknowledge",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 90
+    },
+    {
+      "domain": "alerting",
+      "name": "resolve alert",
+      "method": "POST",
+      "path": "/alerts/cmurodcc803yehixghzfk7pe9/resolve",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 56
+    },
+    {
+      "domain": "alerting",
+      "name": "acknowledge alert (cross-tenant → 403/404)",
+      "method": "POST",
+      "path": "/alerts/cmurodcc803yehixghzfk7pe9/acknowledge",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "alerting",
+      "name": "update rule",
+      "method": "PATCH",
+      "path": "/alert-rules/cmurodbvs03y4hixglxet33i8",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 56
+    },
+    {
+      "domain": "alerting",
+      "name": "delivery list",
+      "method": "GET",
+      "path": "/notification-deliveries",
+      "status": 200,
+      "expect": [
+        200,
+        404
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "alerting",
+      "name": "delete rule",
+      "method": "DELETE",
+      "path": "/alert-rules/cmurodbvs03y4hixglxet33i8",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 48
+    },
+    {
+      "domain": "alerting",
+      "name": "delete webhook channel",
+      "method": "DELETE",
+      "path": "/notification-channels/cmurodbox03xuhixgoj5sfamw",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 45
+    },
+    {
+      "domain": "ai",
+      "name": "AI providers",
+      "method": "GET",
+      "path": "/ai/providers",
+      "status": 404,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": false,
+      "ms": 7,
+      "excerpt": "{\"message\":\"Cannot GET /ai/providers\",\"error\":\"Not Found\",\"statusCode\":404}"
+    },
+    {
+      "domain": "ai",
+      "name": "AI budget",
+      "method": "GET",
+      "path": "/ai/budget",
+      "status": 200,
+      "expect": [
+        200,
+        404
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "ai",
+      "name": "update AI budget",
+      "method": "PATCH",
+      "path": "/ai/budget",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 41
+    },
+    {
+      "domain": "ai",
+      "name": "update AI budget (negative) (invalid payload → 400)",
+      "method": "PATCH",
+      "path": "/ai/budget",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "ai",
+      "name": "NLQ ask",
+      "method": "POST",
+      "path": "/nlq/ask",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        429,
+        503
+      ],
+      "ok": true,
+      "ms": 3525
+    },
+    {
+      "domain": "ai",
+      "name": "NLQ ask (empty) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/nlq/ask",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "ai",
+      "name": "generate insight",
+      "method": "POST",
+      "path": "/insights/generate",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        429,
+        503
+      ],
+      "ok": true,
+      "ms": 2559
+    },
+    {
+      "domain": "ai",
+      "name": "generate recommendation",
+      "method": "POST",
+      "path": "/recommendations/generate",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        429,
+        503
+      ],
+      "ok": true,
+      "ms": 4168
+    },
+    {
+      "domain": "ai",
+      "name": "insight on foreign KPI → 4xx",
+      "method": "POST",
+      "path": "/insights/generate",
+      "status": 201,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 4,
+      "excerpt": "{\"insight\":null}"
+    },
+    {
+      "domain": "ai",
+      "name": "NLQ as org B cannot see org A KPI name",
+      "method": "POST",
+      "path": "/nlq/ask",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        429,
+        503
+      ],
+      "ok": true,
+      "ms": 946
+    },
+    {
+      "domain": "ai",
+      "name": "NLQ answer for org B does not mention org A KPI",
+      "ok": false,
+      "status": "leaked",
+      "expect": [
+        "clean"
+      ]
+    },
+    {
+      "domain": "collab",
+      "name": "create task",
+      "method": "POST",
+      "path": "/tasks",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "collab",
+      "name": "create task (invalid payload → 400)",
+      "method": "POST",
+      "path": "/tasks",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 2
+    },
+    {
+      "domain": "collab",
+      "name": "task with foreign KPI → 4xx",
+      "method": "POST",
+      "path": "/tasks",
+      "status": 201,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 10,
+      "excerpt": "{\"id\":\"cmurodlsx03z8hixg34gk6rxz\",\"organizationId\":\"cmurocuse03pqhixgc9hww5g3\",\"kpiId\":\"cmurod6zy03t1hixg95ojgzg7\",\"alertId\":null,\"title\":\"Sneaky task\",\"description\":null,\"assigneeUserId\":null,\"dueAt\":null,\"status\":\"TODO\",\"priority\":\"MEDIUM\",\"externalRef\":null,\"createdById\":\"cmurocutj03pwhixghkiijf0n\",\"createdAt\":\"2026-10-03T00:50:12.513Z\",\"updatedAt\":\"2026-10-03T00:50:12.513Z\"}"
+    },
+    {
+      "domain": "collab",
+      "name": "update task",
+      "method": "PATCH",
+      "path": "/tasks/cmurodlsk03z5hixgrnuj5veh",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "collab",
+      "name": "tasks by KPI",
+      "method": "GET",
+      "path": "/tasks/by-kpi/cmurod6zy03t1hixg95ojgzg7",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "collab",
+      "name": "update task (cross-tenant → 403/404)",
+      "method": "PATCH",
+      "path": "/tasks/cmurodlsk03z5hixgrnuj5veh",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "collab",
+      "name": "comment with mention",
+      "method": "POST",
+      "path": "/comments",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "collab",
+      "name": "comment on foreign entity → 4xx",
+      "method": "POST",
+      "path": "/comments",
+      "status": 201,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 12,
+      "excerpt": "{\"id\":\"cmurodluf03zhhixga0iwl1k1\",\"organizationId\":\"cmurocuse03pqhixgc9hww5g3\",\"entityType\":\"task\",\"entityId\":\"cmurodlsk03z5hixgrnuj5veh\",\"parentCommentId\":null,\"authorId\":\"cmurocutj03pwhixghkiijf0n\",\"body\":\"hi\",\"mentionedUserIds\":[],\"deletedAt\":null,\"createdAt\":\"2026-10-03T00:50:12.568Z\",\"updatedAt\":\"2026-10-03T00:50:12.568Z\"}"
+    },
+    {
+      "domain": "collab",
+      "name": "mention to foreign user → 4xx",
+      "method": "POST",
+      "path": "/comments",
+      "status": 201,
+      "expect": [
+        400,
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 18,
+      "excerpt": "{\"id\":\"cmurodluu03zkhixg8wes2rpu\",\"organizationId\":\"cmurocuse03pqhixgc9hww5g3\",\"entityType\":\"task\",\"entityId\":\"cmurodlsk03z5hixgrnuj5veh\",\"parentCommentId\":null,\"authorId\":\"cmurocutj03pwhixghkiijf0n\",\"body\":\"hi\",\"mentionedUserIds\":[],\"deletedAt\":null,\"createdAt\":\"2026-10-03T00:50:12.583Z\",\"updatedAt\":\"2026-10-03T00:50:12.583Z\"}"
+    },
+    {
+      "domain": "collab",
+      "name": "edit comment",
+      "method": "PATCH",
+      "path": "/comments/cmurodlty03zdhixg7mkrzazl",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 17
+    },
+    {
+      "domain": "collab",
+      "name": "other user can't edit my comment → 403",
+      "method": "PATCH",
+      "path": "/comments/cmurodlty03zdhixg7mkrzazl",
+      "status": 403,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "collab",
+      "name": "delete comment",
+      "method": "DELETE",
+      "path": "/comments/cmurodlty03zdhixg7mkrzazl",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "collab",
+      "name": "create objective",
+      "method": "POST",
+      "path": "/objectives",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "collab",
+      "name": "objective with end < start → 400",
+      "method": "POST",
+      "path": "/objectives",
+      "status": 201,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": false,
+      "ms": 11,
+      "excerpt": "{\"id\":\"cmurodlwo03zuhixgdfhot7qp\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"name\":\"Backwards\",\"description\":null,\"ownerUserId\":\"cmuroctc803pghixg0f15g39u\",\"parentObjectiveId\":null,\"periodStart\":\"2026-10-03T00:50:12.645Z\",\"periodEnd\":\"2026-10-02T00:50:12.645Z\",\"status\":\"DRAFT\",\"progress\":0,\"createdAt\":\"2026-10-03T00:50:12.648Z\",\"updatedAt\":\"2026-10-03T00:50:12.648Z\"}"
+    },
+    {
+      "domain": "collab",
+      "name": "objective as own parent → 400",
+      "method": "PATCH",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5",
+      "status": 200,
+      "expect": [
+        400,
+        409,
+        422
+      ],
+      "ok": false,
+      "ms": 17,
+      "excerpt": "{\"id\":\"cmurodlwb03zrhixg9nn90mw5\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"name\":\"Audit Objective murocsmn\",\"description\":null,\"ownerUserId\":\"cmuroctc803pghixg0f15g39u\",\"parentObjectiveId\":\"cmurodlwb03zrhixg9nn90mw5\",\"periodStart\":\"2026-10-03T00:50:12.633Z\",\"periodEnd\":\"2027-01-01T00:50:12.633Z\",\"status\":\"DRAFT\",\"progress\":0,\"createdAt\":\"2026-10-03T00:50:12.636Z\",\"updatedAt\":\"2026-10-03T00:50"
+    },
+    {
+      "domain": "collab",
+      "name": "create key result",
+      "method": "POST",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5/key-results",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 29
+    },
+    {
+      "domain": "collab",
+      "name": "sync from linked KPIs",
+      "method": "POST",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5/sync-from-linked-kpis",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 36
+    },
+    {
+      "domain": "collab",
+      "name": "update KR",
+      "method": "PATCH",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5/key-results/cmurodlxj03zzhixgpjh81nj1",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 24
+    },
+    {
+      "domain": "collab",
+      "name": "delete KR",
+      "method": "DELETE",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5/key-results/cmurodlxj03zzhixgpjh81nj1",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 19
+    },
+    {
+      "domain": "collab",
+      "name": "get objective (cross-tenant → 403/404)",
+      "method": "GET",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 3
+    },
+    {
+      "domain": "collab",
+      "name": "delete objective",
+      "method": "DELETE",
+      "path": "/objectives/cmurodlwb03zrhixg9nn90mw5",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "collab",
+      "name": "upsert approval workflow",
+      "method": "PUT",
+      "path": "/approvals/workflows/KPI_TARGET",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "collab",
+      "name": "list approval requests",
+      "method": "GET",
+      "path": "/approvals/requests",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "collab",
+      "name": "disable approval workflow",
+      "method": "PUT",
+      "path": "/approvals/workflows/KPI_TARGET",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "collab",
+      "name": "create workflow",
+      "method": "POST",
+      "path": "/workflows",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "collab",
+      "name": "trigger workflow",
+      "method": "POST",
+      "path": "/workflows/cmurodm1p040ehixgzosumbk6/trigger",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "collab",
+      "name": "update workflow",
+      "method": "PATCH",
+      "path": "/workflows/cmurodm1p040ehixgzosumbk6",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "collab",
+      "name": "delete workflow",
+      "method": "DELETE",
+      "path": "/workflows/cmurodm1p040ehixgzosumbk6",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "collab",
+      "name": "setup checklist",
+      "method": "GET",
+      "path": "/setup-checklist",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "collab",
+      "name": "non-admin completes org setup-checklist item",
+      "method": "POST",
+      "path": "/setup-checklist/connect_data_source/complete",
+      "status": 400,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": false,
+      "ms": 2,
+      "excerpt": "{\"code\":\"VALIDATION_ERROR\",\"message\":\"Unknown checklist task 'connect_data_source'\"}"
+    },
+    {
+      "domain": "collab",
+      "name": "activity feed",
+      "method": "GET",
+      "path": "/activity",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 9
+    },
+    {
+      "domain": "collab",
+      "name": "mentions",
+      "method": "GET",
+      "path": "/me/mentions",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "collab",
+      "name": "delete task",
+      "method": "DELETE",
+      "path": "/tasks/cmurodlsk03z5hixgrnuj5veh",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "integrations",
+      "name": "create REST connector → internal 127.0.0.1 URL",
+      "method": "POST",
+      "path": "/connectors",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "integrations",
+      "name": "run connector",
+      "method": "POST",
+      "path": "/connectors/cmurodm41040nhixgi7vp3sjt/run",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 54
+    },
+    {
+      "domain": "integrations",
+      "name": "connector fetched internal 127.0.0.1 URL (SSRF)",
+      "ok": false,
+      "status": "reached internal host",
+      "expect": [
+        "not reached"
+      ]
+    },
+    {
+      "domain": "integrations",
+      "name": "connector runs",
+      "method": "GET",
+      "path": "/connectors/cmurodm41040nhixgi7vp3sjt/runs",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 7
+    },
+    {
+      "domain": "integrations",
+      "name": "update connector",
+      "method": "PATCH",
+      "path": "/connectors/cmurodm41040nhixgi7vp3sjt",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "integrations",
+      "name": "delete connector",
+      "method": "DELETE",
+      "path": "/connectors/cmurodm41040nhixgi7vp3sjt",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "integrations",
+      "name": "org B connector targeting org A KPI",
+      "method": "POST",
+      "path": "/connectors",
+      "status": 201,
+      "expect": [
+        201,
+        400,
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "integrations",
+      "name": "org B's connector cannot write into org A's KPI",
+      "ok": true,
+      "status": "blocked",
+      "expect": [
+        "blocked"
+      ]
+    },
+    {
+      "domain": "integrations",
+      "name": "create webhook → internal URL",
+      "method": "POST",
+      "path": "/webhooks",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "integrations",
+      "name": "webhook event catalog",
+      "method": "GET",
+      "path": "/webhooks/events",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 2
+    },
+    {
+      "domain": "integrations",
+      "name": "create webhook (unknown event) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/webhooks",
+      "status": 201,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": false,
+      "ms": 13,
+      "excerpt": "{\"webhook\":{\"id\":\"cmurodm8m0418hixgqqynqeao\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"name\":\"Bad\",\"url\":\"https://example.com\",\"events\":[\"nope.nope\"],\"isActive\":true,\"lastDeliveredAt\":null,\"lastStatus\":null,\"failureCount\":0,\"createdAt\":\"2026-10-03T00:50:13.078Z\",\"createdById\":\"cmuroctc803pghixg0f15g39u\"},\"secret\":\"<redacted>\"}"
+    },
+    {
+      "domain": "integrations",
+      "name": "create API key",
+      "method": "POST",
+      "path": "/api-keys",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "integrations",
+      "name": "API key plaintext returned once on create",
+      "ok": true,
+      "status": "returned",
+      "expect": [
+        "returned"
+      ]
+    },
+    {
+      "domain": "integrations",
+      "name": "ingest with API key",
+      "method": "POST",
+      "path": "/ingest",
+      "status": 400,
+      "expect": [
+        200,
+        201,
+        202,
+        400
+      ],
+      "ok": true,
+      "ms": 6
+    },
+    {
+      "domain": "integrations",
+      "name": "ingest with bogus API key → 401",
+      "method": "POST",
+      "path": "/ingest",
+      "status": 401,
+      "expect": [
+        401,
+        403
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "integrations",
+      "name": "create API key (unknown scope) (invalid payload → 400)",
+      "method": "POST",
+      "path": "/api-keys",
+      "status": 400,
+      "expect": [
+        400,
+        422
+      ],
+      "ok": true,
+      "ms": 2
+    },
+    {
+      "domain": "integrations",
+      "name": "install plugin",
+      "method": "POST",
+      "path": "/plugins",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 18
+    },
+    {
+      "domain": "integrations",
+      "name": "disable plugin",
+      "method": "PATCH",
+      "path": "/plugins/cmurodm9s041fhixg7yf8ccva",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 17
+    },
+    {
+      "domain": "integrations",
+      "name": "uninstall plugin",
+      "method": "DELETE",
+      "path": "/plugins/cmurodm9s041fhixg7yf8ccva",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "integrations",
+      "name": "plugin with javascript: URL → 400",
+      "method": "POST",
+      "path": "/plugins",
+      "status": 201,
+      "expect": [
+        400
+      ],
+      "ok": false,
+      "ms": 13,
+      "excerpt": "{\"id\":\"cmurodmb8041mhixgetxq6nov\",\"organizationId\":\"cmuroctao03pahixgjttzcu12\",\"name\":\"XSS\",\"type\":\"WIDGET\",\"version\":\"1\",\"entryUrl\":\"javascript:alert(1)\",\"description\":null,\"isEnabled\":true,\"config\":null,\"installedById\":\"cmuroctc803pghixg0f15g39u\",\"createdAt\":\"2026-10-03T00:50:13.172Z\"}"
+    },
+    {
+      "domain": "integrations",
+      "name": "register custom domain",
+      "method": "POST",
+      "path": "/custom-domains",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "integrations",
+      "name": "verify domain (no TXT → not verified)",
+      "method": "POST",
+      "path": "/custom-domains/cmurodmbm041qhixgmt2xrm9x/verify",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        400,
+        409,
+        422
+      ],
+      "ok": true,
+      "ms": 25
+    },
+    {
+      "domain": "integrations",
+      "name": "delete domain",
+      "method": "DELETE",
+      "path": "/custom-domains/cmurodmbm041qhixgmt2xrm9x",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "integrations",
+      "name": "register domain already used by helios → 409",
+      "method": "POST",
+      "path": "/custom-domains",
+      "status": 409,
+      "expect": [
+        400,
+        409
+      ],
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "domain": "integrations",
+      "name": "create integration",
+      "method": "POST",
+      "path": "/integrations",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 13
+    },
+    {
+      "domain": "integrations",
+      "name": "get integration",
+      "method": "GET",
+      "path": "/integrations/cmurodmdd041zhixg5ulvno8o",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "integrations",
+      "name": "integration tokens are not echoed back in plaintext",
+      "ok": true,
+      "status": "redacted",
+      "expect": [
+        "redacted"
+      ]
+    },
+    {
+      "domain": "integrations",
+      "name": "delete integration",
+      "method": "DELETE",
+      "path": "/integrations/cmurodmdd041zhixg5ulvno8o",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "integrations",
+      "name": "public jira webhook without signature → 401/403",
+      "method": "POST",
+      "path": "/integrations/jira/webhook",
+      "status": 200,
+      "expect": [
+        400,
+        401,
+        403
+      ],
+      "ok": false,
+      "ms": 2,
+      "excerpt": "{\"updated\":false}"
+    },
+    {
+      "domain": "integrations",
+      "name": "public slack interactive without signature → 401/403",
+      "method": "POST",
+      "path": "/integrations/slack/interactive",
+      "status": 200,
+      "expect": [
+        400,
+        401,
+        403
+      ],
+      "ok": false,
+      "ms": 2,
+      "excerpt": "{\"handled\":false}"
+    },
+    {
+      "domain": "integrations",
+      "name": "public inbound email without signature → 401/403",
+      "method": "POST",
+      "path": "/webhooks/inbound/email",
+      "status": 400,
+      "expect": [
+        400,
+        401,
+        403
+      ],
+      "ok": true,
+      "ms": 2
+    },
+    {
+      "domain": "integrations",
+      "name": "mint SCIM token",
+      "method": "POST",
+      "path": "/scim/tokens",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "integrations",
+      "name": "SCIM list users",
+      "method": "GET",
+      "path": "/scim/v2/Users",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "integrations",
+      "name": "SCIM create user",
+      "method": "POST",
+      "path": "/scim/v2/Users",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 14
+    },
+    {
+      "domain": "integrations",
+      "name": "SCIM token can't read org B users",
+      "method": "GET",
+      "path": "/scim/v2/Users/cmurocutj03pwhixghkiijf0n",
+      "status": 404,
+      "expect": [
+        404
+      ],
+      "ok": true,
+      "ms": 10
+    },
+    {
+      "domain": "integrations",
+      "name": "revoke SCIM token",
+      "method": "DELETE",
+      "path": "/scim/tokens/cmurodmee0424hixg74mmnoom",
+      "status": 204,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 12
+    },
+    {
+      "domain": "integrations",
+      "name": "SSO config upsert",
+      "method": "PUT",
+      "path": "/sso/config",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 15
+    },
+    {
+      "domain": "governance",
+      "name": "audit log",
+      "method": "GET",
+      "path": "/audit",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 11
+    },
+    {
+      "domain": "governance",
+      "name": "audit log recorded this run’s changes",
+      "ok": true,
+      "status": 100,
+      "expect": [
+        ">5"
+      ]
+    },
+    {
+      "domain": "governance",
+      "name": "billing",
+      "method": "GET",
+      "path": "/billing",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 16
+    },
+    {
+      "domain": "governance",
+      "name": "set plan (unknown) → 4xx",
+      "method": "POST",
+      "path": "/billing/plan",
+      "status": 400,
+      "expect": [
+        400,
+        404
+      ],
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "domain": "governance",
+      "name": "retention policies",
+      "method": "GET",
+      "path": "/retention-policies",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "governance",
+      "name": "apply retention tier",
+      "method": "POST",
+      "path": "/retention-policies/apply-tier",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 45
+    },
+    {
+      "domain": "governance",
+      "name": "demo-data seed into audit org",
+      "method": "POST",
+      "path": "/demo-data/seed",
+      "status": 201,
+      "expect": [
+        200,
+        201,
+        202,
+        403,
+        409
+      ],
+      "ok": true,
+      "ms": 73
+    },
+    {
+      "domain": "governance",
+      "name": "health",
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "domain": "governance",
+      "name": "offboard user",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/offboard",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 43
+    },
+    {
+      "domain": "governance",
+      "name": "purge user (cross-tenant → 403/404)",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/purge",
+      "status": 404,
+      "expect": [
+        403,
+        404
+      ],
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "domain": "governance",
+      "name": "purge user",
+      "method": "POST",
+      "path": "/users/cmurocwsq03qlhixgkp5lzwlk/purge",
+      "status": 200,
+      "expect": [
+        200,
+        201,
+        204
+      ],
+      "ok": true,
+      "ms": 36
+    }
+  ]
+}

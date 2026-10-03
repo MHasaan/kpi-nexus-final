@@ -26,7 +26,7 @@ export class StorageService {
   private bucketEnsured = false;
 
   constructor() {
-    this.endpoint = process.env.S3_ENDPOINT ?? 'http://localhost:9000';
+    this.endpoint = process.env.S3_ENDPOINT ?? 'http://127.0.0.1:9000';
     this.bucket = process.env.S3_BUCKET ?? 'kpi-nexus-local';
 
     this.client = new S3Client({

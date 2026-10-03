@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 export interface RateLimitResult {
   allowed: boolean;

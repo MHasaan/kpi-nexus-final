@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type BudgetDecision, evaluateBudget } from './ai-budget-policy.js';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 export interface SpendSnapshot {
   dailySpend: number;

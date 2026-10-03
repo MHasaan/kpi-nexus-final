@@ -12,7 +12,7 @@ import { signMlRequest } from './ml-signature.js';
 @Injectable()
 export class MlClientService {
   private readonly logger = new Logger(MlClientService.name);
-  private readonly baseUrl = process.env.ML_SIDECAR_URL ?? 'http://localhost:8000';
+  private readonly baseUrl = process.env.ML_SIDECAR_URL ?? 'http://127.0.0.1:8000';
   private readonly secret = process.env.ML_SIDECAR_HMAC_SECRET ?? 'dev-ml-shared-secret';
 
   async post<T>(endpoint: string, payload: unknown): Promise<T> {

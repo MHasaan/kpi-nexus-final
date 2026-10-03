@@ -27,7 +27,7 @@ const REPO_ROOT = resolve(__dirname, '..');
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  'postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus';
+  'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 
 const c = {
   reset: '\x1b[0m',

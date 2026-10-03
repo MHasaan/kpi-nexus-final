@@ -5,7 +5,7 @@ import { Redis } from 'ioredis';
 export class RedisHealthService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisHealthService.name);
   private readonly redis = new Redis(
-    process.env.REDIS_URL ?? 'redis://localhost:6379',
+    process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
     {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
@@ -23,6 +23,10 @@ export class RedisHealthService implements OnModuleDestroy {
 
   async ping(): Promise<boolean> {
     try {
+      // lazyConnect + no offline queue: a command sent before the socket is
+      // open is rejected, not queued — so open it first or the first health
+      // check after boot falsely reports Redis as down.
+      if (this.redis.status === 'wait') await this.redis.connect();
       const result = await this.redis.ping();
       return result === 'PONG';
     } catch {

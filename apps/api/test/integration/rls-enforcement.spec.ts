@@ -24,10 +24,10 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 const OWNER_URL =
   process.env.DATABASE_URL ??
-  'postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus';
+  'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 const APP_URL =
   process.env.APP_DATABASE_URL ??
-  'postgresql://kpi_app:app_password@localhost:5432/kpi_nexus';
+  'postgresql://kpi_app:app_password@127.0.0.1:5432/kpi_nexus';
 
 async function isApiUp(): Promise<boolean> {
   try {

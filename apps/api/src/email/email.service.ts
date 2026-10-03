@@ -23,7 +23,7 @@ export class EmailService {
   constructor() {
     this.from = process.env.SMTP_FROM ?? 'noreply@kpi-nexus.local';
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST ?? 'localhost',
+      host: process.env.SMTP_HOST ?? '127.0.0.1',
       port: Number(process.env.SMTP_PORT ?? 1025),
       // No auth in dev (Mailhog). Production should set SMTP_SECURE + SMTP_USER/SMTP_PASS.
       secure: false,

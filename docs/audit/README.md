@@ -129,7 +129,7 @@ The sweep and CRUD scripts need the stack running and `helios` seeded. The CRUD 
 ## Cleanup performed
 
 - Deleted 277 test orgs (audit + E2E runs, incl. 3 from June) and 68 unclaimed onboarding drafts; removed the orphan rows they left in 31 FK-less tables (OT-016); reseeded `helios`.
-- Backups taken first: `C:workFYPkhanbackupskpi_nexus-2026-10-03-pre-audit-cleanup.dump` (and `…-pre-reseed.dump` from setup). Restore with `pg_restore --clean -d kpi_nexus`.
+- Backups taken first: `C:\work\FYP\khan\backups\kpi_nexus-2026-10-03-pre-audit-cleanup.dump` (and `…-pre-reseed.dump` from setup). Restore with `pg_restore --clean -d kpi_nexus`.
 
 ## Audit artefacts
 

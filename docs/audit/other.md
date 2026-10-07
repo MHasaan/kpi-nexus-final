@@ -129,7 +129,13 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
   - The `web-e2e` job runs Playwright with **no API / Postgres / Redis services**, so every backend-dependent E2E test would fail in CI.
 - **Expected:** drop `version:` from `pnpm/action-setup` (use `packageManager`), add service containers + API boot to `web-e2e`, and bump the actions off the deprecated Node 20 runtime (annotation on every run).
 
-### OT-008 · Medium · Notification-channel secrets encrypted with a public fallback key in production
+### OT-008 · Medium · Notification-channel secrets encrypted with a public fallback key in production — ✅ FIXED
+- **Fix:** `apps/api/src/config/secrets.ts` follows the `byo-crypto` rule. Outside production the dev default still applies. In production, a missing secret, a dev-default value or one under 32 characters is refused.
+  - Applies to all three fallbacks named here plus `EMBED_TOKEN_SECRET`, which had the same pattern, and `JWT_SECRET`, whose `.env.example` value is public.
+  - `assertProductionSecrets()` runs at boot, after `ConfigModule` has loaded `.env`, and lists **every** problem in one error.
+  - Every use site resolves its secret lazily. Side finding: the onboarding draft secret was a module-level constant evaluated *before* `.env` was loaded, so it silently ignored `JWT_SECRET` / `ONBOARDING_DRAFT_SECRET` and used the public default. Existing drafts are unaffected, because they are verified against a stored hash.
+  - The env templates now document the rule.
+  - Verified live: production with weak secrets refuses to start and names all of them; production with strong secrets and normal dev both boot.
 - **Code:** `apps/api/src/notification-channels/notification-crypto.ts:14-20` — key = `NOTIFICATION_ENCRYPTION_KEY ?? BYO_ENCRYPTION_KEY ?? 'dev-only-notification-key-change-me'`, with no production guard.
 - **Contrast:** `ai/byo/byo-crypto.ts:52-58` throws in production when its key is unset or short.
 - **Impact:** a deployment that forgets both variables stores Slack / Teams webhook URLs and other channel config encrypted under a key that is in the public repo.

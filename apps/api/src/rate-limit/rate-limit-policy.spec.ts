@@ -31,6 +31,22 @@ describe('resolveRateLimits', () => {
     expect(resolveRateLimits(req('/health'), DEFAULT_BUDGETS)[0]!.bucketKey).toBe('rl:org:1.2.3.4');
   });
 
+  it('anonymous onboarding start: strict per-IP hourly budget (BE-010)', () => {
+    expect(resolveRateLimits(req('/onboarding/start', { method: 'POST' }), DEFAULT_BUDGETS)).toEqual([
+      { limit: 10, windowSec: 3600, bucketKey: 'rl:onboarding-start:1.2.3.4' },
+    ]);
+  });
+
+  it('anonymous onboarding AI: per-IP hourly budget only — the global cap is charged per real LLM call in the service (BE-010)', () => {
+    expect(resolveRateLimits(req('/onboarding/ai/generate', { method: 'POST' }), DEFAULT_BUDGETS)).toEqual([
+      { limit: 30, windowSec: 3600, bucketKey: 'rl:onboarding-ai:1.2.3.4' },
+    ]);
+  });
+
+  it('other onboarding routes (draft read/update) keep the default bucket', () => {
+    expect(resolveRateLimits(req('/onboarding/:id'), DEFAULT_BUDGETS)[0]!.bucketKey).toBe('rl:org:1.2.3.4');
+  });
+
   it('uses configured budgets', () => {
     const b = { ...DEFAULT_BUDGETS, authPerIpPerMin: 500, loginPerAccountPer15Min: 3 };
     const policies = resolveRateLimits(req('/auth/login', { method: 'POST', body: { email: 'a@b.co' } }), b);
@@ -52,5 +68,15 @@ describe('budgetsFromEnv', () => {
       ...DEFAULT_BUDGETS,
       authPerIpPerMin: 1000,
     });
+  });
+
+  it('reads the onboarding budgets (BE-010)', () => {
+    expect(
+      budgetsFromEnv({
+        RATE_LIMIT_ONBOARDING_START_PER_HOUR: '3',
+        RATE_LIMIT_ONBOARDING_AI_PER_HOUR: '7',
+        RATE_LIMIT_ONBOARDING_AI_GLOBAL_PER_DAY: '1',
+      }),
+    ).toEqual({ ...DEFAULT_BUDGETS, onboardingStartPerHour: 3, onboardingAiPerIpPerHour: 7, onboardingAiGlobalPerDay: 1 });
   });
 });

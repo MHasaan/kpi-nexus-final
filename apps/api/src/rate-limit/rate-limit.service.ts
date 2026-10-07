@@ -11,7 +11,8 @@ export interface RateLimitResult {
 /**
  * Redis ZSET sliding-window rate limiter. Each request adds a timestamped
  * member; old members outside the window are evicted; the live count is
- * compared to the limit. Fails OPEN (allow) on a Redis error so a cache hiccup
+ * compared to the limit, and a refused request's member is removed again so
+ * only admitted requests count. Fails OPEN (allow) on a Redis error so a cache hiccup
  * never takes the API down.
  */
 @Injectable()
@@ -33,7 +34,16 @@ export class RateLimitService implements OnModuleDestroy {
         .exec();
       // result[2] = [err, count] from ZCARD.
       const count = Number(result?.[2]?.[1] ?? 0);
-      return { allowed: count <= limit, remaining: Math.max(0, limit - count) };
+      if (count > limit) {
+        // Refused: take the attempt back out so only ADMITTED requests occupy
+        // the window. Otherwise sustained spam keeps a bucket full forever —
+        // for a shared bucket (the onboarding-AI daily cap) that's a lockout
+        // for everyone (BE-010).
+        // Best effort: a failed cleanup must not flip this refusal to "allow".
+        await this.redis.zrem(bucketKey, member).catch(() => undefined);
+        return { allowed: false, remaining: 0 };
+      }
+      return { allowed: true, remaining: limit - count };
     } catch (err) {
       this.logger.warn(`rate-limit consume failed for ${bucketKey} (failing open): ${String(err)}`);
       return { allowed: true, remaining: limit };

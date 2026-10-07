@@ -47,10 +47,13 @@ export class SlackService {
   }
 
   private async resolveOrg(teamId: string): Promise<string | null> {
-    const conn = await this.prisma.integrationConnection.findFirst({
-      where: { provider: 'slack', metadata: { path: ['team_id'], equals: teamId } },
-      select: { organizationId: true },
-    });
+    // Cross-tenant: the Slack team is how we learn the tenant (OT-014).
+    const conn = await RequestContextStore.runWithBypass('slack-resolve-org', () =>
+      this.prisma.integrationConnection.findFirst({
+        where: { provider: 'slack', metadata: { path: ['team_id'], equals: teamId } },
+        select: { organizationId: true },
+      }),
+    );
     return conn?.organizationId ?? null;
   }
 }

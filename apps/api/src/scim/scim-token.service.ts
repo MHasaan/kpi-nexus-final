@@ -57,13 +57,17 @@ export class ScimTokenService {
   /** Resolve a bearer token to an org id; null if unknown/revoked/expired. */
   async verifyAndResolve(token: string): Promise<string | null> {
     if (!token.startsWith(SCIM_TOKEN_PREFIX)) return null;
-    const row = await this.prisma.scimToken.findFirst({
-      where: { hashedToken: hashToken(token) },
-      select: { id: true, organizationId: true, revokedAt: true, expiresAt: true },
+    // Cross-tenant by nature (the token IS how we learn the tenant): explicit
+    // RLS bypass (OT-014).
+    return RequestContextStore.runWithBypass('scim-token-verify', async () => {
+      const row = await this.prisma.scimToken.findFirst({
+        where: { hashedToken: hashToken(token) },
+        select: { id: true, organizationId: true, revokedAt: true, expiresAt: true },
+      });
+      if (!row || row.revokedAt) return null;
+      if (row.expiresAt && row.expiresAt.getTime() < Date.now()) return null;
+      await this.prisma.scimToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
+      return row.organizationId;
     });
-    if (!row || row.revokedAt) return null;
-    if (row.expiresAt && row.expiresAt.getTime() < Date.now()) return null;
-    await this.prisma.scimToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
-    return row.organizationId;
   }
 }

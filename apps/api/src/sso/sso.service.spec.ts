@@ -5,11 +5,12 @@
  * existing user, JIT provision (ACTIVE + default role), JIT disabled, inactive
  * config, unknown org.
  */
-import { describe, expect, test, vi } from 'vitest';
+import { type Mock, describe, expect, test, vi } from 'vitest';
 import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 import type { AuthService } from '../auth/auth.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextStore } from '../tenancy/request-context.js';
 import { SsoService } from './sso.service.js';
 
 function makeService(opts: { active?: boolean; jit?: boolean } = {}) {
@@ -73,5 +74,22 @@ describe('SsoService.handleVerifiedLogin', () => {
   test('rejects an unknown org slug', async () => {
     const { service } = makeService();
     await expect(service.handleVerifiedLogin({ orgSlug: 'ghost', email: 'x@y', fullName: 'X' })).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('SsoService.handleVerifiedLogin — runs pre-auth under the RLS bypass (OT-014)', () => {
+  test('org, user and role lookups (and JIT create) all see bypassRls', async () => {
+    const { service, prisma } = makeService({ jit: true });
+    const seen: Array<boolean | undefined> = [];
+    const fns = [prisma.organization.findFirst, prisma.user.findFirst, prisma.user.create, prisma.roleDefinition.findFirst] as unknown as Mock[];
+    for (const fn of fns) {
+      const impl = fn.getMockImplementation()!;
+      fn.mockImplementation(async (...args: unknown[]) => {
+        seen.push(RequestContextStore.get()?.bypassRls);
+        return impl(...args);
+      });
+    }
+    await service.handleVerifiedLogin({ orgSlug: 'acme', email: 'new@x.test', fullName: 'New' });
+    expect(seen).toEqual([true, true, true, true]);
   });
 });

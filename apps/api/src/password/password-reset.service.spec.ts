@@ -24,7 +24,7 @@ function make(user: { id: string; organizationId: string; email: string } | null
     {} as unknown as RefreshTokenService,
     email as unknown as EmailService,
   );
-  return { service, email, prisma };
+  return { service, email, prisma, audit };
 }
 
 describe('PasswordResetService.request', () => {
@@ -76,5 +76,15 @@ describe('PasswordResetService.request', () => {
     await expect(service.request('ada@example.test')).resolves.toBeUndefined();
     expect(logged.some((l) => /reset email/i.test(l))).toBe(true);
     expect(logged.join('\n')).not.toMatch(/token=/);
+  });
+
+  // No session exists here, so the ambient context is the bypass placeholder;
+  // the event must carry the user's real org or it's dropped (FK on AuditLog).
+  test("audits the request against the user's own organization", async () => {
+    const { service, audit } = make({ id: 'u1', organizationId: 'o1', email: 'ada@example.test' });
+    await service.request('ada@example.test');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: 'PasswordResetToken', entityId: 'u1', organizationId: 'o1', userId: 'u1' }),
+    );
   });
 });

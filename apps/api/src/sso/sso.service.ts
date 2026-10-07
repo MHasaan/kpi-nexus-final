@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException, UnauthorizedExceptio
 
 import { AuthService, type AuthPair } from '../auth/auth.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextStore } from '../tenancy/request-context.js';
 
 export interface VerifiedSsoProfile {
   orgSlug: string;
@@ -24,6 +25,13 @@ export class SsoService {
   ) {}
 
   async handleVerifiedLogin(profile: VerifiedSsoProfile): Promise<AuthPair> {
+    // Pre-auth: the org is resolved from the IdP profile (by slug) and the user
+    // looked up / JIT-provisioned before any session exists — run under the
+    // RLS bypass, like password login (OT-014).
+    return RequestContextStore.runWithBypass('sso-login', () => this.loginVerified(profile));
+  }
+
+  private async loginVerified(profile: VerifiedSsoProfile): Promise<AuthPair> {
     const org = await this.prisma.organization.findFirst({ where: { slug: profile.orgSlug }, select: { id: true } });
     if (!org) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Organization not found' });
 

@@ -100,13 +100,15 @@ export class OnboardingService {
    */
   async cleanupStale(olderThanDays = 30): Promise<{ cleaned: number }> {
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
-    const result = await this.prisma.onboardingSession.updateMany({
-      where: {
-        status: 'in_progress',
-        updatedAt: { lt: cutoff },
-      },
-      data: { status: 'archived' },
-    });
+    const result = await RequestContextStore.runWithBypass('onboarding-cleanup', () =>
+      this.prisma.onboardingSession.updateMany({
+        where: {
+          status: 'in_progress',
+          updatedAt: { lt: cutoff },
+        },
+        data: { status: 'archived' },
+      }),
+    );
     return { cleaned: result.count };
   }
 

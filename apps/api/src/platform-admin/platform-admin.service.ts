@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextStore } from '../tenancy/request-context.js';
 
 export interface PlatformAdminRow {
   userId: string;
@@ -30,10 +31,14 @@ export class PlatformAdminService {
   }
 
   async list(): Promise<PlatformAdminRow[]> {
-    const rows = await this.prisma.platformAdmin.findMany({
-      include: { user: { select: { email: true, fullName: true } } },
-      orderBy: { grantedAt: 'asc' },
-    });
+    // Platform admins belong to many tenants; the joined User rows are
+    // cross-tenant by design (OT-014).
+    const rows = await RequestContextStore.runWithBypass('platform-admin-list', () =>
+      this.prisma.platformAdmin.findMany({
+        include: { user: { select: { email: true, fullName: true } } },
+        orderBy: { grantedAt: 'asc' },
+      }),
+    );
     return rows.map((r) => ({
       userId: r.userId,
       email: r.user.email,

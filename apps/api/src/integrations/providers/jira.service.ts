@@ -6,6 +6,7 @@ import type { TaskStatus } from '@kpi-nexus/db';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { IntegrationCryptoService } from '../integration-crypto.service.js';
 import { mapJiraStatusToTask } from './jira-map.js';
+import { RequestContextStore } from '../../tenancy/request-context.js';
 
 export interface JiraWebhookPayload {
   issue?: { key?: string; fields?: { status?: { name?: string } } };
@@ -42,17 +43,24 @@ export class JiraService {
     const mapped = mapJiraStatusToTask(statusName);
     if (!mapped) return { updated: false };
 
-    const task = await this.prisma.task.findFirst({
-      where: {
-        organizationId,
-        OR: [{ externalRef: key }, { externalRef: { endsWith: `/browse/${key}` } }],
-      },
-      select: { id: true },
-    });
-    if (!task) return { updated: false };
+    // The connection authenticated this call for exactly one tenant: do the
+    // task work inside that tenant's context (OT-014).
+    return RequestContextStore.run(
+      { userId: 'jira-webhook', organizationId, roleId: null, principalType: 'user' },
+      async () => {
+        const task = await this.prisma.task.findFirst({
+          where: {
+            organizationId,
+            OR: [{ externalRef: key }, { externalRef: { endsWith: `/browse/${key}` } }],
+          },
+          select: { id: true },
+        });
+        if (!task) return { updated: false };
 
-    await this.prisma.task.update({ where: { id: task.id }, data: { status: mapped as TaskStatus } });
-    return { updated: true };
+        await this.prisma.task.update({ where: { id: task.id }, data: { status: mapped as TaskStatus } });
+        return { updated: true };
+      },
+    );
   }
 
   /** Returns the connection's org when the presented secret matches; throws 401 otherwise. */
@@ -60,10 +68,13 @@ export class JiraService {
     const reject = () => new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Invalid webhook credentials' });
     if (!presentedSecret) throw reject();
 
-    const conn = await this.prisma.integrationConnection.findFirst({
-      where: { id: connectionId, provider: 'jira' },
-      select: { organizationId: true, encryptedTokens: true },
-    });
+    // Cross-tenant: the connection id is how we learn the tenant (OT-014).
+    const conn = await RequestContextStore.runWithBypass('jira-authenticate', () =>
+      this.prisma.integrationConnection.findFirst({
+        where: { id: connectionId, provider: 'jira' },
+        select: { organizationId: true, encryptedTokens: true },
+      }),
+    );
     if (!conn) throw reject();
 
     let expected: unknown;

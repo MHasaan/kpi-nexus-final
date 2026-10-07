@@ -89,20 +89,24 @@ export class ApiKeysService {
    */
   async verify(plaintext: string): Promise<VerifiedApiKey | null> {
     if (!plaintext.startsWith(API_KEY_PREFIX)) return null;
-    const row = await this.prisma.apiKey.findUnique({
-      where: { hashedKey: hashKey(plaintext) },
-      select: { id: true, organizationId: true, scopes: true, revokedAt: true, expiresAt: true },
+    // Cross-tenant by nature (the key IS how we learn the tenant): explicit
+    // RLS bypass so this keeps working once RLS is enforced (OT-014).
+    return RequestContextStore.runWithBypass('api-key-verify', async () => {
+      const row = await this.prisma.apiKey.findUnique({
+        where: { hashedKey: hashKey(plaintext) },
+        select: { id: true, organizationId: true, scopes: true, revokedAt: true, expiresAt: true },
+      });
+      if (!row) return null;
+      if (row.revokedAt !== null) return null;
+      if (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now()) return null;
+
+      // Best-effort lastUsedAt bump; never blocks auth.
+      void this.prisma.apiKey
+        .update({ where: { id: row.id }, data: { lastUsedAt: new Date() } })
+        .catch(() => undefined);
+
+      return { organizationId: row.organizationId, apiKeyId: row.id, scopes: row.scopes };
     });
-    if (!row) return null;
-    if (row.revokedAt !== null) return null;
-    if (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now()) return null;
-
-    // Best-effort lastUsedAt bump; never blocks auth.
-    void this.prisma.apiKey
-      .update({ where: { id: row.id }, data: { lastUsedAt: new Date() } })
-      .catch(() => undefined);
-
-    return { organizationId: row.organizationId, apiKeyId: row.id, scopes: row.scopes };
   }
 
   async revoke(id: string): Promise<PublicApiKey> {

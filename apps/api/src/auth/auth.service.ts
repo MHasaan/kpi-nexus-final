@@ -394,20 +394,26 @@ export class AuthService {
 
   async refresh(refreshToken: string): Promise<AuthPair> {
     const next = await this.refreshTokens.rotate(refreshToken);
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: next.userId },
-      select: { id: true, organizationId: true, roleId: true },
+    // Public route: the caller is known only by the refresh token, so these
+    // lookups are cross-tenant by nature — run them under the RLS bypass, like
+    // login (OT-014).
+    const { user, isAdmin } = await RequestContextStore.runWithBypass('refresh', async () => {
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: { id: next.userId },
+        select: { id: true, organizationId: true, roleId: true },
+      });
+      const isAdmin = user.roleId
+        ? Boolean(
+            (
+              await this.prisma.roleDefinition.findUnique({
+                where: { id: user.roleId },
+                select: { isAdmin: true },
+              })
+            )?.isAdmin,
+          )
+        : false;
+      return { user, isAdmin };
     });
-    const isAdmin = user.roleId
-      ? Boolean(
-          (
-            await this.prisma.roleDefinition.findUnique({
-              where: { id: user.roleId },
-              select: { isAdmin: true },
-            })
-          )?.isAdmin,
-        )
-      : false;
     const accessToken = await this.signAccess({
       sub: user.id,
       org: user.organizationId,

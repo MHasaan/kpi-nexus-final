@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { AuditAction, Prisma } from '@kpi-nexus/db';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RequestContextStore } from '../tenancy/request-context.js';
+import { PLATFORM_BYPASS_ID, RequestContextStore } from '../tenancy/request-context.js';
 
 export interface AuditRecordInput {
   action: AuditAction;
@@ -11,6 +11,12 @@ export interface AuditRecordInput {
   changes?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   redactedKeys?: string[];
+  /**
+   * Tenant/actor for flows with no request context but a known tenant (e.g.
+   * pre-auth password reset). Defaults to the current RequestContext.
+   */
+  organizationId?: string;
+  userId?: string;
 }
 
 export interface AuditListFilters {
@@ -74,11 +80,17 @@ export class AuditService {
    */
   async record(input: AuditRecordInput): Promise<void> {
     const ctx = RequestContextStore.get();
+    // runWithBypass() outside a request puts a placeholder (not a real id) on
+    // the context; persisting it violates the AuditLog→Organization FK and the
+    // event was silently lost. Treat it as "no tenant / no actor".
+    const real = (id: string | undefined) => (id && id !== PLATFORM_BYPASS_ID ? id : undefined);
+    const organizationId = input.organizationId ?? real(ctx?.organizationId);
+    const userId = input.userId ?? real(ctx?.userId);
     try {
-      const userEmail = ctx?.userId
+      const userEmail = userId
         ? (
             await this.prisma.user.findUnique({
-              where: { id: ctx.userId },
+              where: { id: userId },
               select: { email: true },
             })
           )?.email
@@ -88,12 +100,12 @@ export class AuditService {
 
       await this.prisma.auditLog.create({
         data: {
-          organizationId: ctx?.organizationId ?? null,
+          organizationId: organizationId ?? null,
           action: input.action,
           entityType: input.entityType,
           entityId: input.entityId,
           changes: changes ? (changes as Prisma.InputJsonValue) : undefined,
-          userId: ctx?.userId,
+          userId,
           userEmail,
           metadata: input.metadata
             ? (input.metadata as Prisma.InputJsonValue)

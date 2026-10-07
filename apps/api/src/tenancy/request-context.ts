@@ -47,6 +47,12 @@ export class NoRequestContextError extends Error {
 }
 
 /**
+ * Placeholder org/user id on the context created by runWithBypass() when there
+ * is no surrounding request. It is NOT a real row id — never persist it.
+ */
+export const PLATFORM_BYPASS_ID = 'platform-bypass';
+
+/**
  * AsyncLocalStorage-backed request scope. Read via `get()` or `require()`,
  * wrap async work via `run()`/`runWithBypass()`.
  */
@@ -70,8 +76,8 @@ export const RequestContextStore = {
     const next: RequestContext = current
       ? { ...current, bypassRls: true }
       : {
-          userId: 'platform-bypass',
-          organizationId: 'platform-bypass',
+          userId: PLATFORM_BYPASS_ID,
+          organizationId: PLATFORM_BYPASS_ID,
           roleId: null,
           principalType: 'user',
           bypassRls: true,
@@ -105,7 +111,7 @@ export const resolveTenantContextForDb = (): { organizationId?: string; bypassRl
   const ctx = storage.getStore();
   if (!ctx) return undefined;
   return {
-    organizationId: ctx.organizationId === 'platform-bypass' ? undefined : ctx.organizationId,
+    organizationId: ctx.organizationId === PLATFORM_BYPASS_ID ? undefined : ctx.organizationId,
     bypassRls: ctx.bypassRls === true,
   };
 };

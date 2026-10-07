@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { PermissionKey } from '@kpi-nexus/contracts';
 
-import type { RequestContext } from '../../tenancy/request-context.js';
+import { type RequestContext, RequestContextStore } from '../../tenancy/request-context.js';
 import {
   OWNER_OVERRIDE_KEY,
   type OwnerOverrideConfig,
@@ -89,6 +89,23 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
+    // Guards run before TenancyInterceptor, so there's no request context yet.
+    // The checks below read RoleDefinition / RoleInheritance /
+    // PermissionDelegation / ResourcePermission; run them in the principal's
+    // own tenant context so they keep working once Postgres RLS is enforced
+    // (OT-014).
+    return RequestContextStore.run(principal, () =>
+      this.authorizeUser(context, principal, request, requireAll, requireAny),
+    );
+  }
+
+  private async authorizeUser(
+    context: ExecutionContext,
+    principal: RequestContext,
+    request: { params?: Record<string, string> },
+    requireAll: PermissionKey[] | undefined,
+    requireAny: PermissionKey[] | undefined,
+  ): Promise<boolean> {
     const resolved = await this.resolver.resolveForUser(
       principal.organizationId,
       principal.userId,

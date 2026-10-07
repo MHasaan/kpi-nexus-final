@@ -239,4 +239,96 @@ describe('RLS enforcement (spec §3.1 + §5.1) — kpi_app non-owner role', () =
     ]);
     expect(del.rowCount).toBe(1);
   });
+
+  // OT-014: policies used to cover only the 17 P1 identity tables. Every table
+  // with an organizationId column is now covered (KPIDataPoint excepted —
+  // TimescaleDB refuses compression on a table with row security).
+  test('catalog: every tenant table has RLS + service_role_bypass + tenant_isolation', async () => {
+    if (!apiAvailable) return;
+    const owner = new Client({ connectionString: OWNER_URL });
+    await owner.connect();
+    try {
+      const { rows } = await owner.query<{ table: string; rls: boolean; policies: string[] }>(
+        `SELECT c.relname AS table, c.relrowsecurity AS rls,
+                COALESCE(array_agg(p.policyname ORDER BY p.policyname) FILTER (WHERE p.policyname IS NOT NULL), '{}') AS policies
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+           LEFT JOIN pg_policies p ON p.schemaname = 'public' AND p.tablename = c.relname
+          WHERE c.relkind = 'r'
+            AND (c.relname = 'Organization' OR EXISTS (
+                  SELECT 1 FROM information_schema.columns k
+                   WHERE k.table_schema = 'public' AND k.table_name = c.relname AND k.column_name = 'organizationId'))
+            AND c.relname <> 'KPIDataPoint'
+          GROUP BY c.relname, c.relrowsecurity`,
+      );
+      expect(rows.length).toBeGreaterThanOrEqual(70);
+      const gaps = rows.filter(
+        (r) => !r.rls || !r.policies.includes('service_role_bypass') || !r.policies.includes('tenant_isolation'),
+      );
+      expect(gaps.map((g) => g.table)).toEqual([]);
+    } finally {
+      await owner.end();
+    }
+  });
+
+  test('newly covered table (KPICategory): own rows only, no context sees nothing, foreign insert blocked', async () => {
+    if (!apiAvailable || !appClient || !orgA || !orgB) return;
+    const id = `rls_cat_${Date.now()}`;
+    await setGuc(orgA.orgId, false);
+    await appClient.query(`INSERT INTO "KPICategory" (id, "organizationId", name) VALUES ($1, $2, $3)`, [id, orgA.orgId, `RLS probe ${id}`]);
+    try {
+      const own = await appClient.query('SELECT id FROM "KPICategory" WHERE id = $1', [id]);
+      expect(own.rowCount).toBe(1);
+
+      await setGuc(orgB.orgId, false);
+      const other = await appClient.query('SELECT id FROM "KPICategory" WHERE id = $1', [id]);
+      expect(other.rowCount).toBe(0);
+
+      await setGuc(null, false);
+      const none = await appClient.query('SELECT count(*)::int AS n FROM "KPICategory"');
+      expect(none.rows[0]?.n).toBe(0);
+
+      await setGuc(orgA.orgId, false);
+      await expect(
+        appClient.query(`INSERT INTO "KPICategory" (id, "organizationId", name) VALUES ($1, $2, 'x')`, [`${id}_b`, orgB.orgId]),
+      ).rejects.toThrow(/row-level security|new row violates/i);
+    } finally {
+      await setGuc(null, true);
+      await appClient.query('DELETE FROM "KPICategory" WHERE id = $1', [id]);
+    }
+  });
+
+  test('KPITemplate: built-ins (NULL org) are shared read-only; tenants cannot create one', async () => {
+    if (!apiAvailable || !appClient || !orgA) return;
+    const slug = `rls-builtin-${Date.now()}`;
+    await setGuc(null, true);
+    await appClient.query(
+      `INSERT INTO "KPITemplate" (id, "organizationId", slug, name, type, direction, frequency, tags)
+       VALUES ($1, NULL, $1, 'RLS builtin', 'NUMBER', 'HIGHER_IS_BETTER', 'MONTHLY', '{}')`,
+      [slug],
+    );
+    try {
+      await setGuc(orgA.orgId, false);
+      const visible = await appClient.query('SELECT id FROM "KPITemplate" WHERE id = $1', [slug]);
+      expect(visible.rowCount).toBe(1);
+
+      // USING lets a tenant see the built-in, but WITH CHECK refuses writing a
+      // NULL-org row — a tenant can neither edit nor mint a shared template.
+      await expect(
+        appClient.query(`UPDATE "KPITemplate" SET name = 'hijacked' WHERE id = $1`, [slug]),
+      ).rejects.toThrow(/row-level security|new row violates/i);
+      await expect(
+        appClient.query(
+          `INSERT INTO "KPITemplate" (id, "organizationId", slug, name, type, direction, frequency, tags)
+           VALUES ($1, NULL, $1, 'fake builtin', 'NUMBER', 'HIGHER_IS_BETTER', 'MONTHLY', '{}')`,
+          [`${slug}-fake`],
+        ),
+      ).rejects.toThrow(/row-level security|new row violates/i);
+    } finally {
+      await setGuc(null, true);
+      const after = await appClient.query<{ name: string }>('SELECT name FROM "KPITemplate" WHERE id = $1', [slug]);
+      expect(after.rows[0]?.name).toBe('RLS builtin');
+      await appClient.query('DELETE FROM "KPITemplate" WHERE id = $1', [slug]);
+    }
+  });
 });

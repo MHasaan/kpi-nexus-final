@@ -89,7 +89,21 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Dev-only:** `vitest` (critical — UI server file read; only when the Vitest UI is running), `vite`, `brace-expansion` via tooling.
 - **Context:** 21 Dependabot PRs are open but unmergeable because CI is broken (OT-007).
 
-### OT-014 · High · Row-level security is not in effect; the API runs as a Postgres superuser
+### OT-014 · High · Row-level security is not in effect; the API runs as a Postgres superuser — 🟡 PARTIAL (stage A of 3)
+- **Done (stage A, no runtime behaviour change):**
+  - Policies now cover **every** table with an `organizationId` column: 73 tables, up from 17. Coverage is discovered from the catalog, so new tenant tables are picked up on the next `db:setup`.
+  - Special rules: `Organization` (by id); `AuditLog` / `LoginAttempt` (NULL-org rows are bypass-only); `KPITemplate` / `OrgTemplate` (NULL-org built-ins are readable by every tenant, but tenants can't write them).
+  - Every code path that queried without a tenant context now sets one explicitly. Before this, they would have broken the moment RLS was enforced:
+    - the global `PermissionsGuard` (it runs before `TenancyInterceptor`), which would have meant 403 on every gated route;
+    - `POST /auth/refresh`, SSO login, MFA login check and the platform-admin list;
+    - API-key / SCIM-token / Slack / Jira credential lookups, inbound email, and the stale-draft sweep.
+  - Verified: a fresh `db:setup` (hypertables, continuous aggregates, compression) still passes, and the policy file re-runs idempotently.
+- **Found along the way, fixed:** audit events written under `runWithBypass()` outside a request carried the `'platform-bypass'` placeholder as `organizationId`. That broke the FK and the error was swallowed, so **every password-reset audit event was lost** (13 reset tokens on the dev DB, 0 audit rows). `AuditService` now never persists the placeholder, and password reset records the user's real org.
+- **Deliberately not covered:** `KPIDataPoint` (TimescaleDB refuses compression on a table with row security, verified in a scratch DB), the `kpi_data_*` continuous aggregates (materialized views can't carry RLS), and tables without `organizationId` (token tables, `KPIVersion`, `OrgUnitNameHistory`, …).
+- **Remaining:**
+  - **Stage B:** set `app.current_org` / `app.bypass_rls` per query from `RequestContextStore`. This needs a Prisma 6 `$extends`, because `$use` is gone, and it must handle the 13 interactive transactions plus raw SQL. Then connect the API as `kpi_app` (keep the owner URL for migrations), behind a flag that defaults OFF, and get every suite green with the flag ON.
+  - **Stage C:** default ON plus `FORCE ROW LEVEL SECURITY`.
+  - Also needed: an isolation plan for `KPIDataPoint` and the CAGGs (e.g. security-barrier views, with direct SELECT revoked from `kpi_app`).
 - **Evidence (live DB):**
   - RLS is enabled on **17 of 83** public tables and **FORCE**d on 0.
   - All tables are owned by `kpi_nexus`; the API's `DATABASE_URL` uses `kpi_nexus`, which has `rolsuper = true`, `rolbypassrls = true`.

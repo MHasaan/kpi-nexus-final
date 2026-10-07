@@ -69,6 +69,9 @@ export class PasswordResetService {
         entityType: 'PasswordResetToken',
         entityId: user.id,
         metadata: { reason: 'requested' },
+        // Pre-auth: no request context, so name the tenant + actor explicitly.
+        organizationId: user.organizationId,
+        userId: user.id,
       });
     });
   }
@@ -134,6 +137,8 @@ export class PasswordResetService {
         entityType: 'User',
         entityId: user.id,
         metadata: { reason: 'password-reset-completed' },
+        organizationId: user.organizationId,
+        userId: user.id,
       });
 
       this.logger.log(`password reset completed for user ${user.id}`);

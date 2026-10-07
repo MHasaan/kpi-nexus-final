@@ -154,13 +154,26 @@ export class OrgUnitsService {
   }
 
   async update(id: string, dto: UpdateOrgUnitDto) {
+    const ctx = RequestContextStore.require();
     await this.getById(id);
 
-    if (dto.parentUnitId === id) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'an org unit cannot be its own parent',
-      });
+    // BE-009: every reference must belong to this tenant (as create() checks),
+    // and a new parent must not be the unit itself or one of its descendants.
+    if (dto.parentUnitId !== undefined) {
+      if (dto.parentUnitId === id) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'an org unit cannot be its own parent',
+        });
+      }
+      await this.assertInTenant('orgUnit', dto.parentUnitId, ctx.organizationId, 'parentUnitId');
+      await this.assertNotDescendant(id, dto.parentUnitId, ctx.organizationId);
+    }
+    if (dto.orgUnitTypeId !== undefined) {
+      await this.assertInTenant('orgUnitType', dto.orgUnitTypeId, ctx.organizationId, 'orgUnitTypeId');
+    }
+    if (dto.headUserId !== undefined) {
+      await this.assertInTenant('user', dto.headUserId, ctx.organizationId, 'headUserId');
     }
 
     const { metadata, ...rest } = dto;
@@ -183,6 +196,57 @@ export class OrgUnitsService {
     });
 
     return updated;
+  }
+
+  /** 400 unless `id` is a row of `model` in this tenant. */
+  private async assertInTenant(
+    model: 'orgUnit' | 'orgUnitType' | 'user',
+    id: string,
+    organizationId: string,
+    field: string,
+  ): Promise<void> {
+    const args = { where: { id, organizationId }, select: { id: true } } as const;
+    const row =
+      model === 'orgUnit'
+        ? await this.prisma.orgUnit.findFirst(args)
+        : model === 'orgUnitType'
+          ? await this.prisma.orgUnitType.findFirst(args)
+          : await this.prisma.user.findFirst(args);
+    if (!row) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `${field} is invalid or belongs to another tenant`,
+      });
+    }
+  }
+
+  /**
+   * 400 if `newParentId` is `unitId` or one of its descendants (walks up from
+   * the proposed parent). The visited set + depth cap keep a pre-existing bad
+   * cycle in the data from looping forever.
+   */
+  private async assertNotDescendant(
+    unitId: string,
+    newParentId: string,
+    organizationId: string,
+    message = 'parentUnitId would create a cycle (it is a descendant of this unit)',
+  ): Promise<void> {
+    const seen = new Set<string>();
+    let cur: string | null = newParentId;
+    while (cur && !seen.has(cur) && seen.size < 10_000) {
+      if (cur === unitId) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message,
+        });
+      }
+      seen.add(cur);
+      const row: { parentUnitId: string | null } | null = await this.prisma.orgUnit.findFirst({
+        where: { id: cur, organizationId },
+        select: { parentUnitId: true },
+      });
+      cur = row?.parentUnitId ?? null;
+    }
   }
 
   async remove(id: string): Promise<void> {
@@ -458,6 +522,9 @@ export class OrgUnitsService {
         message: 'cannot merge an org unit into itself',
       });
     }
+    // The source's children are re-parented to the target — if the target sits
+    // inside the source's subtree that creates a cycle (BE-009).
+    await this.assertNotDescendant(sourceId, targetId, ctx.organizationId, 'targetId is a descendant of the source unit; merging would create a cycle');
 
     const activeMembers = await this.prisma.orgUnitMember.findMany({
       where: { orgUnitId: sourceId, organizationId: ctx.organizationId, leftAt: null },

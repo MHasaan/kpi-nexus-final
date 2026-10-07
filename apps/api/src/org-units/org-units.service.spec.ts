@@ -250,6 +250,18 @@ class FakePrisma {
         )
         .map((u) => ({ id: u.id }));
     }),
+    findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const u = this.users.find((u) => u.id === where.id && tenantMatch(u.organizationId, where));
+      return u ? { id: u.id } : null;
+    }),
+  };
+
+  types: Array<{ id: string; organizationId: string }> = [{ id: 'type_1', organizationId: ORG }];
+  orgUnitType = {
+    findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const t = this.types.find((t) => t.id === where.id && tenantMatch(t.organizationId, where));
+      return t ? { id: t.id } : null;
+    }),
   };
 
   // Real-ish atomic transaction: snapshot, run, roll back on throw.
@@ -623,5 +635,78 @@ describe('OrgUnitsService — listMembershipsByUser', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.id).toBe('mActive');
     expect(rows[0]!.orgUnitId).toBe('u1');
+  });
+});
+
+// BE-009: update() used to accept any parentUnitId except the unit itself —
+// cycles (P→C→P) and parents/types/heads from ANOTHER tenant went through.
+describe('OrgUnitsService — update() validates references (BE-009)', () => {
+  function tree() {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'p', name: 'Parent' });
+    prisma.seedUnit({ id: 'c', name: 'Child', parentUnitId: 'p' });
+    prisma.seedUnit({ id: 'g', name: 'Grandchild', parentUnitId: 'c' });
+    prisma.seedUnit({ id: 'other', name: 'Sibling root' });
+    prisma.seedUnit({ id: 'foreign', name: 'Org B unit', organizationId: 'org_beta' });
+    prisma.types.push({ id: 'type_foreign', organizationId: 'org_beta' });
+    prisma.seedUser({ id: 'head_ok' });
+    prisma.seedUser({ id: 'head_foreign', organizationId: 'org_beta' });
+    return { service, prisma };
+  }
+  const parentOf = (prisma: FakePrisma, id: string) => prisma.units.find((u) => u.id === id)!.parentUnitId;
+
+  test('rejects making a unit its own parent', async () => {
+    const { service } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'p' }))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  test('rejects a direct cycle (P under its child C)', async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'c' }))).rejects.toMatchObject({
+      response: { code: 'VALIDATION_ERROR', message: expect.stringMatching(/cycle/i) },
+    });
+    expect(parentOf(prisma, 'p')).toBeNull();
+  });
+
+  test('rejects a deep cycle (P under its grandchild G)', async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'g' }))).rejects.toBeInstanceOf(BadRequestException);
+    expect(parentOf(prisma, 'p')).toBeNull();
+  });
+
+  test("rejects a parent from another tenant", async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('c', { parentUnitId: 'foreign' }))).rejects.toMatchObject({
+      response: { message: expect.stringMatching(/another tenant/i) },
+    });
+    expect(parentOf(prisma, 'c')).toBe('p');
+  });
+
+  test('rejects an orgUnitTypeId or headUserId from another tenant', async () => {
+    const { service } = tree();
+    await expect(withCtx({}, () => service.update('c', { orgUnitTypeId: 'type_foreign' }))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(withCtx({}, () => service.update('c', { headUserId: 'head_foreign' }))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  test('still allows a legitimate move and same-tenant head/type', async () => {
+    const { service, prisma } = tree();
+    await withCtx({}, () => service.update('g', { parentUnitId: 'other', headUserId: 'head_ok', orgUnitTypeId: 'type_1' }));
+    expect(parentOf(prisma, 'g')).toBe('other');
+  });
+});
+
+describe('OrgUnitsService — mergeUnits() refuses to merge into a descendant (BE-009)', () => {
+  test('merging P into its child C (or grandchild G) is rejected and nothing moves', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'p', name: 'Parent' });
+    prisma.seedUnit({ id: 'c', name: 'Child', parentUnitId: 'p' });
+    prisma.seedUnit({ id: 'g', name: 'Grandchild', parentUnitId: 'c' });
+    for (const target of ['c', 'g']) {
+      await expect(withCtx({}, () => service.mergeUnits('p', target))).rejects.toMatchObject({
+        response: { code: 'VALIDATION_ERROR', message: expect.stringMatching(/cycle|descendant/i) },
+      });
+    }
+    expect(prisma.units.find((u) => u.id === 'c')!.parentUnitId).toBe('p');
+    expect(prisma.units.find((u) => u.id === 'p')!.status).toBe('ACTIVE');
   });
 });

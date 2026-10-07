@@ -9,6 +9,7 @@ import { Logger } from 'nestjs-pino';
 
 import { ensureProviderKeysLoaded } from './ai/provider-key-loader.js';
 import { AppModule } from './app.module.js';
+import { assertProductionSecrets } from './config/secrets.js';
 import { fastifyTrustProxy } from './config/trust-proxy.js';
 
 async function bootstrap(): Promise<void> {
@@ -28,6 +29,10 @@ async function bootstrap(): Promise<void> {
     // webhooks (Slack) can verify signatures over what was actually signed.
     { bufferLogs: true, rawBody: true },
   );
+
+  // Refuse to run with a public dev-default secret in production (OT-008).
+  // After create(): ConfigModule has loaded .env by now.
+  assertProductionSecrets();
 
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();

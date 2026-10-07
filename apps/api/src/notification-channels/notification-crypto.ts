@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 
+import { NOTIFICATION_KEY_SPEC, resolveSecret } from '../config/secrets.js';
+
 /**
  * AES-256-GCM encryption for notification-channel credentials at rest.
  *
@@ -13,10 +15,9 @@ import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:
 const VERSION = 'v1';
 
 function key(): Buffer {
-  const raw =
-    process.env.NOTIFICATION_ENCRYPTION_KEY ??
-    process.env.BYO_ENCRYPTION_KEY ??
-    'dev-only-notification-key-change-me';
+  // NOTIFICATION_ENCRYPTION_KEY, else BYO_ENCRYPTION_KEY; the dev default is
+  // refused in production (OT-008).
+  const raw = resolveSecret(NOTIFICATION_KEY_SPEC);
   // Normalize any-length secret to exactly 32 bytes.
   return createHash('sha256').update(raw).digest();
 }

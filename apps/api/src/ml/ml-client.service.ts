@@ -2,6 +2,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { signMlRequest } from './ml-signature.js';
+import { ML_HMAC_SPEC, resolveSecret } from '../config/secrets.js';
 
 /**
  * HTTP client for the Python ML sidecar. Every call is HMAC-signed with the
@@ -13,7 +14,11 @@ import { signMlRequest } from './ml-signature.js';
 export class MlClientService {
   private readonly logger = new Logger(MlClientService.name);
   private readonly baseUrl = process.env.ML_SIDECAR_URL ?? 'http://127.0.0.1:8000';
-  private readonly secret = process.env.ML_SIDECAR_HMAC_SECRET ?? 'dev-ml-shared-secret';
+  // Resolved per call, not in the constructor: a DI-time throw would pre-empt the
+  // boot check that reports every insecure secret at once (OT-008).
+  private get secret(): string {
+    return resolveSecret(ML_HMAC_SPEC);
+  }
 
   async post<T>(endpoint: string, payload: unknown): Promise<T> {
     const ctx = RequestContextStore.require();

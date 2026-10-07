@@ -141,7 +141,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-016 SSRF | ✅ fixed | `da4340d` | `src/outbound/outbound-fetch.spec.ts` (41), `test/integration/ssrf-guard.spec.ts` (17) |
 | OT-009 spoofable client IP / IP not recorded | ✅ fixed | `b541281` | `trust-proxy.spec.ts` (11), `auth.service.spec.ts`, `test/integration/client-ip.spec.ts` |
 | BE-017 no brute-force protection by default | ✅ fixed | `fdcce5c` | `rate-limit-policy.spec.ts` (7), `rate-limit.guard.spec.ts` (4) + live check |
-| BE-010 anonymous, unlimited onboarding LLM spend | ✅ fixed | _pending_ | `rate-limit-policy.spec.ts` (+3), `onboarding-ai.service.spec.ts` (4), `test/integration/rate-limit-service.spec.ts` (2) + live check |
+| BE-010 anonymous, unlimited onboarding LLM spend | ✅ fixed | `ab3bf7c` | `rate-limit-policy.spec.ts` (+3), `onboarding-ai.service.spec.ts` (4), `test/integration/rate-limit-service.spec.ts` (2) + live check |
 
 ## Cleanup performed
 

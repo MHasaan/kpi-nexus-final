@@ -76,7 +76,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** in production, invited users have no way to get their accept link → onboarding of team members is broken.
 - **Good:** the accept flow itself works end-to-end with the token: preview → accept → login → second accept rejected.
 
-### BE-009 · High · Org-unit `update()` allows cycles and cross-tenant parents
+### BE-009 · High · Org-unit `update()` allows cycles and cross-tenant parents — ✅ FIXED
+- **Fix:** `update()` now checks `parentUnitId`, `orgUnitTypeId` and `headUserId` belong to the caller's tenant, the same way `create()` already did; `update()` also accepted foreign types and heads. A new parent must not be the unit itself or one of its descendants: an ancestor walk with a visited set and a depth cap. `mergeUnits()` had the same cycle hole: merging a unit into its own descendant re-parents the target under itself. It now refuses. The dev DB was checked and holds no cross-tenant parents or cycles. Verified live: cycle → 400, foreign parent/head → 400, merge into own child → 400, legit move → 200.
 - **Cycle — repro:** create unit P, child C (`parentUnitId: P`), then `PATCH /org-units/P {"parentUnitId": C}` → `200`. DB now has P→C→P.
 - **Cross-tenant — repro:** as org B, `PATCH /org-units/<B unit> {"parentUnitId": "<org A unit id>"}` → `200`; B's unit is stored with a parent in org A.
 - **Cause:** `apps/api/src/org-units/org-units.service.ts:156-175` — `update()` only rejects "own parent". `create()` (lines 104-112) does verify the parent is in the same tenant; `update()` doesn't, and neither checks for ancestor cycles.
@@ -161,7 +162,12 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Location:** `apps/api/src/okrs/dto/okr.dto.ts` + objectives service — no cycle / ancestry check, no period refine.
 - **Impact:** the alignment tree / rollup UI may recurse — to check in the frontend audit.
 
-### BE-021 · Medium · Cross-tenant references accepted (no data leak observed)
+### BE-021 · Medium · Cross-tenant references accepted (no data leak observed) — ✅ FIXED
+- **Fix:** a shared `assertSameTenant()` (`apps/api/src/tenancy/assert-same-tenant.ts`) checks referenced ids on write and returns 400 `VALIDATION_ERROR` "… belongs to another tenant". Coverage:
+  - tasks: `kpiId`, `alertId` and `assigneeUserId` on create and update;
+  - comments: the commented entity for every entity type, plus `parentCommentId`;
+  - dashboard widgets: `config.kpiId` / `config.kpiIds` on add and update.
+  Verified live with a real `helios` KPI as the foreign target. Every case is rejected with the specific message, and same-tenant controls still return 201.
 - **Repro (as org B, using org A ids):**
   - `POST /tasks {"kpiId": <A's KPI>}` → `201`
   - `POST /comments {"entityType":"task","entityId": <A's task>}` → `201`

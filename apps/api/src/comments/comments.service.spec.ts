@@ -47,6 +47,14 @@ class FakePrisma {
   users: FakeUser[] = [];
   failMentionCreate = false;
 
+  // Commentable entities (BE-021): ids starting with "foreign_" live in another tenant.
+  private ref = vi.fn(async ({ where }: { where: { id: string } }) => (where.id.startsWith('foreign_') ? null : { id: where.id }));
+  kPI = { findFirst: this.ref };
+  dashboard = { findFirst: this.ref };
+  alert = { findFirst: this.ref };
+  task = { findFirst: this.ref };
+  objective = { findFirst: this.ref };
+
   user = {
     findMany: vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
       this.users.filter((u) => u.organizationId === where.organizationId && where.id.in.includes(u.id)).map((u) => ({ id: u.id })),
@@ -229,5 +237,31 @@ describe('CommentsService list / edit / delete', () => {
     const { service } = makeService();
     const c = await withCtx({ organizationId: 'org_a', userId: 'author' }, () => service.create({ entityType: 'kpi', entityId: 'k', body: 'x' }));
     await expect(withCtx({ organizationId: 'org_b', userId: 'author' }, () => service.update(c.id, { body: 'y' }))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('CommentsService.create — the commented entity must belong to the tenant (BE-021)', () => {
+  test.each(['kpi', 'dashboard', 'alert', 'task', 'objective'] as const)(
+    "rejects commenting on another tenant's %s and stores nothing",
+    async (entityType) => {
+      const { service, prisma } = makeService();
+      await expect(
+        withCtx({ userId: 'author' }, () => service.create({ entityType, entityId: 'foreign_x', body: 'hi' })),
+      ).rejects.toMatchObject({ response: { code: 'VALIDATION_ERROR', message: 'entityId is invalid or belongs to another tenant' } });
+      expect(prisma.comments).toHaveLength(0);
+    },
+  );
+
+  test("rejects a parentCommentId from another tenant", async () => {
+    const { service, prisma } = makeService();
+    const foreign = await withCtx({ userId: 'author', organizationId: 'org_other' }, () =>
+      service.create({ entityType: 'kpi', entityId: 'kpi_1', body: 'theirs' }),
+    );
+    await expect(
+      withCtx({ userId: 'author' }, () =>
+        service.create({ entityType: 'kpi', entityId: 'kpi_1', body: 'reply', parentCommentId: foreign.id }),
+      ),
+    ).rejects.toMatchObject({ response: { message: 'parentCommentId is invalid or belongs to another tenant' } });
+    expect(prisma.comments).toHaveLength(1);
   });
 });

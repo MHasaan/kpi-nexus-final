@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
+import { assertSameTenant } from '../tenancy/assert-same-tenant.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateTaskDto, ListTasksQuery, UpdateTaskDto } from './dto/task.dto.js';
 
@@ -116,6 +117,7 @@ export class TasksService {
 
   async create(dto: CreateTaskDto): Promise<PublicTask> {
     const ctx = RequestContextStore.require();
+    await this.assertRefsInTenant(dto, ctx.organizationId);
     const created = await this.prisma.task.create({
       data: {
         organizationId: ctx.organizationId,
@@ -140,6 +142,7 @@ export class TasksService {
     const ctx = RequestContextStore.require();
     const task = await this.loadInOrg(id);
     await this.assertCanMutate(task, { allowAssignee: true });
+    await this.assertRefsInTenant(dto, ctx.organizationId);
     const updated = await this.prisma.task.update({
       where: { id },
       data: {
@@ -156,7 +159,6 @@ export class TasksService {
       select: taskSelect,
     });
     await this.audit.record({ action: 'UPDATE', entityType: 'Task', entityId: id, metadata: { status: updated.status } });
-    void ctx;
     return updated;
   }
 
@@ -165,6 +167,16 @@ export class TasksService {
     await this.assertCanMutate(task, { allowAssignee: false });
     await this.prisma.task.delete({ where: { id } });
     await this.audit.record({ action: 'DELETE', entityType: 'Task', entityId: id });
+  }
+
+  /** BE-021: a task may only point at a KPI / alert / assignee of its own tenant. */
+  private async assertRefsInTenant(
+    dto: { kpiId?: string | null; alertId?: string | null; assigneeUserId?: string | null },
+    organizationId: string,
+  ): Promise<void> {
+    if (dto.kpiId) await assertSameTenant(this.prisma, 'kPI', dto.kpiId, organizationId, 'kpiId');
+    if (dto.alertId) await assertSameTenant(this.prisma, 'alert', dto.alertId, organizationId, 'alertId');
+    if (dto.assigneeUserId) await assertSameTenant(this.prisma, 'user', dto.assigneeUserId, organizationId, 'assigneeUserId');
   }
 
   /** Fetch a task scoped to the tenant; 404 if absent. No read-visibility check. */

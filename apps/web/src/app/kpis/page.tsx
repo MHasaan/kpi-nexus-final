@@ -25,7 +25,6 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import {
@@ -64,9 +63,7 @@ const KPI_STATUSES = Object.keys(KPI_STATUS_TONE) as KpiStatus[];
 
 export default function KpisPage() {
   return (
-    <TerminologyProvider>
-      <KpisPageInner />
-    </TerminologyProvider>
+    <KpisPageInner />
   );
 }
 

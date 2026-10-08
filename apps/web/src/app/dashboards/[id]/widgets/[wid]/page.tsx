@@ -16,7 +16,6 @@ import {
   type DataPoint,
   type KpiSummary,
 } from '../../../../../lib/api-client';
-import { TerminologyProvider } from '../../../../../lib/terminology-context';
 import { AppShell } from '../../../../../components/app-shell';
 import { PermissionGuard } from '../../../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../../../components/auth/require-permission';
@@ -49,9 +48,7 @@ const DrillDownChart = dynamic(() => import('./drill-down-chart').then((m) => m.
 
 export default function WidgetDrillDownPage() {
   return (
-    <TerminologyProvider>
-      <DrillDownInner />
-    </TerminologyProvider>
+    <DrillDownInner />
   );
 }
 

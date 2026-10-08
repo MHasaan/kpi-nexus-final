@@ -14,7 +14,6 @@ import {
   getAccessToken,
   meRequest,
 } from '../../lib/api-client';
-import { TerminologyProvider } from '../../lib/terminology-context';
 import {
   Avatar,
   Button,
@@ -31,9 +30,7 @@ type TabKey = 'account' | 'security' | 'preferences';
 
 export default function ProfilePage() {
   return (
-    <TerminologyProvider>
-      <ProfilePageInner />
-    </TerminologyProvider>
+    <ProfilePageInner />
   );
 }
 

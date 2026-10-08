@@ -58,6 +58,8 @@ import {
   isPageAllowed,
   type PageAccessResolved,
 } from '../lib/access';
+import { navLabelFor } from '../lib/nav-terminology';
+import { useTerminology } from '../lib/terminology-context';
 import { usePageAccess } from '../lib/use-page-access';
 import { usePermissions } from '../lib/use-permissions';
 
@@ -325,6 +327,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   const pathname = usePathname() ?? '';
   const { permissions, ready } = usePermissions();
   const { pageAccess, ready: pageAccessReady } = usePageAccess();
+  const { terminology } = useTerminology();
   const { resolvedTheme, setTheme } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -412,12 +415,16 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   // NO_PAGE_RESTRICTION so nothing is wrongly hidden during load.
   const effectivePageAccess =
     mounted && pageAccessReady ? pageAccess : NO_PAGE_RESTRICTION;
+  // Labels follow the org's custom terminology (FE-007), e.g. "Permission Tiers".
   const groups = filterNavGroups(
     NAV_GROUPS,
     permissions,
     mounted && ready,
     effectivePageAccess,
-  );
+  ).map((g) => ({
+    ...g,
+    items: g.items.map((item) => ({ ...item, label: navLabelFor(item.href, item.label, terminology) })),
+  }));
 
   // Layer-5 route guard: gate the CURRENT route only when it maps to a nav href
   // (most-specific match). Routes with no nav mapping (e.g. /profile,

@@ -15,7 +15,6 @@ import {
   type KpiSummary,
 } from '../../../lib/api-client';
 import {
-  TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
 import { AppShell } from '../../../components/app-shell';
@@ -42,9 +41,7 @@ const STARTER_COLS = 4;
 
 export default function NewDashboardPage() {
   return (
-    <TerminologyProvider>
-      <NewDashboardInner />
-    </TerminologyProvider>
+    <NewDashboardInner />
   );
 }
 

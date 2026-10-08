@@ -17,7 +17,6 @@ import {
   type Dashboard,
   type DashboardSnapshot,
 } from '../../../../lib/api-client';
-import { TerminologyProvider } from '../../../../lib/terminology-context';
 import { AppShell } from '../../../../components/app-shell';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
@@ -34,9 +33,7 @@ import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 export default function SnapshotsPage() {
   return (
-    <TerminologyProvider>
-      <SnapshotsInner />
-    </TerminologyProvider>
+    <SnapshotsInner />
   );
 }
 

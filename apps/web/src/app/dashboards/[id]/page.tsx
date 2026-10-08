@@ -22,7 +22,6 @@ import {
 import { WidgetEditor } from '../../../components/dashboard-grid/widget-editor';
 import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
 import {
-  TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
@@ -49,9 +48,7 @@ const DashboardGrid = dynamic(
 
 export default function DashboardDetailPage() {
   return (
-    <TerminologyProvider>
-      <DashboardDetailInner />
-    </TerminologyProvider>
+    <DashboardDetailInner />
   );
 }
 

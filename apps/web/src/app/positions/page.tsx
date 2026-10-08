@@ -34,7 +34,6 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
@@ -54,9 +53,7 @@ const TRACK_LABEL: Record<PositionTrack | 'OTHER', string> = {
 
 export default function PositionsPage() {
   return (
-    <TerminologyProvider>
-      <PositionsPageInner />
-    </TerminologyProvider>
+    <PositionsPageInner />
   );
 }
 
@@ -295,7 +292,7 @@ function PositionsPageInner() {
             ) : positions ? (
               <div className="flex flex-col gap-5" data-testid="positions-list">
                 {TRACK_ORDER.filter((t) => (grouped.get(t)?.length ?? 0) > 0).map((track) => (
-                  <div key={track}>
+                  <div key={track} data-testid={`positions-group-${track}`}>
                     <div className="kn-eyebrow mb-2">{TRACK_LABEL[track]}</div>
                     <Card className="overflow-hidden p-0">
                       <Table>

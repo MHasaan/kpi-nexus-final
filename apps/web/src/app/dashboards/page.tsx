@@ -34,7 +34,6 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import {
@@ -121,9 +120,7 @@ function DashboardThumbnail({ widgets }: { widgets: Dashboard['widgets'] }) {
 
 export default function DashboardsListPage() {
   return (
-    <TerminologyProvider>
-      <DashboardsListInner />
-    </TerminologyProvider>
+    <DashboardsListInner />
   );
 }
 

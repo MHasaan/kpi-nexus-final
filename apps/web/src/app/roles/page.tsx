@@ -43,7 +43,6 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
@@ -131,9 +130,7 @@ const SCOPE_LABELS: Record<Scope, string> = {
 
 export default function RolesPage() {
   return (
-    <TerminologyProvider>
-      <RolesPageInner />
-    </TerminologyProvider>
+    <RolesPageInner />
   );
 }
 

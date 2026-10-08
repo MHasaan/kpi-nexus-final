@@ -51,16 +51,13 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function UsersPage() {
   return (
-    <TerminologyProvider>
-      <UsersPageInner />
-    </TerminologyProvider>
+    <UsersPageInner />
   );
 }
 

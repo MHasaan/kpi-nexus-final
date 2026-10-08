@@ -37,16 +37,13 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function OrgUnitsPage() {
   return (
-    <TerminologyProvider>
-      <OrgUnitsPageInner />
-    </TerminologyProvider>
+    <OrgUnitsPageInner />
   );
 }
 

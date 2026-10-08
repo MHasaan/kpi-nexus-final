@@ -373,7 +373,8 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
             value={values.name}
             onChange={(e) => set('name', e.target.value)}
             required
-            minLength={2}
+            // Length is checked in handleSubmit: a native minLength would block
+            // submit with a browser tooltip and hide the inline role="alert" error.
             placeholder="e.g. Monthly Recurring Revenue"
             data-testid="kpi-name"
           />

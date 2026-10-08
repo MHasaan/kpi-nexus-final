@@ -141,7 +141,9 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Cause:** the seed's 12 monthly periods end at the anchor month, and `periodEnd()` is the 28th (`packages/db/prisma/seed.ts`). The original seed had the same property relative to its fixed "now" (5 June with a June 28 period end). Anchoring to the current month in commit `2971f87` (this audit's setup fix) made it visible today.
 - **Expected:** anchor to the last *completed* month, or clamp `periodEnd` / `recordedAt` to `SEED_NOW`.
 
-### OT-016 · Medium · 39 tenant tables have no foreign key to `Organization` — deleting an org leaves its data behind
+### OT-016 · Medium · 39 tenant tables have no foreign key to `Organization` — deleting an org leaves its data behind — ✅ FIXED
+- **Fix (`809c2a7`) — root cause:** 33 of the 39 FKs were in the migration chain, but `schema.prisma` never declared the relations, so every DB built with `prisma db push` (db:setup — dev, CI, this audit) had none; 6 were missing everywhere. All 39 relations are now in the schema (`onDelete: Cascade`, matching the migrations) and an idempotent migration adds the missing ones as `NOT VALID` (enforced for new rows and cascades; legacy orphans untouched — `VALIDATE CONSTRAINT` after cleanup).
+- Verified: fresh `migrate deploy` → 39; dangling org id rejected; deleting helios in a rolled-back transaction cascaded its rows.
 - **Evidence (found during audit cleanup):** these tables have an `organizationId` column with no FK constraint:
   - **Auth & security:** `ScimToken`, `SsoConfig`, `LoginAttempt`
   - **AI:** `AiProvider` (BYOK credentials), `AiBudget`, `AiCallLog`, `AiFeatureConfig`, `NLQQuery`, `KPIInsight`, `Recommendation`, `KpiCatalogEmbedding`, `AnomalyDetection`, `Forecast`

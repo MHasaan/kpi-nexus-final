@@ -1,6 +1,8 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
+import { attachRedisErrorLogger } from '../redis/redis-error-logger.js';
+
 @Injectable()
 export class RedisHealthService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisHealthService.name);
@@ -16,6 +18,10 @@ export class RedisHealthService implements OnModuleDestroy {
       connectTimeout: 2_000,
     },
   );
+
+  constructor() {
+    attachRedisErrorLogger(this.redis, this.logger, 'health');
+  }
 
   async onModuleDestroy(): Promise<void> {
     try {

@@ -1,6 +1,8 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
+import { attachRedisErrorLogger } from '../redis/redis-error-logger.js';
+
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
@@ -25,6 +27,10 @@ export class RateLimitService implements OnModuleDestroy {
     commandTimeout: 1_000,
   });
   private seq = 0;
+
+  constructor() {
+    attachRedisErrorLogger(this.redis, this.logger, 'rate-limit');
+  }
 
   async consume(bucketKey: string, limit: number, windowSec: number, nowMs: number): Promise<RateLimitResult> {
     const windowStart = nowMs - windowSec * 1000;

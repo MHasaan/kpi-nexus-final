@@ -77,7 +77,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
 
     // Navigate to /roles — the dashboard nav link points there
     await page.goto('/roles');
-    await expect(page.getByRole('heading', { name: /^Roles$/ })).toBeVisible();
+    await expect(page.getByTestId('roles-heading')).toBeVisible();
 
     // Default seed: Admin / Manager / Employee / Viewer rows are present
     await expect(page.getByTestId('role-row-Admin')).toBeVisible();
@@ -125,7 +125,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
 
     await signInAsFreshAdmin(page);
     await page.goto('/roles');
-    await expect(page.getByRole('heading', { name: /^Roles$/ })).toBeVisible();
+    await expect(page.getByTestId('roles-heading')).toBeVisible();
 
     await selectRole(page, 'Admin');
     const deleteResp = page.waitForResponse(
@@ -187,5 +187,37 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     const feedback = page.getByTestId('preset-feedback-Employee');
     await expect(feedback).toBeVisible({ timeout: 5000 });
     await expect(feedback).toContainText(/preset applied/i);
+  });
+});
+
+test.describe('UC-02: role permission editing (FE-002)', () => {
+  test('admin grants a permission on a role → saved → persists after reload; admin roles are locked', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    await signInAsFreshAdmin(page);
+    await page.goto('/roles');
+    await selectRole(page, 'Viewer');
+
+    // One of the 7 permissions the old read-only matrix never showed.
+    const exportsBox = page.getByTestId('perm-Viewer-EXPORTS');
+    await expect(exportsBox).not.toBeChecked();
+    await exportsBox.check({ force: true }); // visually-hidden native checkbox
+
+    const saved = page.waitForResponse(
+      (r) => r.url().includes('/roles/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('perm-save-Viewer').click();
+    expect((await saved).status()).toBe(200);
+    await expect(page.getByTestId('perm-feedback-Viewer')).toHaveText(/permissions saved/i);
+
+    await page.reload();
+    await selectRole(page, 'Viewer');
+    await expect(page.getByTestId('perm-Viewer-EXPORTS')).toBeChecked();
+
+    // Admin role: every box granted and disabled, no save button.
+    await selectRole(page, 'Admin');
+    await expect(page.getByTestId('perm-Admin-BILLING_MANAGE')).toBeChecked();
+    await expect(page.getByTestId('perm-Admin-BILLING_MANAGE')).toBeDisabled();
+    await expect(page.getByTestId('perm-save-Admin')).toHaveCount(0);
   });
 });

@@ -203,6 +203,8 @@ export async function listRoles(): Promise<RoleSummary[]> {
 export async function updateRole(
   id: string,
   patch: {
+    /** Full permission list (FE-002). May be queued for approval: see isApprovalPending. */
+    permissions?: string[];
     scopeConfig?: ScopeConfig;
     dataTypeConfig?: DataTypeConfig;
     dataLimits?: DataLimitsConfig;

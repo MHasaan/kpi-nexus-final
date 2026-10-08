@@ -93,7 +93,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 ### FE-017 · Low · Widget detail page overflows on phones
 - **Repro (crawl, 375 px):** `/dashboards/[id]/widgets/[wid]` is 93 px wider than the viewport (horizontal scroll). All other 79 pages fit.
 
-### FE-005 · High · Signup "Template gallery" shows "No templates available." (BE-001 surfaced to users)
+### FE-005 · High · Signup "Template gallery" shows "No templates available." (BE-001 surfaced to users) — ✅ FIXED (via BE-001)
+- Verified in the browser: the gallery lists all 5 templates.
 - **Repro (walkthrough):** `/signup` → email + org name → **Template gallery** → "Templates — No templates available."
 - **Cause:** the page's `GET /org-templates` returns 500 (BE-001), and `listTemplates()` (`apps/web/src/lib/onboarding-client.ts:50`) / the signup page treat the failure as an empty list — no error shown.
 - **Impact:** one of the three onboarding paths is unusable for every new organization, silently. (Also fails E2E `onboarding-wizard.spec.ts:35` and `org-templates.spec.ts:26,47`.)
@@ -111,11 +112,13 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Evidence:** on `/login` (and register) the show/hide button sits inside the `<label>`, so the input's accessible name is "Password Show password" and `getByLabel('Password')` matches both the input and the button. Screen readers announce it oddly, and it breaks 3 E2E specs (`auth-flow.spec.ts:116`, `permission-nav.spec.ts:233`, …).
 - **Expected:** move the button outside the label or give the input an explicit `aria-labelledby`.
 
-### FE-012 · High · `/reports/board-pack` crashes ("Application error")
+### FE-012 · High · `/reports/board-pack` crashes ("Application error") — ✅ FIXED (via BE-027)
+- **Fix:** the API now matches the page's contract. The page's status chips now understand the board statuses (`OFF_TRACK`/`AT_RISK` were rendering green) and show readable labels; no-data / no-target chips are neutral. Verified in the browser.
 - **Repro (crawl and walkthrough):** open `/reports/board-pack` as admin or contributor → "Application error: a client-side exception has occurred", `TypeError: Cannot read properties of undefined (reading 'length')`.
 - **Cause:** contract drift with the API (BE-027): the page reads `quadrant.kpis.length` (`app/reports/board-pack/page.tsx:228`) but the API sends `topKpis`. With no error boundary (FE-004) the whole page dies.
 
-### FE-013 · High · Live dashboard updates don't work (SSE blocked by CORS)
+### FE-013 · High · Live dashboard updates don't work (SSE blocked by CORS) — ✅ FIXED (via BE-028)
+- Verified in the browser on a dashboard: preflight 204 and stream 200, with no CORS errors in the console.
 - **Repro (crawl):** open any `/dashboards/[id]` page → console: "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=…' from origin 'http://localhost:3000' has been blocked by CORS policy".
 - **Cause:** BE-028. Dashboards never receive push updates, so new data shows only after a manual reload.
 

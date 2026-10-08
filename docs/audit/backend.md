@@ -213,7 +213,13 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** about 1 in 4 AI requests fail (recommendations, KPI suggestions, onboarding co-pilot, NLQ, insights). This accounts for 7 of the 32 E2E failures.
 - **Expected:** treat "model not available for this key" as key-level (or fall back to a supported model), move defaults to a current model, only configure fallbacks with keys, and log/store the provider error message.
 
-### BE-027 · High · Board-pack API returns a shape the web doesn't expect, and no values
+### BE-027 · High · Board-pack API returns a shape the web doesn't expect, and no values — ✅ FIXED
+- **Fix:**
+  - **Shape:** the API now returns the web contract: `org.id`; `quadrants[{ name, kpis[{ kpiId, name, unit, value, status }], healthDistribution }]`; movers with `previousValue`, `currentValue`, `change` and `changePct`.
+  - **Values:** root cause — the service asked `dashboardSummary` for points *inside* the window, and that requires a whole period to fit in it, so a monthly KPI could never appear in a 30-day pack. It now takes the latest value whose period ended by now, versus the latest ended by the window start. Both calls go through `dashboardSummary`, so visibility and data limits are unchanged.
+  - **Status:** threshold bands first (Helios uses these; the old code only read the unused warning/critical columns, so everything was "unknown"), then explicit thresholds, then a direction-aware target rule (the same grading as KPI assignments). Problems are listed first.
+  - **Movers:** ranked by |% change|, which is comparable across units.
+  - Verified live in the browser: real values, health chips and movers, with no console errors.
 - **Shape:** `GET /reports/board-pack?sinceDays=30` returns `quadrants: [{ name, health: {ok,warning,critical,unknown}, topKpis: [{ kpiId, name, latestValue }] }]`. The web contract (`apps/web/src/lib/api-client.ts:1316-1334`) expects `quadrants: [{ name, kpis: [{ kpiId, name, value, status }], healthDistribution }]` → the page crashes (FE-012).
 - **Data:** on seeded `helios` (data through the current month) every quadrant reports `health.unknown = N`, every `latestValue: null`, and `topMovers: []`. The board pack finds no data even when the shape is right.
 - **Location:** `apps/api/src/reports/` board-pack service vs `apps/web/src/app/reports/board-pack/page.tsx`.

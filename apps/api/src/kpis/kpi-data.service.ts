@@ -26,6 +26,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { detectOutlier } from './outlier-detector.js';
 import { type KpiDirection, computeAssignmentStatus } from '../user-kpis/assignment-status.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
+import { type KpiHealthStatus, attainmentPct, kpiHealthStatus } from './kpi-health.js';
 
 const dataPointSelect = {
   id: true,
@@ -319,6 +320,11 @@ export class KpiDataService {
       aggregatedValue: number | null;
       pointCount: number;
       scorecardQuadrant: string | null;
+      direction: string;
+      /** Server-computed health (bands → thresholds → direction-aware target). */
+      status: KpiHealthStatus;
+      /** Direction-aware % of target achieved, or null. */
+      attainmentPct: number | null;
     }>
   > {
     const ctx = RequestContextStore.require();
@@ -342,11 +348,24 @@ export class KpiDataService {
         targetValue: true,
         aggregationMethod: true,
         scorecardQuadrant: true,
+        direction: true,
+        warningThreshold: true,
+        criticalThreshold: true,
       },
     });
 
     // Apply the same visibility logic the list endpoint uses
     const filtered = await this.filterByVisibility(visibleKpis, visibility);
+
+    // Threshold bands for every visible KPI in one query (feeds status).
+    const bandRows = filtered.length
+      ? await this.prisma.kPIThresholdBand.findMany({
+          where: { organizationId: ctx.organizationId, kpiId: { in: filtered.map((k) => k.id) } },
+          select: { kpiId: true, name: true, lower: true, upper: true, color: true, order: true, consecutivePointsRequired: true },
+        })
+      : [];
+    const bandsByKpi = new Map<string, typeof bandRows>();
+    for (const b of bandRows) bandsByKpi.set(b.kpiId, [...(bandsByKpi.get(b.kpiId) ?? []), b]);
 
     // For each visible KPI, pull data points in the window (or last 1000
     // if no window given) and compute latest + aggregated.
@@ -396,6 +415,13 @@ export class KpiDataService {
           aggregatedValue: aggregate(points.map((p) => p.value), kpi.aggregationMethod),
           pointCount: points.length,
           scorecardQuadrant: kpi.scorecardQuadrant,
+          direction: kpi.direction,
+          status: kpiHealthStatus({
+            recentValues: points.slice(0, 10).map((p) => p.value),
+            meta: kpi,
+            bands: bandsByKpi.get(kpi.id) ?? [],
+          }),
+          attainmentPct: attainmentPct(points[0]?.value ?? null, kpi.targetValue, kpi.direction),
         };
       }),
     );

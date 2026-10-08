@@ -851,6 +851,11 @@ export interface DashboardSummaryRow {
   aggregatedValue: number | null;
   pointCount: number;
   scorecardQuadrant: string | null;
+  direction: string;
+  /** Server-computed health (bands → thresholds → direction-aware target). */
+  status: BoardPackStatus;
+  /** Direction-aware % of target achieved, or null. */
+  attainmentPct: number | null;
 }
 
 export async function getDashboardSummary(

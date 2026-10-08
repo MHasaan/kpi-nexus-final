@@ -143,22 +143,28 @@ function formatValue(value: number, unit: string | null): string {
 }
 
 /**
- * Derive a KPI health status from latestValue vs target. Null value or no
- * usable target → no-data. Status is icon + label (never colour-only).
+ * KPI health status — computed server-side (dashboard-summary `status`:
+ * threshold bands → thresholds → direction-aware target), so the dashboard and
+ * the board pack agree. The old client rule (latest / target ≥ 0.95) ignored
+ * direction: churn over its ≤2.5% target showed "On track" (FE-001).
+ * Status is icon + label (never colour-only).
  */
 function deriveStatus(row: DashboardSummaryRow): KpiStatus {
-  if (row.latestValue === null) return 'no-data';
-  if (row.targetValue === null || row.targetValue === 0) return 'no-data';
-  const ratio = row.latestValue / row.targetValue;
-  if (ratio >= 0.95) return 'on-track';
-  if (ratio >= 0.8) return 'at-risk';
-  return 'off-track';
+  switch (row.status) {
+    case 'ON_TRACK':
+      return 'on-track';
+    case 'AT_RISK':
+      return 'at-risk';
+    case 'OFF_TRACK':
+      return 'off-track';
+    default:
+      return 'no-data';
+  }
 }
 
-/** Percent attainment of target, when both sides are present. */
+/** Direction-aware percent of target achieved (server-computed), or null. */
 function attainmentPct(row: DashboardSummaryRow): number | null {
-  if (row.latestValue === null || row.targetValue === null || row.targetValue === 0) return null;
-  return (row.latestValue / row.targetValue) * 100;
+  return row.attainmentPct;
 }
 
 function avgAttainment(rows: readonly DashboardSummaryRow[]): string {

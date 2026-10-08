@@ -2,12 +2,11 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { KpiDataService } from '../../kpis/kpi-data.service.js';
-import { resolveStatus } from '../../kpi-threshold-bands/threshold-resolver.js';
+import type { KpiHealthStatus } from '../../kpis/kpi-health.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
-import { type KpiDirection, computeAssignmentStatus } from '../../user-kpis/assignment-status.js';
 
-/** Board-level health of one KPI. Rendered by the web board-pack page. */
-export type BoardPackStatus = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NO_TARGET' | 'NO_DATA';
+/** Board-level health of one KPI — the shared server rule (kpis/kpi-health.ts). */
+export type BoardPackStatus = KpiHealthStatus;
 
 export interface BoardPackMover {
   kpiId: string;
@@ -87,27 +86,11 @@ export class BoardPackService {
     if (current.length === 0) return result;
 
     const previousById = new Map(previous.map((r) => [r.kpiId, r.latestValue]));
-    const kpiIds = current.map((r) => r.kpiId);
-    const [kpiRows, bandRows] = await Promise.all([
-      this.prisma.kPI.findMany({
-        where: { id: { in: kpiIds }, organizationId: ctx.organizationId, deletedAt: null },
-        select: {
-          id: true,
-          direction: true,
-          targetValue: true,
-          warningThreshold: true,
-          criticalThreshold: true,
-          category: { select: { name: true } },
-        },
-      }),
-      this.prisma.kPIThresholdBand.findMany({
-        where: { kpiId: { in: kpiIds }, organizationId: ctx.organizationId },
-        select: { kpiId: true, name: true, lower: true, upper: true, color: true, order: true, consecutivePointsRequired: true },
-      }),
-    ]);
-    const metaById = new Map(kpiRows.map((k) => [k.id, k]));
-    const bandsByKpi = new Map<string, typeof bandRows>();
-    for (const b of bandRows) bandsByKpi.set(b.kpiId, [...(bandsByKpi.get(b.kpiId) ?? []), b]);
+    const kpiRows = await this.prisma.kPI.findMany({
+      where: { id: { in: current.map((r) => r.kpiId) }, organizationId: ctx.organizationId, deletedAt: null },
+      select: { id: true, category: { select: { name: true } } },
+    });
+    const categoryById = new Map(kpiRows.map((k) => [k.id, k.category?.name ?? null]));
 
     // ── Top movers ──────────────────────────────────────────────────────────
     result.topMovers = current
@@ -132,17 +115,11 @@ export class BoardPackService {
     // ── Quadrants (by category) ─────────────────────────────────────────────
     const groups = new Map<string, BoardPackQuadrantKpi[]>();
     for (const r of current) {
-      const meta = metaById.get(r.kpiId);
-      const status = kpiStatus(
-        r.latestValue,
-        previousById.get(r.kpiId) ?? null,
-        meta ?? null,
-        bandsByKpi.get(r.kpiId) ?? [],
-      );
-      const group = meta?.category?.name ?? 'Uncategorized';
+      // Same server-computed status the dashboard shows (bands → thresholds → target).
+      const group = categoryById.get(r.kpiId) ?? 'Uncategorized';
       groups.set(group, [
         ...(groups.get(group) ?? []),
-        { kpiId: r.kpiId, name: r.name, unit: r.unit, value: r.latestValue, status },
+        { kpiId: r.kpiId, name: r.name, unit: r.unit, value: r.latestValue, status: r.status },
       ]);
     }
     result.quadrants = Array.from(groups.entries()).map(([name, kpis]) => {
@@ -160,75 +137,4 @@ export class BoardPackService {
 
     return result;
   }
-}
-
-/**
- * Board status for one KPI, most specific rule first: configured threshold
- * bands → explicit warning/critical thresholds → direction-aware target
- * (same grading as KPI assignments) → no target.
- */
-function kpiStatus(
-  value: number | null,
-  previous: number | null,
-  meta: {
-    direction: string;
-    targetValue: number | null;
-    warningThreshold: number | null;
-    criticalThreshold: number | null;
-  } | null,
-  bands: Array<{ name: string; lower: number | null; upper: number | null; color: string; order: number; consecutivePointsRequired: number }>,
-): BoardPackStatus {
-  if (value === null) return 'NO_DATA';
-
-  if (bands.length > 0) {
-    const recent = previous === null ? [value] : [value, previous];
-    const resolved = resolveStatus(bands, recent);
-    if (resolved.band) return statusFromBandName(resolved.band);
-  }
-
-  if (meta && (meta.warningThreshold !== null || meta.criticalThreshold !== null)) {
-    const t = thresholdStatus(value, meta.warningThreshold, meta.criticalThreshold, meta.direction, meta.targetValue);
-    if (t) return t;
-  }
-
-  const graded = meta ? computeAssignmentStatus(value, meta.targetValue, meta.direction as KpiDirection) : null;
-  if (graded === 'exceeded' || graded === 'on_track') return 'ON_TRACK';
-  if (graded === 'at_risk') return 'AT_RISK';
-  if (graded === 'behind') return 'OFF_TRACK';
-  return 'NO_TARGET';
-}
-
-/** Map a threshold-band name ("On Track", "At Risk", "Off Track", "Critical", …) to a status. */
-function statusFromBandName(name: string): BoardPackStatus {
-  const n = name.toLowerCase();
-  if (/off|crit|red|behind|fail/.test(n)) return 'OFF_TRACK';
-  if (/risk|warn|amber|watch/.test(n)) return 'AT_RISK';
-  return 'ON_TRACK';
-}
-
-/** Legacy KPI.warningThreshold / criticalThreshold, direction-aware. */
-function thresholdStatus(
-  value: number,
-  warning: number | null,
-  critical: number | null,
-  direction: string,
-  target: number | null,
-): BoardPackStatus | null {
-  if (direction === 'HIGHER_IS_BETTER') {
-    if (critical !== null && value <= critical) return 'OFF_TRACK';
-    if (warning !== null && value <= warning) return 'AT_RISK';
-    return 'ON_TRACK';
-  }
-  if (direction === 'LOWER_IS_BETTER') {
-    if (critical !== null && value >= critical) return 'OFF_TRACK';
-    if (warning !== null && value >= warning) return 'AT_RISK';
-    return 'ON_TRACK';
-  }
-  if (target !== null) {
-    const deviation = Math.abs(value - target) / (Math.abs(target) || 1);
-    if (critical !== null && deviation >= critical) return 'OFF_TRACK';
-    if (warning !== null && deviation >= warning) return 'AT_RISK';
-    return 'ON_TRACK';
-  }
-  return null;
 }

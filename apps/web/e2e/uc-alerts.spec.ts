@@ -4,7 +4,7 @@
  *
  * Flow:
  *   1. Register org + create a KPI (API).
- *   2. UI: /alerts/new → fill STATIC_THRESHOLD rule (> 100) → submit → /alerts.
+ *   2. UI: /alerts/new → fill STATIC_THRESHOLD rule (> 100) → submit → /alerts/rules (rule listed).
  *   3. API: record a breaching data point (150).
  *   4. UI: the alert appears in /alerts (async BullMQ eval — poll via reload).
  *   5. UI: acknowledge → status becomes ACKNOWLEDGED.
@@ -114,9 +114,10 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
       const created = await createResp;
       expect(created.status()).toBe(201);
 
-      // Redirected to the inbox.
-      await expect(page).toHaveURL(/\/alerts$/);
-      await expect(page.getByTestId('alerts-heading')).toBeVisible();
+      // Lands on the rules list with the new rule visible (FE-006).
+      await expect(page).toHaveURL(/\/alerts\/rules$/);
+      await expect(page.getByTestId('alert-rules-heading')).toBeVisible();
+      await expect(page.getByTestId('alert-rules-table')).toContainText(`High value ${stamp}`);
 
       // Breach the threshold via the API.
       const dpRes = await apiCtx.post(`/kpis/${kpi.id}/data`, {
@@ -143,7 +144,7 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
         .toBeGreaterThan(0);
 
       // Now reload the UI once and assert the row shows with the breach value.
-      await page.reload();
+      await page.goto('/alerts');
       await page.getByTestId('alerts-heading').waitFor();
       const alertRow = page.locator('[data-testid^="alert-row-"]').first();
       await expect(alertRow).toContainText('150', { timeout: 15_000 });
@@ -154,7 +155,9 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
       await ackBtn.click();
 
       // After ack, switch the filter to Acknowledged and confirm it shows there.
-      await page.getByTestId('alerts-filter-ACKNOWLEDGED').click();
+      // The visible status filter (a radiogroup since the redesign) — the old
+      // sr-only testid anchor sits underneath it and can't receive clicks.
+      await page.getByRole('radio', { name: 'Acknowledged' }).click();
       await expect
         .poll(async () => page.locator('[data-testid^="alert-status-"]').first().textContent(), {
           timeout: 10_000,
@@ -174,7 +177,8 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
         window.localStorage.removeItem('kpi-nexus.refresh-token');
       });
       await page.goto('/alerts');
-      await expect(page).toHaveURL(/\/login$/);
+      // Signed out → sign in, then back to the page (FE-009).
+      await expect(page).toHaveURL(/\/login\?next=%2Falerts$/);
     },
   );
 });

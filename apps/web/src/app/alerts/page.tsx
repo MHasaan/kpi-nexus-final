@@ -145,6 +145,13 @@ export default function AlertsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Link
+              href="/alerts/rules"
+              data-testid="alerts-rules-link"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Rules
+            </Link>
+            <Link
               href="/alerts/channels"
               className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >

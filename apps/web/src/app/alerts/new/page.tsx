@@ -145,7 +145,8 @@ export default function NewAlertRulePage() {
         config: buildConfig(),
         escalationLevels: levels.length > 0 ? levels : undefined,
       });
-      router.push('/alerts');
+      // Land on the rules list so the new rule is visible (FE-006).
+      router.push('/alerts/rules');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to create alert rule');
       setSubmitting(false);

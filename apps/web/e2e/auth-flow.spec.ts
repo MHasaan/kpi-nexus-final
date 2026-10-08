@@ -130,6 +130,6 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
     test.skip(!apiAvailable, 'api not reachable');
 
     await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
   });
 });

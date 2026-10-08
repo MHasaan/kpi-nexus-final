@@ -1617,6 +1617,14 @@ export async function createAlertRule(body: {
   return api('/alert-rules', { method: 'POST', body: JSON.stringify(body) });
 }
 
+/** PATCH /alert-rules/:id — name, description, severity, pause/resume (isActive). */
+export async function updateAlertRule(
+  id: string,
+  body: { name?: string; description?: string; severity?: AlertSeverity; isActive?: boolean },
+): Promise<AlertRule> {
+  return api(`/alert-rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 export async function deleteAlertRule(id: string): Promise<void> {
   return api(`/alert-rules/${id}`, { method: 'DELETE' });
 }

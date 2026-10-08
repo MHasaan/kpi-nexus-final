@@ -164,6 +164,6 @@ test.describe('/dashboard page — KPI summary cards', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
   });
 });

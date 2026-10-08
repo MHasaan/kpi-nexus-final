@@ -173,7 +173,7 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/kpis');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fkpis$/);
   });
 
   test('catalog filters: search + scope narrow the list and Clear filters resets', async ({

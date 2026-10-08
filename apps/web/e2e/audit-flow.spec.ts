@@ -162,6 +162,6 @@ test.describe('/settings/audit page — admin audit log viewer', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/settings/audit');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fsettings%2Faudit$/);
   });
 });

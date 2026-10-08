@@ -188,7 +188,7 @@ test.describe('Share link — public dashboard access', () => {
       });
       // Use a fake dashboard id — the auth guard should redirect before hitting API
       await page.goto('/dashboards/fake-id/share');
-      await expect(page).toHaveURL(/\/login$/);
+      await expect(page).toHaveURL(/\/login\?next=%2Fdashboards%2Ffake-id%2Fshare$/);
     },
   );
 

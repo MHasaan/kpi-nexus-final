@@ -93,7 +93,7 @@ test.describe('Active sessions page (/me/sessions)', () => {
     test.skip(!apiAvailable, 'api not reachable');
 
     await page.goto('/me/sessions');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fme%2Fsessions$/);
   });
 
   test('profile page has Manage active sessions link', async ({ page }) => {

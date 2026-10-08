@@ -24,14 +24,22 @@ const PERIOD_OPTIONS = [
   { label: '90 days', value: '90' },
 ] as const;
 
+/** Tone + readable label for a board-pack status (see BoardPackStatus). */
 function quadrantTone(status: string): { cls: string; label: string } {
-  if (status === 'CRITICAL' || status === 'RED') {
-    return { cls: 'bg-status-critical-bg text-status-critical', label: status };
+  if (status === 'OFF_TRACK' || status === 'CRITICAL' || status === 'RED') {
+    return { cls: 'bg-status-critical-bg text-status-critical', label: 'off track' };
   }
-  if (status === 'WARNING' || status === 'AMBER') {
-    return { cls: 'bg-status-warning-bg text-status-warning', label: status };
+  if (status === 'AT_RISK' || status === 'WARNING' || status === 'AMBER') {
+    return { cls: 'bg-status-warning-bg text-status-warning', label: 'at risk' };
   }
-  return { cls: 'bg-status-success-bg text-status-success', label: status };
+  if (status === 'ON_TRACK') {
+    return { cls: 'bg-status-success-bg text-status-success', label: 'on track' };
+  }
+  // NO_TARGET / NO_DATA / anything unknown: neutral, never "healthy" green.
+  return {
+    cls: 'bg-surface-hover text-content-muted',
+    label: status === 'NO_DATA' ? 'no data' : status === 'NO_TARGET' ? 'no target' : status.toLowerCase(),
+  };
 }
 
 export default function BoardPackPage() {

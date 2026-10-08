@@ -1331,17 +1331,22 @@ export interface BoardPackMover {
   changePct: number | null;
 }
 
+/** Mirrors BoardPackStatus in apps/api/src/reports/services/board-pack.service.ts. */
+export type BoardPackStatus = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NO_TARGET' | 'NO_DATA';
+
 export interface BoardPackQuadrantKpi {
   kpiId: string;
   name: string;
+  unit?: string | null;
   value: number | null;
-  status: string | null;
+  status: BoardPackStatus | null;
 }
 
 export interface BoardPackQuadrant {
   name: string;
+  /** Problems first (OFF_TRACK, AT_RISK), then ON_TRACK, then no target / no data. */
   kpis: BoardPackQuadrantKpi[];
-  healthDistribution?: Record<string, number>;
+  healthDistribution?: Partial<Record<BoardPackStatus, number>>;
 }
 
 export interface BoardPack {

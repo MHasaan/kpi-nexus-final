@@ -167,11 +167,15 @@ export default function ForecastPage() {
             <div className="space-y-1.5">
               <Label htmlFor="fc-model">Model</Label>
               <Select id="fc-model" data-testid="fc-model" value={model} onChange={(e) => setModel(e.target.value)}>
-                {['naive', 'prophet', 'arima'].map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
+                {/* Only the naive model is implemented; the sidecar ran Prophet/ARIMA
+                    requests as naive while the UI implied otherwise (OT-005). */}
+                <option value="naive">Naive (trend)</option>
+                <option value="prophet" disabled>
+                  Prophet — coming soon
+                </option>
+                <option value="arima" disabled>
+                  ARIMA — coming soon
+                </option>
               </Select>
             </div>
             <div className="space-y-1.5">

@@ -178,6 +178,10 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-024 ML sidecar input validation + request-bound HMAC | ✅ fixed | `0c66ef8`, `d64ea98` | `test_validation.py` (10), `test_hmac.py` (rewritten), `ml-signature.spec.ts`, analytics specs (+2), live probe |
 | OT-005 Prophet/ARIMA offered but not implemented | ✅ labelled "coming soon" | `6216b14` | typecheck |
 | OT-015 demo seed recorded the newest value in the future | ✅ fixed | `f6f1411` | scratch-DB seed check + db tests (24) |
+| FE-002 role permissions read-only, 7 missing (+ role escalation by non-admin ROLES_MANAGE; preset bypassed approval) | ✅ fixed | `e465594`, `4d51f7a` | `roles.service.spec.ts` (+8), `role-permissions.spec.ts` (5), e2e `roles-flow` (+1), live escalation matrix |
+| OT-004 status docs contradict each other | ✅ fixed | `0b4c273` | — |
+| OT-012 formula package / docs mismatch | ✅ fixed (docs) | `0b4c273` | — |
+| OT-011 unpinned images (+ Postgres data never persisted — found when a recreate wiped the dev DB) | 🟡 partial (MinIO image unpullable; no deploy config) | `44676f2` | force-recreate keeps data; `compose config` valid |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

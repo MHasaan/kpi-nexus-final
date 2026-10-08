@@ -22,7 +22,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Actual:** `apps/worker/src` contains only `main.ts`, `app.module.ts` and an `echo` module. README describes the worker as "NestJS + BullMQ processors, same modules as api"; queue processors (alert engine, webhooks, …) actually live in the API process.
 - **Verified:** all 10 BullMQ processors (`alert-engine`, `calculation-engine`, `escalation`, `insights`, `reembed`, `notification-digest`, `notification-retry`, `onboarding-cleanup`, `scheduled-report`, `outbound-webhook`) are registered in `apps/api`. The worker registers only an `echo` processor. Background work therefore runs in the API process — it works (alerts, emails and reports were delivered in Part 1), but there's no isolation or independent scaling, and the worker deployable is dead weight.
 
-### OT-004 · Low · Status docs contradict each other
+### OT-004 · Low · Status docs contradict each other — ✅ FIXED
+- **Fix (`0b4c273`):** README "Current status" and NEXT-SESSION.md now describe v1.0.0 + this audit as the source of truth; TODOS.md keeps its reconciled banner.
 - `ROADMAP.md`: P0–P9 all ✅.
 - `TODOS.md`: 77 checked / 354 unchecked.
 - `README.md` "Current status": "P0 merged… P1 is next".
@@ -121,11 +122,15 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - `LoginAttempt.ipAddress` is empty for attempts (checked after a failed login) → the security audit trail has no IPs.
 - **Expected:** set `trustProxy` to the real proxy hop count / CIDR via env; record `req.ip` on login attempts.
 
-### OT-011 · Low · Deployment config promised by the README doesn't exist; local images are unpinned
+### OT-011 · Low · Deployment config promised by the README doesn't exist; local images are unpinned — 🟡 PARTIAL
+- **Fix (`44676f2`):** images pinned (tag@digest / v1.0.1).
+- **Found while fixing — data loss:** Postgres was mounted at `/var/lib/postgresql/data`, but timescaledb-ha uses `/home/postgres/pgdata/data`, so the DB lived in the container layer and vanished on any recreate. The pin triggered exactly that and wiped the local dev DB (rebuilt from the Helios seed; backup `C:workFYPkhanackupskpi_nexus-2026-10-08-helios-reseed.dump`). Now a named volume at `/home/postgres/pgdata`; force-recreate verified to keep data.
+- **Open:** MinIO no longer publishes pullable community images (Docker Hub "repository does not exist", quay.io 401) — a fresh machine can't start the stack. Needs a replacement S3-compatible store (decision). Deploy config (`infra/fly`) still not written.
 - `infra/fly/` and `infra/github/` are empty directories; the README describes "fly.toml per service" and the stack as deploying to Fly.io / Vercel. There is no deploy config in the repo.
 - `infra/docker/docker-compose.yml` uses moving tags: `minio/minio:latest`, `mailhog/mailhog:latest` (unmaintained since 2020), `jaegertracing/all-in-one:latest`, `timescale/timescaledb-ha:pg16`. The Postgres log already warns `timescaledb extension is not up-to-date (2.26.4 vs 2.30.2)`.
 
-### OT-012 · Low · `packages/formula` is an empty stub; docs describe a different sandbox
+### OT-012 · Low · `packages/formula` is an empty stub; docs describe a different sandbox — ✅ FIXED (docs)
+- **Fix (`0b4c273`):** README and the stub now say the engine is `apps/api/src/formula` (no isolated-vm); the unused package is kept to avoid a lockfile change.
 - `packages/formula/src/index.ts` is `export {}` with "Real implementation lands in P2". The real engine is `apps/api/src/formula/formula.ts` — a hand-written tokenizer/parser/AST evaluator (no `eval` / `Function`, 68 tests), which is sound and was confirmed to reject escape attempts (Part 1).
 - README line 42 says "Formula parser + evaluator (isolated-vm sandbox)" — inaccurate. Either move the engine into the package or delete the package and fix the docs.
 

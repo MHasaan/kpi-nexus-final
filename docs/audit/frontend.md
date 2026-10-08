@@ -151,7 +151,10 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Fix (`39759ab`, `182acc2`):** the page already groups rows under a track heading; the spec was stale. Each group now has `data-testid="positions-group-<track>"` and the spec asserts the row sits in the IC group.
 - **Repro (E2E `positions-flow.spec.ts:68`):** create a position with track IC → the row shows `name | L5 | P5 | Delete`; the track the form collects isn't displayed.
 
-### FE-002 · Medium · Role permissions can't be edited after creation; matrix is read-only and missing 7 permissions
+### FE-002 · Medium · Role permissions can't be edited after creation; matrix is read-only and missing 7 permissions — ✅ FIXED
+- **Fix (`e465594`, `4d51f7a`):** the matrix is editable (draft → Save / Reset) and lists all 25 permissions from a shared `PERMISSION_GROUPS` asserted equal to `ALL_PERMISSIONS`. Admin roles are locked; a 202 `APPROVAL_REQUIRED` shows "submitted for approval" (permissions and presets).
+- **Found while fixing — escalation:** a non-admin `ROLES_MANAGE` holder could create/edit/preset a role with any permission or `isAdmin`. Only added permissions are now checked against the caller's own (removals allowed), `isAdmin` changes are admin-only, the check runs before the approval gate, and `applyPreset` now honours an active approval workflow (it bypassed it). Live: add-lacked 403, remove 200, isAdmin 403, ADMIN preset 403; admin 200.
+- Still open from this finding: multi-parent inheritance editor / hierarchy view (spec), and the BE-004 scope-editor question.
 - **Repro (walkthrough):** `/roles` → select any role → "Permission matrix" shows each capability as text ("granted" / "not granted") with no toggles. The only edits are presets, delete, and "Save access config" (scope/limits/pages).
 - **Evidence:** `apps/web/src/app/roles/page.tsx` calls only `createRole`, `deleteRole`, `applyRolePreset` and `updateRole(role.id, buildPayload())`. `buildPayload()` (line 632) never sends `permissions`.
 - **Also:** the header says "18 canonical permissions" and the matrix lists 18, but the contract now has 25 (Administrator shows 25). `KPI_IMPORT`, `REPORTS_MANAGE`, `ANALYTICS_FORECAST`, `EXPORTS`, `AUDIT_VIEW`, `INTEGRATIONS_MANAGE`, `BILLING_MANAGE` are invisible and ungrantable in the UI.

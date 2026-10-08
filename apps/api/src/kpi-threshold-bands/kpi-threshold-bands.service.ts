@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -7,9 +7,10 @@ import { AccessContextService } from '../rbac/services/access-context.service.js
 import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { resolveStatus, type ResolvedStatus, type ThresholdBand } from './threshold-resolver.js';
-import type {
-  CreateThresholdBandDto,
-  UpdateThresholdBandDto,
+import {
+  boundsOrdered,
+  type CreateThresholdBandDto,
+  type UpdateThresholdBandDto,
 } from './dto/threshold-band.dto.js';
 
 const bandSelect = {
@@ -67,7 +68,18 @@ export class KpiThresholdBandsService {
   }
 
   async update(id: string, dto: UpdateThresholdBandDto): Promise<PublicThresholdBand> {
-    await this.requireBand(id);
+    const current = await this.requireBand(id);
+    // A one-bound patch can still invert the band against the stored other bound (BE-012).
+    const merged = {
+      lower: dto.lower !== undefined ? dto.lower : current.lower,
+      upper: dto.upper !== undefined ? dto.upper : current.upper,
+    };
+    if (!boundsOrdered(merged)) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'lower must be less than or equal to upper',
+      });
+    }
     const updated = await this.prisma.kPIThresholdBand.update({
       where: { id },
       data: {
@@ -133,12 +145,13 @@ export class KpiThresholdBandsService {
     }
   }
 
-  private async requireBand(id: string): Promise<void> {
+  private async requireBand(id: string): Promise<{ lower: number | null; upper: number | null }> {
     const ctx = RequestContextStore.require();
     const b = await this.prisma.kPIThresholdBand.findFirst({
       where: { id, organizationId: ctx.organizationId },
-      select: { id: true },
+      select: { id: true, lower: true, upper: true },
     });
     if (!b) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Threshold band not found' });
+    return b;
   }
 }

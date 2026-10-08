@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -63,5 +63,34 @@ describe('KpiThresholdBandsService category allowlist (Phase 3 Layer-3)', () => 
     const service = makeService(null, 'cat_secret');
     const rows = await withCtx(() => service.list(KPI_ID));
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe('KpiThresholdBandsService.update bounds (BE-012)', () => {
+  function serviceWithBand(band: { lower: number | null; upper: number | null }) {
+    const prisma = {
+      kPIThresholdBand: {
+        findFirst: vi.fn(async () => ({ id: 'b1', ...band })),
+        update: vi.fn(async () => ({ id: 'b1' })),
+      },
+    };
+    const service = new KpiThresholdBandsService(
+      prisma as unknown as PrismaService,
+      new FakeAudit() as unknown as AuditService,
+      new FakeAccessContext(null) as unknown as AccessContextService,
+    );
+    return { service, prisma };
+  }
+
+  it('rejects a partial update that would leave lower above the stored upper', async () => {
+    const { service, prisma } = serviceWithBand({ lower: 0, upper: 100 });
+    await expect(withCtx(() => service.update('b1', { lower: 500 }))).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.kPIThresholdBand.update).not.toHaveBeenCalled();
+  });
+
+  it('allows a partial update that keeps the bounds ordered', async () => {
+    const { service, prisma } = serviceWithBand({ lower: 0, upper: 100 });
+    await withCtx(() => service.update('b1', { lower: 50 }));
+    expect(prisma.kPIThresholdBand.update).toHaveBeenCalledTimes(1);
   });
 });

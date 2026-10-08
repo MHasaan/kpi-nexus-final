@@ -144,7 +144,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Cause (likely):** the app shell's page-access gate (`components/app-shell.tsx:424-431`, `router.replace('/unauthorized')`) evaluates with no permissions loaded and wins the race against the no-token redirect to `/login` (`:396`).
 - **Impact:** a user whose session expired (or who follows a deep link) gets an access-denied page with no sign-in path, and after signing in isn't returned to the page they wanted.
 
-### FE-010 · Low · Org units: flat list only — cycles and cross-tenant parents render as contradictions
+### FE-010 · Low · Org units: flat list only — cycles and cross-tenant parents render as contradictions — ✅ FIXED
+- **Fix (`6f323e2`):** units render depth-first under their parents (`treeOrder()`, cycle-safe); with BE-009 new cycles are rejected. A drag-and-drop org chart remains a possible enhancement.
 - `/org-units` ("Teams") is a flat list with "Parent: X" text. No tree / org chart, though the spec and the previous app had one. With BE-009's cycle it shows "Audit Child — Parent: Audit Parent" and "Audit Parent — Parent: Audit Child". No crash.
 
 ### FE-011 · Low · Positions table doesn't show the track (IC / Management / Executive) — ✅ FIXED

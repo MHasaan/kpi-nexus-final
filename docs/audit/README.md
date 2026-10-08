@@ -182,6 +182,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | OT-004 status docs contradict each other | ✅ fixed | `0b4c273` | — |
 | OT-012 formula package / docs mismatch | ✅ fixed (docs) | `0b4c273` | — |
 | OT-011 unpinned images (+ Postgres data never persisted — found when a recreate wiped the dev DB) | 🟡 partial (MinIO image unpullable; no deploy config) | `44676f2` | force-recreate keeps data; `compose config` valid |
+| FE-010 org units shown as a flat list | ✅ fixed | `6f323e2` | `tree-order.spec.ts` (3), e2e org-units (7), nested-org screenshot |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

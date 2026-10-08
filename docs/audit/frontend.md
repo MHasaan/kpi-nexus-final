@@ -68,7 +68,11 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Found while fixing BE-007:** there was no "Forgot password?" link, no request page, no reset page and no API-client calls, so users who forgot their password had no self-service path. The API's reset email (once sent) would have linked to a non-existent page.
 - **Fix:** `app/(auth)/forgot-password` and `app/(auth)/reset-password` pages, `requestPasswordReset` / `confirmPasswordReset` client calls, and a link on `/login`. Covered by `e2e/password-reset.spec.ts` (full flow via Mailhog).
 
-### FE-014 · Medium · 12 pages open for users who can't load their data (gating gaps)
+### FE-014 · Medium · 12 pages open for users who can't load their data (gating gaps) — ✅ FIXED
+- **Fix:**
+  - Pages are gated on the permission their API enforces (ORG_SETTINGS / INTEGRATIONS_MANAGE).
+  - Sections load only with permission: `/alerts/new` channels, `/alerts/[id]` deliveries, `/roles` presets. The `/alerts/new` channels 403 used to blank the whole form.
+  - Browser: tom → `/connectors` and `/settings/sso` → `/unauthorized`; `/alerts/new` loads its KPIs.
 - **Repro (crawl, contributor `tom.becker@helios.io`):** these pages render, but their API calls return **403**, leaving broken or empty screens instead of the unauthorized page or hidden actions:
 
 | Page | Failing call(s) |
@@ -127,7 +131,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Repro (crawl):** open any `/dashboards/[id]` page → console: "Access to fetch at 'http://localhost:4000/realtime/stream?dashboardId=…' from origin 'http://localhost:3000' has been blocked by CORS policy".
 - **Cause:** BE-028. Dashboards never receive push updates, so new data shows only after a manual reload.
 
-### FE-009 · Medium · Signed-out users are told "You don't have access" instead of being sent to sign in
+### FE-009 · Medium · Signed-out users are told "You don't have access" instead of being sent to sign in — ✅ FIXED
+- **Fix:** `usePermissions` reports `authenticated`. The route guards send signed-out users to `/login?next=<page>`; all 108 bare login redirects now carry `next`; login returns there through `safeNextPath` (same-origin only, no open redirect). Browser: signed out `/alerts` → `/login?next=%2Falerts` → sign in → back on `/alerts`.
 - **Repro (crawl, logged-out pass):** of the protected pages, **44 end on `/unauthorized`** ("You don't have access to this page … contact your administrator") and only 28 redirect to `/login`. Affected pages include `/alerts`, `/approvals`, `/ask`, `/dashboards`, `/dashboards/[id]`, `/kpis/*`, `/settings/*`, `/reports/*`, `/roles`, `/users`. E2E `audit-flow.spec.ts:156` hits the same thing (flaky there because of timing).
 - **Cause (likely):** the app shell's page-access gate (`components/app-shell.tsx:424-431`, `router.replace('/unauthorized')`) evaluates with no permissions loaded and wins the race against the no-token redirect to `/login` (`:396`).
 - **Impact:** a user whose session expired (or who follows a deep link) gets an access-denied page with no sign-in path, and after signing in isn't returned to the page they wanted.

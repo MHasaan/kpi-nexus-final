@@ -165,7 +165,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** a liveness probe would time out and restart a healthy API during a Redis blip.
 - **Expected:** fail fast with `connectTimeout` / `commandTimeout` or a `Promise.race`.
 
-### BE-019 · Medium · Invalid cron → 500 and an orphaned, "active" scheduled report
+### BE-019 · Medium · Invalid cron → 500 and an orphaned, "active" scheduled report — ✅ FIXED
+- **Fix:** the create and update DTOs validate the cron with BullMQ's own parser and require 5 (or 6) fields, so the request gets a 400 before any row is written or job is touched. The update path was worse: it removed the old job before adding the new one. Live: "every tuesday" → 400, no row; "0 8 * * 1" → 201.
 - **Repro:** `POST /scheduled-reports {"name":"x","cron":"every tuesday","format":"PDF","recipients":["a@b.co"]}` → `500`.
 - **Result:** a `ScheduledReport` row with `isActive = true` is left behind (it never runs).
 - **Cause:** `apps/api/src/reports/scheduled-report.service.ts:103-121` inserts the row first, then BullMQ rejects the pattern in `addRepeatableJob()`. The DTO (`reports/dto/reports.dto.ts`) only checks string length.

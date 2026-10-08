@@ -33,6 +33,8 @@
 
 import { PrismaClient } from '@prisma/client';
 
+import { ROLE_INHERITANCE, ROLE_SPECS } from './seed-roles.js';
+
 const prisma = new PrismaClient();
 
 const ORG_SLUG = 'helios';
@@ -145,78 +147,6 @@ function statusFor(direction: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER', value: num
   }
 }
 
-// ---------------------------------------------------------------------------
-// 25 canonical permission keys (mirror packages/contracts/src/permissions.ts;
-// ADR-001 expanded 18→25). Admin role gets the full set.
-// ---------------------------------------------------------------------------
-const ALL_PERMISSIONS = [
-  'KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'KPI_DELETE', 'KPI_DATA_ENTRY',
-  'DASHBOARD_VIEW', 'DASHBOARD_MANAGE',
-  'USERS_VIEW', 'USERS_MANAGE', 'ROLES_MANAGE', 'POSITIONS_MANAGE',
-  'GROUPS_VIEW', 'GROUPS_MANAGE',
-  'ALERTS_VIEW', 'ALERTS_MANAGE',
-  'REPORTS_VIEW', 'ANALYTICS_VIEW', 'INSIGHTS_VIEW',
-  'TASKS_VIEW', 'TASKS_MANAGE',
-  'OBJECTIVES_VIEW', 'OBJECTIVES_MANAGE',
-  'INTEGRATIONS_MANAGE', 'AI_USE',
-  'ORG_SETTINGS',
-] as const;
-
-// ---------------------------------------------------------------------------
-// Roles (RBAC). A couple carry granular-access config to exercise the 5 layers.
-// ---------------------------------------------------------------------------
-interface RoleSpec {
-  name: string; isAdmin: boolean; level: number; color: string;
-  permissions: readonly string[]; description: string;
-  scopeConfig?: Record<string, string>;
-  dataLimits?: { historyWindowDays?: number; maxListRows?: number; maxExportRows?: number };
-  pageAccess?: { allow?: string[]; deny?: string[] };
-}
-const ROLE_SPECS: RoleSpec[] = [
-  {
-    name: 'Administrator', isAdmin: true, level: 1, color: '#0284c7',
-    permissions: ALL_PERMISSIONS, description: 'Full access to everything in the organization.',
-  },
-  {
-    name: 'Executive', isAdmin: false, level: 2, color: '#7c3aed',
-    description: 'Org-wide read access plus dashboards and analytics; no destructive admin.',
-    permissions: ['KPI_VIEW', 'DASHBOARD_VIEW', 'DASHBOARD_MANAGE', 'USERS_VIEW', 'GROUPS_VIEW', 'ALERTS_VIEW', 'REPORTS_VIEW', 'ANALYTICS_VIEW', 'INSIGHTS_VIEW', 'TASKS_VIEW', 'OBJECTIVES_VIEW', 'OBJECTIVES_MANAGE', 'AI_USE'],
-    scopeConfig: { KPIS: 'ORG', DASHBOARDS: 'ORG', OBJECTIVES: 'ORG', TASKS: 'ORG', ALERTS: 'ORG', REPORTS: 'ORG' },
-  },
-  {
-    name: 'Department Manager', isAdmin: false, level: 3, color: '#0891b2',
-    description: 'Manages KPIs, dashboards and people within their department.',
-    permissions: ['KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'KPI_DATA_ENTRY', 'DASHBOARD_VIEW', 'DASHBOARD_MANAGE', 'USERS_VIEW', 'GROUPS_VIEW', 'ALERTS_VIEW', 'ALERTS_MANAGE', 'REPORTS_VIEW', 'ANALYTICS_VIEW', 'INSIGHTS_VIEW', 'TASKS_VIEW', 'TASKS_MANAGE', 'OBJECTIVES_VIEW', 'OBJECTIVES_MANAGE', 'AI_USE'],
-    scopeConfig: { KPIS: 'UNITS', DASHBOARDS: 'UNITS', TASKS: 'UNITS', OBJECTIVES: 'UNITS', ALERTS: 'UNITS' },
-  },
-  {
-    name: 'Senior Contributor', isAdmin: false, level: 4, color: '#059669',
-    description: 'Experienced IC who can create and edit KPIs and enter data.',
-    permissions: ['KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'KPI_DATA_ENTRY', 'DASHBOARD_VIEW', 'ALERTS_VIEW', 'REPORTS_VIEW', 'ANALYTICS_VIEW', 'INSIGHTS_VIEW', 'TASKS_VIEW', 'TASKS_MANAGE', 'OBJECTIVES_VIEW', 'AI_USE'],
-    scopeConfig: { KPIS: 'UNITS', DASHBOARDS: 'SELF', TASKS: 'SELF' },
-  },
-  {
-    name: 'Analyst', isAdmin: false, level: 4, color: '#d97706',
-    description: 'Enters data and builds analytics, with a 180-day history window.',
-    permissions: ['KPI_VIEW', 'KPI_DATA_ENTRY', 'DASHBOARD_VIEW', 'REPORTS_VIEW', 'ANALYTICS_VIEW', 'INSIGHTS_VIEW', 'TASKS_VIEW', 'AI_USE'],
-    scopeConfig: { KPIS: 'UNITS', DASHBOARDS: 'UNITS' },
-    dataLimits: { historyWindowDays: 180, maxListRows: 500, maxExportRows: 5000 },
-  },
-  {
-    name: 'Contributor', isAdmin: false, level: 5, color: '#475569',
-    description: 'Records their own KPI data and sees team dashboards.',
-    permissions: ['KPI_VIEW', 'KPI_DATA_ENTRY', 'DASHBOARD_VIEW', 'ALERTS_VIEW', 'TASKS_VIEW'],
-    scopeConfig: { KPIS: 'SELF', DASHBOARDS: 'SELF', TASKS: 'SELF' },
-    dataLimits: { historyWindowDays: 90, maxListRows: 200, maxExportRows: 1000 },
-  },
-  {
-    name: 'Viewer', isAdmin: false, level: 6, color: '#94a3b8',
-    description: 'Read-only access to KPIs and dashboards; settings pages hidden.',
-    permissions: ['KPI_VIEW', 'DASHBOARD_VIEW'],
-    scopeConfig: { KPIS: 'SELF', DASHBOARDS: 'SELF' },
-    pageAccess: { deny: ['/settings', '/settings/access', '/roles', '/users'] },
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Positions (job titles)
@@ -605,10 +535,12 @@ async function main(): Promise<void> {
   }
   log(`Created ${roleIds.size} roles`);
 
-  // Role inheritance edges (informational hierarchy).
-  await prisma.roleInheritance.create({ data: { organizationId: orgId, parentRoleId: roleIds.get('Department Manager')!, childRoleId: roleIds.get('Senior Contributor')!, inheritsPermissions: true } });
-  await prisma.roleInheritance.create({ data: { organizationId: orgId, parentRoleId: roleIds.get('Senior Contributor')!, childRoleId: roleIds.get('Contributor')!, inheritsPermissions: true } });
-  await prisma.roleInheritance.create({ data: { organizationId: orgId, parentRoleId: roleIds.get('Contributor')!, childRoleId: roleIds.get('Viewer')!, inheritsPermissions: false } });
+  // Role inheritance — child inherits parent's permissions (see seed-roles.ts; BE-002).
+  for (const e of ROLE_INHERITANCE) {
+    await prisma.roleInheritance.create({
+      data: { organizationId: orgId, parentRoleId: roleIds.get(e.parent)!, childRoleId: roleIds.get(e.child)!, inheritsPermissions: e.inheritsPermissions },
+    });
+  }
 
   // --- Positions ---------------------------------------------------------
   const positionIds = new Map<string, string>();

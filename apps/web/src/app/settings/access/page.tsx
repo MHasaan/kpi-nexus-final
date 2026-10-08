@@ -42,6 +42,7 @@ import {
   type UserSummary,
 } from '../../../lib/api-client';
 import { PERMISSION_GROUPS, PERMISSION_LABELS } from '../../../lib/permissions';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // -----------------------------------------------------------------------------
 // Static maps
@@ -91,7 +92,7 @@ export default function AccessCenterPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void (async () => {
@@ -103,7 +104,7 @@ export default function AccessCenterPage() {
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setLoadError(err instanceof ApiError ? err.message : 'Failed to load users');

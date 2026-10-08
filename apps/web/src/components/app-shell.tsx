@@ -426,6 +426,9 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   // avoid a flash-redirect on a stale/empty cache.
   useEffect(() => {
     if (!(mounted && pageAccessReady)) return;
+    // Signed out: the page's own redirect sends the user to sign in (with
+    // ?next=); don't race it to "/unauthorized" with empty access (FE-009).
+    if (!getAccessToken()) return;
     const matched = matchNavHref(pathname);
     if (matched && !isPageAllowed(pageAccess, matched)) {
       router.replace('/unauthorized');

@@ -37,6 +37,7 @@ import {
   TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const TRACK_ORDER: Array<PositionTrack | 'OTHER'> = [
   'EXECUTIVE',
@@ -79,7 +80,7 @@ function PositionsPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -93,7 +94,7 @@ function PositionsPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load positions');

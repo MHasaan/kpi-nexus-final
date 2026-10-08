@@ -40,6 +40,7 @@ import {
   TableRow,
 } from '../../../../../components/ui';
 import { ArrowLeft, CircleCheck, CircleDashed, Pencil, TriangleAlert } from 'lucide-react';
+import { currentLoginRedirect } from '../../../../../lib/auth-redirect';
 
 // Recharts must be client-only
 const DrillDownChart = dynamic(() => import('./drill-down-chart').then((m) => m.DrillDownChart), {
@@ -75,7 +76,7 @@ function DrillDownInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -109,7 +110,7 @@ function DrillDownInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load widget data');

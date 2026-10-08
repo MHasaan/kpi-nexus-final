@@ -16,6 +16,8 @@ import {
   listConnectors,
   runConnector,
 } from '../../lib/integrations-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { RequireAnyPermission } from '../../components/auth/require-permission';
 
 export default function ConnectorsPage() {
   const router = useRouter();
@@ -44,7 +46,7 @@ export default function ConnectorsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -91,6 +93,8 @@ export default function ConnectorsPage() {
       title="Connectors"
       crumbs={[{ label: 'Integrations', href: '/integrations' }, { label: 'Connectors' }]}
     >
+      {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
+      <RequireAnyPermission permissions={['INTEGRATIONS_MANAGE', 'ORG_SETTINGS']}>
       <div>
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -154,6 +158,7 @@ export default function ConnectorsPage() {
         </div>
         )}
       </div>
+      </RequireAnyPermission>
     </AppShell>
   );
 }

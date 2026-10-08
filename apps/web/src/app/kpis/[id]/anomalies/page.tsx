@@ -29,6 +29,7 @@ import {
 } from '../../../../components/ui';
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 interface DataPoint {
   value: number;
@@ -118,7 +119,7 @@ export default function AnomaliesPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

@@ -24,6 +24,7 @@ import {
   Select,
   Skeleton,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const FUNCTIONS = ['', 'finance', 'sales', 'marketing', 'ops', 'hr', 'support', 'engineering'] as const;
 
@@ -46,7 +47,7 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     // Initial load on mount; subsequent loads are driven by the debounce effect

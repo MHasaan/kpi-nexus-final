@@ -14,6 +14,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { PrintButton } from '../../../components/print-button';
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'Board pack' }];
 
@@ -51,7 +52,7 @@ export default function BoardPackPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load(sinceDays);
@@ -67,7 +68,7 @@ export default function BoardPackPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load board pack');

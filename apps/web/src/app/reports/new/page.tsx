@@ -28,6 +28,7 @@ import {
   Select,
   Textarea,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'New' }];
 
@@ -55,7 +56,7 @@ export default function NewReportPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -69,7 +70,7 @@ export default function NewReportPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
       }
     }
   }

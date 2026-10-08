@@ -33,6 +33,7 @@ import {
   Skeleton,
   Textarea,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // Cards-per-row when laying out the starter KPI cards on the new grid.
 // kpi_card defaultSize is 3 wide; a 12-col grid fits 4 across, but 3-wide
@@ -66,7 +67,7 @@ function NewDashboardInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     let cancelled = false;
@@ -78,7 +79,7 @@ function NewDashboardInner() {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setKpiLoadError(
@@ -143,7 +144,7 @@ function NewDashboardInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setError(

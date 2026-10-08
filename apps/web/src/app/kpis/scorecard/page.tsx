@@ -9,6 +9,7 @@ import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, StatTile } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const QUADRANTS: Array<{ key: string; label: string }> = [
   { key: 'FINANCIAL', label: 'Financial' },
@@ -46,7 +47,7 @@ export default function ScorecardPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getDashboardSummary()

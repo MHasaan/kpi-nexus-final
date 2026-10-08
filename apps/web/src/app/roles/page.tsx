@@ -46,6 +46,8 @@ import {
   TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { usePermissions } from '../../lib/use-permissions';
 
 // Grouped view of the 18 canonical permissions (mirrors the design's matrix).
 const PERM_GROUPS: Array<[string, Array<[string, string]>]> = [
@@ -156,6 +158,18 @@ function RolesPageInner() {
 
   // Presets
   const [presets, setPresets] = useState<RolePreset[]>([]);
+  const { ready: permsReady, has } = usePermissions();
+  // Presets are a ROLES_MANAGE resource (FE-014): only load them for users who can.
+  const canManageRoles = permsReady && has('ROLES_MANAGE');
+  useEffect(() => {
+    if (!canManageRoles) return;
+    listPermissionPresets()
+      .then(setPresets)
+      .catch(() => {
+        /* non-fatal — preset UI degrades gracefully */
+      });
+  }, [canManageRoles]);
+
   const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [applyFeedback, setApplyFeedback] = useState<
@@ -164,15 +178,10 @@ function RolesPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     refresh();
-    listPermissionPresets()
-      .then(setPresets)
-      .catch(() => {
-        /* non-fatal — preset UI degrades gracefully */
-      });
     listKpiCategories()
       .then(setCategories)
       .catch(() => {
@@ -195,7 +204,7 @@ function RolesPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load roles');

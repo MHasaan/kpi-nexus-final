@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 /** A valid 3/6-digit hex color usable by <input type="color">. */
 function toColorInputValue(value: string): string {
@@ -63,7 +64,7 @@ export default function KpiCategoriesPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load categories');
@@ -72,7 +73,7 @@ export default function KpiCategoriesPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();

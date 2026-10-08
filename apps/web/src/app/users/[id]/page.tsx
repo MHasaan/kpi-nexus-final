@@ -35,6 +35,7 @@ import {
   type RoleSummary,
   type UserSummary,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -102,7 +103,7 @@ export default function UserKpiPanelPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();

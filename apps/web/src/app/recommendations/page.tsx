@@ -27,6 +27,7 @@ import {
   Skeleton,
   type BadgeTone,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Status → Badge tone (icon/label keeps it readable; never colour-only).
 const STATUS_TONE: Record<Recommendation['status'], BadgeTone> = {
@@ -77,7 +78,7 @@ export default function RecommendationsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

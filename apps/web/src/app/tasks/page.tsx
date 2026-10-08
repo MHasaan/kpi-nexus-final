@@ -38,6 +38,7 @@ import {
   Textarea,
   type BadgeTone,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
@@ -206,7 +207,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

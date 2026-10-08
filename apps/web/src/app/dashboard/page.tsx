@@ -48,6 +48,7 @@ import { listApprovalRequests, type ApprovalRequest } from '../../lib/collab-cli
 import { listInsights, type Insight } from '../../lib/ai-client';
 import { usePermissions } from '../../lib/use-permissions';
 import { useAccess } from '../../lib/use-access';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type LoadState = 'loading' | 'error' | 'ready';
 type ActivityState = 'loading' | 'ready';
@@ -302,7 +303,7 @@ export default function DashboardPage() {
     let cancelled = false;
     const token = getAccessToken();
     if (!token) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     Promise.all([meRequest(), getDashboardSummary(rangeWindow('90'))])
@@ -316,7 +317,7 @@ export default function DashboardPage() {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setState('error');

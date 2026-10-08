@@ -29,6 +29,7 @@ import {
 } from '../../../../components/ui';
 import { BarChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 interface WhatIfResult {
   baseline: number[];
@@ -82,7 +83,7 @@ export default function WhatIfPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!getAccessToken()) router.replace('/login');
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
   const run = async () => {

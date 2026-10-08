@@ -24,6 +24,7 @@ import {
   recordMyKpiData,
   type MyKpiRow,
 } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -55,7 +56,7 @@ export default function MyKpisPage() {
   }, []);
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

@@ -9,6 +9,7 @@ import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, EmptyState, Skeleton } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function CascadeTreePage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function CascadeTreePage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getCascadeTree()

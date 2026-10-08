@@ -29,6 +29,7 @@ import {
 } from '../../../../components/ui';
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 interface Prediction {
   ds: string;
@@ -107,7 +108,7 @@ export default function ForecastPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     loadHistory();

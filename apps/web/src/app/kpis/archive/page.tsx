@@ -15,6 +15,7 @@ import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Button, Card, EmptyState, ScopeBadge, Skeleton } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const PURGE_WINDOW_DAYS = 30;
 
@@ -44,7 +45,7 @@ export default function ArchivePage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

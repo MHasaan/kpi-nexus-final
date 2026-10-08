@@ -10,6 +10,7 @@ import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { PageHeader, Card, Button, Badge, EmptyState } from '../../components/ui';
 import { cn } from '../../lib/cn';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Static starter prompts shown in the empty state — clicking one submits it.
 const SUGGESTED_PROMPTS = [
@@ -163,7 +164,7 @@ export default function AskPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!getAccessToken()) router.replace('/login');
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
   useEffect(() => {

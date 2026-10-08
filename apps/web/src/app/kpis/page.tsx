@@ -46,6 +46,7 @@ import {
   TableRow,
   type BadgeTone,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -99,7 +100,7 @@ function KpisPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -114,7 +115,7 @@ function KpisPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load KPIs');

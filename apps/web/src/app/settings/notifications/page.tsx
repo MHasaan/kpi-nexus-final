@@ -23,6 +23,7 @@ import {
   updateNotificationSettings,
   type NotificationSettings,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const CHANNEL_KINDS = ['EMAIL', 'SLACK', 'TEAMS', 'SMS', 'WEBHOOK'] as const;
 
@@ -44,7 +45,7 @@ export default function NotificationSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void (async () => {
@@ -58,7 +59,7 @@ export default function NotificationSettingsPage() {
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setLoadError(err instanceof ApiError ? err.message : 'Failed to load settings');

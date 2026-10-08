@@ -27,6 +27,7 @@ import {
   TableRow,
   Textarea,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const SAMPLE = `KPI Name,Type,Direction,Target,Tags
 Monthly Recurring Revenue,CURRENCY,HIGHER_IS_BETTER,50000,finance;growth
@@ -62,7 +63,7 @@ export default function KpiImportPage() {
   const [done, setDone] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getAccessToken()) router.replace('/login');
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
   async function handleDryRun() {
@@ -74,7 +75,7 @@ export default function KpiImportPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setError(err instanceof ApiError ? err.message : 'Dry-run failed');

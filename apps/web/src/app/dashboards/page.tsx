@@ -48,6 +48,7 @@ import {
   Select,
   Skeleton,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
 
@@ -139,7 +140,7 @@ function DashboardsListInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -176,7 +177,7 @@ function DashboardsListInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(

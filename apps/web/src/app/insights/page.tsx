@@ -27,6 +27,7 @@ import {
   EmptyState,
   Skeleton,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type SortKey = 'confidence' | 'recency';
 
@@ -54,7 +55,7 @@ export default function InsightsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

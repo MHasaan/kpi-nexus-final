@@ -19,6 +19,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // Fallback catalog used only if the live /webhooks/events fetch fails.
 const FALLBACK_EVENT_CHOICES = [
@@ -52,7 +53,7 @@ export default function WebhooksPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load webhooks');
@@ -61,7 +62,7 @@ export default function WebhooksPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();

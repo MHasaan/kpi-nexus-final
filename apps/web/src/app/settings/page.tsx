@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { getAccessToken } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 interface SettingLink {
   href: string;
@@ -60,7 +61,7 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
 export default function SettingsIndexPage() {
   const router = useRouter();
   useEffect(() => {
-    if (!getAccessToken()) router.replace('/login');
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
   return (

@@ -39,6 +39,7 @@ import {
   updateNotificationChannel,
   type NotificationChannel,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 type Kind = NotificationChannel['kind'];
 
@@ -64,7 +65,7 @@ export default function ChannelsPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load channels');
@@ -73,7 +74,7 @@ export default function ChannelsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();

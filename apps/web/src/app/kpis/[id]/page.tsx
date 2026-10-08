@@ -65,6 +65,7 @@ import {
   Textarea,
 } from '../../../components/ui';
 import { LineChart } from '../../../components/charts';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const TABS = ['Overview', 'Data', 'Formula', 'Cascade', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage', 'Audit'] as const;
 type Tab = (typeof TABS)[number];
@@ -81,7 +82,7 @@ export default function KpiDetailPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getKpi(kpiId)

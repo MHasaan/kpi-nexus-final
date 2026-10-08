@@ -40,6 +40,7 @@ import {
   TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function OrgUnitsPage() {
   return (
@@ -79,7 +80,7 @@ function OrgUnitsPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -94,7 +95,7 @@ function OrgUnitsPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load org units');

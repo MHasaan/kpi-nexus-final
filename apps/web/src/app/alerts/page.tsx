@@ -35,6 +35,7 @@ import {
   type AlertSeverity,
   type AlertStatus,
 } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -95,7 +96,7 @@ export default function AlertsPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load alerts');
@@ -104,7 +105,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     setAlerts(null);

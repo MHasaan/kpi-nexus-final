@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { ApiError, loginRequest, setTokens } from '../../../lib/api-client';
+import { safeNextPath } from '../../../lib/auth-redirect';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function LoginPage() {
         mfaCode: mfaRequired ? mfaCode : undefined,
       });
       setTokens(result.accessToken, result.refreshToken);
-      router.push('/dashboard');
+      // Back to the page that sent the user here (FE-009) — same-origin paths only.
+      router.push(safeNextPath(new URLSearchParams(window.location.search).get('next')) ?? '/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
         setMfaRequired(true);

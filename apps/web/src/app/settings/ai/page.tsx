@@ -34,6 +34,7 @@ import {
   TableHead,
   TableCell,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 interface Budget {
   dailySpend: number;
@@ -286,7 +287,7 @@ export default function AiSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

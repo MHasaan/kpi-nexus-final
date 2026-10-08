@@ -24,6 +24,7 @@ import {
   mintEmbedToken,
   revokeEmbedToken,
 } from '../../../../lib/api-client';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 // Shared analytics navigation strip — lets users move between the KPI's
 // analytics surfaces and back to the detail page.
@@ -77,7 +78,7 @@ export default function KpiEmbedPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
     }
   }, [router]);
 
@@ -92,7 +93,7 @@ export default function KpiEmbedPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setGenerateError(err instanceof ApiError ? err.message : 'Failed to generate token');
@@ -118,7 +119,7 @@ export default function KpiEmbedPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setGenerateError(err instanceof ApiError ? err.message : 'Failed to revoke tokens');

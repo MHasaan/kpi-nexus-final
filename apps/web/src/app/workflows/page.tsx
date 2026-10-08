@@ -26,6 +26,8 @@ import {
   EmptyState,
   Skeleton,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { RequirePermission } from '../../components/auth/require-permission';
 
 function summarizeRule(rule: unknown): string | null {
   if (!rule || typeof rule !== 'object') return null;
@@ -62,7 +64,7 @@ export default function WorkflowsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -98,6 +100,8 @@ export default function WorkflowsPage() {
 
   return (
     <AppShell title="Automations" crumbs={[{ label: 'Automation' }, { label: 'Workflows' }]}>
+      {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
+      <RequirePermission permission="ORG_SETTINGS">
       <PageHeader
         title="Automations"
         subtitle="When a KPI changes and a rule matches, run an action"
@@ -198,6 +202,7 @@ export default function WorkflowsPage() {
           </div>
         </div>
       </div>
+      </RequirePermission>
     </AppShell>
   );
 }

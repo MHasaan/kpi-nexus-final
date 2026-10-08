@@ -30,6 +30,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../../../../components/ui';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 export default function SnapshotsPage() {
   return (
@@ -93,7 +94,7 @@ function SnapshotsInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setPayloadErrorById((prev) => ({
@@ -108,7 +109,7 @@ function SnapshotsInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -126,7 +127,7 @@ function SnapshotsInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load snapshots');

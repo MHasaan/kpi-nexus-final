@@ -31,6 +31,8 @@ import {
   type AlertStatus,
   type NotificationDelivery,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { usePermissions } from '../../../lib/use-permissions';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -126,7 +128,7 @@ export default function AlertDetailPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       if (err instanceof ApiError && err.status === 404) {
@@ -139,7 +141,7 @@ export default function AlertDetailPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -149,6 +151,8 @@ export default function AlertDetailPage() {
   // from the rule; the delivery history is best-effort (needs ORG_SETTINGS and
   // may 403 — in that case we simply omit deliveries and show only the levels).
   const ruleId = alert?.alertRuleId ?? null;
+  const { ready: permsReady, has } = usePermissions();
+  const canSeeDeliveries = permsReady && has('ORG_SETTINGS');
   const resolvedAlertId = alert?.id ?? null;
   useEffect(() => {
     if (!resolvedAlertId || !ruleId) {
@@ -167,12 +171,16 @@ export default function AlertDetailPage() {
         // Rule fetch failed — show the section without configured levels.
         if (!cancelled) setEscalationLevels([]);
       }
-      try {
-        const rows = await listNotificationDeliveriesForAlert(aId);
-        if (!cancelled) setDeliveries(rows);
-      } catch {
-        // 403 (no ORG_SETTINGS) or other error — omit the delivery history.
-        if (!cancelled) setDeliveries(null);
+      // Delivery history is an ORG_SETTINGS resource (FE-014) — don't request it otherwise.
+      if (canSeeDeliveries) {
+        try {
+          const rows = await listNotificationDeliveriesForAlert(aId);
+          if (!cancelled) setDeliveries(rows);
+        } catch {
+          if (!cancelled) setDeliveries(null);
+        }
+      } else if (!cancelled) {
+        setDeliveries(null);
       }
       if (!cancelled) setTrailLoaded(true);
     }
@@ -180,7 +188,7 @@ export default function AlertDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [ruleId, resolvedAlertId]);
+  }, [ruleId, resolvedAlertId, canSeeDeliveries]);
 
   async function act(fn: (id: string) => Promise<Alert>) {
     setBusy(true);

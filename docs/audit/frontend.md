@@ -53,7 +53,12 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 
 ## Findings
 
-### FE-001 · High · Dashboard marks over-target "lower is better" KPIs as On track
+### FE-001 · High · Dashboard marks over-target "lower is better" KPIs as On track — ✅ FIXED
+- **Fix (server-computed, as suggested):**
+  - New `apps/api/src/kpis/kpi-health.ts` is one status rule: threshold bands, then explicit thresholds, then a direction-aware target (the same grading as KPI assignments). It also computes a direction-aware attainment (lower-is-better = target / value).
+  - `/kpis/dashboard-summary` now returns `direction`, `status` and `attainmentPct` per KPI. This is additive. The board pack uses the same field.
+  - The dashboard page and the List widget display the server status and attainment instead of `latest / target`. The List widget had the same bug.
+  - Verified in the browser: Gross Logo Churn 3.5% (≤2.5% target) now shows **At risk**, matching its alert. The health tiles match the API (27 on track / 10 at risk), and Avg attainment is no longer inflated by >100% lower-is-better ratios.
 - **Repro:** sign in as `admin@helios.io` → `/dashboard`.
 - **Actual:** Gross Logo Churn 3.5 % (target ≤ 2.5 %) shows **On track**, next to an open HIGH alert saying it breached. Same for CAC / MTTR. Their >100 % ratios also inflate "Avg attainment".
 - **Cause:** `deriveStatus()` / `attainmentPct()` in `apps/web/src/app/dashboard/page.tsx:149-162` use `latest / target ≥ 0.95` and ignore KPI direction and threshold bands.

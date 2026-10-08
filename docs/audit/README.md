@@ -148,6 +148,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-001 / FE-005 `/org-templates` 500 (legacy seed payload) | ✅ fixed | `c6875db` | `template-payload.spec.ts` (+3), seed run on scratch DB + live check |
 | BE-028 / FE-013 SSE stream blocked by CORS | ✅ fixed | `8c0b96a` | `realtime.controller.spec.ts` (1) + live header check |
 | BE-027 / FE-012 board pack: wrong shape, no values, crash | ✅ fixed | `5f46c1e` | `board-pack.service.spec.ts` (7, rewritten) + live API + browser check |
+| FE-001 dashboard status ignored KPI direction (+ List widget; shared server rule with board pack) | ✅ fixed | `ba32638` | `kpi-health.spec.ts` (8), `board-pack.service.spec.ts` + integration perf + browser check |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

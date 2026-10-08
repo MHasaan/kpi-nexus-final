@@ -33,19 +33,22 @@ kpi-nexus-final/
 ├── apps/
 │   ├── web/         Next.js 15 — UI only, no DB
 │   ├── api/         NestJS 11 — HTTP + business logic
-│   ├── worker/      NestJS — BullMQ processors, same modules as api
+│   ├── worker/      NestJS scaffold (echo processor only) — the BullMQ
+│   │                processors currently run inside api (audit OT-003)
 │   └── ml/          Python FastAPI — stateless math service
 ├── packages/
 │   ├── contracts/   Zod schemas + TS types shared web ↔ api
 │   ├── db/          Prisma schema + migrations + client wrapper
 │   ├── ai/          Provider-agnostic AI layer
-│   ├── formula/     Formula parser + evaluator (isolated-vm sandbox)
+│   ├── formula/     Unused placeholder — the formula engine is
+│   │                apps/api/src/formula (hand-written parser + AST
+│   │                evaluator; no eval/Function)
 │   ├── ui/          Design tokens + theme + primitive utilities
 │   └── config/      Shared tsconfig / eslint / vitest / tailwind
 ├── infra/
 │   ├── docker/      docker-compose for local dev
-│   ├── fly/         fly.toml per service
-│   └── github/      CI workflows
+│   ├── fly/         (empty — deploy config not written yet, audit OT-011)
+│   └── github/      (empty — CI lives in .github/workflows)
 ├── docs/
 │   ├── superpowers/specs/   Design specs
 │   ├── superpowers/plans/   Per-phase implementation plans
@@ -149,11 +152,9 @@ pnpm docker:ps      # show container status
 
 ## Current status
 
-Phase **P0 (Foundation)** code is merged to master. P1 (Identity + Tenancy + RBAC) is next. See:
-- [ROADMAP](./ROADMAP.md)
-- [P1 plan](./docs/superpowers/plans/P1-identity-tenancy-rbac.md)
+All ten phases (P0–P9) are implemented and tagged (`p0-complete` … `p9-complete`, `v1.0.0`); see [ROADMAP](./ROADMAP.md).
 
-Static verification (typecheck + lint + test + build) is green; live-infra acceptance (docker:up, db:setup, /health, e2e) ran end of the P0 session. `git tag p0-complete` was placed when those passed.
+A full audit (October 2026) is being worked through on branch `fix/full-audit`. Its findings, their status and the fix log are in [docs/audit/README.md](./docs/audit/README.md) — that is the current source of truth for what is broken or open. `TODOS.md` checkboxes predate v1.0.0 and are stale; trust its status banner instead.
 
 ## Context
 

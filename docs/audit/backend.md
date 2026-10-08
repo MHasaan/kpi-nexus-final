@@ -156,7 +156,10 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Cause:** `apps/api/src/rate-limit/rate-limit.guard.ts` is a no-op unless `RATE_LIMIT_ENABLED === 'true'`, and that variable isn't in any `.env.example`, so a deployment from the templates runs without rate limiting. No account-lockout logic exists.
 - **Also:** while Redis is unavailable, login still succeeds, so the limiter fails open (acceptable if intentional; worth documenting). Turning the limiter on is also the main mitigation for BE-010.
 
-### BE-018 · Medium · `/health` hangs when Redis is unresponsive
+### BE-018 · Medium · `/health` hangs when Redis is unresponsive — ✅ FIXED
+- **Fix:** each health ping is bounded (default 2s → "down"); the Redis clients have command timeouts.
+- **Found while reproducing:** the global rate limiter, on by default since BE-017, also had no timeout, so a frozen Redis hung **every** request. It now fails open after 1s.
+- **Live with Redis paused:** `/health` → `redis: down` in 3.2s (was hanging); an authenticated read → 200 in 1.3s.
 - **Repro:** `docker pause kpi-nexus-redis` → `GET /health` gives no response within 8 s (expected: fast `{"redis":"down"}`). Login and normal reads keep working; after `docker unpause` everything recovers.
 - **Cause:** `RedisHealthService.ping()` has no command timeout (`apps/api/src/health/redis-health.service.ts`).
 - **Impact:** a liveness probe would time out and restart a healthy API during a Redis blip.

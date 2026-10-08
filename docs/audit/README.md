@@ -153,6 +153,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-002 + BE-011 seed roles: backwards inheritance, invalid permission keys (+ OBJECTIVES→OKRS scope) | ✅ fixed | `83376ae` | `packages/db/prisma/seed-roles.spec.ts` (24, mutation-checked), seed on scratch DB + dev repair + live check |
 | BE-003 KPI SELF scope bypassed on detail/data/summary | ✅ fixed | `2494d15` | `kpi-visibility.spec.ts` (+4), `access-context.service.spec.ts` (+3) + live persona matrix |
 | BE-004 (insights part) + BE-025 insights ignored KPI visibility; foreign-tenant generate | 🟡 partial / ✅ fixed | `5b8d913` | `insights.service.spec.ts` (+3), `insights.controller.spec.ts` (3) + live check |
+| BE-018 /health hung on a frozen Redis (+ rate limiter hung every request) | ✅ fixed | `d6a01e7` | `health.controller.spec.ts` (+2), black-hole Redis test in `rate-limit-service.spec.ts` + live docker pause |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

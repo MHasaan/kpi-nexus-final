@@ -84,11 +84,13 @@ test.describe('/positions page — admin CRUD UI', () => {
     await page.getByTestId('position-paygrade-input').fill('P5');
     await page.getByTestId('position-submit-button').click();
 
-    // Row appears with the level + track badges
-    const row = page.getByTestId(`position-row-${positionName}`);
+    // Row appears under its track's group (positions are grouped by track —
+    // the track is the group heading, not a column), with level + pay grade.
+    const group = page.getByTestId('positions-group-IC');
+    await expect(group).toContainText('Individual contributor');
+    const row = group.getByTestId(`position-row-${positionName}`);
     await expect(row).toBeVisible();
     await expect(row.getByTestId(`position-level-${positionName}`)).toHaveText('L5');
-    await expect(row).toContainText(/IC/);
     await expect(row).toContainText(/P5/);
 
     // Form fields cleared

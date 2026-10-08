@@ -49,19 +49,19 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
     const adminEmail = `${stamp}@uc01.test.local`;
     const adminPassword = 'correct-horse-battery-staple';
 
-    // 1. Landing — buttons visible
+    // 1. Landing (redesigned: hero H1, a header + hero "Sign in", and a
+    //    "Create organization" CTA that opens the guided /signup wizard).
     await page.goto('/');
     await expect(
-      page.getByRole('heading', { name: 'KPI Nexus', level: 1 }),
+      page.getByRole('heading', { name: /measure what matters/i, level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible();
     await expect(
       page.getByRole('link', { name: /create organization/i }),
-    ).toBeVisible();
+    ).toHaveAttribute('href', '/signup');
 
-    // 2. Click "Create organization" → /register
-    await page.getByRole('link', { name: /create organization/i }).click();
-    await expect(page).toHaveURL(/\/register$/);
+    // 2. The classic registration form this flow exercises lives at /register.
+    await page.goto('/register');
     await expect(
       page.getByRole('heading', { name: /create your organization/i }),
     ).toBeVisible();
@@ -72,7 +72,7 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
     await expect(page.getByLabel('URL slug')).toHaveValue(slug);
     await page.getByLabel('Your full name').fill(adminFullName);
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     // 4. Submit — wait for the api POST
     const registerResp = page.waitForResponse(
@@ -84,21 +84,23 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
     const resp = await registerResp;
     expect(resp.status()).toBe(201);
 
-    // 5. Land on /dashboard with the user's first name
+    // 5. Land on /dashboard, greeted by first name (time-of-day greeting)
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(
-      page.getByRole('heading', { name: /welcome back, uc-01/i }),
-    ).toBeVisible();
+    await expect(page.getByTestId('dashboard-heading')).toHaveText(
+      /good (morning|afternoon|evening), uc-01/i,
+    );
     // Email is rendered in both the header and the Email card — use first().
     await expect(page.getByText(adminEmail).first()).toBeVisible();
 
     // 6. Sign out → /login
-    await page.getByRole('button', { name: /sign out/i }).click();
+    // Sign out lives in the account menu (shell redesign).
+    await page.getByTestId('appshell-user-menu').click();
+    await page.getByRole('menuitem', { name: /sign out/i }).click();
     await expect(page).toHaveURL(/\/login$/);
 
     // 7. Sign in with the same credentials
     await page.getByLabel('Email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const loginResp = page.waitForResponse(
       (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
@@ -108,9 +110,9 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
 
     // 8. Back on /dashboard
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(
-      page.getByRole('heading', { name: /welcome back/i }),
-    ).toBeVisible();
+    await expect(page.getByTestId('dashboard-heading')).toHaveText(
+      /good (morning|afternoon|evening)/i,
+    );
   });
 
   test('login with wrong password surfaces an error and stays on /login', async ({ page }) => {
@@ -118,7 +120,7 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
 
     await page.goto('/login');
     await page.getByLabel('Email').fill('nobody@nope.test');
-    await page.getByLabel('Password').fill('definitely-wrong');
+    await page.getByLabel('Password', { exact: true }).fill('definitely-wrong');
 
     await page.getByRole('button', { name: /sign in/i }).click();
 

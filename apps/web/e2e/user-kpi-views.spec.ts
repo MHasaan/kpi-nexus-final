@@ -46,7 +46,7 @@ test('my-kpis records inline; user panel + team render', async ({ page }) => {
   await expect(page.getByText(`Self KPI ${stamp}`)).toBeVisible();
   await page.getByTestId(`mykpi-value-${kpi.id}`).fill('95');
   await page.getByTestId(`mykpi-record-${kpi.id}`).click();
-  await expect(page.getByText('Current: 95', { exact: false })).toBeVisible();
+  await expect(page.getByTestId(`mykpi-current-${kpi.id}`)).toHaveText('95');
 
   // Per-user panel shows it.
   await page.goto(`/users/${me.id}`);

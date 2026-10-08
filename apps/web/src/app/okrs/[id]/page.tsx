@@ -826,7 +826,7 @@ export default function ObjectiveDetailPage() {
                               {unit && <span className="ml-1">{unit}</span>}
                             </span>
                             <span className="w-12 text-right text-sm font-bold tabular-nums text-content-strong">
-                              {pct}% <span data-testid="kr-progress" />
+                              <span data-testid="kr-progress">{pct}%</span>
                             </span>
                           </div>
                           <div className="mb-2 h-2 overflow-hidden rounded-full bg-surface-2">

@@ -156,7 +156,7 @@ function MyKpiCard({ row, onRecorded }: { row: MyKpiRow; onRecorded: () => void 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         <span className="tabular-nums">
           <span className="text-content-muted">Current </span>
-          <span className="font-semibold text-content-strong">
+          <span className="font-semibold text-content-strong" data-testid={`mykpi-current-${row.kpiId}`}>
             {row.currentValue ?? '—'}
             {row.unit ? ` ${row.unit}` : ''}
           </span>

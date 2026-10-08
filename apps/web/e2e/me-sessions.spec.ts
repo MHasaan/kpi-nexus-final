@@ -56,7 +56,7 @@ test.describe('Active sessions page (/me/sessions)', () => {
     await expect(page.getByLabel('URL slug')).toHaveValue(slug);
     await page.getByLabel('Your full name').fill(adminFullName);
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const registerResp = page.waitForResponse(
       (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
@@ -108,7 +108,7 @@ test.describe('Active sessions page (/me/sessions)', () => {
     await expect(page.getByLabel('URL slug')).toHaveValue(slug);
     await page.getByLabel('Your full name').fill('Sessions Link Admin');
     await page.getByLabel('Your email').fill(`${stamp}@sessions-link.test.local`);
-    await page.getByLabel('Password').fill('correct-horse-battery-staple');
+    await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
 
     const registerResp = page.waitForResponse(
       (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',

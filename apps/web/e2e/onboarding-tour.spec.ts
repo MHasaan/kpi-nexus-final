@@ -7,6 +7,9 @@ import { type Page, expect, request, test } from '@playwright/test';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
+// playwright.config pre-completes the tour for every other spec; start clean here.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 async function isApiUp(): Promise<boolean> {
   try {
     return (await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;

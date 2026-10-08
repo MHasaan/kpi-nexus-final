@@ -95,6 +95,9 @@ jobs:
       API_URL: http://localhost:4000
       # Deterministic AI: every provider resolves to the mock (no keys in CI).
       AI_MOCK: '1'
+      # No trace collector in CI; .env.example points at a local Jaeger. Empty
+      # (still set, so the API's early .env load can't override it) = tracing off.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ''
       # The suite registers many orgs from one IP — relax the per-IP budgets.
       RATE_LIMIT_AUTH_PER_MIN: '1000'
       RATE_LIMIT_ORG_PER_MIN: '100000'

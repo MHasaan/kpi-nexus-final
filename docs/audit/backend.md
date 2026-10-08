@@ -35,7 +35,12 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 
 ## Findings
 
-### BE-001 · High · `GET /org-templates` returns 500 for every org (template picker broken)
+### BE-001 · High · `GET /org-templates` returns 500 for every org (template picker broken) — ✅ FIXED
+- **Fix:**
+  - **Defensive:** `normalizeTemplatePayload()` coerces a stored payload into the full shape: missing sections become `[]` and non-`{name}` entries are dropped. `countPayload` and `preview` (which feeds the onboarding draft) both use it, so a malformed row lists with zero counts and fails validation cleanly instead of 500ing the whole list.
+  - **Root cause:** the seed now builds `saas-starter` in the real `TemplatePayload` shape (Helios roles, positions and departments plus MRR/NRR/CAC/NPS), and its upsert now also *updates*, so a re-seed repairs old rows. The seed was verified end to end on a scratch DB, and the payload passes `validateTemplatePayload` with no problems.
+  - The dev DB row was repaired in place.
+  - Live: `GET /org-templates` → 200 with 5 templates, `/org-templates/saas-starter` → 200.
 - **Repro:** `GET /org-templates` with any token (or none) → `500 Internal server error`. `GET /org-templates/saas-starter` → 500; other slugs → 200.
 - **Cause:** `TypeError: Cannot read properties of undefined (reading 'length')` at `countPayload()` — `apps/api/src/org-templates/template-payload.ts:71`, called from `org-templates.service.ts:70`. The built-in template `saas-starter` is stored in a legacy payload shape (`{ roles: string[], units: string[], kpis: string[] }` — no `positions` / `orgUnitTypes` / `orgUnits` / `kpiCategories`). One malformed row breaks the whole list.
 - **Source of the bad row:** the demo seed — `packages/db/prisma/seed.ts:864-865` upserts `saas-starter` with the legacy shape.

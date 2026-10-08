@@ -199,7 +199,14 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 ### BE-025 · Low · `POST /insights/generate` for another tenant's KPI returns `201 {"insight":null}`
 - No data is exposed, but it should be `404` like the other KPI-scoped endpoints.
 
-### BE-026 · High · AI features fail intermittently: Gemini key failover stops on a retired-model 404
+### BE-026 · High · AI features fail intermittently: Gemini key failover stops on a retired-model 404 — ✅ FIXED (model choice left as-is, see note)
+- **Fix:**
+  1. **404 is key-level.** The Gemini provider rotates past a key that 404s for a model and remembers that (key, model) pair for an hour, so later calls skip it for that model only; the key still serves other models.
+  2. **Unconfigured providers fail fast.** The registry raises `AiProviderNotConfiguredError` instead of building a keyless Claude/OpenAI/Gemini client, so a fallback to Claude is an instant, logged skip (`NOT_CONFIGURED`) rather than a 401 network call.
+  3. **Errors are visible.** The router logs every failed attempt (completion and embedding) with feature, provider/model, code and provider message.
+  4. **No leak to anonymous callers.** The onboarding co-pilot no longer returns provider internals (e.g. "invalid x-api-key") in its public 503; they go to the server log.
+  - Live: 8 consecutive NLQ calls, a full cycle of the 8-key pool → 8/8 succeeded, and the call log shows 9 SUCCESS, 0 FAILED.
+- **Not changed:** the default model (`gemini-2.5-flash`). It is still served by most keys, and failover now routes around the ones that lost it. Choosing a newer model should be checked against the account's available models first, so it is left as a configuration decision.
 - **Evidence (`AiCallLog`, last 12 h):** `gemini-2.5-flash` 30 × SUCCESS, **17 × FAILED 404**, 4 × 503. Every fallback then hits Claude models with no API key configured (`claude-opus-4-7` / `claude-haiku-4-5` → 21 × 401). KPI_SUGGESTIONS failed 3/3; RECOMMENDATIONS 11 × 404.
 - **Root cause (probed each of the 8 configured `GEMINI_API_KEYS` with a tiny `generateContent`):**
   - keys #1–#2 → `429 RESOURCE_EXHAUSTED` (quota). This one is handled: rotate to the next key.

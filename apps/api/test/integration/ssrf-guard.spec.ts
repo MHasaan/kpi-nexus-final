@@ -50,7 +50,7 @@ describe.skipIf(!apiUp)('Outbound URLs are validated at create time (BE-016)', (
   });
 
   test.each(INTERNAL)('webhook → %s is rejected with 400', async (url) => {
-    const res = await call('POST', '/webhooks', { name: 'Hook', url, events: ['alert.created'] }, token);
+    const res = await call('POST', '/webhooks', { name: 'Hook', url, events: ['alert_triggered'] }, token);
     expect(res.status).toBe(400);
   });
 
@@ -70,7 +70,7 @@ describe.skipIf(!apiUp)('Outbound URLs are validated at create time (BE-016)', (
   });
 
   test('public URLs are still accepted everywhere', async () => {
-    expect((await call('POST', '/webhooks', { name: 'Hook', url: PUBLIC, events: ['alert.created'] }, token)).status).toBe(201);
+    expect((await call('POST', '/webhooks', { name: 'Hook', url: PUBLIC, events: ['alert_triggered'] }, token)).status).toBe(201);
     expect((await call('POST', '/notification-channels', { name: 'Chan', kind: 'WEBHOOK', config: { url: PUBLIC } }, token)).status).toBe(201);
     const conn = await call('POST', '/connectors', { name: 'Conn', type: 'REST', config: { url: PUBLIC, valuePath: 'v', kpiId } }, token);
     expect(conn.status).toBe(201);

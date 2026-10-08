@@ -7,7 +7,13 @@ export const InstallPluginDtoSchema = z
     name: z.string().trim().min(2).max(120),
     type: PluginTypeSchema,
     version: z.string().trim().min(1).max(40),
-    entryUrl: z.string().trim().url().max(1000),
+    // http(s) only: javascript:/data: URLs would become XSS once plugins load (BE-023).
+    entryUrl: z
+      .string()
+      .trim()
+      .url()
+      .max(1000)
+      .refine((u) => /^https?:\/\//i.test(u), { message: 'entryUrl must be an http(s) URL' }),
     description: z.string().trim().max(1000).optional(),
     config: z.record(z.string(), z.unknown()).optional(),
     isEnabled: z.boolean().optional(),

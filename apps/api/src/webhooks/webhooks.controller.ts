@@ -30,11 +30,12 @@ const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   return result.data;
 };
 
-const CreateWebhookDtoSchema = z
+export const CreateWebhookDtoSchema = z
   .object({
     name: z.string().trim().min(2).max(120),
     url: z.string().url().max(2000),
-    events: z.array(z.string().min(1)).min(1).max(50),
+    // Only catalog events are ever dispatched; an unknown name would never fire (BE-023).
+    events: z.array(z.enum(WEBHOOK_EVENT_CATALOG)).min(1).max(50),
   })
   .strict();
 

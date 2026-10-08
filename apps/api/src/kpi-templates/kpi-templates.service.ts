@@ -56,10 +56,25 @@ export class KpiTemplatesService {
     return rankTemplates(rows, filters);
   }
 
-  /** Idempotently seed the builtin global catalog when no global templates exist. */
+  /** Set once every builtin is known to be present; avoids a count per gallery request. */
+  private builtinsSeeded = false;
+
+  /**
+   * Idempotently ensure every builtin global template exists. Counts BUILTINS,
+   * not any global: the demo seed adds its own global templates, and the old
+   * "any global exists → skip" check left the gallery with just those. Missing
+   * builtins (including newly added ones) are inserted; existing slugs are
+   * skipped.
+   */
   async seedGlobalIfEmpty(): Promise<void> {
-    const existing = await this.prisma.kPITemplate.count({ where: { organizationId: null, isGlobal: true } });
-    if (existing > 0) return;
+    if (this.builtinsSeeded) return;
+    const existing = await this.prisma.kPITemplate.count({
+      where: { organizationId: null, isGlobal: true, isBuiltin: true },
+    });
+    if (existing >= GLOBAL_TEMPLATES.length) {
+      this.builtinsSeeded = true;
+      return;
+    }
     await this.prisma.kPITemplate.createMany({
       data: GLOBAL_TEMPLATES.map((t) => ({
         organizationId: null,

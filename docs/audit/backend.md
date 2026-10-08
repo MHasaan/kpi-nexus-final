@@ -68,7 +68,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Repro:** exec / manager / contributor all have `PEOPLE: UNITS`, yet `GET /users` returns all 41 users and `GET /org-units` all 9 units to each of them. Everyone sees all 15 `GET /insights`, including insights about KPIs the caller can't see (Tom: 13 visible KPIs).
 - **Expected:** enforce the scope, or don't offer it in the role editor.
 
-### BE-005 · Low · Three Redis clients have no `error` listener
+### BE-005 · Low · Three Redis clients have no `error` listener — ✅ FIXED
+- **Fix (`db07e80`):** `attachRedisErrorLogger()` handles `error` on all three clients; logs the first error, then one summary line per 30 s while Redis is down.
 - **Evidence:** the API log repeatedly prints `[ioredis] Unhandled error event: Error: read ECONNRESET`. Clients created without `.on('error')`: `apps/api/src/ai/ai-budget.service.ts:37`, `apps/api/src/health/redis-health.service.ts:7`, `apps/api/src/rate-limit/rate-limit.service.ts:20`. `realtime.service.ts` does attach listeners.
 - **To check in 1e:** behaviour of login and rate limiting when Redis is unavailable.
 
@@ -110,7 +111,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Repro:** `PATCH /roles/<helios Department Manager> {"permissions": <its own current permissions>}` → `400 invalid_enum_value … received 'AI_USE'`.
 - **Impact:** admins of the demo org likely can't edit seeded roles in the role editor (to confirm in the frontend audit). The access profile also reports phantom capabilities.
 
-### BE-012 · Low · Threshold bands accept `lower > upper`
+### BE-012 · Low · Threshold bands accept `lower > upper` — ✅ FIXED
+- **Fix (`e2edbc8`):** DTOs refine `lower <= upper` (create, and update when both are sent); the service checks a one-bound patch against the stored band. Open-ended bounds stay valid.
 - **Repro:** `POST /kpis/:id/threshold-bands {"name":"Bad","lower":900,"upper":100,"color":"#000000","order":1}` → `201`.
 - **Location:** `apps/api/src/kpi-threshold-bands/dto/threshold-band.dto.ts` — no refine for `lower <= upper`.
 
@@ -119,7 +121,9 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Good:** refresh is rejected (`401 Invalid refresh token`) and new logins fail, so exposure is ≤ 15 min.
 - **Optional hardening:** check user status in the auth guard, or keep a token-version claim.
 
-### BE-006 · Low · `/platform/admins` returns 403 with message "Authentication required"
+### BE-006 · Low · `/platform/admins` returns 403 with message "Authentication required" — ✅ FIXED
+- **Fix (`045fd45`) — worse than reported:** the guard read `RequestContextStore`, which is always empty in guards, so **every** caller (real platform admins too) got 403. It now reads `req.user` (401 if missing), runs its DB reads in a context built from it, and non-admins get `NOT_PLATFORM_ADMIN`.
+- A working guard would have re-opened "bootstrap-if-empty": anyone can register an org and could make themselves global platform admin. That path is now opt-in (`PLATFORM_ADMIN_BOOTSTRAP_OPEN=true`); the seed creates the first admin.
 - **Repro:** `GET /platform/admins` as the org Administrator → `403 {"code":"FORBIDDEN","message":"Authentication required"}`.
 - **Expected:** the 403 is correct (platform admin is a separate super-role), but the message should say the caller isn't a platform admin.
 
@@ -172,7 +176,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Cause:** `apps/api/src/reports/scheduled-report.service.ts:103-121` inserts the row first, then BullMQ rejects the pattern in `addRepeatableJob()`. The DTO (`reports/dto/reports.dto.ts`) only checks string length.
 - **Expected:** validate the cron in the DTO (400), and create the row and the job atomically.
 
-### BE-020 · Medium · OKR objectives accept self-parenting and inverted periods
+### BE-020 · Medium · OKR objectives accept self-parenting and inverted periods — ✅ FIXED
+- **Fix (`551dbc0`):** DTOs refine `periodEnd >= periodStart`; update checks a one-sided period change against the stored row and rejects a parent that is the objective itself or a descendant (ancestry walked unscoped within the org, so a hidden ancestor can't mask a cycle).
 - **Repro:** `PATCH /objectives/:id {"parentObjectiveId": "<same id>"}` → `200` (cycle). `POST /objectives` with `periodEnd < periodStart` → `201`.
 - **Location:** `apps/api/src/okrs/dto/okr.dto.ts` + objectives service — no cycle / ancestry check, no period refine.
 - **Impact:** the alignment tree / rollup UI may recurse — to check in the frontend audit.
@@ -191,16 +196,21 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Expected:** validate referenced ids belong to the caller's org (`tasks.service`, `comments.service`, `dashboards.service` widget config).
 - **Good:** `mentionedUserIds` with a foreign user id is silently dropped.
 
-### BE-022 · Low · Any member can complete or dismiss org-wide setup-checklist items
+### BE-022 · Low · Any member can complete or dismiss org-wide setup-checklist items — ✅ FIXED
+- **Fix (`27f936c`):** complete / dismiss / reset require `ORG_SETTINGS`; reading progress stays open. The dashboard card hides the buttons for users without it.
 - **Repro:** as `tom.becker@helios.io` (Contributor): `POST /setup-checklist/domain_verification/dismiss` → `201`.
 - **Location:** routes are authenticated-only (no permission gate), and rows are scoped per org (`setup-checklist.service.ts:30-66`).
 - **Expected:** gate on `ORG_SETTINGS`.
 
-### BE-023 · Low · Loose validation on webhook events and plugin URLs
+### BE-023 · Low · Loose validation on webhook events and plugin URLs — ✅ FIXED
+- **Fix (`6e449b7`, `b0f5cf7`):** webhook `events` must be in `WEBHOOK_EVENT_CATALOG`; plugin `entryUrl` must be http(s). Two integration specs used non-catalog event names and were updated (one would otherwise have passed its SSRF 400s for the wrong reason).
 - `POST /webhooks {"events":["nope.nope"]}` → `201`; unknown events are not checked against `WEBHOOK_EVENT_CATALOG`.
 - `POST /plugins {"entryUrl":"javascript:alert(1)"}` → `201`; `z.string().url()` accepts `javascript:`. The web app doesn't render `entryUrl` as a link or script today, so this isn't exploitable now, but it becomes XSS the day plugins are loaded.
 
-### BE-024 · Low · ML sidecar lacks input validation; signature doesn't bind the request
+### BE-024 · Low · ML sidecar lacks input validation; signature doesn't bind the request — ✅ FIXED
+- **Fix (`0c66ef8`, `d64ea98`):** the sidecar validates its inputs (horizon 1–365, non-empty series ≤ 100k points, known anomaly/correlation/seasonality methods, equal-length correlation series, ≤ 50 what-if scenarios). The HMAC now covers `{ts}.{tenant}.{METHOD}.{path}.{sha256(body)}`, with a shared reference vector between the API and the sidecar.
+- The API answers 422 `INSUFFICIENT_DATA` for forecast / what-if on a KPI with no data instead of a sidecar 503.
+- Live check: forecast 201, empty KPI 422, same signature + swapped body 401, horizon 1e6 422; `scripts/audit/ml-probe.mjs` updated (all checks pass).
 - **Accepted without error:** negative `horizon`; `horizon: 1000000` (**18 s** of CPU and a huge response); empty series → forecast of zeros; unknown anomaly `method` silently falls back to ensemble; unequal-length correlation series are silently truncated.
 - **Mitigation:** the API caps horizon at 1–365 (`apps/api/src/analytics/analytics.controller.ts:21`), so this is reachable only from inside the network.
 - **Signature:** the HMAC covers `"{timestamp}.{tenantId}"` only (`apps/ml/app/middleware/hmac_auth.py`), not method / path / body, so a captured request can be replayed with a different body for 5 minutes.

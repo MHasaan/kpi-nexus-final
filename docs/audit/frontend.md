@@ -92,7 +92,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Contrast:** 14 other admin pages are correctly gated (`/approvals`, `/billing`, `/integrations`, `/settings`, `/settings/{access,ai,api-keys,audit,branding,custom-domain,organization,password-policy,webhooks}`).
 - **Expected:** gate these pages (or the affected sections) on the same permission the API enforces (`ORG_SETTINGS` / `INTEGRATIONS_MANAGE` / …).
 
-### FE-015 · Low · My KPIs: developer text in the UI, and Record offered without permission
+### FE-015 · Low · My KPIs: developer text in the UI, and Record offered without permission — ✅ FIXED
+- **Fix (`70bdaa7`):** developer text replaced with user-facing copy; the Record form is behind `PermissionGuard KPI_DATA_ENTRY`.
 - `/my-kpis` shows "Entries post to /user-kpis/my-kpis/:id/data · optimistic." to end users.
 - For a user whose `KPI_DATA_ENTRY` is revoked (`tom.becker@`), the Record input and button are shown. Submitting gets `403` → "Insufficient permissions". The server correctly enforces; the UI should hide or disable the action.
 
@@ -100,7 +101,9 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Fix (`0716970`):** `Delta` takes `decimals`; what-if passes 1 (`delta.spec.ts`).
 - **Repro (E2E `ai-analytics-ui.spec.ts:97`):** `/kpis/[id]/whatif` → simulate +10% → lift renders as **"▲10.000000000000016%"** (expected "10.0%").
 
-### FE-017 · Low · Widget detail page overflows on phones
+### FE-017 · Low · Widget detail page overflows on phones — ✅ FIXED
+- **Fix (`7ca23ed`) — root cause was app-wide:** below `md` the 256 px sidebar stayed open on every page (≈ 60 px left for content). It is now an off-canvas drawer (menu button, backdrop, closes on navigation / Escape); md+ is unchanged.
+- Also on phones: PageHeader actions wrap, icon-only search, 16 px page padding. Measured at 375 px: widget page scrollWidth 468 → 375; `/kpis` content 63 → 341 px.
 - **Repro (crawl, 375 px):** `/dashboards/[id]/widgets/[wid]` is 93 px wider than the viewport (horizontal scroll). All other 79 pages fit.
 
 ### FE-005 · High · Signup "Template gallery" shows "No templates available." (BE-001 surfaced to users) — ✅ FIXED (via BE-001)
@@ -155,10 +158,12 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Also:** the scope editor offers Analytics / Insights / People / Org scopes that the API never enforces (BE-004).
 - **Impact:** to change a role's capabilities an admin must apply a preset or delete and recreate the role (re-assigning users). The spec's "role matrix UI, multi-parent inheritance editor, role hierarchy SVG" isn't implemented. (The invalid seeded keys in BE-011 don't break the UI only because it never re-sends permissions.)
 
-### FE-003 · Medium · Objectives in a parent cycle silently disappear from the OKR alignment tree
+### FE-003 · Medium · Objectives in a parent cycle silently disappear from the OKR alignment tree — ✅ FIXED
+- **Fix (`d50aefd`):** `buildAlignmentTree()` promotes objectives unreachable from a root (self-parented / A↔B cycle) to roots and drops the closing edge, so each renders once and the walk terminates. With BE-020 new cycles can't be created; this covers legacy data.
 - **Evidence:** `apps/web/src/app/okrs/page.tsx:162-178` — roots are objectives without a visible parent, and `renderTree` (line 483) walks down from roots. An objective that is its own parent (allowed by the API — BE-020), or any A↔B cycle, is never a root and never reached, so it vanishes from the tree with no error. No infinite loop.
 
-### FE-004 · Low · No error boundaries or 404 page
+### FE-004 · Low · No error boundaries or 404 page — ✅ FIXED
+- **Fix (`470c5fd`):** `not-found.tsx`, `error.tsx` (Try again + digest) and `global-error.tsx`; smoke e2e covers the 404.
 - **Evidence:** `apps/web/src/app` has no `error.tsx`, `global-error.tsx` or `not-found.tsx`. A render crash on any page falls through to Next's generic "Application error: a client-side exception has occurred" screen, and unknown URLs get the default 404.
 
 ### Verified OK (static)

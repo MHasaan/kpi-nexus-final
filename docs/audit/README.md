@@ -165,6 +165,19 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | FE-008 password accessible name (+ register helper text in label) | ✅ fixed | `0fb188f` | e2e `getByLabel('Password', { exact: true })` across 5 specs |
 | FE-011 positions track (stale spec) + stale E2E specs; KPI short-name error hidden; seed template vocabulary; OKR / my-kpis test ids | ✅ fixed | `182acc2`, `d5aad1e`, `4a07d58` | full CI-mode Playwright run (0 retries) |
 | OT-007 CI never passed | ✅ fixed locally (awaiting first GitHub run) | `0f405ae` | lint / typecheck / test / build + e2e run in CI mode; `ai-mock-fixture.spec.ts` (3) |
+| BE-012 threshold bands accept lower > upper | ✅ fixed | `e2edbc8` | `threshold-band.dto.spec.ts` (3), `kpi-threshold-bands.service.spec.ts` (+2) |
+| BE-020 objective self/descendant parenting, inverted periods | ✅ fixed | `551dbc0` | `objectives.service.spec.ts` (+5) |
+| FE-003 objectives in a parent cycle vanish from the OKR tree | ✅ fixed | `d50aefd` | `okr-tree.spec.ts` (4, mutation-checked) |
+| BE-022 any member can change the org setup checklist | ✅ fixed | `27f936c` | `setup-checklist.controller.spec.ts` (2) |
+| BE-006 platform-admin guard 403'd everyone (+ open bootstrap now opt-in) | ✅ fixed | `045fd45` | `platform-admin.guard.spec.ts` (5, no ALS context — as in production) |
+| BE-005 Redis clients without error listeners | ✅ fixed | `db07e80` | `redis-error-logger.spec.ts` (2) |
+| FE-015 My KPIs dev text; Record without KPI_DATA_ENTRY | ✅ fixed | `70bdaa7` | typecheck + e2e `user-kpi-views` |
+| BE-023 unknown webhook events; javascript: plugin URLs | ✅ fixed | `6e449b7`, `b0f5cf7` | `webhooks.dto.spec.ts` (2), `plugin.dto.spec.ts` (2), integration `alerting` + `ssrf-guard` |
+| FE-004 no 404 page / error boundaries | ✅ fixed | `470c5fd` | e2e `smoke` (+1) |
+| FE-017 phone layout (sidebar never collapsed; widget page overflow) | ✅ fixed | `7ca23ed` | 375 px measurement + drawer/desktop browser check |
+| BE-024 ML sidecar input validation + request-bound HMAC | ✅ fixed | `0c66ef8`, `d64ea98` | `test_validation.py` (10), `test_hmac.py` (rewritten), `ml-signature.spec.ts`, analytics specs (+2), live probe |
+| OT-005 Prophet/ARIMA offered but not implemented | ✅ labelled "coming soon" | `6216b14` | typecheck |
+| OT-015 demo seed recorded the newest value in the future | ✅ fixed | `f6f1411` | scratch-DB seed check + db tests (24) |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

@@ -129,7 +129,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - `packages/formula/src/index.ts` is `export {}` with "Real implementation lands in P2". The real engine is `apps/api/src/formula/formula.ts` — a hand-written tokenizer/parser/AST evaluator (no `eval` / `Function`, 68 tests), which is sound and was confirmed to reject escape attempts (Part 1).
 - README line 42 says "Formula parser + evaluator (isolated-vm sandbox)" — inaccurate. Either move the engine into the package or delete the package and fix the docs.
 
-### OT-015 · Low · Demo seed's latest period ends in the future (made visible by the 2026-10-03 setup fix)
+### OT-015 · Low · Demo seed's latest period ends in the future (made visible by the 2026-10-03 setup fix) — ✅ FIXED
+- **Fix (`f6f1411`):** `recordedAt` is `min(periodEnd, SEED_NOW)`; scratch-DB seed shows the newest value on the 5th, not the 28th. Re-seed (or wait for the month to pass) to fix existing local data.
 - **Repro:** KPI detail for "Monthly Recurring Revenue" → "LATEST VALUE 498000 USD, recorded **28/10/2026**", while today is 3 Oct 2026.
 - **Cause:** the seed's 12 monthly periods end at the anchor month, and `periodEnd()` is the 28th (`packages/db/prisma/seed.ts`). The original seed had the same property relative to its fixed "now" (5 June with a June 28 period end). Anchoring to the current month in commit `2971f87` (this audit's setup fix) made it visible today.
 - **Expected:** anchor to the last *completed* month, or clamp `periodEnd` / `recordedAt` to `SEED_NOW`.
@@ -152,7 +153,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 ### OT-010 · Low · Git history is clean of secrets ✅ (verified, no action)
 - Scanned `git log --all -p` for Google / Anthropic / OpenAI / Slack / GitHub / AWS key patterns and private keys → none. `.env` files were never committed and are gitignored. CORS uses an explicit allow-list (`CORS_ALLOWED_ORIGINS`), and `JWT_SECRET` is mandatory.
 
-### OT-005 · Low · Forecast models Prophet / ARIMA not implemented
+### OT-005 · Low · Forecast models Prophet / ARIMA not implemented — ✅ FIXED (labelled)
+- **Fix (`6216b14`):** the picker keeps Prophet / ARIMA visible but disabled and labelled "coming soon"; naive is the only selectable model. Implementing them remains a product choice.
 - **Repro:** KPI → Forecast → Model "prophet" → Generate.
 - **Actual:** result reports model `NAIVE`. `apps/ml/app/routers/forecast.py:19` — `model: str = "naive"  # prophet/arima deferred → naive fallback`. The UI offers prophet/arima as if available; ROADMAP P5 lists Prophet/ARIMA as shipped.
 - **Expected:** either implement, or hide/label the unavailable models.

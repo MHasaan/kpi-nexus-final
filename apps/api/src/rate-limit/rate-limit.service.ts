@@ -1,8 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
-
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
@@ -18,7 +16,14 @@ export interface RateLimitResult {
 @Injectable()
 export class RateLimitService implements OnModuleDestroy {
   private readonly logger = new Logger(RateLimitService.name);
-  private readonly redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 2, lazyConnect: false });
+  // Read at construction (after ConfigModule loaded .env), not at module load.
+  private readonly redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379', {
+    maxRetriesPerRequest: 2,
+    lazyConnect: false,
+    // This runs on EVERY request (global guard). A frozen Redis (socket open, no
+    // replies) must not hang the API: reject the command so consume() fails open.
+    commandTimeout: 1_000,
+  });
   private seq = 0;
 
   async consume(bucketKey: string, limit: number, windowSec: number, nowMs: number): Promise<RateLimitResult> {

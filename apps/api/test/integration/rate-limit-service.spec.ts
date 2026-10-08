@@ -70,3 +70,34 @@ describe.skipIf(!redisUp)('RateLimitService (live)', () => {
     expect((await service.consume(k, 1, 1, t0 + 1100)).allowed).toBe(true);
   });
 });
+
+// BE-018 follow-up: with Redis frozen (socket accepted, no replies — e.g.
+// `docker pause`) a rate-limit command never settled, and since the limiter
+// runs on EVERY request (a global guard, on by default since BE-017) the whole
+// API hung — not just /health. A stalled command must fail open fast.
+describe('RateLimitService — fails open fast when Redis stops answering', () => {
+  test('consume() resolves allowed=true within ~2s against a black-hole Redis', async () => {
+    const { createServer } = await import('node:net');
+    const sockets: import('node:net').Socket[] = [];
+    const blackhole = createServer((s) => {
+      sockets.push(s); // accept, never reply
+    });
+    await new Promise<void>((r) => blackhole.listen(0, '127.0.0.1', () => r()));
+    const port = (blackhole.address() as import('node:net').AddressInfo).port;
+
+    const prev = process.env.REDIS_URL;
+    process.env.REDIS_URL = `redis://127.0.0.1:${port}`;
+    const service = new RateLimitService();
+    process.env.REDIS_URL = prev;
+    try {
+      const started = Date.now();
+      const result = await service.consume(`rl:test:${randomUUID()}`, 5, 60, Date.now());
+      expect(result.allowed).toBe(true);
+      expect(Date.now() - started).toBeLessThan(2_500);
+    } finally {
+      await service.onModuleDestroy().catch(() => undefined);
+      for (const s of sockets) s.destroy();
+      await new Promise<void>((r) => blackhole.close(() => r()));
+    }
+  }, 15_000);
+});

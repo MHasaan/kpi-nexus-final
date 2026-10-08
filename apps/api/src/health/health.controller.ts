@@ -4,6 +4,22 @@ import { Public } from '../rbac/decorators/public.decorator.js';
 import { DbHealthService } from './db-health.service.js';
 import { RedisHealthService } from './redis-health.service.js';
 
+/**
+ * Upper bound for one dependency ping. A dependency that accepts the socket but
+ * never answers (e.g. a paused Redis) used to hang GET /health indefinitely —
+ * a liveness probe would then restart a healthy API (BE-018).
+ */
+const PING_TIMEOUT_MS = Number(process.env.HEALTH_PING_TIMEOUT_MS) > 0 ? Number(process.env.HEALTH_PING_TIMEOUT_MS) : 2_000;
+
+/** Resolve the ping, or false once the timeout elapses (whichever is first). */
+function bounded(ping: () => Promise<boolean>): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), PING_TIMEOUT_MS);
+  });
+  return Promise.race([ping().catch(() => false), timeout]).finally(() => clearTimeout(timer));
+}
+
 export interface HealthResponse {
   db: 'ok' | 'down';
   redis: 'ok' | 'down';
@@ -32,7 +48,7 @@ export class HealthController {
 
   @Get()
   async check(): Promise<HealthResponse> {
-    const [db, redis] = await Promise.all([this.db.ping(), this.redis.ping()]);
+    const [db, redis] = await Promise.all([bounded(() => this.db.ping()), bounded(() => this.redis.ping())]);
     return {
       db: db ? 'ok' : 'down',
       redis: redis ? 'ok' : 'down',
@@ -62,7 +78,7 @@ export class HealthController {
     ping: () => Promise<boolean>,
   ): Promise<ComponentStatus> {
     const start = performance.now();
-    const up = await ping();
+    const up = await bounded(ping);
     const latencyMs = Math.round(performance.now() - start);
     return { name, status: up ? 'ok' : 'down', latencyMs };
   }

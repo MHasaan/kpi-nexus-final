@@ -10,6 +10,10 @@ export class RedisHealthService implements OnModuleDestroy {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
+      // Reject a stalled command/connect instead of leaving it pending (BE-018);
+      // the controller also bounds the whole ping.
+      commandTimeout: 2_000,
+      connectTimeout: 2_000,
     },
   );
 

@@ -47,7 +47,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Also:** `countPayload()` is not defensive, unlike `validateTemplatePayload()` in the same file, which coalesces missing sections.
 - **Impact:** any UI listing org templates (onboarding / org-templates) fails — to confirm in the frontend audit.
 
-### BE-002 · High · Demo seed wires role inheritance backwards — Contributors get Department-Manager rights
+### BE-002 · High · Demo seed wires role inheritance backwards — Contributors get Department-Manager rights — ✅ FIXED
+- **Fix:** the seed's inheritance edges now run junior → senior (Viewer → Contributor → Senior Contributor → Department Manager). Each child already holds its parent's permissions, so effective permissions equal the declared ones. Role data moved to `packages/db/prisma/seed-roles.ts`; `seed-roles.spec.ts` asserts effective == declared for every role, and a mutation check showed it catches the old wiring. The dev DB roles and edges were repaired in place. Live: tom.becker now has 3 capabilities (was 17): KPI_VIEW, DASHBOARD_VIEW, ALERTS_VIEW — 4 role permissions minus his data-entry revoke.
 - **Repro:** sign in as `tom.becker@helios.io` → `GET /auth/me` → `accessProfile.capabilities` has 17 entries, including `KPI_CREATE`, `KPI_EDIT`, `DASHBOARD_MANAGE`, `ALERTS_MANAGE`, `OBJECTIVES_MANAGE`, `USERS_VIEW`, `GROUPS_VIEW`.
 - **Expected:** Contributor role = `KPI_VIEW, KPI_DATA_ENTRY, DASHBOARD_VIEW, ALERTS_VIEW, TASKS_VIEW`, minus his `KPI_DATA_ENTRY` revoke override → 4 capabilities.
 - **Cause:** the resolver treats `RoleInheritance` as "child inherits parent's permissions" (`apps/api/src/rbac/services/permission-resolver.service.ts:73-104`; `roles.service.ts:315-347` documents the same). The seed (`packages/db/prisma/seed.ts:577-580`, commented "informational hierarchy") wires it org-chart style: `Department Manager → Senior Contributor → Contributor` with `inheritsPermissions: true`. So Senior Contributors and Contributors inherit the Department Manager's permissions.
@@ -99,7 +100,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Impact:** an anonymous script can mint unlimited sessions → unlimited LLM spend / quota exhaustion. This was not exercised beyond `start`, to avoid real spend.
 - **Expected:** IP-based throttling on `start` and on the AI routes, plus a global onboarding AI budget.
 
-### BE-011 · Medium · Seeded roles contain permission keys the API rejects — seeded roles can't be re-saved
+### BE-011 · Medium · Seeded roles contain permission keys the API rejects — seeded roles can't be re-saved — ✅ FIXED
+- **Fix:** seeded roles use only canonical `PermissionKey` values. `ALL_PERMISSIONS` is now `Object.values(PermissionKey)`; the hand-maintained copy had 6 bogus keys and was missing 6 real ones. Same class of bug, also fixed: `scopeConfig` used a non-existent domain `OBJECTIVES` (silently ignored) — it is `OKRS`. The spec validates permissions, domains and scopes against the contracts. Live: re-saving the seeded Department Manager → 200 (was 400).
 - **Evidence:** `packages/contracts/src/permissions.ts` (`PermissionKey`) has no `TASKS_VIEW`, `TASKS_MANAGE`, `OBJECTIVES_VIEW`, `OBJECTIVES_MANAGE`, `ALERTS_MANAGE`, `AI_USE`. The seed assigns them to roles (`packages/db/prisma/seed.ts`), and no API guard or web check uses them.
 - **Repro:** `PATCH /roles/<helios Department Manager> {"permissions": <its own current permissions>}` → `400 invalid_enum_value … received 'AI_USE'`.
 - **Impact:** admins of the demo org likely can't edit seeded roles in the role editor (to confirm in the frontend audit). The access profile also reports phantom capabilities.

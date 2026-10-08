@@ -23,7 +23,15 @@ export class MlClientService {
   async post<T>(endpoint: string, payload: unknown): Promise<T> {
     const ctx = RequestContextStore.require();
     const ts = Date.now();
-    const signature = signMlRequest(this.secret, ctx.organizationId, ts);
+    // Sign the exact bytes sent: the signature covers method, path and body.
+    const body = JSON.stringify(payload);
+    const signature = signMlRequest(this.secret, {
+      tenantId: ctx.organizationId,
+      tsMs: ts,
+      method: 'POST',
+      path: endpoint,
+      body,
+    });
 
     let res: Response;
     try {
@@ -35,7 +43,7 @@ export class MlClientService {
           'X-Signature-Timestamp': String(ts),
           'X-Signature': signature,
         },
-        body: JSON.stringify(payload),
+        body,
       });
     } catch (err) {
       this.logger.warn(`ML sidecar unreachable for ${endpoint}: ${String(err)}`);

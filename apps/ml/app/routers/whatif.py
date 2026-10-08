@@ -5,20 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.whatif import simulate
+from app.validation import Series
 
 router = APIRouter(tags=["whatif"])
 
 
 class Baseline(BaseModel):
-    values: list[float]
+    values: Series
 
 
 class WhatIfRequest(BaseModel):
     baseline: Baseline
-    scenarios: list[dict[str, Any]]
+    scenarios: list[dict[str, Any]] = Field(max_length=50)
 
 
 @router.post("/whatif")

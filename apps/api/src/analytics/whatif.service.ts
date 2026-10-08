@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { InsufficientDataError } from './insufficient-data.error.js';
 
 const DEFAULT_BASELINE = 12;
 
@@ -58,6 +59,7 @@ export class WhatIfService {
       take,
       select: { value: true },
     });
+    if (points.length === 0) throw new InsufficientDataError('simulate');
     const baseline = points.map((p) => p.value).reverse();
 
     return this.ml.post<WhatIfResult>('/whatif', {

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { InsufficientDataError } from './insufficient-data.error.js';
 
 const WINDOW = 365;
 
@@ -58,6 +59,7 @@ export class ForecastsService {
       take: WINDOW,
       select: { value: true, recordedAt: true },
     });
+    if (points.length === 0) throw new InsufficientDataError('forecast');
     const ordered = points.reverse();
 
     const result = await this.ml.post<MlForecast>('/forecast', {

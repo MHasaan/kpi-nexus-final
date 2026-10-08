@@ -1,10 +1,13 @@
 """HMAC request authentication for the ML sidecar.
 
-The API signs each call with `HMAC-SHA256(secret, "{timestampMs}.{tenantId}")`
-sent as `X-Signature`, plus `X-Tenant-Id` and `X-Signature-Timestamp`. The
-sidecar recomputes and compares in constant time, and rejects timestamps outside
-a ±5-minute skew window (replay guard). All routes except `/health` are
-protected. The placeholder dev secret is refused when ENV=production.
+The API signs each call with
+`HMAC-SHA256(secret, "{timestampMs}.{tenantId}.{METHOD}.{path}.{sha256hex(body)}")`
+sent as `X-Signature`, plus `X-Tenant-Id` and `X-Signature-Timestamp`. Binding
+method, path and body means a captured request can't be replayed against
+another endpoint or with a different payload (BE-024); the ±5-minute skew window
+still bounds plain replays. The sidecar recomputes and compares in constant
+time. All routes except `/health` are protected. The placeholder dev secret is
+refused when ENV=production.
 """
 
 from __future__ import annotations
@@ -22,8 +25,10 @@ DEV_SECRET = "dev-ml-shared-secret"
 DEFAULT_SKEW_MS = 5 * 60 * 1000
 
 
-def compute_signature(secret: str, tenant_id: str, ts_ms: int) -> str:
-    msg = f"{ts_ms}.{tenant_id}".encode()
+def compute_signature(secret: str, tenant_id: str, ts_ms: int, method: str, path: str, body: bytes) -> str:
+    """MUST match signMlRequest in apps/api/src/ml/ml-signature.ts byte for byte."""
+    body_hash = hashlib.sha256(body).hexdigest()
+    msg = f"{ts_ms}.{tenant_id}.{method.upper()}.{path}.{body_hash}".encode()
     return hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
 
 
@@ -33,6 +38,9 @@ def verify(
     ts_ms: object,
     signature: str,
     now_ms: int,
+    method: str,
+    path: str,
+    body: bytes,
     skew_ms: int = DEFAULT_SKEW_MS,
 ) -> bool:
     """Constant-time verify of a signature + freshness check. Never raises."""
@@ -42,7 +50,7 @@ def verify(
         return False
     if abs(now_ms - ts_int) > skew_ms:
         return False
-    expected = compute_signature(secret, tenant_id, ts_int)
+    expected = compute_signature(secret, tenant_id, ts_int, method, path, body)
     return hmac.compare_digest(expected, signature or "")
 
 
@@ -66,6 +74,17 @@ class HmacAuthMiddleware(BaseHTTPMiddleware):
         sig = request.headers.get("X-Signature", "")
         if not tenant or not ts or not sig:
             return JSONResponse({"detail": "Missing signature headers"}, status_code=401)
-        if not verify(secret, tenant, ts, sig, now_ms=int(time.time() * 1000)):
+        # Starlette caches the body, so the route can still read it after this.
+        body = await request.body()
+        if not verify(
+            secret,
+            tenant,
+            ts,
+            sig,
+            now_ms=int(time.time() * 1000),
+            method=request.method,
+            path=request.url.path,
+            body=body,
+        ):
             return JSONResponse({"detail": "Invalid signature"}, status_code=401)
         return await call_next(request)

@@ -55,7 +55,7 @@ beforeEach(() => {
     maxExportRows: null,
   });
   mockKpis.getById.mockResolvedValue({ id: 'kpi_1' });
-  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([{ value: 1, recordedAt: new Date('2026-01-01') }]);
   mockPrisma.forecast.create.mockResolvedValue({ id: 'fc_1' });
   mockMl.post.mockResolvedValue({ predictions: [], fitMetrics: {}, model: 'naive' });
   vi.spyOn(RequestContextStore, 'require').mockReturnValue({
@@ -120,5 +120,16 @@ describe('ForecastsService.forecast', () => {
     expect(call.where.organizationId).toBe(ORG);
     expect(call.where.kpiId).toBe('kpi_1');
     expect(call.where.recordedAt).toBeUndefined();
+  });
+});
+
+describe('ForecastsService.forecast with no data (BE-024)', () => {
+  it('answers 422 INSUFFICIENT_DATA instead of asking the sidecar to forecast an empty series', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+    await expect(makeSvc().forecast('kpi_1', { horizon: 7 })).rejects.toMatchObject({
+      status: 422,
+      response: { code: 'INSUFFICIENT_DATA' },
+    });
+    expect(mockMl.post).not.toHaveBeenCalled();
   });
 });

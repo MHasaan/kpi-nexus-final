@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import json
 import os
 import time
 
@@ -28,14 +29,21 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
-def _signed_headers() -> dict[str, str]:
+def _signed_post(client: TestClient, payload: dict):
+    """POST /seasonality signed over the exact bytes sent (method/path/body-bound HMAC)."""
+    body = json.dumps(payload).encode()
     ts = int(time.time() * 1000)
-    sig = compute_signature(SECRET, ORG, ts)
-    return {
-        "X-Tenant-Id": ORG,
-        "X-Signature-Timestamp": str(ts),
-        "X-Signature": sig,
-    }
+    sig = compute_signature(SECRET, ORG, ts, "POST", "/seasonality", body)
+    return client.post(
+        "/seasonality",
+        headers={
+            "X-Tenant-Id": ORG,
+            "X-Signature-Timestamp": str(ts),
+            "X-Signature": sig,
+            "content-type": "application/json",
+        },
+        content=body,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -113,11 +121,7 @@ def test_decompose_multiplicative_model() -> None:
 def test_seasonality_endpoint_returns_200_with_valid_signature() -> None:
     client = _client()
     series = _seasonal_series(period=12, cycles=4)
-    res = client.post(
-        "/seasonality",
-        headers=_signed_headers(),
-        json={"series": series, "period": 12, "model": "additive"},
-    )
+    res = _signed_post(client, {"series": series, "period": 12, "model": "additive"})
     assert res.status_code == 200
     body = res.json()
     assert {"trend", "seasonal", "resid", "period", "model"} <= set(body.keys())
@@ -136,11 +140,7 @@ def test_seasonality_endpoint_requires_hmac() -> None:
 def test_seasonality_endpoint_too_short_returns_422() -> None:
     """Insufficient data for the requested period must return 422."""
     client = _client()
-    res = client.post(
-        "/seasonality",
-        headers=_signed_headers(),
-        json={"series": [1.0, 2.0, 3.0], "period": 12},
-    )
+    res = _signed_post(client, {"series": [1.0, 2.0, 3.0], "period": 12})
     assert res.status_code == 422
 
 
@@ -148,11 +148,7 @@ def test_seasonality_endpoint_without_period_uses_default() -> None:
     """Omitting `period` is valid; sidecar picks a default."""
     client = _client()
     series = _seasonal_series(period=12, cycles=4)
-    res = client.post(
-        "/seasonality",
-        headers=_signed_headers(),
-        json={"series": series},  # period omitted
-    )
+    res = _signed_post(client, {"series": series})
     assert res.status_code == 200
     body = res.json()
     assert body["period"] > 1

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Info, Target } from 'lucide-react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   Button,
   Card,
@@ -67,15 +68,12 @@ export default function MyKpisPage() {
       <div className="flex flex-col gap-6">
         <PageHeader
           title="My KPIs"
-          subtitle="Your personal assignments. Record values inline — they post to the scope-correct endpoint."
+          subtitle="KPIs assigned to you personally. Record new values as you measure them."
         />
 
         <div className="flex items-center gap-2 rounded-lg border border-status-info/30 bg-status-info-bg px-4 py-2.5 text-sm text-status-info">
           <Info aria-hidden className="h-4 w-4 shrink-0" />
-          <span>
-            Entries post to{' '}
-            <span className="font-mono text-xs">/user-kpis/my-kpis/:id/data</span> · optimistic.
-          </span>
+          <span>Values you record here are saved to your own KPI assignments.</span>
         </div>
 
         {error && (
@@ -166,6 +164,8 @@ function MyKpiCard({ row, onRecorded }: { row: MyKpiRow; onRecorded: () => void 
         )}
       </div>
 
+      {/* Recording is KPI_DATA_ENTRY-gated server-side; hide it for users without it (FE-015). */}
+      <PermissionGuard permission="KPI_DATA_ENTRY">
       <form onSubmit={submit} className="flex items-center gap-2">
         <Input
           value={value}
@@ -181,6 +181,7 @@ function MyKpiCard({ row, onRecorded }: { row: MyKpiRow; onRecorded: () => void 
           Record
         </Button>
       </form>
+      </PermissionGuard>
       {err && <p className="text-xs text-status-critical">{err}</p>}
     </Card>
   );

@@ -194,7 +194,7 @@ export default function WhatIfPage() {
                   <CardContent className="flex flex-col gap-1 p-4">
                     <span className="kn-eyebrow">Lift %</span>
                     <span data-testid="wi-lift-pct">
-                      <Delta value={sc.aggregateLiftPct} pct={sc.aggregateLiftPct} />
+                      <Delta value={sc.aggregateLiftPct} pct={sc.aggregateLiftPct} decimals={1} />
                     </span>
                   </CardContent>
                 </Card>

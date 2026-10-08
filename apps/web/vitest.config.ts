@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Mirror tsconfig 'paths' (@/* → src/*) so components importing '@/lib/…' are testable.
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   esbuild: {
     // Transform JSX in .tsx spec files using the automatic React JSX runtime.
     // This lets component tests call component functions directly without

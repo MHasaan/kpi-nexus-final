@@ -151,6 +151,8 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | FE-001 dashboard status ignored KPI direction (+ List widget; shared server rule with board pack) | ✅ fixed | `ba32638` | `kpi-health.spec.ts` (8), `board-pack.service.spec.ts` + integration perf + browser check |
 | BE-026 AI calls failing on per-key 404; keyless fallbacks; invisible errors (+ public 503 leaked provider text) | ✅ fixed | `bf7bf12` | `gemini-failover.spec.ts` (+4), `ai-router.service.spec.ts` (+1), `ai-provider-registry.spec.ts` (4), `onboarding-ai.service.spec.ts` (+1) + 8-call live run |
 | BE-002 + BE-011 seed roles: backwards inheritance, invalid permission keys (+ OBJECTIVES→OKRS scope) | ✅ fixed | `83376ae` | `packages/db/prisma/seed-roles.spec.ts` (24, mutation-checked), seed on scratch DB + dev repair + live check |
+| BE-003 KPI SELF scope bypassed on detail/data/summary | ✅ fixed | `2494d15` | `kpi-visibility.spec.ts` (+4), `access-context.service.spec.ts` (+3) + live persona matrix |
+| BE-004 (insights part) + BE-025 insights ignored KPI visibility; foreign-tenant generate | 🟡 partial / ✅ fixed | `5b8d913` | `insights.service.spec.ts` (+3), `insights.controller.spec.ts` (3) + live check |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

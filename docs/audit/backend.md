@@ -54,12 +54,16 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Cause:** the resolver treats `RoleInheritance` as "child inherits parent's permissions" (`apps/api/src/rbac/services/permission-resolver.service.ts:73-104`; `roles.service.ts:315-347` documents the same). The seed (`packages/db/prisma/seed.ts:577-580`, commented "informational hierarchy") wires it org-chart style: `Department Manager → Senior Contributor → Contributor` with `inheritsPermissions: true`. So Senior Contributors and Contributors inherit the Department Manager's permissions.
 - **Impact:** every least-privilege demo built on `helios` is wrong. Seed-data bug — the product code is consistent, and inheritance edges can't be created through the API/UI.
 
-### BE-003 · Medium · KPI `SELF` scope bypassed on detail / data / dashboard-summary endpoints
+### BE-003 · Medium · KPI `SELF` scope bypassed on detail / data / dashboard-summary endpoints — ✅ FIXED
+- **Fix:** `AccessContextService.isKpiVisible()` evaluates the list's own `buildKpiVisibilityWhere` for one id, and `kpiDataPointScopeWhere()` scopes data points the same way. Detail, `/data` and `dashboard-summary` all use them; the divergent hand-rolled copies are removed. Live: list == summary for every persona (tom 13/13, was 13/18); a unit KPI opened by a non-member → 404 on detail and data.
+- **Not changed (follow-up):** sibling single-KPI services (targets, cascades, bands, benchmarks, unit/user KPI data entry) still check only the category allowlist. Tightening them changes who may *record* data, which is a product decision.
 - **Repro:** as `tom.becker@helios.io` (`KPIS: SELF`): `GET /kpis` → 13 KPIs. `GET /kpis/dashboard-summary` → 18; the extra 5 are Engineering `PER_UNIT` KPIs (Deployment Frequency, Change Lead Time, Production Incidents, MTTR, Platform Uptime). `GET /kpis/<Deployment Frequency id>` → 200 and `/data` → 200. Same for `aaron.cole@` (12 vs 14: CSAT, Avg. Ticket Resolution Time).
 - **Cause:** the list uses `buildKpiVisibilityWhere()` (`apps/api/src/rbac/visibility/kpi-visibility.ts`), which honours `scope` (SELF ⇒ no unit KPIs). Single-KPI access uses `KpisService.isVisibleToUser()` (`apps/api/src/kpis/kpis.service.ts:468-493`), which never reads `visibility.scope` and treats every non-admin as `UNITS`. The dashboard summary follows the looser rule.
 - **Expected:** one visibility rule for list, detail, data and summary.
 
-### BE-004 · Medium · Scopes for `PEOPLE`, `INSIGHTS`, `ANALYTICS`, `ORG` are configurable but never enforced
+### BE-004 · Medium · Scopes for `PEOPLE`, `INSIGHTS`, `ANALYTICS`, `ORG` are configurable but never enforced — 🟡 PARTIAL (insights fixed)
+- **Fixed:** insights follow KPI visibility: list, dismiss, generate (404 for a KPI you can't see) and generate-batch. Live: 0 insights about non-listable KPIs for every persona.
+- **Open (product decision):** PEOPLE / ANALYTICS / ORG. PEOPLE defaults to UNITS, so enforcing it narrows `/users` and every people picker (assignees, mentions, OKR owners) for all non-admins. Choose: enforce, or remove these domains from the role editor.
 - **Evidence:** `access-context.service.ts:25-36` defines 10 scope domains, with defaults in `rbac/visibility/domain-visibility.ts`. Only KPIs, dashboards, alerts, alert rules, OKRs, tasks and scheduled reports read `scopeByDomain` — those are the only services referencing it. Nothing reads it for users, org units, insights or analytics.
 - **Repro:** exec / manager / contributor all have `PEOPLE: UNITS`, yet `GET /users` returns all 41 users and `GET /org-units` all 9 units to each of them. Everyone sees all 15 `GET /insights`, including insights about KPIs the caller can't see (Tom: 13 visible KPIs).
 - **Expected:** enforce the scope, or don't offer it in the role editor.
@@ -198,7 +202,7 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Signature:** the HMAC covers `"{timestamp}.{tenantId}"` only (`apps/ml/app/middleware/hmac_auth.py`), not method / path / body, so a captured request can be replayed with a different body for 5 minutes.
 - **Fine:** auth negatives are all correct.
 
-### BE-025 · Low · `POST /insights/generate` for another tenant's KPI returns `201 {"insight":null}`
+### BE-025 · Low · `POST /insights/generate` for another tenant's KPI returns `201 {"insight":null}` — ✅ FIXED (via the BE-004 visibility gate → 404)
 - No data is exposed, but it should be `404` like the other KPI-scoped endpoints.
 
 ### BE-026 · High · AI features fail intermittently: Gemini key failover stops on a retired-model 404 — ✅ FIXED (model choice left as-is, see note)

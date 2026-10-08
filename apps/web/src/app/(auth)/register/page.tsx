@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 
 import { ApiError, registerRequest, setTokens } from '../../../lib/api-client';
 
@@ -216,20 +216,28 @@ function Field({
   onChange: (v: string) => void;
   helperText?: string;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  // The helper text sits outside the <label> so it isn't part of the field's
+  // accessible name ("Password", not "Password At least 8 characters.").
+  const id = useId();
+  const helperId = `${id}-help`;
   return (
-    <label className="block">
-      <span className="text-sm font-medium text-content-default">{label}</span>
+    <div className="block">
+      <label htmlFor={id} className="text-sm font-medium text-content-default">
+        {label}
+      </label>
       <input
         {...rest}
+        id={id}
+        aria-describedby={helperText ? helperId : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
       />
       {helperText && (
-        <span className="mt-1 block text-xs text-content-muted">
+        <span id={helperId} className="mt-1 block text-xs text-content-muted">
           {helperText}
         </span>
       )}
-    </label>
+    </div>
   );
 }

@@ -62,10 +62,15 @@ export default function LoginPage() {
           onChange={(v) => setEmail(v)}
           disabled={submitting}
         />
-        <label className="block">
-          <span className="text-sm font-medium text-content-default">Password</span>
+        {/* The label names ONLY the input; the show/hide toggle sits outside it, so
+            the field is announced as "Password", not "Password Show password" (FE-008). */}
+        <div className="block">
+          <label htmlFor="login-password" className="text-sm font-medium text-content-default">
+            Password
+          </label>
           <div className="relative mt-1">
             <input
+              id="login-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               required
@@ -90,7 +95,7 @@ export default function LoginPage() {
               )}
             </button>
           </div>
-        </label>
+        </div>
         {mfaRequired && (
           <Field
             label="Authenticator code"

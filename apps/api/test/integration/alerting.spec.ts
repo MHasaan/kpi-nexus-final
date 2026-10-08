@@ -370,7 +370,7 @@ describe('P4 webhooks — outbound HMAC signature + test-send (live API)', () =>
         // example.com resolves but won't sign-verify; we assert the queue
         // accepted the job, not that an external receiver got it.
         url: 'https://example.com/inbound',
-        events: ['webhook.test'],
+        events: ['alert_triggered'],
       }),
     });
     expect(created.status).toBe(201);

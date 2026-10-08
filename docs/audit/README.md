@@ -156,6 +156,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-018 /health hung on a frozen Redis (+ rate limiter hung every request) | ✅ fixed | `d6a01e7` | `health.controller.spec.ts` (+2), black-hole Redis test in `rate-limit-service.spec.ts` + live docker pause |
 | BE-019 invalid cron → 500 + orphan row | ✅ fixed | `a5df263` | `cron.spec.ts` (14) + live check |
 | FE-009 + FE-014 signed-out → /unauthorized; 12 ungated pages | ✅ fixed | `33ba4bb` | `auth-redirect.spec.ts` (13) + browser check |
+| FE-006 alert rules unmanageable in the UI | ✅ fixed | `fafbffc` | `uc-alerts` e2e (now green end-to-end) + browser check |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

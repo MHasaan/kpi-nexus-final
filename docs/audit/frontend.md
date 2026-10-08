@@ -108,7 +108,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Cause:** the page's `GET /org-templates` returns 500 (BE-001), and `listTemplates()` (`apps/web/src/lib/onboarding-client.ts:50`) / the signup page treat the failure as an empty list — no error shown.
 - **Impact:** one of the three onboarding paths is unusable for every new organization, silently. (Also fails E2E `onboarding-wizard.spec.ts:35` and `org-templates.spec.ts:26,47`.)
 
-### FE-006 · Medium · Alert rules can't be viewed, edited, disabled or deleted in the UI
+### FE-006 · Medium · Alert rules can't be viewed, edited, disabled or deleted in the UI — ✅ FIXED
+- **Fix:** new `/alerts/rules` lists rules (KPI, type, severity, status). Editors can pause/resume, edit name/severity/description, and delete with a confirm. There is a "Rules" link in the alerts header, and creating a rule lands on the list. `uc-alerts` e2e now passes end to end. Browser: pause → Paused, resume → Active.
 - **Repro:** `/alerts/new` → create a rule → `POST /alert-rules 201` → redirected to `/alerts`, which lists only triggered alerts. The new rule appears nowhere.
 - **Evidence:** `listAlertRules` / `deleteAlertRule` exist in `apps/web/src/lib/api-client.ts:1569,1592` but no page calls them. A rule is only reachable through the detail page of an alert it has already raised (`app/alerts/[id]/page.tsx:162`).
 - **Impact:** a misconfigured or noisy rule can't be found or switched off from the UI.

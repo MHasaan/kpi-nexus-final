@@ -29,6 +29,7 @@ import {
   ListChecks,
   LogOut,
   type LucideProps,
+  Menu,
   Moon,
   PanelLeft,
   Plug,
@@ -331,6 +332,8 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  // Below md the sidebar is an off-canvas drawer (FE-017); `collapsed` is desktop-only.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -381,6 +384,19 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -455,15 +471,28 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
       : [{ label: derived.crumb }]
   ).filter((c) => c.label && c.label !== pageTitle);
 
-  const showLabels = !collapsed;
+  // The mobile drawer is always full width, so it always shows labels.
+  const showLabels = !collapsed || mobileNavOpen;
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-bg text-content-default">
       {/* ----------------------------- Sidebar ----------------------------- */}
+      {mobileNavOpen && (
+        <div
+          aria-hidden
+          data-testid="mobile-nav-backdrop"
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+        />
+      )}
       <aside
+        id="app-sidebar"
         className={cn(
-          'flex h-full shrink-0 flex-col border-r border-border bg-surface-1 transition-[width] duration-base ease-out',
-          collapsed ? 'w-16' : 'w-64',
+          'flex h-full shrink-0 flex-col border-r border-border bg-surface-1 transition-[width,transform] duration-base ease-out',
+          // Phones: fixed drawer, hidden until opened. md+: in-flow, collapsible.
+          'fixed inset-y-0 left-0 z-40 w-64 md:static md:z-auto md:translate-x-0',
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
+          collapsed ? 'md:w-16' : 'md:w-64',
         )}
       >
         {/* Brand / org switcher */}
@@ -631,10 +660,21 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface-1/80 px-4 backdrop-blur">
           <button
             type="button"
+            onClick={() => setMobileNavOpen(true)}
+            data-testid="mobile-nav-toggle"
+            aria-label="Open navigation"
+            aria-controls="app-sidebar"
+            aria-expanded={mobileNavOpen}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+          >
+            <Menu className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+          <button
+            type="button"
             onClick={toggleCollapsed}
             data-testid="sidebar-toggle"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring"
+            className="hidden h-9 w-9 items-center justify-center rounded-lg text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring md:flex"
           >
             <PanelLeft className="h-[18px] w-[18px]" aria-hidden />
           </button>
@@ -660,7 +700,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
             <h1 className="truncate text-sm font-semibold text-content-strong">{pageTitle}</h1>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <GlobalSearch />
             <AlertsBell />
             <Link
@@ -676,7 +716,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
               onClick={toggleTheme}
               data-testid="theme-toggle"
               aria-label="Toggle theme"
-              className="flex h-9 w-9 items-center justify-center rounded-md text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring"
+              className="hidden h-9 w-9 items-center sm:flex justify-center rounded-md text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring"
             >
               {/* Render a stable icon until mounted to avoid hydration mismatch. */}
               {mounted && isDark ? (
@@ -690,7 +730,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
 
         {/* Scroll container */}
         <main id="main-content" className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1180px] px-7 py-6">{children}</div>
+          <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7">{children}</div>
         </main>
       </div>
 

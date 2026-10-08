@@ -118,3 +118,16 @@ export class AiProviderError extends Error {
     this.name = 'AiProviderError';
   }
 }
+
+/**
+ * The provider has no credentials (no platform API key and no BYO key). Raised
+ * before any network call, so a routing fallback to an unconfigured provider is
+ * an instant, clearly-labelled skip instead of a doomed request that 401s
+ * (BE-026). Not retryable.
+ */
+export class AiProviderNotConfiguredError extends AiProviderError {
+  constructor(provider: AiProviderKey) {
+    super(`${provider} is not configured (no API key)`, provider, false);
+    this.name = 'AiProviderNotConfiguredError';
+  }
+}

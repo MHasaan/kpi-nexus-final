@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { AiCompletionRequest } from '@kpi-nexus/ai';
 import type { AiFeature } from '@kpi-nexus/contracts';
 import type { OnboardingAiMode } from '@kpi-nexus/db';
@@ -41,6 +41,7 @@ const GEN_SYSTEM = [
  */
 @Injectable()
 export class OnboardingAiService {
+  private readonly logger = new Logger(OnboardingAiService.name);
   private readonly globalPerDay = budgetsFromEnv().onboardingAiGlobalPerDay;
 
   constructor(
@@ -87,7 +88,10 @@ export class OnboardingAiService {
         lastError = err;
       }
     }
-    throw new ServiceUnavailableException({ code: 'AI_UNAVAILABLE', message: 'AI providers unavailable', details: String(lastError) });
+    // Public (anonymous) endpoint: the provider's error text (which can echo
+    // credential problems) goes to the server log, never the response.
+    this.logger.warn(`Onboarding AI (${feature}) — all providers failed: ${String(lastError)}`);
+    throw new ServiceUnavailableException({ code: 'AI_UNAVAILABLE', message: 'AI providers unavailable' });
   }
 
   private async run(sessionId: string, token: string, mode: OnboardingAiMode, prompt: string, systemPrompt: string) {

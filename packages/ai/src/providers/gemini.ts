@@ -45,6 +45,13 @@ export class GeminiProvider implements IAiProvider {
   private cursor = 0;
   /** key → epoch-ms until which it stays parked after a 429. */
   private readonly parkedUntil = new Map<string, number>();
+  /**
+   * `${key}|${model}` pairs where that key answered 404 for that model (e.g.
+   * "model … is no longer available to new users" — per-account, not global).
+   * Skipped for that model only; the key still serves other models (BE-026).
+   */
+  private readonly unavailableFor = new Map<string, number>();
+  private static readonly UNAVAILABLE_TTL_MS = 60 * 60 * 1000;
   /** Monotonic clock; tests can't use Date.now via the harness so default 0. */
   private now: () => number = () => {
     try {
@@ -61,8 +68,11 @@ export class GeminiProvider implements IAiProvider {
     this.cooldownMs = opts.cooldownMs ?? 60_000;
   }
 
-  /** Next non-parked key, round-robin. Throws if the pool is empty. */
-  private nextKey(): string {
+  /**
+   * Next usable key, round-robin: not parked (429 cooldown) and, when a model is
+   * given, not known to 404 for that model. Throws if the pool is empty.
+   */
+  private nextKey(model?: string): string {
     if (this.apiKeys.length === 0) {
       throw new AiProviderError('Gemini has no API keys configured', this.key, false);
     }
@@ -71,7 +81,8 @@ export class GeminiProvider implements IAiProvider {
       const candidate = this.apiKeys[this.cursor % this.apiKeys.length]!;
       this.cursor += 1;
       const parked = this.parkedUntil.get(candidate);
-      if (parked === undefined || parked <= now) return candidate;
+      const gone = model ? this.unavailableFor.get(`${candidate}|${model}`) : undefined;
+      if ((parked === undefined || parked <= now) && (gone === undefined || gone <= now)) return candidate;
     }
     // All parked → use the next one anyway (better to try than to hard-fail).
     const fallback = this.apiKeys[this.cursor % this.apiKeys.length]!;
@@ -80,13 +91,14 @@ export class GeminiProvider implements IAiProvider {
   }
 
   /**
-   * Key-level failures (quota-exhausted 429, invalid/forbidden key 401/403) mean
-   * a *different* key may succeed — so the same request rotates to the next key.
-   * Other 4xx (bad request) and 5xx are NOT key-specific, so we surface them
-   * immediately rather than burning the whole pool.
+   * Key-level failures mean a *different* key may succeed — so the same request
+   * rotates to the next key: quota-exhausted 429, invalid/forbidden key 401/403,
+   * and 404 "model not available" (model access is per account — some keys
+   * lose a model before others; BE-026). Other 4xx (bad request) and 5xx are
+   * NOT key-specific, so we surface them immediately rather than burning the pool.
    */
   private isKeyLevelStatus(status: number): boolean {
-    return status === 429 || status === 401 || status === 403;
+    return status === 429 || status === 401 || status === 403 || status === 404;
   }
 
   /**
@@ -95,7 +107,11 @@ export class GeminiProvider implements IAiProvider {
    * with the next available key, until one succeeds or every key is exhausted.
    * `makeUrl` injects the chosen key; `init` is identical across attempts.
    */
-  private async fetchWithKeyFailover(makeUrl: (apiKey: string) => string, init: RequestInit): Promise<Response> {
+  private async fetchWithKeyFailover(
+    model: string,
+    makeUrl: (apiKey: string) => string,
+    init: RequestInit,
+  ): Promise<Response> {
     if (this.apiKeys.length === 0) {
       throw new AiProviderError('Gemini has no API keys configured', this.key, false);
     }
@@ -103,7 +119,7 @@ export class GeminiProvider implements IAiProvider {
     let lastError: AiProviderError | undefined;
 
     for (let attempt = 0; attempt < this.apiKeys.length; attempt += 1) {
-      const apiKey = this.nextKey();
+      const apiKey = this.nextKey(model);
       if (tried.has(apiKey)) break; // pool cycled (all remaining parked) → stop
       tried.add(apiKey);
 
@@ -121,6 +137,9 @@ export class GeminiProvider implements IAiProvider {
       const detail = await safeText(res);
       if (this.isKeyLevelStatus(res.status)) {
         if (res.status === 429) this.parkedUntil.set(apiKey, this.now() + this.cooldownMs);
+        if (res.status === 404) {
+          this.unavailableFor.set(`${apiKey}|${model}`, this.now() + GeminiProvider.UNAVAILABLE_TTL_MS);
+        }
         lastError = httpError(this.key, res.status, detail);
         continue; // this key is exhausted/invalid → try the next one
       }
@@ -178,6 +197,7 @@ export class GeminiProvider implements IAiProvider {
   private async generate(req: AiCompletionRequest): Promise<AiCompletionResult> {
     const model = requireModel(this.key, req.model);
     const res = await this.fetchWithKeyFailover(
+      model,
       (apiKey) => `${this.baseUrl}/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -239,6 +259,7 @@ export class GeminiProvider implements IAiProvider {
     // at 768 so the result fits the `embedding_gemini vector(768)` pgvector column.
     const embedModel = req.model.replace(/^models\//, '');
     const res = await this.fetchWithKeyFailover(
+      embedModel,
       (apiKey) => `${this.baseUrl}/models/${embedModel}:batchEmbedContents?key=${apiKey}`,
       {
         method: 'POST',

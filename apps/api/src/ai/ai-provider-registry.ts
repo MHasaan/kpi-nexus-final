@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AiProviderNotConfiguredError,
   ClaudeProvider,
   GeminiProvider,
   type IAiProvider,
@@ -53,19 +54,32 @@ export class AiProviderRegistry {
     }
   }
 
+  /**
+   * Platform-keyed provider. With no key configured it throws
+   * AiProviderNotConfiguredError up front instead of building a client that
+   * would make a doomed, 401-ing request (BE-026: every fallback to a keyless
+   * Claude did exactly that).
+   */
   private buildPlatform(key: AiProviderKey): IAiProvider {
     switch (key) {
-      case 'CLAUDE':
-        return new ClaudeProvider({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' });
-      case 'OPENAI':
-        return new OpenAiProvider({ apiKey: process.env.OPENAI_API_KEY ?? '' });
-      case 'GEMINI':
-        return new GeminiProvider({
-          apiKeys: (process.env.GEMINI_API_KEYS ?? '')
-            .split(',')
-            .map((k) => k.trim())
-            .filter(Boolean),
-        });
+      case 'CLAUDE': {
+        const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+        if (!apiKey) throw new AiProviderNotConfiguredError(key);
+        return new ClaudeProvider({ apiKey });
+      }
+      case 'OPENAI': {
+        const apiKey = process.env.OPENAI_API_KEY?.trim();
+        if (!apiKey) throw new AiProviderNotConfiguredError(key);
+        return new OpenAiProvider({ apiKey });
+      }
+      case 'GEMINI': {
+        const apiKeys = (process.env.GEMINI_API_KEYS ?? '')
+          .split(',')
+          .map((k) => k.trim())
+          .filter(Boolean);
+        if (apiKeys.length === 0) throw new AiProviderNotConfiguredError(key);
+        return new GeminiProvider({ apiKeys });
+      }
       case 'OLLAMA':
         return new OllamaProvider({ baseUrl: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434' });
     }

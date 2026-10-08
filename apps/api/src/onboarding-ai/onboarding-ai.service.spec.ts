@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AiProviderRegistry } from '../ai/ai-provider-registry.js';
@@ -74,5 +74,25 @@ describe('OnboardingAiService — global daily cap (BE-010)', () => {
       ['rl:onboarding-ai:global', 42, 86_400],
     ]);
     expect(complete).toHaveBeenCalledOnce();
+  });
+});
+
+// Anonymous callers used to get the raw provider error in the 503 body (e.g.
+// "CLAUDE request failed (401): … invalid x-api-key"). The detail belongs in
+// the server log, not the response.
+describe('OnboardingAiService — provider failures (BE-026)', () => {
+  it('503 AI_UNAVAILABLE without provider internals; the detail is logged', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { service, complete } = setup();
+    complete.mockRejectedValue(new Error('CLAUDE request failed (401): invalid x-api-key'));
+    const err = (await service.explain('s1', 'tok', 'kpis[0].unit').catch((e: unknown) => e)) as {
+      getStatus(): number;
+      getResponse(): Record<string, unknown>;
+    };
+    expect(err.getStatus()).toBe(503);
+    expect(err.getResponse()).toEqual({ code: 'AI_UNAVAILABLE', message: 'AI providers unavailable' });
+    expect(JSON.stringify(err.getResponse())).not.toContain('x-api-key');
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('invalid x-api-key'))).toBe(true);
+    warn.mockRestore();
   });
 });

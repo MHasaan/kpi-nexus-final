@@ -96,3 +96,56 @@ describe('GeminiProvider intra-request key failover', () => {
     await expect(p.complete(req)).rejects.toBeInstanceOf(AiProviderError);
   });
 });
+
+// BE-026: some keys answer `404 NOT_FOUND: models/gemini-2.5-flash is no longer
+// available to new users` while other keys in the pool still serve it. A 404
+// was treated as request-level, so whenever the round-robin landed on such a
+// key the whole call failed (~1 in 4 AI requests).
+describe('GeminiProvider — model unavailable for one key (404) (BE-026)', () => {
+  it('fails over past a key that 404s for the model, to a key that serves it', async () => {
+    const fetchImpl = keyAwareFetch({ k1: 404 });
+    const p = new GeminiProvider({ apiKeys: ['k1', 'k2'], fetchImpl });
+    const r = await p.complete(req);
+    expect(r.content).toBe('ok');
+    expect(keysOf(fetchImpl)).toEqual(['k1', 'k2']);
+  });
+
+  it('remembers (key, model): later requests for that model skip the key…', async () => {
+    const fetchImpl = keyAwareFetch({ k1: 404 });
+    const p = new GeminiProvider({ apiKeys: ['k1', 'k2'], fetchImpl });
+    await p.complete(req);
+    (fetchImpl as unknown as ReturnType<typeof vi.fn>).mockClear();
+    await p.complete(req);
+    await p.complete(req);
+    expect(keysOf(fetchImpl)).toEqual(['k2', 'k2']);
+  });
+
+  it('…but the key is still used for OTHER models', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      const u = new URL(url);
+      const bad = u.searchParams.get('key') === 'k1' && u.pathname.includes('gemini-2.5-flash:');
+      return {
+        ok: !bad,
+        status: bad ? 404 : 200,
+        json: async () => OK_BODY,
+        text: async () => (bad ? '{"error":"model no longer available"}' : JSON.stringify(OK_BODY)),
+      };
+    }) as unknown as typeof fetch;
+    const p = new GeminiProvider({ apiKeys: ['k1', 'k2'], fetchImpl });
+    await p.complete(req); // k1 404 for flash → k2
+    (fetchImpl as unknown as ReturnType<typeof vi.fn>).mockClear();
+    await p.complete({ ...req, model: 'gemini-2.5-flash-lite' });
+    await p.complete({ ...req, model: 'gemini-2.5-flash-lite' });
+    expect(keysOf(fetchImpl)).toContain('k1');
+  });
+
+  it('a model no key can serve still fails — after trying each key once — with the provider message', async () => {
+    const fetchImpl = keyAwareFetch({ k1: 404, k2: 404 });
+    const p = new GeminiProvider({ apiKeys: ['k1', 'k2'], fetchImpl });
+    const err = await p.complete(req).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiProviderError);
+    expect(err).toMatchObject({ statusCode: 404 });
+    expect((err as Error).message).toContain('status 404');
+    expect(keysOf(fetchImpl)).toHaveLength(2);
+  });
+});

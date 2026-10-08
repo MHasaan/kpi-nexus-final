@@ -62,7 +62,7 @@ class FakePrisma {
     expiresAt: Date | null;
   }> = [];
   resourcePermission = {
-    findMany: vi.fn(async ({ where }: { where: any }) => {
+    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       const now = new Date();
       const subjectMatches = (g: { subjectType: string; subjectId: string }) =>
         (where.OR as Array<{ subjectType: string; subjectId: string }>).some(
@@ -99,7 +99,7 @@ class FakePrisma {
   };
 
   orgUnitMember = {
-    findMany: vi.fn(async ({ where }: { where: any }) => {
+    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       // Shape A — membership-by-user (resolveForCurrentPrincipal).
       if (where.userId !== undefined) {
         return this.memberships
@@ -107,7 +107,7 @@ class FakePrisma {
           .map((m) => ({ orgUnitId: m.orgUnitId, memberRole: m.memberRole }));
       }
       // Shape B — members-of-units (unitMemberUserIds): where.orgUnitId.in.
-      const unitIds: string[] = where.orgUnitId?.in ?? [];
+      const unitIds: string[] = (where.orgUnitId as { in?: string[] } | undefined)?.in ?? [];
       return this.memberships
         .filter((m) => unitIds.includes(m.orgUnitId) && m.leftAt === null)
         .map((m) => ({ userId: m.userId }));

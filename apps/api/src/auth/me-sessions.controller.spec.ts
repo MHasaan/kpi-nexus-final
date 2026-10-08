@@ -33,7 +33,6 @@ const fakeCtx: RequestContext = {
 // ---------------------------------------------------------------------------
 const now = new Date('2026-01-15T12:00:00Z');
 const future = new Date('2026-02-15T12:00:00Z');
-const past = new Date('2026-01-01T12:00:00Z');
 
 function makeRow(overrides: Partial<{
   id: string;

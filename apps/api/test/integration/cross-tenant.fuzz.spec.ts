@@ -23,19 +23,6 @@ interface RegisteredOrg {
   token: string;
 }
 
-interface Endpoint {
-  label: string;
-  method: 'GET' | 'PATCH' | 'DELETE' | 'POST';
-  /** Resource being created for the test in org A */
-  setup: (org: RegisteredOrg) => Promise<{ id: string; extra?: Record<string, string> }>;
-  /** URL given a resource id (from org A) */
-  url: (id: string, extra?: Record<string, string>) => string;
-  /** Payload for write methods */
-  body?: () => unknown;
-  /** Expected status when org B tries to access org A's id */
-  expect: number | number[];
-}
-
 async function http<T = unknown>(
   url: string,
   init: RequestInit & { token?: string } = {},

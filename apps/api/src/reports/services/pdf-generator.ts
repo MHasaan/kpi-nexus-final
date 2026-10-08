@@ -155,7 +155,6 @@ export async function generatePdf(dataset: ReportDataset): Promise<GeneratedRepo
 
       // Sparkline — replace former text list of data points.
       const sparkX = pageMargin;
-      const sparkY = doc.y;
 
       // Chronological order (oldest→newest): points are stored descending, so reverse.
       const chronoValues = kpi.points

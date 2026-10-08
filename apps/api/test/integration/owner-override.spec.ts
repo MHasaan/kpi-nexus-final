@@ -84,7 +84,6 @@ describe('Owner override (spec §5.4 step 6) — self-access to /users/:id', () 
     const aliceEmail = `alice-${stamp}@owner.test.local`;
     const bobEmail = `bob-${stamp}@owner.test.local`;
     const alicePw = 'alice-password-1';
-    const bobPw = 'bob-password-1';
 
     const aliceInvite = await http<{
       user: { id: string };

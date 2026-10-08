@@ -84,7 +84,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
   - Running the app as a superuser also means any SQL-execution bug yields full cluster control (e.g. `COPY … PROGRAM`).
 - **Expected:** connect the API as `kpi_app` (non-owner, `NOBYPASSRLS`); enable + `FORCE ROW LEVEL SECURITY` on every tenant table; keep the owner role for migrations only.
 
-### OT-018 · Medium · OpenTelemetry tracing never starts, and would record nothing if it did
+### OT-018 · Medium · OpenTelemetry tracing never starts, and would record nothing if it did — ✅ FIXED
+- **Fix (`d3f92b2`):** `instrumentation.ts` loads `.env` itself (real env wins) and registers HTTP / ioredis / Prisma instrumentations; `start` / `start:prod` preload it with `node --import` (a first import in ESM `main.ts` is too late to patch the CJS deps). Jaeger now shows `kpi-nexus-api` with one trace per request (HTTP root → Redis + Prisma children). CI sets the endpoint empty (no collector). Under `nest start --watch` only Prisma spans are recorded.
 - **Evidence:** `apps/api/src/main.ts:1` imports `./instrumentation.js` first, but `OTEL_EXPORTER_OTLP_ENDPOINT` lives in `apps/api/.env`, which `@nestjs/config` loads later. At import time the variable is unset, so the SDK never starts — Jaeger has never seen the `kpi-nexus-api` service.
 - **Also:** `NodeSDK` is created with no `instrumentations` (no HTTP / Fastify / Prisma / ioredis), so even when started it records no spans automatically.
 - **Status:** the upgraded SDK itself works (a manual span reached Jaeger during the OT-013 fix). Found while verifying OT-013.

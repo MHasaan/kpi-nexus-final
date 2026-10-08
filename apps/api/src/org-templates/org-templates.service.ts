@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { BUILTIN_TEMPLATES } from './builtins.js';
-import { type PayloadCounts, type TemplatePayload, countPayload } from './template-payload.js';
+import { type PayloadCounts, type TemplatePayload, countPayload, normalizeTemplatePayload } from './template-payload.js';
 
 export interface TemplateSummary {
   slug: string;
@@ -76,7 +76,9 @@ export class OrgTemplatesService {
     await this.seedBuiltins();
     const row = await this.prisma.orgTemplate.findUnique({ where: { slug } });
     if (!row) throw new NotFoundException({ code: 'TEMPLATE_NOT_FOUND', message: `Template '${slug}' not found` });
-    const payload = row.payload as unknown as TemplatePayload;
+    // Normalized: this payload is merged into the onboarding draft (applyTemplate),
+    // so a legacy/malformed row must not inject non-conforming sections (BE-001).
+    const payload = normalizeTemplatePayload(row.payload);
     return { slug: row.slug, name: row.name, payload, counts: countPayload(payload) };
   }
 }

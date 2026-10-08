@@ -451,6 +451,37 @@ const BAND_SETS: Record<string, BandSpec[]> = {
 // ===========================================================================
 // Helpers for idempotent teardown of a prior helios org.
 // ===========================================================================
+/**
+ * `saas-starter` org template in the TemplatePayload shape that onboarding
+ * consumes (apps/api/src/org-templates/template-payload.ts). Older seeds stored
+ * a legacy `{ roles: string[], units: string[], kpis: string[] }`, which 500'd
+ * GET /org-templates for every org (BE-001). Same intent: the Helios roles and
+ * departments plus four core SaaS KPIs.
+ */
+function buildSaasStarterPayload() {
+  const kpiNames = ['Monthly Recurring Revenue', 'Net Revenue Retention', 'Customer Acquisition Cost', 'Net Promoter Score'];
+  const kpis = KPI_SPECS.filter((k) => kpiNames.includes(k.name));
+  return {
+    organization: { name: 'B2B SaaS Starter', industry: 'SaaS', type: 'B2B', sizeTier: 'small' },
+    roles: ROLE_SPECS.map((r) => ({ name: r.name, isAdmin: r.isAdmin, level: r.level, color: r.color, permissions: [...r.permissions] })),
+    positions: POSITION_SPECS.map((p) => ({ name: p.name, track: p.track === 'IC' ? 'INDIVIDUAL_CONTRIBUTOR' : p.track })),
+    orgUnitTypes: [{ name: 'Department', dimension: 'Department' }],
+    orgUnits: UNIT_SPECS.map((u) => ({ name: u.name, type: 'Department', code: u.code })),
+    kpiCategories: CATEGORY_SPECS.filter((c) => kpis.some((k) => k.category === c.name)).map((c) => ({ name: c.name, color: c.color })),
+    kpis: kpis.map((k) => ({
+      name: k.name,
+      description: k.desc,
+      category: k.category,
+      scope: k.scope,
+      type: k.type,
+      direction: k.direction,
+      frequency: 'MONTHLY',
+      unit: k.unit,
+      scorecardQuadrant: k.quadrant,
+    })),
+  };
+}
+
 async function wipeExistingOrg(orgId: string, log: (m: string) => void): Promise<void> {
   // Order matters only loosely (most have explicit org-scoped scalar FKs).
   // We delete child/leaf rows first, then the org (which cascades the
@@ -860,9 +891,11 @@ async function main(): Promise<void> {
     where: { slug: 'saas-nps' }, update: {},
     create: { slug: 'saas-nps', name: 'Net Promoter Score', description: 'Customer loyalty survey score.', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', frequency: 'QUARTERLY', aggregationMethod: 'LAST', scorecardQuadrant: 'CUSTOMER', function: 'Customer Success', industry: 'SaaS', unit: 'pts', tags: ['customer'], popularity: 760, isGlobal: true, isBuiltin: true },
   });
+  // `update` repairs rows written by older seeds in a legacy shape (BE-001).
+  const saasStarterPayload = buildSaasStarterPayload();
   await prisma.orgTemplate.upsert({
-    where: { slug: 'saas-starter' }, update: {},
-    create: { slug: 'saas-starter', name: 'B2B SaaS Starter', description: 'Roles, units and KPIs for an early-stage B2B SaaS company.', tier: 'starter', orgType: 'B2B', industry: 'SaaS', isBuiltin: true, isPublic: true, popularity: 120, payload: { roles: ROLE_SPECS.map((r) => r.name), units: UNIT_SPECS.map((u) => u.name), kpis: ['MRR', 'NRR', 'CAC', 'NPS'] } },
+    where: { slug: 'saas-starter' }, update: { payload: saasStarterPayload },
+    create: { slug: 'saas-starter', name: 'B2B SaaS Starter', description: 'Roles, units and KPIs for an early-stage B2B SaaS company.', tier: 'starter', orgType: 'B2B', industry: 'SaaS', isBuiltin: true, isPublic: true, popularity: 120, payload: saasStarterPayload },
   });
   log('Upserted 2 global KPI templates + 1 org template');
 

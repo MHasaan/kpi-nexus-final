@@ -65,7 +65,39 @@ export interface PayloadCounts {
   kpis: number;
 }
 
-export function countPayload(p: TemplatePayload): PayloadCounts {
+/** Entries of `section` that are objects with a string `name` (drops legacy bare strings etc.). */
+function namedEntries<T>(section: unknown): T[] {
+  return Array.isArray(section)
+    ? (section.filter((e) => typeof e === 'object' && e !== null && typeof (e as { name?: unknown }).name === 'string') as T[])
+    : [];
+}
+
+/**
+ * Coerce a stored payload (a JSON column — anything can be in there) into the
+ * full TemplatePayload shape: missing or non-array sections become [], and
+ * entries that aren't `{ name, ... }` objects are dropped. A legacy or
+ * malformed row then lists with zero counts and fails validateTemplatePayload
+ * cleanly instead of throwing (BE-001: one such row 500'd the whole list).
+ */
+export function normalizeTemplatePayload(raw: unknown): TemplatePayload {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const org = p.organization;
+  return {
+    organization:
+      typeof org === 'object' && org !== null && typeof (org as { name?: unknown }).name === 'string'
+        ? (org as TemplatePayload['organization'])
+        : { name: '' },
+    roles: namedEntries<TemplateRole>(p.roles),
+    positions: namedEntries<TemplatePosition>(p.positions),
+    orgUnitTypes: namedEntries<TemplateOrgUnitType>(p.orgUnitTypes),
+    orgUnits: namedEntries<TemplateOrgUnit>(p.orgUnits),
+    kpiCategories: namedEntries<TemplateKpiCategory>(p.kpiCategories),
+    kpis: namedEntries<TemplateKpi>(p.kpis),
+  };
+}
+
+export function countPayload(raw: TemplatePayload): PayloadCounts {
+  const p = normalizeTemplatePayload(raw);
   return {
     roles: p.roles.length,
     positions: p.positions.length,

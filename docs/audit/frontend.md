@@ -96,7 +96,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - `/my-kpis` shows "Entries post to /user-kpis/my-kpis/:id/data · optimistic." to end users.
 - For a user whose `KPI_DATA_ENTRY` is revoked (`tom.becker@`), the Record input and button are shown. Submitting gets `403` → "Insufficient permissions". The server correctly enforces; the UI should hide or disable the action.
 
-### FE-016 · Low · What-if shows unrounded percentages
+### FE-016 · Low · What-if shows unrounded percentages — ✅ FIXED
+- **Fix (`0716970`):** `Delta` takes `decimals`; what-if passes 1 (`delta.spec.ts`).
 - **Repro (E2E `ai-analytics-ui.spec.ts:97`):** `/kpis/[id]/whatif` → simulate +10% → lift renders as **"▲10.000000000000016%"** (expected "10.0%").
 
 ### FE-017 · Low · Widget detail page overflows on phones
@@ -114,11 +115,13 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 - **Evidence:** `listAlertRules` / `deleteAlertRule` exist in `apps/web/src/lib/api-client.ts:1569,1592` but no page calls them. A rule is only reachable through the detail page of an alert it has already raised (`app/alerts/[id]/page.tsx:162`).
 - **Impact:** a misconfigured or noisy rule can't be found or switched off from the UI.
 
-### FE-007 · Medium · Custom terminology never reaches the navigation
+### FE-007 · Medium · Custom terminology never reaches the navigation — ✅ FIXED
+- **Fix (`39759ab`):** one app-wide `TerminologyProvider` (refetches when the token changes); the sidebar maps labels through `navLabelFor()` — only customised terms rename entries (`nav-terminology.spec.ts`).
 - **Repro (E2E `settings-flow.spec.ts:58`):** set Organization settings → role label "Permission Tier" → sidebar still says "Roles" (`nav-roles`).
 - **Evidence:** `apps/web/src/components/app-shell.tsx` has no terminology lookup; terminology is applied only inside individual pages (`app/roles`, `app/positions`, `app/kpis`, `app/org-units`, dashboards…).
 
-### FE-008 · Low · Password field's accessible name includes its toggle ("Password Show password")
+### FE-008 · Low · Password field's accessible name includes its toggle ("Password Show password") — ✅ FIXED
+- **Fix (`0fb188f`):** login toggle moved outside the `<label>`; register helper text moved out and linked via `aria-describedby`. Specs use `getByLabel('Password', { exact: true })`.
 - **Evidence:** on `/login` (and register) the show/hide button sits inside the `<label>`, so the input's accessible name is "Password Show password" and `getByLabel('Password')` matches both the input and the button. Screen readers announce it oddly, and it breaks 3 E2E specs (`auth-flow.spec.ts:116`, `permission-nav.spec.ts:233`, …).
 - **Expected:** move the button outside the label or give the input an explicit `aria-labelledby`.
 
@@ -141,7 +144,8 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
 ### FE-010 · Low · Org units: flat list only — cycles and cross-tenant parents render as contradictions
 - `/org-units` ("Teams") is a flat list with "Parent: X" text. No tree / org chart, though the spec and the previous app had one. With BE-009's cycle it shows "Audit Child — Parent: Audit Parent" and "Audit Parent — Parent: Audit Child". No crash.
 
-### FE-011 · Low · Positions table doesn't show the track (IC / Management / Executive)
+### FE-011 · Low · Positions table doesn't show the track (IC / Management / Executive) — ✅ FIXED
+- **Fix (`39759ab`, `182acc2`):** the page already groups rows under a track heading; the spec was stale. Each group now has `data-testid="positions-group-<track>"` and the spec asserts the row sits in the IC group.
 - **Repro (E2E `positions-flow.spec.ts:68`):** create a position with track IC → the row shows `name | L5 | P5 | Delete`; the track the form collects isn't displayed.
 
 ### FE-002 · Medium · Role permissions can't be edited after creation; matrix is read-only and missing 7 permissions

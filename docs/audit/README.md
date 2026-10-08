@@ -157,6 +157,14 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-019 invalid cron → 500 + orphan row | ✅ fixed | `a5df263` | `cron.spec.ts` (14) + live check |
 | FE-009 + FE-014 signed-out → /unauthorized; 12 ungated pages | ✅ fixed | `33ba4bb` | `auth-redirect.spec.ts` (13) + browser check |
 | FE-006 alert rules unmanageable in the UI | ✅ fixed | `fafbffc` | `uc-alerts` e2e (now green end-to-end) + browser check |
+| OT-001 lint errors | ✅ fixed | `51ef31c` | `pnpm turbo lint` (0 errors) |
+| OT-002 contracts fixture drift | ✅ fixed | `a6afcd2` | `packages/contracts/src/access.spec.ts` (+2) |
+| OT-006 integration specs pass silently without the API | ✅ fixed | `59039b2` | `test/integration/global-setup.ts` (run fails when API down) |
+| FE-016 what-if unrounded delta | ✅ fixed | `0716970` | `delta.spec.ts` |
+| FE-007 terminology never reaches nav | ✅ fixed | `39759ab` | `nav-terminology.spec.ts` (4) |
+| FE-008 password accessible name (+ register helper text in label) | ✅ fixed | `0fb188f` | e2e `getByLabel('Password', { exact: true })` across 5 specs |
+| FE-011 positions track (stale spec) + stale E2E specs; KPI short-name error hidden; seed template vocabulary; OKR / my-kpis test ids | ✅ fixed | `182acc2`, `d5aad1e`, `4a07d58` | full CI-mode Playwright run (0 retries) |
+| OT-007 CI never passed | ✅ fixed locally (awaiting first GitHub run) | `0f405ae` | lint / typecheck / test / build + e2e run in CI mode; `ai-mock-fixture.spec.ts` (3) |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

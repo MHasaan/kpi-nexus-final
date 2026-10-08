@@ -14,9 +14,11 @@ import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import {
+  buildKpiVisibilityWhere,
   clampHistoryFrom,
   clampTake,
   kpiContextFromProfile,
+  kpiDataPointScopeWhere,
   type KpiVisibilityContext,
 } from '../rbac/visibility/kpi-visibility.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
@@ -331,15 +333,10 @@ export class KpiDataService {
     const visibility = await this.buildVisibilityContext();
     const limits = await this.accessContext.dataLimits();
     const windowFrom = clampHistoryFrom(opts.from, limits.historyWindowDays);
-    const visibleKpis = await this.prisma.kPI.findMany({
-      where: {
-        organizationId: ctx.organizationId,
-        deletedAt: null,
-        // Layer-3 category allowlist (Phase 3) — null ⇒ all categories (parity).
-        ...(visibility.allowedCategoryIds != null
-          ? { categoryId: { in: [...visibility.allowedCategoryIds] } }
-          : {}),
-      },
+    // The exact rule GET /kpis lists by (scope + assignments + category) — the
+    // summary used a looser copy that ignored the KPIS scope (BE-003).
+    const filtered = await this.prisma.kPI.findMany({
+      where: { ...buildKpiVisibilityWhere(visibility), deletedAt: null } as Prisma.KPIWhereInput,
       select: {
         id: true,
         name: true,
@@ -354,8 +351,6 @@ export class KpiDataService {
       },
     });
 
-    // Apply the same visibility logic the list endpoint uses
-    const filtered = await this.filterByVisibility(visibleKpis, visibility);
 
     // Threshold bands for every visible KPI in one query (feeds status).
     const bandRows = filtered.length
@@ -378,20 +373,8 @@ export class KpiDataService {
         // Layer-4: clamp the read window to the principal's historyWindowDays (null ⇒ parity).
         if (windowFrom) where.periodStart = { gte: windowFrom };
         if (opts.to) where.periodEnd = { lte: opts.to };
-        // Apply scope-specific visibility on data points themselves
-        if (!visibility.isAdmin) {
-          if (kpi.scope === 'PER_USER') {
-            where.userId = {
-              in: [visibility.userId, ...visibility.directReportIds],
-            };
-          } else if (kpi.scope === 'PER_UNIT') {
-            const units = [
-              ...visibility.managedOrgUnitIds,
-              ...visibility.memberOrgUnitIds,
-            ];
-            where.orgUnitId = units.length > 0 ? { in: units } : { in: [] };
-          }
-        }
+        // Only the points the KPIS scope reaches (self / reports / units).
+        Object.assign(where, kpiDataPointScopeWhere(kpi.scope, visibility));
 
         const points = await this.prisma.kPIDataPoint.findMany({
           where,
@@ -428,59 +411,6 @@ export class KpiDataService {
     return result;
   }
 
-  private async filterByVisibility<
-    T extends { id: string; scope: 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER' },
-  >(
-    kpis: T[],
-    visibility: Awaited<ReturnType<KpiDataService['buildVisibilityContext']>>,
-  ): Promise<T[]> {
-    if (visibility.isAdmin) return kpis;
-
-    // For PER_UNIT/PER_USER, check that the KPI has at least one assignment
-    // within the user's allowed scope. ORG_WIDE is always visible.
-    const candidatePerUnit = kpis.filter((k) => k.scope === 'PER_UNIT').map((k) => k.id);
-    const candidatePerUser = kpis.filter((k) => k.scope === 'PER_USER').map((k) => k.id);
-
-    const allowedUnits = new Set([
-      ...visibility.managedOrgUnitIds,
-      ...visibility.memberOrgUnitIds,
-    ]);
-    const allowedUsers = new Set([
-      visibility.userId,
-      ...visibility.directReportIds,
-    ]);
-
-    const perUnitVisible = new Set<string>();
-    if (candidatePerUnit.length > 0 && allowedUnits.size > 0) {
-      const rows = await this.prisma.kPIAssignmentOrgUnit.findMany({
-        where: {
-          kpiId: { in: candidatePerUnit },
-          orgUnitId: { in: Array.from(allowedUnits) },
-        },
-        select: { kpiId: true },
-      });
-      for (const r of rows) perUnitVisible.add(r.kpiId);
-    }
-    const perUserVisible = new Set<string>();
-    if (candidatePerUser.length > 0) {
-      const rows = await this.prisma.kPIAssignmentUser.findMany({
-        where: {
-          kpiId: { in: candidatePerUser },
-          userId: { in: Array.from(allowedUsers) },
-        },
-        select: { kpiId: true },
-      });
-      for (const r of rows) perUserVisible.add(r.kpiId);
-    }
-
-    return kpis.filter(
-      (k) =>
-        k.scope === 'ORG_WIDE' ||
-        (k.scope === 'PER_UNIT' && perUnitVisible.has(k.id)) ||
-        (k.scope === 'PER_USER' && perUserVisible.has(k.id)),
-    );
-  }
-
   /** GET /kpis/:id/data — visibility-filtered. */
   async listForKpi(
     kpiId: string,
@@ -499,29 +429,13 @@ export class KpiDataService {
     if (windowFrom) where.periodStart = { gte: windowFrom };
     if (opts.to) where.periodEnd = { lte: opts.to };
 
-    // For PER_USER + PER_UNIT KPIs, non-admin principals can only see
-    // points scoped to themselves / their units / direct reports.
-    const visibility = await this.buildVisibilityContext();
-    // Layer-3 category allowlist (Phase 3): hide data for a KPI outside the allowed
-    // categories the same way the list does — 404, no existence leak. null ⇒ all.
-    if (
-      visibility.allowedCategoryIds != null &&
-      !(kpi.categoryId != null && visibility.allowedCategoryIds.includes(kpi.categoryId))
-    ) {
+    // Same rule as GET /kpis (scope + assignments + category): a KPI you can't
+    // list has no readable data — 404, no existence leak (BE-003).
+    if (!(await this.accessContext.isKpiVisible(kpiId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
-    if (!visibility.isAdmin) {
-      if (kpi.scope === 'PER_USER') {
-        const allowedUsers = [visibility.userId, ...visibility.directReportIds];
-        where.userId = { in: allowedUsers };
-      } else if (kpi.scope === 'PER_UNIT') {
-        const allowedUnits = [
-          ...visibility.managedOrgUnitIds,
-          ...visibility.memberOrgUnitIds,
-        ];
-        where.orgUnitId = allowedUnits.length > 0 ? { in: allowedUnits } : { in: [] };
-      }
-    }
+    // …and only the points the KPIS scope reaches (self / reports / units).
+    Object.assign(where, kpiDataPointScopeWhere(kpi.scope, await this.buildVisibilityContext()));
 
     return this.prisma.kPIDataPoint.findMany({
       where,

@@ -669,3 +669,52 @@ describe('AccessContextService.unitMemberUserIds (Phase 2.5)', () => {
     expect(prisma.orgUnitMember.findMany).toHaveBeenCalledTimes(4);
   });
 });
+
+// BE-003: single-KPI reads used a looser hand-rolled rule than GET /kpis
+// (ignored the KPIS scope). isKpiVisible runs the list's own where-builder.
+describe('AccessContextService.isKpiVisible (BE-003)', () => {
+  function make(profile: Partial<import('@kpi-nexus/contracts').AccessProfile>, found: boolean) {
+    const findFirst = vi.fn(async () => (found ? { id: 'k1' } : null));
+    const svc = new AccessContextService(
+      { kPI: { findFirst } } as unknown as PrismaService,
+      {} as PermissionResolverService,
+    );
+    vi.spyOn(svc, 'resolveForCurrentPrincipal').mockResolvedValue({
+      isAdmin: false,
+      capabilities: [],
+      scopeByDomain: { KPIS: 'SELF' },
+      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      context: { managedOrgUnitIds: ['unit_m'], memberOrgUnitIds: ['unit_x'], directReportIds: ['r1'] },
+      resourceGrants: [],
+      pageAccess: { allow: null, deny: [] },
+      ...profile,
+    } as import('@kpi-nexus/contracts').AccessProfile);
+    return { svc, findFirst };
+  }
+  const inCtx = <T>(fn: () => Promise<T>) =>
+    RequestContextStore.run({ userId: 'me', organizationId: 'org', roleId: null, principalType: 'user' }, fn) as Promise<T>;
+
+  test('SELF scope: queries with the list rule — no PER_UNIT branch, PER_USER = self only', async () => {
+    const { svc, findFirst } = make({}, true);
+    await expect(inCtx(() => svc.isKpiVisible('k1'))).resolves.toBe(true);
+    const where = (findFirst.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    expect(where).toMatchObject({ id: 'k1', organizationId: 'org', deletedAt: null });
+    expect(where.OR).toEqual([
+      { scope: 'ORG_WIDE' },
+      { scope: 'PER_USER', userAssignments: { some: { userId: { in: ['me'] } } } },
+    ]);
+  });
+
+  test('not matched by the rule → false', async () => {
+    const { svc } = make({}, false);
+    await expect(inCtx(() => svc.isKpiVisible('k_unit'))).resolves.toBe(false);
+  });
+
+  test('admin → tenant-only filter (sees every KPI)', async () => {
+    const { svc, findFirst } = make({ isAdmin: true }, true);
+    await inCtx(() => svc.isKpiVisible('k1'));
+    const where = (findFirst.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    expect(where).toEqual({ id: 'k1', organizationId: 'org', deletedAt: null });
+  });
+});

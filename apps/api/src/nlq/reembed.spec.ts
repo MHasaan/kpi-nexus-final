@@ -232,6 +232,7 @@ describe('KpisService reembed trigger', () => {
     const audit = { record: vi.fn().mockResolvedValue(undefined) };
     const billing = { assertWithinQuota: vi.fn().mockResolvedValue(undefined) };
     const accessContext = {
+      isKpiVisible: vi.fn().mockResolvedValue(true),
       resolveForCurrentPrincipal: vi.fn().mockResolvedValue({
         isAdmin: true,
         capabilities: [],

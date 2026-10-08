@@ -18,9 +18,12 @@ import type {
   ScopeConfig,
 } from '@kpi-nexus/contracts';
 
+import type { Prisma } from '@kpi-nexus/db';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 import { DOMAIN_DEFAULT_SCOPE } from '../visibility/domain-visibility.js';
+import { buildKpiVisibilityWhere, kpiContextFromProfile } from '../visibility/kpi-visibility.js';
 import { PermissionResolverService } from './permission-resolver.service.js';
 
 const DOMAINS: readonly Domain[] = [
@@ -176,6 +179,41 @@ export class AccessContextService {
   async kpiCategoryAllowlist(): Promise<readonly string[] | null> {
     const profile = await this.resolveForCurrentPrincipal();
     return profile.isAdmin ? null : profile.dataTypeFilters.kpiCategoryIds;
+  }
+
+  /**
+   * Whether the current principal may see KPI `kpiId` — evaluated with the very
+   * rule GET /kpis lists by ({@link buildKpiVisibilityWhere}: scope + unit/user
+   * assignments + category allowlist), so list, detail, data and summary can't
+   * disagree. BE-003: single-KPI reads used a looser hand-rolled rule that
+   * ignored the KPIS scope (a SELF user could open unit KPIs by id).
+   */
+  async isKpiVisible(kpiId: string): Promise<boolean> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.resolveForCurrentPrincipal();
+    const where = buildKpiVisibilityWhere(kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+    const row = await this.prisma.kPI.findFirst({
+      where: { id: kpiId, ...where, deletedAt: null } as Prisma.KPIWhereInput,
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
+  /**
+   * Ids of every KPI the current principal can see (same rule as GET /kpis), or
+   * `null` for admins (= no filter). For KPI-derived rows that have no Prisma
+   * relation to KPI to filter through (e.g. insights — BE-004).
+   */
+  async visibleKpiIds(): Promise<string[] | null> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.resolveForCurrentPrincipal();
+    if (profile.isAdmin) return null;
+    const where = buildKpiVisibilityWhere(kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+    const rows = await this.prisma.kPI.findMany({
+      where: { ...where, deletedAt: null } as Prisma.KPIWhereInput,
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 
   /** Resource ids the principal holds a grant for, for a given type + acceptable actions. */

@@ -218,7 +218,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Data:** on seeded `helios` (data through the current month) every quadrant reports `health.unknown = N`, every `latestValue: null`, and `topMovers: []`. The board pack finds no data even when the shape is right.
 - **Location:** `apps/api/src/reports/` board-pack service vs `apps/web/src/app/reports/board-pack/page.tsx`.
 
-### BE-028 · High · Real-time stream (SSE) is blocked by CORS in the browser
+### BE-028 · High · Real-time stream (SSE) is blocked by CORS in the browser — ✅ FIXED
+- **Fix:** before writing to `reply.raw`, the SSE handler copies every header hooks already prepared on the Fastify reply (`reply.getHeaders()`), which includes `@fastify/cors`'s allow-origin and credentials. It reuses whatever CORS policy is configured rather than duplicating the allow-list. Live: an allowed origin gets `access-control-allow-origin` on `text/event-stream`; a disallowed origin gets none, the same as other routes.
 - **Repro:**
   - `curl -H "Origin: http://localhost:3000" -H "authorization: Bearer …" /realtime/stream?dashboardId=x` → `200 text/event-stream` with **no** `Access-Control-Allow-Origin`.
   - The same request to `/kpis` → `access-control-allow-origin: http://localhost:3000`.

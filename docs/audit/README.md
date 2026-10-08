@@ -146,6 +146,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-021 cross-tenant references on tasks / comments / widgets | ✅ fixed | `842373e` | `assert-same-tenant.spec.ts` (2), `tasks.service.spec.ts` (+4), `comments.service.spec.ts` (+6), `widgets.service.spec.ts` (4) + live check |
 | OT-008 public fallback secrets in production (+ embed/JWT secrets, + draft secret ignored .env) | ✅ fixed | `88844ca` | `config/secrets.spec.ts` (9) + live boot checks |
 | BE-001 / FE-005 `/org-templates` 500 (legacy seed payload) | ✅ fixed | `c6875db` | `template-payload.spec.ts` (+3), seed run on scratch DB + live check |
+| BE-028 / FE-013 SSE stream blocked by CORS | ✅ fixed | `8c0b96a` | `realtime.controller.spec.ts` (1) + live header check |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

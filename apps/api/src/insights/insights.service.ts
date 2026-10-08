@@ -6,6 +6,7 @@ import { AiRouterService } from '../ai/ai-router.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type WindowStats, computeWindowStats, rankByAbsChange } from './insight-stats.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 
 const POINTS_WINDOW = 90;
 
@@ -74,6 +75,7 @@ export class InsightsService {
     private readonly prisma: PrismaService,
     private readonly aiRouter: AiRouterService,
     private readonly configs: AiConfigsService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   /** Most-recent values for a KPI, oldest→newest. */
@@ -181,12 +183,15 @@ export class InsightsService {
 
   async list(filter: { kpiId?: string; from?: Date; to?: Date; includeDismissed?: boolean }): Promise<KPIInsight[]> {
     const ctx = RequestContextStore.require();
+    // Only insights about KPIs the caller can see (BE-004) — null = admin, no filter.
+    const visible = await this.accessContext.visibleKpiIds();
+    if (filter.kpiId && visible && !visible.includes(filter.kpiId)) return [];
     return this.prisma.kPIInsight.findMany({
       where: {
         organizationId: ctx.organizationId,
         // Hide dismissed insights unless the caller explicitly opts in.
         ...(filter.includeDismissed ? {} : { status: { not: 'DISMISSED' } }),
-        ...(filter.kpiId ? { kpiId: filter.kpiId } : {}),
+        ...(filter.kpiId ? { kpiId: filter.kpiId } : visible ? { kpiId: { in: visible } } : {}),
         ...(filter.from || filter.to
           ? { generatedAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } }
           : {}),
@@ -201,9 +206,12 @@ export class InsightsService {
     const ctx = RequestContextStore.require();
     const existing = await this.prisma.kPIInsight.findFirst({
       where: { id: insightId, organizationId: ctx.organizationId },
-      select: { id: true },
+      select: { id: true, kpiId: true },
     });
-    if (!existing) throw new NotFoundException({ code: 'INSIGHT_NOT_FOUND', message: 'Insight not found' });
+    // An insight about a KPI you can't see doesn't exist for you (BE-004).
+    if (!existing || !(await this.accessContext.isKpiVisible(existing.kpiId))) {
+      throw new NotFoundException({ code: 'INSIGHT_NOT_FOUND', message: 'Insight not found' });
+    }
 
     return this.prisma.kPIInsight.update({
       where: { id: existing.id },

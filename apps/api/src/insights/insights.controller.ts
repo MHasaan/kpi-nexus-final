@@ -1,9 +1,10 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { KPIInsight } from '@kpi-nexus/db';
 import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { InsightsService } from './insights.service.js';
 import { InsightsProducer } from './insights.producer.js';
 
@@ -20,6 +21,7 @@ export class InsightsController {
   constructor(
     private readonly insights: InsightsService,
     private readonly producer: InsightsProducer,
+    private readonly accessContext: AccessContextService,
   ) {}
 
   @Get()
@@ -43,6 +45,11 @@ export class InsightsController {
   async generate(@Body() body: unknown): Promise<{ insight: KPIInsight | null }> {
     const parsed = GenerateSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'kpiId is required' });
+    // Only for a KPI the caller can see — same rule as GET /kpis (BE-004). Also
+    // turns another tenant's KPI id into a clean 404 (BE-025).
+    if (!(await this.accessContext.isKpiVisible(parsed.data.kpiId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
     return { insight: await this.insights.generate(parsed.data.kpiId) };
   }
 
@@ -51,7 +58,10 @@ export class InsightsController {
   async generateBatch(@Body() body: unknown): Promise<{ insights: KPIInsight[] }> {
     const parsed = BatchSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid batch request', details: parsed.error.flatten() });
-    return { insights: await this.insights.generateBatch(parsed.data) };
+    const insights = await this.insights.generateBatch(parsed.data);
+    // The batch scans the whole org; return only insights about KPIs the caller can see (BE-004).
+    const visible = await this.accessContext.visibleKpiIds();
+    return { insights: visible ? insights.filter((i) => visible.includes(i.kpiId)) : insights };
   }
 
   @Post(':id/dismiss')

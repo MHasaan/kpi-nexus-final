@@ -11,6 +11,7 @@ import { NotFoundException } from '@nestjs/common';
 import type { AiConfigsService } from '../ai/ai-configs.service.js';
 import type { AiRouterService } from '../ai/ai-router.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import { InsightsService } from './insights.service.js';
 
@@ -88,6 +89,10 @@ class FakePrisma {
       return this.insights
         .filter((i) => i.organizationId === where.organizationId)
         .filter((i) => (status?.not ? i.status !== status.not : true))
+        .filter((i) => {
+          const k = where.kpiId as string | { in: string[] } | undefined;
+          return k === undefined ? true : typeof k === 'string' ? i.kpiId === k : k.in.includes(i.kpiId);
+        })
         .map((i) => ({ ...i }));
     }),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -183,7 +188,8 @@ function lastUserMessage(aiRouter: AiRouterService): string {
   return opts.messages.find((m) => m.role === 'user')!.content;
 }
 
-function makeService() {
+/** visibleKpiIds: null = sees every KPI (admin / parity); an array = the caller's visible KPIs. */
+function makeService(visibleKpiIds: string[] | null = null) {
   const prisma = new FakePrisma();
   // Deterministic AI stubs so generate() can run without a real provider.
   const aiRouter = {
@@ -195,7 +201,11 @@ function makeService() {
   const configs = {
     resolve: vi.fn(async () => ({ model: 'test-model' })),
   } as unknown as AiConfigsService;
-  const service = new InsightsService(prisma as unknown as PrismaService, aiRouter, configs);
+  const accessContext = {
+    visibleKpiIds: vi.fn(async () => visibleKpiIds),
+    isKpiVisible: vi.fn(async (id: string) => visibleKpiIds === null || visibleKpiIds.includes(id)),
+  } as unknown as AccessContextService;
+  const service = new InsightsService(prisma as unknown as PrismaService, aiRouter, configs, accessContext);
   return { service, prisma, aiRouter };
 }
 
@@ -344,5 +354,31 @@ describe('InsightsService.generate enriched grounding', () => {
     const msg = lastUserMessage(aiRouter);
     expect(msg).not.toContain('Target:');
     expect(msg).not.toContain('Thresholds:');
+  });
+});
+
+// BE-004: everyone saw every insight, including insights about KPIs they can't
+// see. Insights now follow the KPI's visibility (same rule as GET /kpis).
+describe('InsightsService — only insights about KPIs the caller can see (BE-004)', () => {
+  test('list hides insights on invisible KPIs; an explicit kpiId filter cannot bypass it', async () => {
+    const { service, prisma } = makeService(['k_visible']);
+    prisma.seed({ id: 'ins_ok', organizationId: ORG, kpiId: 'k_visible' });
+    prisma.seed({ id: 'ins_hidden', organizationId: ORG, kpiId: 'k_hidden' });
+
+    expect((await withCtx({}, () => service.list({}))).map((r) => r.id)).toEqual(['ins_ok']);
+    expect(await withCtx({}, () => service.list({ kpiId: 'k_hidden' }))).toEqual([]);
+  });
+
+  test('admin / unrestricted (null) sees all', async () => {
+    const { service, prisma } = makeService(null);
+    prisma.seed({ id: 'a', organizationId: ORG, kpiId: 'k1' });
+    prisma.seed({ id: 'b', organizationId: ORG, kpiId: 'k2' });
+    expect((await withCtx({}, () => service.list({}))).map((r) => r.id).sort()).toEqual(['a', 'b']);
+  });
+
+  test('dismiss of an insight on an invisible KPI → 404', async () => {
+    const { service, prisma } = makeService(['k_visible']);
+    prisma.seed({ id: 'ins_hidden', organizationId: ORG, kpiId: 'k_hidden' });
+    await expect(withCtx({}, () => service.dismiss('ins_hidden'))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

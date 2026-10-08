@@ -105,6 +105,14 @@ function periodStart(m: string): Date {
 function periodEnd(m: string): Date {
   return new Date(`${m}-28T00:00:00.000Z`);
 }
+/**
+ * When a period's value was recorded: its end, but never after SEED_NOW. The
+ * current month's period ends on the 28th, so recording at periodEnd put the
+ * newest value in the future ("recorded 28/10" on 3 Oct, OT-015).
+ */
+function recordedAtFor(m: string): Date {
+  return new Date(Math.min(periodEnd(m).getTime(), SEED_NOW.getTime()));
+}
 function round(v: number, decimals: number): number {
   const f = Math.pow(10, decimals);
   return Math.round(v * f) / f;
@@ -695,7 +703,7 @@ async function main(): Promise<void> {
           unit: k.unit,
           periodStart: periodStart(m),
           periodEnd: periodEnd(m),
-          recordedAt: periodEnd(m),
+          recordedAt: recordedAtFor(m),
           recordedById: ownerUserId,
           sourceType: 'MANUAL' as const,
           qualityFlag: 'HIGH' as const,
@@ -722,7 +730,7 @@ async function main(): Promise<void> {
           unit: k.unit,
           periodStart: periodStart(m),
           periodEnd: periodEnd(m),
-          recordedAt: periodEnd(m),
+          recordedAt: recordedAtFor(m),
           recordedById: ownerUserId,
           sourceType: 'MANUAL' as const,
           qualityFlag: 'HIGH' as const,
@@ -751,7 +759,7 @@ async function main(): Promise<void> {
             unit: k.unit,
             periodStart: periodStart(m),
             periodEnd: periodEnd(m),
-            recordedAt: periodEnd(m),
+            recordedAt: recordedAtFor(m),
             recordedById: userId,
             sourceType: 'MANUAL' as const,
             qualityFlag: 'HIGH' as const,

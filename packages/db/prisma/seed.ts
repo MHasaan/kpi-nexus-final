@@ -816,12 +816,12 @@ async function main(): Promise<void> {
 
   // --- Global KPI templates + org template -------------------------------
   await prisma.kPITemplate.upsert({
-    where: { slug: 'saas-mrr' }, update: {},
-    create: { slug: 'saas-mrr', name: 'Monthly Recurring Revenue', description: 'Recurring subscription revenue per month.', type: 'CURRENCY', direction: 'HIGHER_IS_BETTER', frequency: 'MONTHLY', aggregationMethod: 'LAST', scorecardQuadrant: 'FINANCIAL', function: 'Finance', industry: 'SaaS', unit: 'USD', tags: ['revenue', 'saas'], popularity: 980, isGlobal: true, isBuiltin: true },
+    where: { slug: 'saas-mrr' }, update: { function: 'finance' },
+    create: { slug: 'saas-mrr', name: 'Monthly Recurring Revenue', description: 'Recurring subscription revenue per month.', type: 'CURRENCY', direction: 'HIGHER_IS_BETTER', frequency: 'MONTHLY', aggregationMethod: 'LAST', scorecardQuadrant: 'FINANCIAL', function: 'finance', industry: 'SaaS', unit: 'USD', tags: ['revenue', 'saas'], popularity: 980, isGlobal: true, isBuiltin: true },
   });
   await prisma.kPITemplate.upsert({
-    where: { slug: 'saas-nps' }, update: {},
-    create: { slug: 'saas-nps', name: 'Net Promoter Score', description: 'Customer loyalty survey score.', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', frequency: 'QUARTERLY', aggregationMethod: 'LAST', scorecardQuadrant: 'CUSTOMER', function: 'Customer Success', industry: 'SaaS', unit: 'pts', tags: ['customer'], popularity: 760, isGlobal: true, isBuiltin: true },
+    where: { slug: 'saas-nps' }, update: { function: 'support' },
+    create: { slug: 'saas-nps', name: 'Net Promoter Score', description: 'Customer loyalty survey score.', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', frequency: 'QUARTERLY', aggregationMethod: 'LAST', scorecardQuadrant: 'CUSTOMER', function: 'support', industry: 'SaaS', unit: 'pts', tags: ['customer'], popularity: 760, isGlobal: true, isBuiltin: true },
   });
   // `update` repairs rows written by older seeds in a legacy shape (BE-001).
   const saasStarterPayload = buildSaasStarterPayload();

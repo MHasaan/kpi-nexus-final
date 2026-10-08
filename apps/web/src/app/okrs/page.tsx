@@ -32,6 +32,7 @@ import {
   type BadgeTone,
 } from '../../components/ui';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { buildAlignmentTree } from '../../lib/okr-tree';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -160,23 +161,9 @@ export default function OkrsPage() {
     [objectives, filterStatus, filterOwner],
   );
 
-  // Alignment tree: top-level = no parent OR parent not in the visible set.
-  const tree = useMemo(() => {
-    const ids = new Set(objectives.map((o) => o.id));
-    const childrenOf = new Map<string, Objective[]>();
-    const roots: Objective[] = [];
-    for (const o of objectives) {
-      const parent = o.parentObjectiveId;
-      if (parent && ids.has(parent)) {
-        const arr = childrenOf.get(parent) ?? [];
-        arr.push(o);
-        childrenOf.set(parent, arr);
-      } else {
-        roots.push(o);
-      }
-    }
-    return { childrenOf, roots };
-  }, [objectives]);
+  // Alignment tree: top-level = no parent OR parent not in the visible set;
+  // objectives caught in a parent cycle are promoted to roots (FE-003).
+  const tree = useMemo(() => buildAlignmentTree(objectives), [objectives]);
 
   const resetCreate = () => {
     setCName('');

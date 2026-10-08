@@ -9,7 +9,7 @@
  *   node --env-file=apps/ml/.env scripts/audit/ml-probe.mjs
  */
 
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,15 +19,20 @@ const ML_URL = process.env.ML_SIDECAR_URL ?? 'http://127.0.0.1:8000';
 const SECRET = process.env.ML_SIDECAR_HMAC_SECRET ?? 'dev-ml-shared-secret';
 const TENANT = 'audit-tenant';
 
-function sign(ts = Date.now(), secret = SECRET) {
+// Same scheme as apps/api/src/ml/ml-signature.ts (method/path/body-bound, BE-024).
+function sign(path, bodyText, { ts = Date.now(), secret = SECRET } = {}) {
+  const bodyHash = createHash('sha256').update(bodyText).digest('hex');
   return {
     'X-Tenant-Id': TENANT,
     'X-Signature-Timestamp': String(ts),
-    'X-Signature': createHmac('sha256', secret).update(`${ts}.${TENANT}`).digest('hex'),
+    'X-Signature': createHmac('sha256', secret).update(`${ts}.${TENANT}.POST.${path}.${bodyHash}`).digest('hex'),
   };
 }
 
-async function call(path, body, headers = sign()) {
+/** `signer(path, bodyText)` returns the auth headers; the default signs correctly. */
+async function call(path, body, signer = (p, b) => sign(p, b)) {
+  const bodyText = typeof body === 'string' ? body : JSON.stringify(body);
+  const headers = signer(path, bodyText);
   const started = performance.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30_000);
@@ -36,7 +41,7 @@ async function call(path, body, headers = sign()) {
       method: 'POST',
       signal: ctrl.signal,
       headers: { 'content-type': 'application/json', ...headers },
-      body: typeof body === 'string' ? body : JSON.stringify(body),
+      body: bodyText,
     });
     const text = await res.text();
     return { status: res.status, ms: Math.round(performance.now() - started), text: text.slice(0, 300) };
@@ -90,14 +95,16 @@ for (const [name, path, body, expect] of cases) {
 
 // Auth negatives
 const auth = [
-  ['no signature headers', {}, [401]],
-  ['wrong secret', sign(Date.now(), 'not-the-secret'), [401]],
-  ['stale timestamp (10 min old)', sign(Date.now() - 10 * 60_000), [401]],
-  ['future timestamp (10 min ahead)', sign(Date.now() + 10 * 60_000), [401]],
-  ['non-numeric timestamp', { ...sign(), 'X-Signature-Timestamp': 'abc' }, [401]],
+  ['no signature headers', () => ({}), [401]],
+  ['wrong secret', (p, b) => sign(p, b, { secret: 'not-the-secret' }), [401]],
+  ['stale timestamp (10 min old)', (p, b) => sign(p, b, { ts: Date.now() - 10 * 60_000 }), [401]],
+  ['future timestamp (10 min ahead)', (p, b) => sign(p, b, { ts: Date.now() + 10 * 60_000 }), [401]],
+  ['non-numeric timestamp', (p, b) => ({ ...sign(p, b), 'X-Signature-Timestamp': 'abc' }), [401]],
+  ['signature replayed with a different body', (p) => sign(p, JSON.stringify({ values: [1], horizon: 1 })), [401]],
+  ['signature replayed against another path', (_p, b) => sign('/whatif', b), [401]],
 ];
-for (const [name, headers, expect] of auth) {
-  const r = await call('/forecast', { values: series, horizon: 3 }, headers);
+for (const [name, signer, expect] of auth) {
+  const r = await call('/forecast', { values: series, horizon: 3 }, signer);
   results.push({ name: `auth: ${name}`, path: '/forecast', status: r.status, ms: r.ms, ok: expect.includes(r.status), expect, excerpt: r.text });
 }
 

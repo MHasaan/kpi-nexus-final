@@ -810,7 +810,7 @@ Stateless Python FastAPI. No DB access. Data passed in by API.
 | `POST /correlation` | scipy.stats | Pairwise + matrix |
 | `POST /seasonality` | statsmodels.tsa.seasonal_decompose | Trend + seasonal + residual |
 
-**HMAC auth** api↔ml: `X-Tenant-Id` + `X-Signature-Timestamp` + `X-Signature` (HMAC-SHA256 of `${ts}.${orgId}`); constant-time verify; 5-min skew window; refuses placeholder dev secret in production.
+**HMAC auth** api↔ml: `X-Tenant-Id` + `X-Signature-Timestamp` + `X-Signature` (HMAC-SHA256 of `${ts}.${orgId}.${METHOD}.${path}.${sha256(body)}` — method/path/body-bound since BE-024); constant-time verify; 5-min skew window; refuses placeholder dev secret in production.
 
 **Failure handling**: ML treated as optional health-wise. If down → graceful HTTP 503; alert engine continues without enriched explanations.
 

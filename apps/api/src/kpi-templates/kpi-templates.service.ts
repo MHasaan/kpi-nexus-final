@@ -68,6 +68,12 @@ export class KpiTemplatesService {
    */
   async seedGlobalIfEmpty(): Promise<void> {
     if (this.builtinsSeeded) return;
+    // Builtins are global (organizationId NULL) — only kpi_system may write
+    // them under RLS, so seed on the system connection (OT-014).
+    await RequestContextStore.runWithBypass('kpi-templates-seed', () => this.seedBuiltins());
+  }
+
+  private async seedBuiltins(): Promise<void> {
     const existing = await this.prisma.kPITemplate.count({
       where: { organizationId: null, isGlobal: true, isBuiltin: true },
     });
@@ -123,10 +129,15 @@ export class KpiTemplatesService {
       tags: template.tags,
     });
 
-    await this.prisma.kPITemplate.update({
-      where: { id: template.id },
-      data: { popularity: { increment: 1 } },
-    });
+    // The template may be a global builtin, which tenants cannot write under
+    // RLS; requireTemplate already proved the caller can see it, so bump the
+    // shared counter on the system connection (OT-014).
+    await RequestContextStore.runWithBypass('kpi-template-popularity', () =>
+      this.prisma.kPITemplate.update({
+        where: { id: template.id },
+        data: { popularity: { increment: 1 } },
+      }),
+    );
     await this.audit.record({
       action: 'CREATE',
       entityType: 'KPI',

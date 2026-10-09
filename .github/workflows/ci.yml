@@ -105,6 +105,13 @@ jobs:
       RATE_LIMIT_LOGIN_PER_ACCOUNT: '100'
       RATE_LIMIT_ONBOARDING_START_PER_HOUR: '1000'
       RATE_LIMIT_ONBOARDING_AI_PER_HOUR: '1000'
+      # Row-level security enforced (OT-014): requests run as kpi_app, system
+      # work as kpi_system. db:setup creates both roles with these passwords.
+      RLS_ENFORCED: 'true'
+      KPI_APP_DB_PASSWORD: ci_only_app_password
+      KPI_SYSTEM_DB_PASSWORD: ci_only_system_password
+      DATABASE_URL_APP: postgresql://kpi_app:ci_only_app_password@127.0.0.1:5432/kpi_nexus
+      DATABASE_URL_SYSTEM: postgresql://kpi_system:ci_only_system_password@127.0.0.1:5432/kpi_nexus
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -135,6 +142,10 @@ jobs:
             sleep 2
           done
           echo "API did not become healthy"; cat "$GITHUB_WORKSPACE/api.log"; exit 1
+      # Live API integration suite — includes the cross-tenant fuzz and the
+      # RLS enforcement tests (which connect as kpi_app / kpi_system directly).
+      - name: API integration tests (live, RLS enforced)
+        run: pnpm --filter @kpi-nexus/api test:int
       - name: Install Playwright browsers
         run: pnpm --filter @kpi-nexus/web exec playwright install --with-deps chromium
       # playwright.config.ts serves the production build (`next start`) under CI.

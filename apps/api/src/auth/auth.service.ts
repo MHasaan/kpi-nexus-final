@@ -449,12 +449,20 @@ export class AuthService {
     roleId: string;
     isAdmin: boolean;
   }): Promise<AuthPair> {
-    return this.issuePair({
-      sub: params.userId,
-      org: params.organizationId,
-      rid: params.roleId,
-      adm: params.isAdmin,
-    });
+    // Callers are pre-login flows with no request context; the refresh-token
+    // write belongs to the user's own org, so run it there (OT-014).
+    return Promise.resolve(
+      RequestContextStore.run(
+        { userId: params.userId, organizationId: params.organizationId, roleId: params.roleId || null, principalType: 'user' },
+        () =>
+          this.issuePair({
+            sub: params.userId,
+            org: params.organizationId,
+            rid: params.roleId,
+            adm: params.isAdmin,
+          }),
+      ),
+    );
   }
 
   private signAccess(payload: JwtPayload): Promise<string> {

@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RateLimitGuard } from './rate-limit.guard.js';
 import type { RateLimitService } from './rate-limit.service.js';
 
-function ctx(url = '/kpis', ip = '1.1.1.1', body?: unknown, method = 'GET') {
+function ctx(url = '/kpis', ip = '1.1.1.1', body?: unknown, method = 'GET', user?: Record<string, unknown>) {
   return {
     getType: () => 'http',
-    switchToHttp: () => ({ getRequest: () => ({ url, ip, method, body, routeOptions: { url } }) }),
+    switchToHttp: () => ({ getRequest: () => ({ url, ip, method, body, routeOptions: { url }, user }) }),
   } as unknown as Parameters<RateLimitGuard['canActivate']>[0];
 }
 
@@ -21,6 +21,22 @@ afterEach(() => {
 });
 
 describe('RateLimitGuard', () => {
+  it('keys signed-in requests by user from req.user (guards run before the request context exists)', async () => {
+    const s = svc(() => true);
+    await new RateLimitGuard(s).canActivate(
+      ctx('/kpis', '1.1.1.1', undefined, 'GET', { userId: 'u42', organizationId: 'o1', principalType: 'user' }),
+    );
+    expect(s.consume.mock.calls[0]![0]).toBe('rl:user:u42');
+  });
+
+  it('keys API-key requests by key id', async () => {
+    const s = svc(() => true);
+    await new RateLimitGuard(s).canActivate(
+      ctx('/kpis', '1.1.1.1', undefined, 'GET', { userId: 'u1', organizationId: 'o1', principalType: 'api_key', apiKeyId: 'k9' }),
+    );
+    expect(s.consume.mock.calls[0]![0]).toBe('rl:apikey:k9');
+  });
+
   it('is ON by default (BE-017) — limits apply with no env set', async () => {
     const guard = new RateLimitGuard(svc(() => false));
     await expect(guard.canActivate(ctx())).rejects.toMatchObject({ status: 429 });

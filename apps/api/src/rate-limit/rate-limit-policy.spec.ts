@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_BUDGETS, budgetsFromEnv, rateLimitEnabled, resolveRateLimits } from './rate-limit-policy.js';
 
-const req = (path: string, extra: Partial<{ ip: string; orgId: string | null; method: string; body: unknown }> = {}) => ({
+type Principal = { type: 'user' | 'api_key'; id: string } | null;
+const req = (path: string, extra: Partial<{ ip: string; principal: Principal; method: string; body: unknown }> = {}) => ({
   path,
   ip: extra.ip ?? '1.2.3.4',
-  orgId: extra.orgId ?? null,
+  principal: extra.principal ?? null,
   method: extra.method ?? 'GET',
   body: extra.body,
 });
@@ -26,9 +27,23 @@ describe('resolveRateLimits', () => {
     expect(resolveRateLimits(req('/auth/login', { method: 'POST', body: {} }), DEFAULT_BUDGETS)).toHaveLength(1);
   });
 
-  it('applies a generous per-org limit to other routes, falling back to IP', () => {
-    expect(resolveRateLimits(req('/kpis', { orgId: 'org1' }), DEFAULT_BUDGETS)).toEqual([{ limit: 600, windowSec: 60, bucketKey: 'rl:org:org1' }]);
-    expect(resolveRateLimits(req('/health'), DEFAULT_BUDGETS)[0]!.bucketKey).toBe('rl:org:1.2.3.4');
+  it('signed-in users get their own bucket: colleagues and a shared office IP never share it', () => {
+    const user = (id: string, ip: string) => resolveRateLimits(req('/kpis', { ip, principal: { type: 'user', id } }), DEFAULT_BUDGETS);
+    expect(user('u1', '10.0.0.1')).toEqual([{ limit: 600, windowSec: 60, bucketKey: 'rl:user:u1' }]);
+    // Same office IP, different user -> a different bucket.
+    expect(user('u2', '10.0.0.1')[0]!.bucketKey).toBe('rl:user:u2');
+    // Same user from another IP -> the same bucket (spreading across IPs doesn't help).
+    expect(user('u1', '10.9.9.9')[0]!.bucketKey).toBe('rl:user:u1');
+  });
+
+  it('API keys get a bucket per key', () => {
+    expect(resolveRateLimits(req('/kpis', { principal: { type: 'api_key', id: 'k1' } }), DEFAULT_BUDGETS)).toEqual([
+      { limit: 600, windowSec: 60, bucketKey: 'rl:apikey:k1' },
+    ]);
+  });
+
+  it('requests without a login fall back to a stricter per-IP bucket', () => {
+    expect(resolveRateLimits(req('/health'), DEFAULT_BUDGETS)).toEqual([{ limit: 300, windowSec: 60, bucketKey: 'rl:ip:1.2.3.4' }]);
   });
 
   it('anonymous onboarding start: strict per-IP hourly budget (BE-010)', () => {
@@ -44,7 +59,7 @@ describe('resolveRateLimits', () => {
   });
 
   it('other onboarding routes (draft read/update) keep the default bucket', () => {
-    expect(resolveRateLimits(req('/onboarding/:id'), DEFAULT_BUDGETS)[0]!.bucketKey).toBe('rl:org:1.2.3.4');
+    expect(resolveRateLimits(req('/onboarding/:id'), DEFAULT_BUDGETS)[0]!.bucketKey).toBe('rl:ip:1.2.3.4');
   });
 
   it('uses configured budgets', () => {
@@ -63,6 +78,15 @@ describe('rateLimitEnabled', () => {
 });
 
 describe('budgetsFromEnv', () => {
+  it('reads the per-user and anonymous budgets; RATE_LIMIT_ORG_PER_MIN still works as the old name', () => {
+    expect(budgetsFromEnv({ RATE_LIMIT_USER_PER_MIN: '900', RATE_LIMIT_ANON_PER_MIN: '50' })).toMatchObject({
+      userPerMin: 900,
+      anonPerIpPerMin: 50,
+    });
+    expect(budgetsFromEnv({ RATE_LIMIT_ORG_PER_MIN: '777' }).userPerMin).toBe(777);
+    expect(budgetsFromEnv({ RATE_LIMIT_USER_PER_MIN: '1', RATE_LIMIT_ORG_PER_MIN: '777' }).userPerMin).toBe(1);
+  });
+
   it('reads positive integers and ignores junk', () => {
     expect(budgetsFromEnv({ RATE_LIMIT_AUTH_PER_MIN: '1000', RATE_LIMIT_LOGIN_PER_ACCOUNT: 'abc' })).toEqual({
       ...DEFAULT_BUDGETS,

@@ -9,7 +9,11 @@
  *   so they get strict per-IP budgets (BE-010). The onboarding-AI global daily
  *   cap (onboardingAiGlobalPerDay) is enforced by OnboardingAiService, per
  *   real LLM call, not here;
- * - everything else: a generous per-org budget (per-IP when anonymous).
+ * - everything else: a generous budget per signed-in USER (or per API key),
+ *   so neither colleagues nor a shared office IP eat each other's budget and
+ *   spreading over many IPs doesn't buy more; requests without a login get a
+ *   stricter per-IP budget. (It used to be keyed by org, read from a request
+ *   context that is still empty in guards — so it was per-IP in practice.)
  *
  * Budgets come from env so local test suites (which register many orgs from
  * one IP) can relax them; production defaults are strict.
@@ -24,7 +28,8 @@ export interface RateLimitPolicy {
 export interface RateLimitBudgets {
   authPerIpPerMin: number;
   loginPerAccountPer15Min: number;
-  orgPerMin: number;
+  userPerMin: number;
+  anonPerIpPerMin: number;
   onboardingStartPerHour: number;
   onboardingAiPerIpPerHour: number;
   onboardingAiGlobalPerDay: number;
@@ -33,7 +38,8 @@ export interface RateLimitBudgets {
 export const DEFAULT_BUDGETS: RateLimitBudgets = {
   authPerIpPerMin: 10,
   loginPerAccountPer15Min: 20,
-  orgPerMin: 600,
+  userPerMin: 600,
+  anonPerIpPerMin: 300,
   onboardingStartPerHour: 10,
   onboardingAiPerIpPerHour: 30,
   onboardingAiGlobalPerDay: 500,
@@ -42,7 +48,8 @@ export const DEFAULT_BUDGETS: RateLimitBudgets = {
 export interface RateLimitRequest {
   path: string;
   ip: string;
-  orgId: string | null;
+  /** The signed-in principal (from req.user), or null for requests without a login. */
+  principal: { type: 'user' | 'api_key'; id: string } | null;
   method: string;
   body: unknown;
 }
@@ -60,7 +67,9 @@ export function budgetsFromEnv(env: Record<string, string | undefined> = process
   return {
     authPerIpPerMin: int(env.RATE_LIMIT_AUTH_PER_MIN, DEFAULT_BUDGETS.authPerIpPerMin),
     loginPerAccountPer15Min: int(env.RATE_LIMIT_LOGIN_PER_ACCOUNT, DEFAULT_BUDGETS.loginPerAccountPer15Min),
-    orgPerMin: int(env.RATE_LIMIT_ORG_PER_MIN, DEFAULT_BUDGETS.orgPerMin),
+    // RATE_LIMIT_ORG_PER_MIN is the old name of the per-user budget.
+    userPerMin: int(env.RATE_LIMIT_USER_PER_MIN ?? env.RATE_LIMIT_ORG_PER_MIN, DEFAULT_BUDGETS.userPerMin),
+    anonPerIpPerMin: int(env.RATE_LIMIT_ANON_PER_MIN, DEFAULT_BUDGETS.anonPerIpPerMin),
     onboardingStartPerHour: int(env.RATE_LIMIT_ONBOARDING_START_PER_HOUR, DEFAULT_BUDGETS.onboardingStartPerHour),
     onboardingAiPerIpPerHour: int(env.RATE_LIMIT_ONBOARDING_AI_PER_HOUR, DEFAULT_BUDGETS.onboardingAiPerIpPerHour),
     onboardingAiGlobalPerDay: int(env.RATE_LIMIT_ONBOARDING_AI_GLOBAL_PER_DAY, DEFAULT_BUDGETS.onboardingAiGlobalPerDay),
@@ -85,5 +94,9 @@ export function resolveRateLimits(req: RateLimitRequest, budgets: RateLimitBudge
     // OnboardingAiService charges it per real LLM call instead.
     return [{ limit: budgets.onboardingAiPerIpPerHour, windowSec: 3600, bucketKey: `rl:onboarding-ai:${req.ip}` }];
   }
-  return [{ limit: budgets.orgPerMin, windowSec: 60, bucketKey: `rl:org:${req.orgId ?? req.ip}` }];
+  if (req.principal) {
+    const prefix = req.principal.type === 'api_key' ? 'apikey' : 'user';
+    return [{ limit: budgets.userPerMin, windowSec: 60, bucketKey: `rl:${prefix}:${req.principal.id}` }];
+  }
+  return [{ limit: budgets.anonPerIpPerMin, windowSec: 60, bucketKey: `rl:ip:${req.ip}` }];
 }

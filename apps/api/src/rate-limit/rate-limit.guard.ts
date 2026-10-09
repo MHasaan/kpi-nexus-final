@@ -7,9 +7,9 @@ import {
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 
-import { RequestContextStore } from '../tenancy/request-context.js';
+import type { RequestContext } from '../tenancy/request-context.js';
 import { RateLimitService } from './rate-limit.service.js';
-import { budgetsFromEnv, rateLimitEnabled, resolveRateLimits } from './rate-limit-policy.js';
+import { budgetsFromEnv, rateLimitEnabled, resolveRateLimits, type RateLimitRequest } from './rate-limit-policy.js';
 
 /**
  * Global rate-limit guard (registered as APP_GUARD). ON by default; set
@@ -17,6 +17,18 @@ import { budgetsFromEnv, rateLimitEnabled, resolveRateLimits } from './rate-limi
  * rate-limit-policy.ts). Returns 429 when any bucket for the request is
  * exhausted. If Redis is unavailable the service fails open.
  */
+/**
+ * The signed-in principal for bucketing. Guards run BEFORE the tenancy
+ * interceptor, so RequestContextStore is still empty here; JwtAuthGuard (an
+ * earlier global guard) has already put the principal on req.user.
+ */
+function principalOf(req: FastifyRequest): RateLimitRequest['principal'] {
+  const user = (req as FastifyRequest & { user?: Partial<RequestContext> }).user;
+  if (!user?.userId) return null;
+  if (user.principalType === 'api_key' && user.apiKeyId) return { type: 'api_key', id: user.apiKeyId };
+  return { type: 'user', id: user.userId };
+}
+
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly enabled = rateLimitEnabled();
@@ -33,7 +45,7 @@ export class RateLimitGuard implements CanActivate {
       {
         path: (req.routeOptions?.url ?? req.url ?? '').split('?')[0] ?? '',
         ip: req.ip ?? 'unknown',
-        orgId: RequestContextStore.get()?.organizationId ?? null,
+        principal: principalOf(req),
         method: req.method,
         body: req.body,
       },

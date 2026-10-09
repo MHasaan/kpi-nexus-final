@@ -20,8 +20,10 @@ import { resolveTenantContextForDb } from '../tenancy/request-context.js';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
 
-  constructor() {
+  /** `datasourceUrl` overrides DATABASE_URL (the RLS roles — see prisma.module.ts). */
+  constructor(datasourceUrl?: string) {
     super({
+      ...(datasourceUrl ? { datasourceUrl } : {}),
       log:
         process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
     });

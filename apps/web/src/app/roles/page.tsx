@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Plus, ShieldCheck } from 'lucide-react';
 
-import type { Domain, Scope } from '@kpi-nexus/contracts';
+import { DOMAIN_DEFAULT_SCOPE, type Domain, type Scope } from '@kpi-nexus/contracts';
 
 import { AppShell } from '../../components/app-shell';
 import { PageAccessEditor } from '../../components/access/page-access-editor';
@@ -649,7 +649,9 @@ function RoleAccessConfig({
                 onChange={(e) => setScopes((prev) => ({ ...prev, [d.key]: e.target.value }))}
                 className="w-44"
               >
-                <option value="">Default (inherit)</option>
+                {/* Show what the default actually is per domain (BE-004: PEOPLE / ORG /
+                    ANALYTICS default to the whole org). */}
+                <option value="">Default — {SCOPE_LABELS[DOMAIN_DEFAULT_SCOPE[d.key]]}</option>
                 <option value="SELF">{SCOPE_LABELS.SELF}</option>
                 <option value="DIRECT_REPORTS">{SCOPE_LABELS.DIRECT_REPORTS}</option>
                 <option value="UNITS">{SCOPE_LABELS.UNITS}</option>

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { KpisService } from '../kpis/kpis.service.js';
+import { requireAnalyticsKpi } from './analytics-scope.js';
 import { MlClientService } from '../ml/ml-client.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
@@ -42,7 +43,7 @@ export class WhatIfService {
     input: { scenarios: WhatIfScenario[]; baselineCount?: number },
   ): Promise<WhatIfResult> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing baseline read to historyWindowDays (null ⇒ parity).
     const limits = await this.accessContext.dataLimits();

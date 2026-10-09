@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { AnomalyDetection } from '@kpi-nexus/db';
 
 import { KpisService } from '../kpis/kpis.service.js';
+import { requireAnalyticsKpi } from './analytics-scope.js';
 import { MlClientService } from '../ml/ml-client.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
@@ -65,7 +66,7 @@ export class AnomalyService {
     opts: { method?: string; threshold?: number; persist?: boolean } = {},
   ): Promise<AnomalyDetectResult> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate (throws 404 if not visible)
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing on-demand series to historyWindowDays (null ⇒ parity).
     const limits = await this.accessContext.dataLimits();
@@ -112,7 +113,7 @@ export class AnomalyService {
     filter: { from?: Date; to?: Date; isConfirmed?: boolean },
   ): Promise<AnomalyDetection[]> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
     return this.prisma.anomalyDetection.findMany({
       where: {
         organizationId: ctx.organizationId,
@@ -133,7 +134,7 @@ export class AnomalyService {
    */
   async confirm(kpiId: string, anomalyId: string): Promise<AnomalyDetection> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     const existing = await this.prisma.anomalyDetection.findFirst({
       where: { id: anomalyId, organizationId: ctx.organizationId, kpiId },

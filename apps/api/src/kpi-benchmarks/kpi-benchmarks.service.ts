@@ -119,6 +119,11 @@ export class KpiBenchmarksService {
     if (!isCategoryAllowed(await this.accessContext.kpiCategoryAllowlist(), kpi.categoryId)) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
+    // KPI scope too, with the same rule as GET /kpis: benchmarks (and their
+    // computed averages) leaked KPIs outside the caller's scope.
+    if (!(await this.accessContext.isKpiVisible(kpiId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
   }
 
   private async requireBenchmark(id: string): Promise<PublicKpiBenchmark> {

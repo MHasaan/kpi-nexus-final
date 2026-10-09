@@ -27,14 +27,18 @@ class FakeAudit {
 
 /** `null` allowlist ⇒ all (parity/admin); an array restricts to those categoryIds. */
 class FakeAccessContext {
-  constructor(private readonly allowlist: readonly string[] | null) {}
+  constructor(
+    private readonly allowlist: readonly string[] | null,
+    private readonly kpiVisible = true,
+  ) {}
   kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
+  isKpiVisible = vi.fn(async () => this.kpiVisible);
 }
 
-function makeService(allowlist: readonly string[] | null, categoryId: string | null): KpiBenchmarksService {
+function makeService(allowlist: readonly string[] | null, categoryId: string | null, kpiVisible = true): KpiBenchmarksService {
   const prisma = new FakePrisma(categoryId);
   const audit = new FakeAudit();
-  const accessContext = new FakeAccessContext(allowlist);
+  const accessContext = new FakeAccessContext(allowlist, kpiVisible);
   return new KpiBenchmarksService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
@@ -63,5 +67,12 @@ describe('KpiBenchmarksService category allowlist (Phase 3 Layer-3)', () => {
     const service = makeService(null, 'cat_secret');
     const rows = await withCtx(() => service.list(KPI_ID));
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe('KpiBenchmarksService — KPI scope', () => {
+  it('a KPI outside the caller KPI scope is a 404 even when its category is allowed', async () => {
+    const service = makeService(null, 'cat_ok', false);
+    await expect(withCtx(() => service.list(KPI_ID))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

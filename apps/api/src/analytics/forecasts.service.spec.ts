@@ -28,6 +28,8 @@ const mockKpis = {
 
 // Layer-4 data limits — null ⇒ unlimited / parity (admin default).
 const mockAccessContext = {
+  // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
+  isKpiAnalyticsAllowed: vi.fn(async () => true),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -131,5 +133,14 @@ describe('ForecastsService.forecast with no data (BE-024)', () => {
       response: { code: 'INSUFFICIENT_DATA' },
     });
     expect(mockMl.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('ForecastsService.forecast — ANALYTICS scope (BE-004)', () => {
+  it('a visible KPI outside the ANALYTICS scope is a 404 and never reaches the sidecar', async () => {
+    mockAccessContext.isKpiAnalyticsAllowed.mockResolvedValueOnce(false);
+    await expect(makeSvc().forecast('kpi_1', { horizon: 7 })).rejects.toMatchObject({ status: 404 });
+    expect(mockMl.post).not.toHaveBeenCalled();
+    expect(mockPrisma.kPIDataPoint.findMany).not.toHaveBeenCalled();
   });
 });

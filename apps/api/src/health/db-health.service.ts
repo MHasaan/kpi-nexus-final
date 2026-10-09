@@ -6,10 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@kpi-nexus/db';
 
+import { rlsEnforced } from '../prisma/tenant-prisma.js';
+
 @Injectable()
 export class DbHealthService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DbHealthService.name);
-  private readonly prisma = new PrismaClient();
+  // With RLS enforced the ping uses the request role too, so the running API
+  // never opens an owner connection (OT-014).
+  private readonly prisma = new PrismaClient(
+    rlsEnforced() && process.env.DATABASE_URL_APP ? { datasourceUrl: process.env.DATABASE_URL_APP } : undefined,
+  );
 
   async onModuleInit(): Promise<void> {
     try {

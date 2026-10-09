@@ -187,6 +187,9 @@ export class OrgUnitKpisService {
       where: { id: orgUnitId, organizationId: ctx.organizationId },
       select: { id: true },
     });
-    if (!unit) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Org unit not found' });
+    // A unit outside the caller's ORG scope is a 404, as if absent (BE-004).
+    if (!unit || !(await this.accessContext.isOrgUnitVisible(orgUnitId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Org unit not found' });
+    }
   }
 }

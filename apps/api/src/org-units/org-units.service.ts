@@ -8,6 +8,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   AddMemberDto,
@@ -60,12 +61,31 @@ export class OrgUnitsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
-  list() {
+  /**
+   * Membership and hierarchy decide the UNITS / DIRECT_REPORTS scopes, which are
+   * cached for 5 minutes — drop the caches after a structural change so scopes
+   * follow it immediately (BE-004).
+   */
+  private structureChanged(): void {
+    this.accessContext.invalidateAll();
+  }
+
+  /** 404 unless the unit is visible to the caller (ORG scope, BE-004). */
+  private async assertUnitVisible(id: string): Promise<void> {
+    if (!(await this.accessContext.isOrgUnitVisible(id))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
+    }
+  }
+
+  /** Units the caller may see (ORG scope, BE-004); all of them at the ORG default. */
+  async list() {
     const ctx = RequestContextStore.require();
+    const visible = await this.accessContext.visibleOrgUnitIds();
     return this.prisma.orgUnit.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, ...(visible ? { id: { in: visible } } : {}) },
       select: orgUnitSelect,
       orderBy: [{ name: 'asc' }],
     });
@@ -80,6 +100,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     return unit;
   }
 
@@ -112,6 +133,7 @@ export class OrgUnitsService {
           message: 'parentUnitId is invalid or belongs to another tenant',
         });
       }
+      await this.assertUnitVisible(dto.parentUnitId);
     }
 
     // Verify headUser belongs to tenant (if specified)
@@ -149,6 +171,7 @@ export class OrgUnitsService {
       entityId: created.id,
       changes: { name: created.name },
     });
+    this.structureChanged();
 
     return created;
   }
@@ -167,6 +190,7 @@ export class OrgUnitsService {
         });
       }
       await this.assertInTenant('orgUnit', dto.parentUnitId, ctx.organizationId, 'parentUnitId');
+      await this.assertUnitVisible(dto.parentUnitId);
       await this.assertNotDescendant(id, dto.parentUnitId, ctx.organizationId);
     }
     if (dto.orgUnitTypeId !== undefined) {
@@ -194,6 +218,7 @@ export class OrgUnitsService {
       entityId: id,
       changes: dto as Record<string, unknown>,
     });
+    this.structureChanged();
 
     return updated;
   }
@@ -267,6 +292,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     if (unit._count.children > 0) {
       throw new ConflictException({
         code: 'CONFLICT',
@@ -288,12 +314,20 @@ export class OrgUnitsService {
       entityId: id,
       metadata: { name: unit.name },
     });
+    this.structureChanged();
   }
 
-  listMembers(orgUnitId: string) {
+  async listMembers(orgUnitId: string) {
     const ctx = RequestContextStore.require();
+    await this.getById(orgUnitId); // tenant + ORG-scope visibility
+    const people = await this.accessContext.visiblePeopleIds();
     return this.prisma.orgUnitMember.findMany({
-      where: { orgUnitId, organizationId: ctx.organizationId, leftAt: null },
+      where: {
+        orgUnitId,
+        organizationId: ctx.organizationId,
+        leftAt: null,
+        ...(people ? { userId: { in: people } } : {}),
+      },
       select: memberSelect,
       orderBy: { joinedAt: 'asc' },
     });
@@ -326,7 +360,7 @@ export class OrgUnitsService {
           message: 'user is already a member',
         });
       }
-      return this.prisma.orgUnitMember.update({
+      const rejoined = await this.prisma.orgUnitMember.update({
         where: { id: existing.id },
         data: {
           memberRole: dto.memberRole,
@@ -336,6 +370,8 @@ export class OrgUnitsService {
         },
         select: memberSelect,
       });
+      this.structureChanged();
+      return rejoined;
     }
 
     const created = await this.prisma.orgUnitMember.create({
@@ -354,12 +390,14 @@ export class OrgUnitsService {
       entityId: created.id,
       metadata: { orgUnitId, userId: dto.userId, memberRole: dto.memberRole },
     });
+    this.structureChanged();
 
     return created;
   }
 
   async removeMember(orgUnitId: string, userId: string): Promise<void> {
     const ctx = RequestContextStore.require();
+    await this.getById(orgUnitId); // tenant + ORG-scope visibility
     const member = await this.prisma.orgUnitMember.findFirst({
       where: { orgUnitId, userId, organizationId: ctx.organizationId, leftAt: null },
       select: { id: true },
@@ -380,6 +418,7 @@ export class OrgUnitsService {
       entityId: member.id,
       metadata: { orgUnitId, userId },
     });
+    this.structureChanged();
   }
 
   // ==========================================================================
@@ -396,6 +435,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     return unit;
   }
 
@@ -503,6 +543,7 @@ export class OrgUnitsService {
         toUnitId: toUnit.id,
       },
     });
+    this.structureChanged();
   }
 
   /**
@@ -565,6 +606,7 @@ export class OrgUnitsService {
         movedMemberCount: activeMembers.length,
       },
     });
+    this.structureChanged();
   }
 
   /**
@@ -636,6 +678,7 @@ export class OrgUnitsService {
         memberUserIds: dto.memberUserIds,
       },
     });
+    this.structureChanged();
 
     return created;
   }
@@ -669,10 +712,19 @@ export class OrgUnitsService {
   }
 
   /** Active OrgUnitMember rows for a user within the current tenant. */
-  listMembershipsByUser(userId: string) {
+  async listMembershipsByUser(userId: string) {
     const ctx = RequestContextStore.require();
+    if (!(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+    const units = await this.accessContext.visibleOrgUnitIds();
     return this.prisma.orgUnitMember.findMany({
-      where: { userId, organizationId: ctx.organizationId, leftAt: null },
+      where: {
+        userId,
+        organizationId: ctx.organizationId,
+        leftAt: null,
+        ...(units ? { orgUnitId: { in: units } } : {}),
+      },
       select: memberSelect,
       orderBy: { joinedAt: 'asc' },
     });

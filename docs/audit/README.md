@@ -185,6 +185,11 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | FE-010 org units shown as a flat list | ✅ fixed | `6f323e2` | `tree-order.spec.ts` (3), e2e org-units (7), nested-org screenshot |
 | OT-018 tracing never started / recorded nothing | ✅ fixed | `d3f92b2` | live Jaeger check; API unit 1573 |
 | OT-016 tenant tables without org FK (db push never created them) | ✅ fixed | `809c2a7` | scratch migrate deploy, FK enforcement + cascade checks, API unit/integration |
+| BE-004 PEOPLE / ORG / ANALYTICS scopes enforced (+ search scope leak, benchmark KPI scope, cache invalidation) | ✅ fixed | `05ce2f3`..`5da1954` | access-context (+6), domain-visibility (+7), users (+6), org-units (+7), org-unit-kpis (+1), search (+3), analytics (+4), benchmarks (+1); integration `people-org-analytics-scope.spec.ts` (7) |
+| BE-013 suspended user keeps a ≤15 min token | ✔ accepted (user decision) | — | — |
+| Rate limit was per IP (org lookup read an empty context) | ✅ fixed — per user / API key, per IP without login | `7f34fe4` | policy + guard specs (+7), live budget check |
+| AI defaults on retired / zero-quota models; thinking models truncated answers | ✅ fixed — tiered free Gemini models + reasoning budget | `25a445e` | gemini (+3), router (+2), default-config (+3), live 4-feature run |
+| OT-011 MinIO image no longer pullable | ✅ fixed — SeaweedFS S3 gateway | `ee2c133` | SDK probe, scheduled-report integration (2), CSV download |
 | OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
 
 ## Cleanup performed

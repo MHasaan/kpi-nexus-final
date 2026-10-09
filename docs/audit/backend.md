@@ -61,7 +61,14 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Cause:** the list uses `buildKpiVisibilityWhere()` (`apps/api/src/rbac/visibility/kpi-visibility.ts`), which honours `scope` (SELF ⇒ no unit KPIs). Single-KPI access uses `KpisService.isVisibleToUser()` (`apps/api/src/kpis/kpis.service.ts:468-493`), which never reads `visibility.scope` and treats every non-admin as `UNITS`. The dashboard summary follows the looser rule.
 - **Expected:** one visibility rule for list, detail, data and summary.
 
-### BE-004 · Medium · Scopes for `PEOPLE`, `INSIGHTS`, `ANALYTICS`, `ORG` are configurable but never enforced — 🟡 PARTIAL (insights fixed)
+### BE-004 · Medium · Scopes for `PEOPLE`, `INSIGHTS`, `ANALYTICS`, `ORG` are configurable but never enforced — ✅ FIXED
+- **Fix (`05ce2f3`..`5da1954`; design `docs/superpowers/specs/2026-10-09-people-org-analytics-scopes-design.md`) — user decision: enforce.**
+  - Defaults for PEOPLE / ORG / ANALYTICS became `ORG` (today's behaviour), so nothing narrows until an admin sets them; the role editor shows each domain's real default.
+  - **PEOPLE** (who you can see): `/users` list, detail, `/user-kpis/user/:id`, access profile/override, suspend/reactivate/purge/offboard, unit member lists, search.
+  - **ORG** (which units): list, detail, members, name history, unit KPIs, memberships-by-user, search, and every unit write (incl. a new parent). SELF = my units, DIRECT_REPORTS = + reports' units, UNITS = + descendants.
+  - **ANALYTICS**: forecasts, what-if, anomalies, seasonality need the KPI inside the ANALYTICS ceiling as well as the KPIS scope.
+  - Found while fixing: `/search` leaked KPI and dashboard names across scopes; KPI benchmarks ignored KPI scope; org-unit membership changes did not invalidate the 5-min access caches — all fixed.
+  - Tests: helper + per-service unit tests; live integration `people-org-analytics-scope.spec.ts` (7) — parity, narrowing, 404s, refused writes, immediate cache invalidation, analytics ceiling, admin immunity.
 - **Fixed:** insights follow KPI visibility: list, dismiss, generate (404 for a KPI you can't see) and generate-batch. Live: 0 insights about non-listable KPIs for every persona.
 - **Open (product decision):** PEOPLE / ANALYTICS / ORG. PEOPLE defaults to UNITS, so enforcing it narrows `/users` and every people picker (assignees, mentions, OKR owners) for all non-admins. Choose: enforce, or remove these domains from the role editor.
 - **Evidence:** `access-context.service.ts:25-36` defines 10 scope domains, with defaults in `rbac/visibility/domain-visibility.ts`. Only KPIs, dashboards, alerts, alert rules, OKRs, tasks and scheduled reports read `scopeByDomain` — those are the only services referencing it. Nothing reads it for users, org units, insights or analytics.
@@ -116,7 +123,8 @@ Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administ
 - **Repro:** `POST /kpis/:id/threshold-bands {"name":"Bad","lower":900,"upper":100,"color":"#000000","order":1}` → `201`.
 - **Location:** `apps/api/src/kpi-threshold-bands/dto/threshold-band.dto.ts` — no refine for `lower <= upper`.
 
-### BE-013 · Low · Suspension doesn't revoke live access tokens
+### BE-013 · Low · Suspension doesn't revoke live access tokens — ✔ ACCEPTED (decision)
+- **Decision (user, 2026-10-09): keep the 15-minute window.** Suspension blocks refresh and new logins at once; an already-issued access token stays valid until it expires (≤ 15 min). No per-request status check.
 - **Repro:** suspend a signed-in user → their existing access token still gets `200` on `GET /auth/me` until it expires (`expiresIn: 900` s).
 - **Good:** refresh is rejected (`401 Invalid refresh token`) and new logins fail, so exposure is ≤ 15 min.
 - **Optional hardening:** check user status in the auth guard, or keep a token-version claim.

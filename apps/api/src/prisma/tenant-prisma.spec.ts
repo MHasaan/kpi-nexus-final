@@ -84,6 +84,17 @@ describe('createTenantPrisma (OT-014)', () => {
     expect(system.calls.map((c) => c.kind)).toEqual(['user.findMany']);
   });
 
+  it('a query keeps the context it was created in, even when awaited outside it', async () => {
+    let ctx: { organizationId: string; bypassRls?: boolean } | undefined = { organizationId: 'sys', bypassRls: true };
+    const base = fakeClient('base');
+    const system = fakeClient('system');
+    const prisma = createTenantPrisma(base as never, system as never, () => ctx) as unknown as typeof base;
+    // e.g. `runWithBypass(() => prisma.user.findMany())` returns the unawaited query
+    const q = prisma.user.findMany({});
+    ctx = undefined;
+    expect(await q).toEqual(['system:user']);
+  });
+
   it('batch $transaction([...]) prepends the org once and returns only the callers results', async () => {
     const { base, prisma } = setup({ organizationId: 'org_a' });
     const out = await (prisma as unknown as { $transaction: (a: unknown[]) => Promise<unknown[]> }).$transaction([

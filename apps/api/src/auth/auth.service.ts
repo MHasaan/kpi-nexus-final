@@ -393,11 +393,11 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<AuthPair> {
-    const next = await this.refreshTokens.rotate(refreshToken);
-    // Public route: the caller is known only by the refresh token, so these
-    // lookups are cross-tenant by nature — run them under the RLS bypass, like
-    // login (OT-014).
-    const { user, isAdmin } = await RequestContextStore.runWithBypass('refresh', async () => {
+    // Public route: the caller is known only by the refresh token, so the token
+    // rotation and these lookups are cross-tenant by nature — run them under the
+    // RLS bypass, like login (OT-014).
+    const { next, user, isAdmin } = await RequestContextStore.runWithBypass('refresh', async () => {
+      const next = await this.refreshTokens.rotate(refreshToken);
       const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: next.userId },
         select: { id: true, organizationId: true, roleId: true },
@@ -412,7 +412,7 @@ export class AuthService {
             )?.isAdmin,
           )
         : false;
-      return { user, isAdmin };
+      return { next, user, isAdmin };
     });
     const accessToken = await this.signAccess({
       sub: user.id,
@@ -428,7 +428,8 @@ export class AuthService {
   }
 
   async logout(refreshToken: string): Promise<void> {
-    await this.refreshTokens.revoke(refreshToken);
+    // Public route — the refresh token is the only credential (OT-014).
+    await RequestContextStore.runWithBypass('logout', () => this.refreshTokens.revoke(refreshToken));
   }
 
   private async issuePair(payload: JwtPayload): Promise<AuthPair> {

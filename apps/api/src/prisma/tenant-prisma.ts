@@ -67,6 +67,12 @@ class DeferredQuery<T = unknown> implements PromiseLike<T> {
     private readonly runner: TenantRunner,
     /** Builds the real Prisma promise on a given client. */
     readonly build: (client: AnyClient) => unknown,
+    /**
+     * The tenant context where the query was CREATED. Captured now because
+     * `runWithBypass(() => prisma.x.findFirst())` hands back the unawaited
+     * query, which then runs after the bypass scope has ended.
+     */
+    readonly ctx: TenantContextLike | undefined,
   ) {}
 
   private start(): Promise<T> {
@@ -101,14 +107,14 @@ class TenantRunner {
     private readonly getCtx: () => TenantContextLike | undefined,
   ) {}
 
-  private requireCtx(): TenantContextLike {
-    const ctx = this.getCtx();
+  private requireCtx(captured?: TenantContextLike): TenantContextLike {
+    const ctx = captured ?? this.getCtx();
     if (!ctx) throw new NoTenantContextError();
     return ctx;
   }
 
   async runOne(q: DeferredQuery): Promise<unknown> {
-    const ctx = this.requireCtx();
+    const ctx = this.requireCtx(q.ctx);
     if (ctx.bypassRls) return q.build(this.system);
     const [, result] = (await this.base.$transaction([setOrg(this.base, ctx.organizationId), q.build(this.base)])) as [
       unknown,
@@ -145,7 +151,7 @@ class TenantRunner {
   }
 
   deferred(build: (client: AnyClient) => unknown): DeferredQuery {
-    return new DeferredQuery(this, build);
+    return new DeferredQuery(this, build, this.getCtx());
   }
 }
 

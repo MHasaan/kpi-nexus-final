@@ -718,3 +718,92 @@ describe('AccessContextService.isKpiVisible (BE-003)', () => {
     expect(where).toEqual({ id: 'k1', organizationId: 'org', deletedAt: null });
   });
 });
+
+describe('AccessContextService PEOPLE / ORG / ANALYTICS scopes (BE-004)', () => {
+  type Profile = import('@kpi-nexus/contracts').AccessProfile;
+  function make(
+    scopes: Partial<Record<'PEOPLE' | 'ORG' | 'ANALYTICS' | 'KPIS', import('@kpi-nexus/contracts').Scope>>,
+    opts: { isAdmin?: boolean; kpiFound?: boolean } = {},
+  ) {
+    const orgUnitFindMany = vi.fn(async () => [
+      { id: 'eng', parentUnitId: null },
+      { id: 'eng-be', parentUnitId: 'eng' },
+      { id: 'eng-be-platform', parentUnitId: 'eng-be' },
+      { id: 'sales', parentUnitId: null },
+    ]);
+    const memberFindMany = vi.fn(async () => [{ orgUnitId: 'sales' }]); // reports' units
+    const kpiFindFirst = vi.fn(async () => (opts.kpiFound === false ? null : { id: 'k1' }));
+    const svc = new AccessContextService(
+      {
+        orgUnit: { findMany: orgUnitFindMany },
+        orgUnitMember: { findMany: memberFindMany },
+        kPI: { findFirst: kpiFindFirst },
+      } as unknown as PrismaService,
+      {} as PermissionResolverService,
+    );
+    vi.spyOn(svc, 'resolveForCurrentPrincipal').mockResolvedValue({
+      isAdmin: opts.isAdmin ?? false,
+      capabilities: [],
+      scopeByDomain: { KPIS: 'UNITS', PEOPLE: 'ORG', ORG: 'ORG', ANALYTICS: 'ORG', ...scopes },
+      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      context: { managedOrgUnitIds: ['eng-be'], memberOrgUnitIds: [], directReportIds: ['r1'] },
+      resourceGrants: [],
+      pageAccess: { allow: null, deny: [] },
+    } as Profile);
+    vi.spyOn(svc, 'unitMemberUserIds').mockResolvedValue(['peer1', 'me']);
+    return { svc, orgUnitFindMany, memberFindMany, kpiFindFirst };
+  }
+  const inCtx = <T>(fn: () => Promise<T>) =>
+    RequestContextStore.run({ userId: 'me', organizationId: 'org', roleId: 'role', principalType: 'user' }, fn) as Promise<T>;
+  const sorted = (xs: string[] | null) => (xs ? [...xs].sort() : xs);
+
+  test('PEOPLE at the ORG default ⇒ null (everyone) and no membership lookup', async () => {
+    const { svc } = make({});
+    await expect(inCtx(() => svc.visiblePeopleIds())).resolves.toBeNull();
+    expect(svc.unitMemberUserIds).not.toHaveBeenCalled();
+    await expect(inCtx(() => svc.isPersonVisible('anyone'))).resolves.toBe(true);
+  });
+
+  test('PEOPLE SELF / DIRECT_REPORTS / UNITS narrow to me, + reports, + unit members', async () => {
+    await expect(inCtx(() => make({ PEOPLE: 'SELF' }).svc.visiblePeopleIds())).resolves.toEqual(['me']);
+    expect(sorted(await inCtx(() => make({ PEOPLE: 'DIRECT_REPORTS' }).svc.visiblePeopleIds()))).toEqual(['me', 'r1']);
+    expect(sorted(await inCtx(() => make({ PEOPLE: 'UNITS' }).svc.visiblePeopleIds()))).toEqual(['me', 'peer1', 'r1']);
+    const { svc } = make({ PEOPLE: 'SELF' });
+    await expect(inCtx(() => svc.isPersonVisible('me'))).resolves.toBe(true);
+    await expect(inCtx(() => svc.isPersonVisible('stranger'))).resolves.toBe(false);
+  });
+
+  test('admins see everyone and every unit even with narrow scopes', async () => {
+    const { svc } = make({ PEOPLE: 'SELF', ORG: 'SELF' }, { isAdmin: true });
+    await expect(inCtx(() => svc.visiblePeopleIds())).resolves.toBeNull();
+    await expect(inCtx(() => svc.visibleOrgUnitIds())).resolves.toBeNull();
+  });
+
+  test('ORG domain: SELF = my units, DIRECT_REPORTS = + reports units, UNITS = + descendants', async () => {
+    await expect(inCtx(() => make({}).svc.visibleOrgUnitIds())).resolves.toBeNull();
+    expect(sorted(await inCtx(() => make({ ORG: 'SELF' }).svc.visibleOrgUnitIds()))).toEqual(['eng-be']);
+    expect(sorted(await inCtx(() => make({ ORG: 'DIRECT_REPORTS' }).svc.visibleOrgUnitIds()))).toEqual(['eng-be', 'sales']);
+    expect(sorted(await inCtx(() => make({ ORG: 'UNITS' }).svc.visibleOrgUnitIds()))).toEqual(['eng-be', 'eng-be-platform']);
+    const { svc } = make({ ORG: 'SELF' });
+    await expect(inCtx(() => svc.isOrgUnitVisible('eng-be'))).resolves.toBe(true);
+    await expect(inCtx(() => svc.isOrgUnitVisible('sales'))).resolves.toBe(false);
+  });
+
+  test('ANALYTICS at ORG adds no ceiling (the KPIS gate alone applies) — no query', async () => {
+    const { svc, kpiFindFirst } = make({});
+    await expect(inCtx(() => svc.isKpiAnalyticsAllowed('k1'))).resolves.toBe(true);
+    expect(kpiFindFirst).not.toHaveBeenCalled();
+  });
+
+  test('ANALYTICS narrower than KPIS evaluates the KPI rule at the ANALYTICS scope', async () => {
+    const { svc, kpiFindFirst } = make({ KPIS: 'UNITS', ANALYTICS: 'SELF' }, { kpiFound: false });
+    await expect(inCtx(() => svc.isKpiAnalyticsAllowed('k_unit'))).resolves.toBe(false);
+    const where = (kpiFindFirst.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    // SELF rule: no PER_UNIT branch.
+    expect(where.OR).toEqual([
+      { scope: 'ORG_WIDE' },
+      { scope: 'PER_USER', userAssignments: { some: { userId: { in: ['me'] } } } },
+    ]);
+  });
+});

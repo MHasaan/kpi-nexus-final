@@ -115,10 +115,12 @@ export class UsersService {
     private readonly email: EmailService,
   ) {}
 
-  list(): Promise<PublicUser[]> {
+  /** People the caller may see (PEOPLE scope, BE-004); everyone at the ORG default. */
+  async list(): Promise<PublicUser[]> {
     const ctx = RequestContextStore.require();
+    const visible = await this.accessContext.visiblePeopleIds();
     return this.prisma.user.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, ...(visible ? { id: { in: visible } } : {}) },
       select: userSelect,
       orderBy: { createdAt: 'desc' },
     });
@@ -130,10 +132,20 @@ export class UsersService {
       where: { id, organizationId: ctx.organizationId },
       select: userSelect,
     });
-    if (!user) {
+    // Out-of-scope people are a 404, as if absent (BE-004). Self is always visible.
+    if (!user || !(await this.accessContext.isPersonVisible(id))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return user;
+  }
+
+  /**
+   * 404 unless `userId` is a user in the caller's org that the caller may see
+   * (PEOPLE scope). Guards every per-user management action, so a scoped
+   * USERS_MANAGE holder manages only the people they can see (BE-004).
+   */
+  async assertPersonVisible(userId: string): Promise<void> {
+    await this.requireUserInTenant(userId);
   }
 
   // ---------------------------------------------------------------------------
@@ -152,7 +164,7 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { roleId: true },
     });
-    if (!user) {
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return RequestContextStore.run(
@@ -263,7 +275,7 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true },
     });
-    if (!user) {
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
   }
@@ -288,7 +300,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status === 'ARCHIVED' || user.status === 'DELETED' || user.status === 'PURGED') {
       throw new BadRequestException({
         code: 'NOT_SUSPENDABLE',
@@ -326,7 +340,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status !== 'SUSPENDED') {
       throw new BadRequestException({
         code: 'NOT_SUSPENDED',
@@ -362,7 +378,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status !== 'ARCHIVED') {
       throw new UnprocessableEntityException({
         code: 'NOT_ARCHIVED',

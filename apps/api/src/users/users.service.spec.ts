@@ -27,6 +27,10 @@ class FakePrisma {
   users: FakeUser[] = [];
 
   user = {
+    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const ids = (where.id as { in?: string[] } | undefined)?.in;
+      return this.users.filter((u) => u.organizationId === where.organizationId && (!ids || ids.includes(u.id)));
+    }),
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
       this.users.find((u) => u.id === where.id && u.organizationId === where.organizationId) ?? null,
     ),
@@ -124,6 +128,14 @@ function makeService() {
   };
   const accessContext = {
     invalidate: vi.fn(),
+    // PEOPLE scope (BE-004): everyone visible unless a test narrows it.
+    visible: null as string[] | null,
+    visiblePeopleIds: vi.fn(async function (this: { visible: string[] | null }) {
+      return this.visible;
+    }),
+    isPersonVisible: vi.fn(async function (this: { visible: string[] | null }, id: string) {
+      return this.visible === null || this.visible.includes(id);
+    }),
     resolveForCurrentPrincipal: vi.fn(async () => ({
       isAdmin: false,
       capabilities: ['KPI_VIEW'],
@@ -350,5 +362,65 @@ describe('UsersService.getAccessProfile (Phase 6)', () => {
     await expect(
       withCtx({}, () => service.getAccessProfile('u_foreign')),
     ).rejects.toMatchObject({ response: { code: 'NOT_FOUND' } });
+  });
+});
+
+describe('UsersService — PEOPLE scope (BE-004)', () => {
+  function scoped(visible: string[]) {
+    const env = makeService();
+    env.accessContext.visible = visible;
+    seedUser(env.prisma, { id: 'u_me' });
+    seedUser(env.prisma, { id: 'u_peer', email: 'peer@example.com' });
+    seedUser(env.prisma, { id: 'u_stranger', email: 'stranger@example.com', status: 'SUSPENDED' });
+    return env;
+  }
+
+  it('list returns only visible people', async () => {
+    const { service } = scoped(['u_me', 'u_peer']);
+    const rows = await withCtx({ userId: 'u_me' }, () => service.list());
+    expect(rows.map((u) => u.id).sort()).toEqual(['u_me', 'u_peer']);
+  });
+
+  it('list is unfiltered at ORG scope (parity)', async () => {
+    const env = makeService();
+    seedUser(env.prisma, { id: 'a' });
+    seedUser(env.prisma, { id: 'b' });
+    const rows = await withCtx({}, () => env.service.list());
+    expect(rows).toHaveLength(2);
+    expect(env.prisma.user.findMany.mock.calls[0]![0].where).toEqual({ organizationId: ORG });
+  });
+
+  it('getById: an invisible person is a 404; self stays reachable', async () => {
+    const { service } = scoped(['u_me']);
+    await expect(withCtx({ userId: 'u_me' }, () => service.getById('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({ userId: 'u_me' }, () => service.getById('u_me'))).resolves.toMatchObject({ id: 'u_me' });
+  });
+
+  it('access profile / override reads and writes refuse an invisible target (404, nothing written)', async () => {
+    const { service, prisma } = scoped(['u_me']);
+    const call = <T>(fn: () => Promise<T>) => withCtx({ userId: 'u_me' }, fn);
+    await expect(call(() => service.getAccessProfile('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(call(() => service.getAccessOverride('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      call(() => service.upsertAccessOverride('u_stranger', { grantCapabilities: [], revokeCapabilities: [] } as never)),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(call(() => service.deleteAccessOverride('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.userAccessOverride.upsert).not.toHaveBeenCalled();
+    expect(prisma.userAccessOverride.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('suspend / reactivate / purge refuse an invisible target', async () => {
+    const { service, prisma } = scoped(['u_me']);
+    const call = <T>(fn: () => Promise<T>) => withCtx({ userId: 'u_me' }, fn);
+    await expect(call(() => service.suspend('u_peer'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(call(() => service.reactivate('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(call(() => service.purge('u_stranger'))).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('assertPersonVisible (used by offboarding) throws 404 for an invisible target', async () => {
+    const { service } = scoped(['u_me']);
+    await expect(withCtx({ userId: 'u_me' }, () => service.assertPersonVisible('u_peer'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({ userId: 'u_me' }, () => service.assertPersonVisible('u_me'))).resolves.toBeUndefined();
   });
 });

@@ -76,6 +76,9 @@ class FakeAccessContext {
   /** `null` ⇒ all categories / admin; `[ids]` ⇒ only those; `[]` ⇒ none. */
   allowlist: readonly string[] | null = null;
   kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
+  /** PEOPLE scope (BE-004): null ⇒ everyone visible. */
+  people: string[] | null = null;
+  isPersonVisible = vi.fn(async (id: string) => this.people === null || this.people.includes(id));
 }
 
 const ORG = 'org_alpha';
@@ -168,5 +171,14 @@ describe('UserKpisService.listMyKpis — Layer-3 category allowlist', () => {
     const rows = await withCtx(() => service.listMyKpis());
 
     expect(rows).toEqual([]);
+  });
+});
+
+describe('UserKpisService.listForUser — PEOPLE scope (BE-004)', () => {
+  it('another person outside the caller PEOPLE scope is a 404', async () => {
+    const { service, prisma, accessContext } = makeService();
+    (prisma as unknown as { user: unknown }).user = { findFirst: vi.fn(async () => ({ id: 'u_other' })) };
+    accessContext.people = [ME];
+    await expect(withCtx(() => service.listForUser('u_other'))).rejects.toMatchObject({ status: 404 });
   });
 });

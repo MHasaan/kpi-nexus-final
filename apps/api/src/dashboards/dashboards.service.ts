@@ -95,7 +95,8 @@ export class DashboardsService {
    * DIRECT_REPORTS=+reports, UNITS=+unit owners/assignments, ORG=all). Default
    * SELF ⇒ own ∪ isShared = parity. Admin ⇒ whole tenant.
    */
-  private async visibilityWhere(
+  /** Public so global search filters dashboards by the very same rule. */
+  async visibilityWhere(
     deletedAt: Prisma.DashboardWhereInput['deletedAt'] = null,
   ): Promise<Prisma.DashboardWhereInput> {
     const ctx = RequestContextStore.require();

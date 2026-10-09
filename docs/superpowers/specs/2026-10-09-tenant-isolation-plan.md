@@ -1,6 +1,6 @@
 # Tenant data isolation — plan for OT-014 stages B/C
 
-**Status:** proposal, awaiting the user's decision (2026-10-09). Nothing here is implemented yet.
+**Status:** option A chosen by the user and **implemented** (2026-10-09), stages B and C, enforcement on by default. Time-series choice: (b) — compression off on `KPIDataPoint` + a normal policy. Details, commits and test evidence: [audit OT-014](../../audit/other.md). The "Where things stand" section below describes the situation before the work.
 
 ## Goal
 

@@ -190,7 +190,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Rate limit was per IP (org lookup read an empty context) | ✅ fixed — per user / API key, per IP without login | `7f34fe4` | policy + guard specs (+7), live budget check |
 | AI defaults on retired / zero-quota models; thinking models truncated answers | ✅ fixed — tiered free Gemini models + reasoning budget | `25a445e` | gemini (+3), router (+2), default-config (+3), live 4-feature run |
 | OT-011 MinIO image no longer pullable | ✅ fixed — SeaweedFS S3 gateway | `ee2c133` | SDK probe, scheduled-report integration (2), CSV download |
-| OT-014 RLS not in effect — **stage A**: policies on all 73 tenant tables + every no-context path given an explicit context (+ lost password-reset audit events) | 🟡 partial (stages B/C pending, see other.md) | `ecc6d1f` | `rls-enforcement.spec.ts` (+3), `tenancy/pre-tenant-lookups.spec.ts` (7), `permissions.guard.spec.ts` (+1), `audit.service.spec.ts` (3), auth/sso/mfa/password-reset specs (+4), fresh `db:setup` + live check |
+| OT-014 RLS not in effect — option A (hardened RLS): stage A policies + explicit contexts; stage B roles `kpi_app`/`kpi_system`, GUC bypass removed, every table covered, `KPIDataPoint` compression off + policy, API runs as `kpi_app` with transaction-local org (`RLS_ENFORCED`); stage C FORCE RLS, enforcement on in `.env.example` + CI | ✅ fixed | `ecc6d1f` `48b2281` `6cae9f4` `6df4028` `47cc0e8` `99ebe9b` `ad405fb` | `rls-enforcement.spec.ts` (11), `tenant-prisma.spec.ts` (11), `prisma.module.spec.ts` (2); unit 1634, integration 133, web e2e 167 — all with enforcement on |
 
 ## Cleanup performed
 

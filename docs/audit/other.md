@@ -59,22 +59,28 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Dev-only:** `vitest` (critical — UI server file read; only when the Vitest UI is running), `vite`, `brace-expansion` via tooling.
 - **Context:** 21 Dependabot PRs are open but unmergeable because CI is broken (OT-007).
 
-### OT-014 · High · Row-level security is not in effect; the API runs as a Postgres superuser — 🟡 PARTIAL (stage A of 3)
-- **Done (stage A, no runtime behaviour change):**
-  - Policies now cover **every** table with an `organizationId` column: 73 tables, up from 17. Coverage is discovered from the catalog, so new tenant tables are picked up on the next `db:setup`.
-  - Special rules: `Organization` (by id); `AuditLog` / `LoginAttempt` (NULL-org rows are bypass-only); `KPITemplate` / `OrgTemplate` (NULL-org built-ins are readable by every tenant, but tenants can't write them).
-  - Every code path that queried without a tenant context now sets one explicitly. Before this, they would have broken the moment RLS was enforced:
-    - the global `PermissionsGuard` (it runs before `TenancyInterceptor`), which would have meant 403 on every gated route;
-    - `POST /auth/refresh`, SSO login, MFA login check and the platform-admin list;
-    - API-key / SCIM-token / Slack / Jira credential lookups, inbound email, and the stale-draft sweep.
-  - Verified: a fresh `db:setup` (hypertables, continuous aggregates, compression) still passes, and the policy file re-runs idempotently.
-- **Found along the way, fixed:** audit events written under `runWithBypass()` outside a request carried the `'platform-bypass'` placeholder as `organizationId`. That broke the FK and the error was swallowed, so **every password-reset audit event was lost** (13 reset tokens on the dev DB, 0 audit rows). `AuditService` now never persists the placeholder, and password reset records the user's real org.
-- **Deliberately not covered:** `KPIDataPoint` (TimescaleDB refuses compression on a table with row security, verified in a scratch DB), the `kpi_data_*` continuous aggregates (materialized views can't carry RLS), and tables without `organizationId` (token tables, `KPIVersion`, `OrgUnitNameHistory`, …).
-- **Remaining:**
-  - **Stage B:** set `app.current_org` / `app.bypass_rls` per query from `RequestContextStore`. This needs a Prisma 6 `$extends`, because `$use` is gone, and it must handle the 13 interactive transactions plus raw SQL. Then connect the API as `kpi_app` (keep the owner URL for migrations), behind a flag that defaults OFF, and get every suite green with the flag ON.
-  - **Stage C:** default ON plus `FORCE ROW LEVEL SECURITY`.
-  - Also needed: an isolation plan for `KPIDataPoint` and the CAGGs (e.g. security-barrier views, with direct SELECT revoked from `kpi_app`).
-- **Evidence (live DB):**
+### OT-014 · High · Row-level security is not in effect; the API runs as a Postgres superuser — ✅ FIXED (option A, hardened RLS)
+Decision record: [tenant-isolation plan](../superpowers/specs/2026-10-09-tenant-isolation-plan.md) — option A chosen by the user.
+
+- **Stage A** (`ecc6d1f`): policies on every tenant table; every no-context code path given an explicit context. Also fixed the lost password-reset audit events (placeholder org id broke the FK).
+- **Stage B, database** (`48b2281`):
+  - Three roles: the owner `kpi_nexus` (migrations / setup / seed only), `kpi_app` (requests — `NOSUPERUSER NOBYPASSRLS`, not owner) and `kpi_system` (`BYPASSRLS`, background jobs and pre-login lookups).
+  - The old `app.bypass_rls` setting is gone — any session could set it. Bypass is now a property of the role, not a variable.
+  - Fail closed: no `app.current_org` ⇒ no rows, and writes fail `WITH CHECK`.
+  - **Every** public table has RLS (82): tenant tables by `organizationId`; token tables, `KPIVersion`, `OrgUnitNameHistory`, `OnboardingAIInteraction` through their parent; `PlatformAdmin` system-only; `Plan` read-only catalog.
+  - **Time-series:** compression turned off on `KPIDataPoint` (TimescaleDB forbids compression together with RLS) and a normal policy added — chosen over security-barrier views as the simplest option at this data volume (existing chunks decompressed, 2,014 rows kept). `kpi_app` has no access to the `kpi_data_*` rollups.
+- **Stage B, API** (`6cae9f4`, `6df4028`, `47cc0e8`):
+  - `apps/api/src/prisma/tenant-prisma.ts`: with `RLS_ENFORCED=true`, every query runs as `kpi_app` in a small transaction that first sets `app.current_org` **transaction-locally** (a pooled connection can never carry one request's org into another). `runWithBypass()` work goes to `kpi_system`. No context ⇒ `NoTenantContextError` before anything reaches the database. Batch / interactive transactions and raw SQL are covered.
+  - Gaps found by running every suite with enforcement on, fixed: a query built inside `runWithBypass()` but awaited after it (queries now keep their creation context); refresh / logout token lookups; builtin template seeding and the shared popularity counter; the public template gallery (anonymous previews limited to `isPublic`); `PlatformAdmin`; token issuance after onboarding / SSO.
+- **Stage C** (`99ebe9b`, `ad405fb`): `FORCE ROW LEVEL SECURITY` on every RLS table except `KPIDataPoint` (its continuous aggregates are refreshed as the owner). Enforcement on in `.env.example` and CI; the API logs its RLS mode at boot and opens no owner connection when enforced.
+- **Tests:** `rls-enforcement.spec.ts` (11, live as `kpi_app` / `kpi_system`: no context, A/B isolation, bypass variable ignored, cross-tenant insert/update, `KPIDataPoint`, parent-scoped tokens, rollups and `PlatformAdmin` hidden, templates, role attributes, catalog incl. FORCE); `tenant-prisma.spec.ts` (11); `prisma.module.spec.ts` (2). With enforcement on: API unit 1634/1634, live integration 133 passed / 3 skipped (incl. cross-tenant fuzz), web e2e 167 passed / 0 failed, no RLS errors in the API log.
+- **CI:** the web-e2e job runs with `RLS_ENFORCED=true` and now also runs the live API integration suite (it previously ran nowhere in CI).
+- **Operational notes:**
+  - The production owner must **not** be a superuser (superusers ignore RLS, even FORCE).
+  - Data backfills in migrations run as the owner and are now filtered — run them as `kpi_system` or set `app.current_org`.
+  - Set `KPI_APP_DB_PASSWORD` / `KPI_SYSTEM_DB_PASSWORD` before `db:setup` anywhere but local dev.
+- **Residual risk (accepted in the plan):** code able to run arbitrary SQL as `kpi_app` could set another org id. Mitigated by no string-built SQL and the query-level filters staying in place.
+- **Original evidence (before the fix):**
   - RLS is enabled on **17 of 83** public tables and **FORCE**d on 0.
   - All tables are owned by `kpi_nexus`; the API's `DATABASE_URL` uses `kpi_nexus`, which has `rolsuper = true`, `rolbypassrls = true`.
   - The `kpi_app` role (non-owner, no bypass) exists but nothing in `apps/api/src` connects with it. `rls-enforcement.spec.ts` documents this as a pending follow-up.
@@ -82,7 +88,6 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
   - Tenant isolation depends only on application `where organizationId` filters — the layer that BE-009 / BE-014 / BE-021 show has gaps.
   - The database-layer safety net the design spec promises (spec §3.1 / §5.1, P1 exit criterion "Postgres RLS enforced") does not exist at runtime.
   - Running the app as a superuser also means any SQL-execution bug yields full cluster control (e.g. `COPY … PROGRAM`).
-- **Expected:** connect the API as `kpi_app` (non-owner, `NOBYPASSRLS`); enable + `FORCE ROW LEVEL SECURITY` on every tenant table; keep the owner role for migrations only.
 
 ### OT-018 · Medium · OpenTelemetry tracing never starts, and would record nothing if it did — ✅ FIXED
 - **Fix (`d3f92b2`):** `instrumentation.ts` loads `.env` itself (real env wins) and registers HTTP / ioredis / Prisma instrumentations; `start` / `start:prod` preload it with `node --import` (a first import in ESM `main.ts` is too late to patch the CJS deps). Jaeger now shows `kpi-nexus-api` with one trace per request (HTTP root → Redis + Prisma children). CI sets the endpoint empty (no collector). Under `nest start --watch` only Prisma spans are recorded.

@@ -6,7 +6,8 @@
 -- A hypertable partitions a regular Postgres table by a time column
 -- (`recordedAt` here) into chunks, which gives:
 --   * fast time-bounded queries via chunk pruning
---   * efficient compression policies (P2.3+)
+--   * compression on the rollups (continuous-aggregates.sql); not on the base
+--     table, which carries row-level security (OT-014)
 --   * retention policy hooks (P9)
 --
 -- The Prisma model must already have the time column as part of its
@@ -19,22 +20,16 @@ SELECT create_hypertable(
   if_not_exists => TRUE
 );
 
--- Base-hypertable compression: compress raw KPIDataPoint chunks older than
--- 90 days. Segment-by (kpiId, organizationId) so per-KPI scans stay fast on
--- compressed chunks; order-by recordedAt DESC keeps "latest" lookups cheap.
--- Idempotent: ALTER SET is a no-op if already set; add_compression_policy
--- uses if_not_exists.
-ALTER TABLE "KPIDataPoint" SET (
-  timescaledb.compress,
-  timescaledb.compress_segmentby = '"kpiId", "organizationId"',
-  timescaledb.compress_orderby = '"recordedAt" DESC'
-);
-
-SELECT add_compression_policy(
-  '"KPIDataPoint"',
-  compress_after => INTERVAL '90 days',
-  if_not_exists => TRUE
-);
+-- No compression on the base hypertable (OT-014). TimescaleDB refuses
+-- compression on a table with row-level security, and KPIDataPoint holds the
+-- most sensitive tenant data, so it gets RLS like every other tenant table
+-- (rls-policies.sql, applied after this file). Compression only touched rows
+-- older than 90 days; at this data volume the disk cost is negligible.
+-- Idempotent, and it undoes the old setup on existing databases: drop the
+-- policy, decompress any compressed chunk, then switch compression off.
+SELECT remove_compression_policy('"KPIDataPoint"', if_exists => TRUE);
+SELECT decompress_chunk(c, if_compressed => TRUE) FROM show_chunks('"KPIDataPoint"') c;
+ALTER TABLE "KPIDataPoint" SET (timescaledb.compress = false);
 
 -- The five continuous aggregates (hourly/daily/weekly/monthly/quarterly) plus
 -- their refresh + compression policies live in continuous-aggregates.sql,

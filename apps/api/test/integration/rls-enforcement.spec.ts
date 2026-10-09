@@ -250,6 +250,13 @@ describe('RLS — kpi_system and the catalog', () => {
         `SELECT count(*)::int AS n FROM pg_policies WHERE policyname = 'tenant_isolation'`,
       );
       expect(tenant.rows[0]!.n).toBeGreaterThanOrEqual(75);
+      // FORCE binds the owner too — every RLS table except KPIDataPoint, whose
+      // continuous aggregates are refreshed as the owner (stage C).
+      const notForced = await owner.query<{ relname: string }>(
+        `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity AND NOT c.relforcerowsecurity`,
+      );
+      expect(notForced.rows.map((r) => r.relname)).toEqual(['KPIDataPoint']);
     } finally {
       await owner.end();
     }

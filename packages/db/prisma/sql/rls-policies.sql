@@ -219,3 +219,33 @@ DROP POLICY IF EXISTS tenant_isolation ON "PlatformAdmin";
 ALTER TABLE "Plan" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS plan_read ON "Plan";
 CREATE POLICY plan_read ON "Plan" FOR SELECT USING (true);
+
+-- ---------------------------------------------------------------------------
+-- FORCE ROW LEVEL SECURITY (OT-014 stage C): the policies also bind the table
+-- OWNER, so a process that connects as the owner by mistake is still filtered
+-- (fails closed — no org set ⇒ no rows). Superusers always bypass RLS, so the
+-- production owner must NOT be a superuser. Consequence: data backfills in
+-- migrations must run as kpi_system (or set app.current_org), never rely on
+-- the owner seeing every row.
+--
+-- KPIDataPoint is the exception: its continuous aggregates (kpi_data_*) are
+-- refreshed by TimescaleDB as the owner with no org set, and would silently
+-- aggregate nothing. kpi_app is still subject to its policy (not the owner),
+-- and kpi_app has no access to the aggregates at all.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOR t IN
+    SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
+      AND c.relname <> 'KPIDataPoint'
+  LOOP
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+  END LOOP;
+END
+$$;
+ALTER TABLE "KPIDataPoint" NO FORCE ROW LEVEL SECURITY;

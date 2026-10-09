@@ -174,10 +174,16 @@ export class GeminiProvider implements IAiProvider {
     if (req.systemPrompt) {
       body.system_instruction = { parts: [{ text: req.systemPrompt }] };
     }
-    if (req.maxTokens !== undefined || req.temperature !== undefined) {
+    // Gemini counts thinking tokens against maxOutputTokens, so reasoning gets
+    // its own budget added on top of the answer's. A zero/absent budget sends no
+    // thinkingConfig (flash-lite rejects thinkingBudget: 0 and doesn't think by
+    // default anyway).
+    const reasoning = req.reasoningBudgetTokens && req.reasoningBudgetTokens > 0 ? req.reasoningBudgetTokens : 0;
+    if (req.maxTokens !== undefined || req.temperature !== undefined || reasoning > 0) {
       body.generationConfig = {
-        ...(req.maxTokens !== undefined ? { maxOutputTokens: req.maxTokens } : {}),
+        ...(req.maxTokens !== undefined ? { maxOutputTokens: req.maxTokens + reasoning } : {}),
         ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        ...(reasoning > 0 ? { thinkingConfig: { thinkingBudget: reasoning } } : {}),
       };
     }
     if (req.tools?.length) {

@@ -948,11 +948,14 @@ async function main(): Promise<void> {
   log('Created 1 webhook + 1 API key');
 
   // --- AI layer ----------------------------------------------------------
-  const provGemini = await prisma.aiProvider.create({ data: { organizationId: orgId, key: 'GEMINI', displayName: 'Google Gemini', isEnabled: true, supportedFeatures: ['insight', 'nlq', 'recommendation', 'onboarding'] }, select: { id: true } });
-  const provClaude = await prisma.aiProvider.create({ data: { organizationId: orgId, key: 'CLAUDE', displayName: 'Anthropic Claude', isEnabled: true, supportedFeatures: ['insight', 'nlq', 'recommendation'] }, select: { id: true } });
+  await prisma.aiProvider.create({ data: { organizationId: orgId, key: 'GEMINI', displayName: 'Google Gemini', isEnabled: true, supportedFeatures: ['insight', 'nlq', 'recommendation', 'onboarding'] }, select: { id: true } });
+  await prisma.aiProvider.create({ data: { organizationId: orgId, key: 'CLAUDE', displayName: 'Anthropic Claude', isEnabled: true, supportedFeatures: ['insight', 'nlq', 'recommendation'] }, select: { id: true } });
   await prisma.aiProvider.create({ data: { organizationId: orgId, key: 'OPENAI', displayName: 'OpenAI', isEnabled: false, supportedFeatures: ['insight', 'nlq'] } });
-  await prisma.aiFeatureConfig.create({ data: { organizationId: orgId, feature: 'insight', providerId: provGemini.id, model: 'gemini-2.0-flash', fallbackProviderId: provClaude.id, fallbackModel: 'claude-haiku-4-5', perFeatureCapUsd: 5 } });
-  await prisma.aiFeatureConfig.create({ data: { organizationId: orgId, feature: 'nlq', providerId: provGemini.id, model: 'gemini-2.0-flash' } });
+  // Per-org overrides use the router's vocabulary: AiFeature names and provider KEYS
+  // (what PUT /ai/configs writes). The old rows used legacy feature names ('insight'),
+  // a provider row id and a retired model, so they never applied.
+  await prisma.aiFeatureConfig.create({ data: { organizationId: orgId, feature: 'INSIGHTS', providerId: 'GEMINI', model: 'gemini-3.5-flash', fallbackProviderId: 'GEMINI', fallbackModel: 'gemini-3.5-flash-lite', perFeatureCapUsd: 5 } });
+  await prisma.aiFeatureConfig.create({ data: { organizationId: orgId, feature: 'NLQ_PRIMARY', providerId: 'GEMINI', model: 'gemini-3.5-flash' } });
   await prisma.aiBudget.create({ data: { organizationId: orgId, dailyCapUsd: 5, monthlyCapUsd: 100, currentDailySpend: 0.42, currentMonthlySpend: 18.7, dailyPeriodStart: SEED_NOW, monthlyPeriodStart: at('2026-06-01T00:00:00.000Z') } });
 
   for (let i = 0; i < 6; i++) {

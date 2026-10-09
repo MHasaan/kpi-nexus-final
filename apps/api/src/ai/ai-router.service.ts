@@ -102,7 +102,13 @@ export class AiRouterService {
       const started = now();
       try {
         const provider = await this.deps.registry.getProvider(candidate.provider);
-        const req: AiCompletionRequest = { ...request, model: candidate.model };
+        // The route's reasoning budget applies to primary and fallback alike; a
+        // caller-supplied budget wins.
+        const req: AiCompletionRequest = {
+          ...request,
+          model: candidate.model,
+          reasoningBudgetTokens: request.reasoningBudgetTokens ?? config.reasoningBudgetTokens,
+        };
         const result = await (request.tools?.length
           ? provider.completeWithTools(req)
           : provider.complete(req));

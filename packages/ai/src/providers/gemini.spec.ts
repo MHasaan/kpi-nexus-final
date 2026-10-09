@@ -132,3 +132,39 @@ describe('GeminiProvider', () => {
     ).rejects.toMatchObject({ retryable: false });
   });
 });
+
+describe('GeminiProvider reasoning budget', () => {
+  const lastBody = (fetchImpl: typeof fetch) =>
+    JSON.parse(((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { body: string }).body);
+
+  it('gives reasoning its own budget ON TOP of maxTokens, so thinking cannot eat the answer', async () => {
+    // Live: with maxOutputTokens 400, gemini flash models spent ~400 tokens
+    // thinking and returned a 30-char, MAX_TOKENS-truncated answer.
+    const fetchImpl = jsonFetch(200, okCompletion);
+    const p = new GeminiProvider({ apiKeys: ['k'], fetchImpl });
+    await p.complete({
+      model: 'gemini-3.5-flash',
+      messages: [{ role: 'user', content: 'why did revenue dip?' }],
+      maxTokens: 400,
+      reasoningBudgetTokens: 2048,
+    });
+    const sent = lastBody(fetchImpl);
+    expect(sent.generationConfig.maxOutputTokens).toBe(2448);
+    expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 2048 });
+  });
+
+  it('sends no thinkingConfig without a budget (flash-lite rejects thinkingBudget: 0)', async () => {
+    const fetchImpl = jsonFetch(200, okCompletion);
+    const p = new GeminiProvider({ apiKeys: ['k'], fetchImpl });
+    await p.complete({ model: 'gemini-3.5-flash-lite', messages: [{ role: 'user', content: 'x' }], maxTokens: 400 });
+    const sent = lastBody(fetchImpl);
+    expect(sent.generationConfig).toEqual({ maxOutputTokens: 400 });
+  });
+
+  it('a budget without maxTokens sets only the thinking budget', async () => {
+    const fetchImpl = jsonFetch(200, okCompletion);
+    const p = new GeminiProvider({ apiKeys: ['k'], fetchImpl });
+    await p.complete({ model: 'gemini-3.5-flash', messages: [{ role: 'user', content: 'x' }], reasoningBudgetTokens: 1024 });
+    expect(lastBody(fetchImpl).generationConfig).toEqual({ thinkingConfig: { thinkingBudget: 1024 } });
+  });
+});

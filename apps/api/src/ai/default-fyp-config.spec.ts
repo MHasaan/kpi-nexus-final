@@ -12,11 +12,26 @@ describe('DEFAULT_FYP_CONFIG', () => {
     }
   });
 
-  it('defaults NLQ to free Gemini primary with a Claude fallback', () => {
-    const c = DEFAULT_FYP_CONFIG.NLQ_PRIMARY;
-    expect(c.provider).toBe('GEMINI');
-    expect(c.model).toBe('gemini-2.5-flash');
-    expect(c.fallback?.provider).toBe('CLAUDE');
+  it('reasoning features use a free thinking model with its own reasoning budget', () => {
+    for (const f of ['NLQ_PRIMARY', 'NLQ_TOOLS', 'INSIGHTS', 'RECOMMENDATIONS', 'KPI_SUGGESTIONS', 'ONBOARDING_ASSISTANT', 'ONBOARDING_GENERATOR'] as const) {
+      const c = DEFAULT_FYP_CONFIG[f];
+      expect(c).toMatchObject({ provider: 'GEMINI', model: 'gemini-3.5-flash' });
+      expect(c.fallback).toEqual({ provider: 'GEMINI', model: 'gemini-3.5-flash-lite' });
+      expect(c.reasoningBudgetTokens).toBeGreaterThan(0);
+    }
+  });
+
+  it('light features use flash-lite with no reasoning budget', () => {
+    for (const f of ['ONBOARDING_SUGGEST', 'ONBOARDING_EXPLAIN', 'ANOMALY_EXPLANATIONS'] as const) {
+      expect(DEFAULT_FYP_CONFIG[f]).toMatchObject({ model: 'gemini-3.5-flash-lite' });
+      expect(DEFAULT_FYP_CONFIG[f].reasoningBudgetTokens).toBeUndefined();
+    }
+  });
+
+  it('never routes to a retired 2.5-flash primary or a zero-quota Pro model', () => {
+    for (const c of Object.values(DEFAULT_FYP_CONFIG)) {
+      expect(c.model).not.toMatch(/^gemini-2\.5-flash$|pro/);
+    }
   });
 
   it('routes embeddings to Gemini by default (free, FYP has keys)', () => {

@@ -200,3 +200,41 @@ describe('AiRouterService — failure diagnostics (BE-026)', () => {
     warn.mockRestore();
   });
 });
+
+describe('AiRouterService reasoning budget', () => {
+  it("passes the route's reasoning budget to the provider (primary and fallback)", async () => {
+    const seen: Array<{ model?: string; reasoningBudgetTokens?: number }> = [];
+    const failing = stubProvider('GEMINI', {
+      complete: vi.fn(async (req) => {
+        seen.push({ model: req.model, reasoningBudgetTokens: req.reasoningBudgetTokens });
+        if (req.model === 'gemini-3.5-flash') throw new AiProviderError('overloaded', 'GEMINI', true, 503);
+        return { content: 'ok', finishReason: 'stop' as const, usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 };
+      }),
+    });
+    const { deps } = makeDeps({
+      registry: { getProvider: () => failing },
+      resolveConfig: async () => ({
+        provider: 'GEMINI',
+        model: 'gemini-3.5-flash',
+        fallback: { provider: 'GEMINI', model: 'gemini-3.5-flash-lite' },
+        reasoningBudgetTokens: 2048,
+      }),
+    });
+    const r = await new AiRouterService(deps).complete('INSIGHTS', { messages: [{ role: 'user', content: 'why?' }], maxTokens: 400 });
+    expect(r.content).toBe('ok');
+    expect(seen).toEqual([
+      { model: 'gemini-3.5-flash', reasoningBudgetTokens: 2048 },
+      { model: 'gemini-3.5-flash-lite', reasoningBudgetTokens: 2048 },
+    ]);
+  });
+
+  it('a caller-supplied budget wins over the route default', async () => {
+    const p = stubProvider('GEMINI');
+    const { deps } = makeDeps({
+      registry: { getProvider: () => p },
+      resolveConfig: async () => ({ provider: 'GEMINI', model: 'gemini-3.5-flash', reasoningBudgetTokens: 2048 }),
+    });
+    await new AiRouterService(deps).complete('INSIGHTS', { messages: [{ role: 'user', content: 'x' }], reasoningBudgetTokens: 64 });
+    expect(vi.mocked(p.complete).mock.calls[0]![0].reasoningBudgetTokens).toBe(64);
+  });
+});

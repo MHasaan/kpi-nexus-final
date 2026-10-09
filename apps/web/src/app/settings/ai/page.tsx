@@ -64,7 +64,9 @@ const PROVIDER_OPTIONS: { value: AiProviderKey; label: string }[] = [
  * org can route to any model the provider supports without a code change.
  */
 const MODEL_SUGGESTIONS: Record<AiProviderKey, string[]> = {
-  GEMINI: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-embedding-001'],
+  // Free-tier usable (checked 2026-10-09). Pro models have 0 free quota and
+  // gemini-2.5-flash is closed to new keys, so they are not suggested.
+  GEMINI: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash-lite', 'gemini-embedding-001'],
   CLAUDE: ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-7'],
   OPENAI: ['gpt-4o', 'gpt-4o-mini', 'openai-text-embedding-3-small'],
   OLLAMA: ['llama3.1', 'qwen2.5', 'nomic-embed-text'],

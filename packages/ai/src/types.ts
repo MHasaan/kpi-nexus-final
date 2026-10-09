@@ -39,7 +39,15 @@ export interface AiCompletionRequest {
   model?: string;
   systemPrompt?: string;
   messages: AiMessage[];
+  /** Budget for the visible ANSWER. Reasoning tokens get their own budget below. */
   maxTokens?: number;
+  /**
+   * Tokens a reasoning ("thinking") model may spend before answering, granted
+   * ON TOP of maxTokens. Without it, thinking models spend the answer's budget
+   * on reasoning and return truncated output. Providers without a reasoning
+   * mode ignore it.
+   */
+  reasoningBudgetTokens?: number;
   temperature?: number;
   tools?: NormalizedTool[];
   /** Hint to providers that support prompt caching (Claude/OpenAI). */

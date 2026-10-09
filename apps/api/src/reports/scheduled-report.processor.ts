@@ -137,7 +137,7 @@ export class ScheduledReportProcessor extends WorkerHost {
         kpiIds: scheduledReport.kpiIds.length > 0 ? scheduledReport.kpiIds : undefined,
       });
 
-      // Upload to MinIO/S3.
+      // Upload to S3.
       const ext = FORMAT_EXT[scheduledReport.format] ?? 'bin';
       const key = `reports/${organizationId}/${run.id}.${ext}`;
       await this.storage.upload(key, buffer, contentType);

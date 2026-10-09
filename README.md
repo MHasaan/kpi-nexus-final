@@ -67,7 +67,7 @@ kpi-nexus-final/
 | Node.js | 20 LTS (or 22) | Runtime for pnpm + apps |
 | pnpm | 9.x | Workspace package manager (`npm install -g pnpm@9`) |
 | Python | 3.12 | ML sidecar (apps/ml) |
-| Docker Desktop | 24+ | Postgres, Redis, MinIO, Mailhog, Jaeger via compose |
+| Docker Desktop | 24+ | Postgres, Redis, SeaweedFS (S3), Mailhog, Jaeger via compose |
 | git | any recent | Version control |
 
 ## Quick start
@@ -83,7 +83,7 @@ cp apps/web/.env.example apps/web/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/ml/.env.example apps/ml/.env
 
-# 3. Bring up local infra (Postgres + TimescaleDB + Redis + MinIO + Mailhog + Jaeger)
+# 3. Bring up local infra (Postgres + TimescaleDB + Redis + SeaweedFS S3 + Mailhog + Jaeger)
 pnpm docker:up
 
 # 4. Provision database (probes Postgres, runs prisma push, verifies extensions)
@@ -134,8 +134,7 @@ pnpm docker:ps      # show container status
 | ML (FastAPI) | 8000 | http://localhost:8000 |
 | Postgres | 5432 | `postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus` |
 | Redis | 6379 | `redis://localhost:6379` |
-| MinIO API | 9000 | http://localhost:9000 |
-| MinIO Console | 9001 | http://localhost:9001 (minioadmin / minioadmin) |
+| S3 (SeaweedFS) | 9000 | http://localhost:9000 (key kpinexus / kpinexus-dev-secret) |
 | Mailhog SMTP | 1025 | (smtp) |
 | Mailhog UI | 8025 | http://localhost:8025 |
 | Jaeger UI | 16686 | http://localhost:16686 |

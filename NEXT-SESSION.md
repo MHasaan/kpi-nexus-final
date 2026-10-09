@@ -13,7 +13,7 @@
 
 ```bash
 pnpm install
-pnpm docker:up      # Postgres/TimescaleDB, Redis, MailHog, MinIO, Jaeger
+pnpm docker:up      # Postgres/TimescaleDB, Redis, MailHog, SeaweedFS (S3), Jaeger
 pnpm db:setup
 pnpm dev
 ```

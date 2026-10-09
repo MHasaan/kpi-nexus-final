@@ -21,7 +21,7 @@ import { StorageService } from './services/storage.service.js';
  *   - ReportsService          — on-demand CSV/Excel/PDF generation
  *   - BoardPackService         — JSON board-pack composition
  *   - EmbedTokenService        — stateless HMAC embed tokens (exported for re-use)
- *   - StorageService           — MinIO/S3 upload + presigned URL
+ *   - StorageService           — S3 upload + presigned URL
  *   - ScheduledReportService   — BullMQ repeatable job management
  *   - ScheduledReportProcessor — BullMQ worker (runs in API process)
  *

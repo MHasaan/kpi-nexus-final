@@ -5,7 +5,7 @@
   Does, in order:
     1. Starts Docker Desktop (if not already running) and waits until the engine is ready.
     2. Installs JS dependencies (pnpm install).
-    3. Brings up local infra (Postgres/TimescaleDB, Redis, MinIO, Mailhog, Jaeger).
+    3. Brings up local infra (Postgres/TimescaleDB, Redis, SeaweedFS S3, Mailhog, Jaeger).
     4. Provisions the database (prisma push + extensions).
     5. Starts the Python ML sidecar (:8000) in its own window.
     6. Boots web (:3000) + api (:4000) + worker via `pnpm dev` (stays in foreground).

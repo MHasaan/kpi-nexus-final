@@ -158,6 +158,10 @@ jobs:
             sleep 2
           done
           echo "API did not become healthy"; cat "$GITHUB_WORKSPACE/api.log"; exit 1
+      - name: Fresh database billing regression (before catalog initialization)
+        run: pnpm --filter @kpi-nexus/api test:fresh-db
+        env:
+          BILLING_FRESH_DB_TEST: 'true'
       # Live API integration suite — includes the cross-tenant fuzz and the
       # RLS enforcement tests (which connect as kpi_app / kpi_system directly).
       - name: API integration tests (live, RLS enforced)

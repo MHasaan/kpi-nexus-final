@@ -58,7 +58,8 @@ jobs:
   # and a running API — previously none were provided (OT-007).
   e2e:
     name: web-e2e
-    runs-on: ubuntu-latest
+    # Playwright 1.60 supports Ubuntu 24.04, not the 26.04 ubuntu-latest image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     services:
       postgres:

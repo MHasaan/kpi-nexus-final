@@ -90,6 +90,10 @@ Ruling: fix missing CI infrastructure in a separate prerequisite PR before finis
 
 CI storage validation: exact gateway command on separate port 29000 passed anonymous-403 readiness, authenticated upload, and presigned content download. Independent review approved. Separate billing branch also passes 174 local Chrome browser tests (zero retries), with only the opt-in audit crawler skipped; 133 live integration tests + 3 intentional skips; all workspace and 48 ML tests pass. PR #27 hosted fresh-DB regression succeeds; only report upload fails because CI had no S3 service.
 
+## Additional prerequisite: supported Playwright runner
+
+Combined billing/storage PR #27 head d5cf864 passes fresh-DB regression and all API integration tests in hosted run 41871015000. Browser installation then fails explicitly: Playwright 1.60.0 does not support ubuntu26.04-x64 (ubuntu-latest). Pin only web-e2e to ubuntu-24.04, supported by the existing pinned browser package. No Playwright/framework upgrade or application change. Existing integration-only Plan failure remains expected on this infrastructure-only branch until #27 is merged.
+
 ## Billing prerequisite — in progress
 
 - Isolated Docker project `kpi-review`, separate ports 15432/16379 and its own volumes. No development DB access.
@@ -99,3 +103,7 @@ CI storage validation: exact gateway command on separate port 29000 passed anony
 - Existing catalogs remain unchanged. GREEN: 2 unit regressions; fresh-DB concurrent/privilege/isolation regression; 133 integration passed + 3 intentional alerting skips; all 32 uncached workspace checks (1,856 TS/JS tests), 48 ML tests. Independent code review approved. Initial integration harness failures were traced to unmapped scratch SMTP/S3 ports and resolved in ignored test configuration only. Browser and hosted checks pending.
 
 Storage prerequisite #28 merged as `68955cf20cb54a378e66980431e5a9a14231870b`; rollback: `git revert -m 1 68955cf20cb54a378e66980431e5a9a14231870b`. All relevant checks/Security passed; remaining integration failure was confirmed Plan RLS only. Incorporated into billing PR #27; documentation-only conflict resolved preserving both verification histories. Billing browser validation: 174 passed, one explicit audit-crawler skip, zero retries. Hosted combined baseline checks pending.
+
+Runner prerequisite #29 merged as `018b896563c3c509ad626a4f2f1ef8df34df4896`; rollback: `git revert -m 1 018b896563c3c509ad626a4f2f1ef8df34df4896`. Relevant Node/Security checks green; only known independent Plan failure remained. Billing PR refreshed against this main; documentation-only conflict resolved preserving both histories.
+
+Recovery proof: backup tag also pushed to GitHub. In a separate /tmp clone, reversing #28 then #26 via recorded merge-revert commands restores the exact original `50d3b7a` tree. No working checkout/database was modified by the exercise.

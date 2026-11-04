@@ -78,6 +78,14 @@ origin/phase/p9-polish 6a53a6e7030e5300c740c637213ad3ed8c1814d1
 
 ## Execution
 
-Prisma-generation prerequisite: local GREEN — frozen clean install; generated client; uncached lint/typecheck/test/build, 32 tasks successful, 1,854 TS/JS tests. Hosted checks pending. Existing import-order warnings remain; no lint errors.
+Prisma-generation prerequisite: local GREEN — frozen clean install; generated client; uncached lint/typecheck/test/build, 32 tasks successful, 1,854 TS/JS tests. Hosted PR #26: all Node jobs and Security passed; integration failed solely on the independently reproduced Plan RLS bug. Merged as prerequisite with merge commit `a9de8a1a3331aa1b5322f074f87e90aba0a81dc7`; rollback: `git revert -m 1 a9de8a1a3331aa1b5322f074f87e90aba0a81dc7`. Main post-merge checks pending, with the same known integration limitation. Existing import-order warnings remain; no lint errors.
 
 Ruling: current remote inventory contains 17 work branches (7 feat + 9 phase + 1 audit), not the handoff’s 18. All are ancestors; no code omitted.
+
+## Billing prerequisite — in progress
+
+- Isolated Docker project `kpi-review`, separate ports 15432/16379 and its own volumes. No development DB access.
+- RED: empty Plan catalog count 0; registration 201; first KPI POST 500. Unit test also rejects catalog initialization under tenant context.
+- Fix: initialize the global catalog in explicit system context, preserving request-role read-only policies and restoring tenant context.
+- Added dedicated opt-in fresh-DB suite before normal CI integration tests: concurrent first KPI creation, idempotent three-plan catalog, request-role write rejection, cross-tenant 404/list isolation. Does not truncate or delete any database data.
+- Existing catalogs remain unchanged. GREEN: 2 unit regressions; fresh-DB concurrent/privilege/isolation regression; 133 integration passed + 3 intentional alerting skips; all 32 uncached workspace checks (1,856 TS/JS tests), 48 ML tests. Independent code review approved. Initial integration harness failures were traced to unmapped scratch SMTP/S3 ports and resolved in ignored test configuration only. Browser and hosted checks pending.

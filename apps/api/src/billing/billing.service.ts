@@ -40,18 +40,21 @@ export class BillingService {
 
   /** Idempotently seed the global plan catalog. */
   async seedIfEmpty(): Promise<void> {
-    const count = await this.prisma.plan.count();
-    if (count > 0) return;
-    await this.prisma.plan.createMany({
-      data: BUILTIN_PLANS.map((p, i) => ({
-        key: p.key,
-        displayName: p.displayName,
-        monthlyPriceUsd: p.monthlyPriceUsd,
-        features: p.features,
-        quotas: p.quotas,
-        sortOrder: i,
-      })),
-      skipDuplicates: true,
+    // The catalog is global and read-only to kpi_app; initialize as kpi_system.
+    await RequestContextStore.runWithBypass('billing-plan-initialization', async () => {
+      const count = await this.prisma.plan.count();
+      if (count > 0) return;
+      await this.prisma.plan.createMany({
+        data: BUILTIN_PLANS.map((p, i) => ({
+          key: p.key,
+          displayName: p.displayName,
+          monthlyPriceUsd: p.monthlyPriceUsd,
+          features: p.features,
+          quotas: p.quotas,
+          sortOrder: i,
+        })),
+        skipDuplicates: true,
+      });
     });
   }
 

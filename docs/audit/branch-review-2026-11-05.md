@@ -78,6 +78,14 @@ origin/phase/p9-polish 6a53a6e7030e5300c740c637213ad3ed8c1814d1
 
 ## Execution
 
-Prisma-generation prerequisite: local GREEN — frozen clean install; generated client; uncached lint/typecheck/test/build, 32 tasks successful, 1,854 TS/JS tests. Hosted checks pending. Existing import-order warnings remain; no lint errors.
+Prisma-generation prerequisite: local GREEN — frozen clean install; generated client; uncached lint/typecheck/test/build, 32 tasks successful, 1,854 TS/JS tests. Hosted PR #26: all Node jobs and Security passed; integration failed on the independently reproduced Plan RLS bug. Merged as prerequisite with merge commit `a9de8a1a3331aa1b5322f074f87e90aba0a81dc7`; rollback: `git revert -m 1 a9de8a1a3331aa1b5322f074f87e90aba0a81dc7`. Main post-merge Security passed and CI retains the same known Plan integration limitation. Existing import-order warnings remain; no lint errors.
 
 Ruling: current remote inventory contains 17 work branches (7 feat + 9 phase + 1 audit), not the handoff’s 18. All are ancestors; no code omitted.
+
+## Additional prerequisite: CI report storage
+
+PR #27 proves billing fresh-DB initialization passes in hosted CI; its integration suite now fails only scheduled-report upload: ECONNREFUSED 127.0.0.1:9000. CI never started S3. Add the same pinned SeaweedFS gateway and read-only credential config used by local compose, waiting for its authenticated gateway (anonymous 403) before tests.
+
+Ruling: fix missing CI infrastructure in a separate prerequisite PR before finishing #27. No dependency candidate merges until main CI and Security are fully green. The independent Plan failure remains expected on the infrastructure-only branch. No application/schema/policy changes.
+
+CI storage validation: exact gateway command on separate port 29000 passed anonymous-403 readiness, authenticated upload, and presigned content download. Independent review approved. Separate billing branch also passes 174 local Chrome browser tests (zero retries), with only the opt-in audit crawler skipped; 133 live integration tests + 3 intentional skips; all workspace and 48 ML tests pass. PR #27 hosted fresh-DB regression succeeds; only report upload fails because CI had no S3 service.

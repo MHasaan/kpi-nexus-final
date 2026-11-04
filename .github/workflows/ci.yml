@@ -125,6 +125,20 @@ jobs:
         run: |
           cp .env.example .env
           cp apps/api/.env.example apps/api/.env
+      # Report integration tests upload files; use the same pinned gateway as local dev.
+      - name: Start S3-compatible report storage
+        run: |
+          docker run --detach --name kpi-ci-s3 --publish 9000:9000 \
+            --volume "$GITHUB_WORKSPACE/infra/docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs:latest@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d mini -dir=/data -s3.port=9000 \
+            -s3.config=/etc/seaweedfs/s3.json -bucket=kpi-nexus-local -master.telemetry=false
+          for attempt in $(seq 1 60); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9000 || true)
+            if [ "$status" = 403 ]; then exit 0; fi
+            sleep 2
+          done
+          docker logs kpi-ci-s3
+          exit 1
       - name: Database schema, RLS policies, hypertables
         run: pnpm db:setup
       - name: Build API + web (and their workspace deps)

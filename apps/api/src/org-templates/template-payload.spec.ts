@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type TemplatePayload, countPayload, validateTemplatePayload } from './template-payload.js';
+import { type TemplatePayload, countPayload, normalizeTemplatePayload, validateTemplatePayload } from './template-payload.js';
 
 const base: TemplatePayload = {
   organization: { name: 'Acme' },
@@ -46,5 +46,36 @@ describe('validateTemplatePayload', () => {
 
   it('counts payload sections', () => {
     expect(countPayload(base)).toEqual({ roles: 1, positions: 1, orgUnitTypes: 1, orgUnits: 1, kpiCategories: 1, kpis: 1 });
+  });
+});
+
+// BE-001: the demo seed stored `saas-starter` in a legacy shape
+// ({ roles: string[], units: string[], kpis: string[] } — no positions /
+// orgUnitTypes / orgUnits / kpiCategories). countPayload threw on it, and one
+// bad row 500'd GET /org-templates for everyone.
+describe('malformed / legacy payloads (BE-001)', () => {
+  const legacy = { roles: ['Administrator', 'Executive'], units: ['Sales'], kpis: ['MRR', 'NPS'] } as unknown;
+
+  it('countPayload never throws; non-conforming entries are not counted', () => {
+    expect(countPayload(legacy as TemplatePayload)).toEqual({
+      roles: 0, positions: 0, orgUnitTypes: 0, orgUnits: 0, kpiCategories: 0, kpis: 0,
+    });
+    expect(countPayload(null as unknown as TemplatePayload)).toEqual({
+      roles: 0, positions: 0, orgUnitTypes: 0, orgUnits: 0, kpiCategories: 0, kpis: 0,
+    });
+  });
+
+  it('normalizeTemplatePayload yields the full shape with only well-formed entries', () => {
+    const n = normalizeTemplatePayload(legacy);
+    expect(n).toEqual({
+      organization: { name: '' },
+      roles: [], positions: [], orgUnitTypes: [], orgUnits: [], kpiCategories: [], kpis: [],
+    });
+    // and a normalized legacy payload fails validation cleanly instead of crashing
+    expect(validateTemplatePayload(n)).toContain('at least one admin role is required');
+  });
+
+  it('normalizeTemplatePayload leaves a valid payload untouched', () => {
+    expect(normalizeTemplatePayload(base)).toEqual(base);
   });
 });

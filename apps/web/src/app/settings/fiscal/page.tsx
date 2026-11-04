@@ -14,6 +14,7 @@ import {
   updateMyOrganization,
   type OrganizationSettings,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -43,7 +44,7 @@ export default function FiscalSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getMyOrganization()
@@ -57,7 +58,7 @@ export default function FiscalSettingsPage() {
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setError(err instanceof ApiError ? err.message : 'Failed to load fiscal settings');

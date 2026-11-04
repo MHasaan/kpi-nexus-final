@@ -1,0 +1,5292 @@
+[
+  {
+    "method": "GET",
+    "path": "/activity",
+    "controller": "ActivityController",
+    "handler": "list",
+    "file": "apps/api/src/activity/activity.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "GET",
+    "path": "/ai/budget",
+    "controller": "AiConfigsController",
+    "handler": "getBudget",
+    "file": "apps/api/src/ai/ai-configs.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/ai/budget",
+    "controller": "AiConfigsController",
+    "handler": "updateBudget",
+    "file": "apps/api/src/ai/ai-configs.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/ai/configs",
+    "controller": "AiConfigsController",
+    "handler": "listConfigs",
+    "file": "apps/api/src/ai/ai-configs.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/ai/configs/:feature",
+    "controller": "AiConfigsController",
+    "handler": "deleteConfig",
+    "file": "apps/api/src/ai/ai-configs.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/ai/configs/:feature",
+    "controller": "AiConfigsController",
+    "handler": "upsertConfig",
+    "file": "apps/api/src/ai/ai-configs.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/ai/providers/:key/byok",
+    "controller": "ByoController",
+    "handler": "clearKey",
+    "file": "apps/api/src/ai/byo/byo.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/ai/providers/:key/byok",
+    "controller": "ByoController",
+    "handler": "setKey",
+    "file": "apps/api/src/ai/byo/byo.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/ai/providers/byok",
+    "controller": "ByoController",
+    "handler": "list",
+    "file": "apps/api/src/ai/byo/byo.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/ai/suggest-kpis",
+    "controller": "KpiSuggestionsController",
+    "handler": "suggest",
+    "file": "apps/api/src/kpi-suggestions/kpi-suggestions.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/alert-rules",
+    "controller": "AlertRulesController",
+    "handler": "list",
+    "file": "apps/api/src/alert-rules/alert-rules.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alert-rules",
+    "controller": "AlertRulesController",
+    "handler": "create",
+    "file": "apps/api/src/alert-rules/alert-rules.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/alert-rules/:id",
+    "controller": "AlertRulesController",
+    "handler": "remove",
+    "file": "apps/api/src/alert-rules/alert-rules.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/alert-rules/:id",
+    "controller": "AlertRulesController",
+    "handler": "getById",
+    "file": "apps/api/src/alert-rules/alert-rules.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/alert-rules/:id",
+    "controller": "AlertRulesController",
+    "handler": "update",
+    "file": "apps/api/src/alert-rules/alert-rules.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/alerts",
+    "controller": "AlertsController",
+    "handler": "list",
+    "file": "apps/api/src/alerts/alerts.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/alerts/:id",
+    "controller": "AlertsController",
+    "handler": "getById",
+    "file": "apps/api/src/alerts/alerts.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alerts/:id/acknowledge",
+    "controller": "AlertsController",
+    "handler": "acknowledge",
+    "file": "apps/api/src/alerts/alerts.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/alerts/:id/resolve",
+    "controller": "AlertsController",
+    "handler": "resolve",
+    "file": "apps/api/src/alerts/alerts.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/alerts/unread-count",
+    "controller": "AlertsController",
+    "handler": "unreadCount",
+    "file": "apps/api/src/alerts/alerts.controller.ts",
+    "public": false,
+    "permissions": [
+      "ALERTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api-keys",
+    "controller": "ApiKeysController",
+    "handler": "list",
+    "file": "apps/api/src/api-keys/api-keys.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api-keys",
+    "controller": "ApiKeysController",
+    "handler": "create",
+    "file": "apps/api/src/api-keys/api-keys.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/api-keys/:id",
+    "controller": "ApiKeysController",
+    "handler": "revoke",
+    "file": "apps/api/src/api-keys/api-keys.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/approvals/requests",
+    "controller": "ApprovalsController",
+    "handler": "listRequests",
+    "file": "apps/api/src/approvals/approvals.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/approvals/requests/:id/cancel",
+    "controller": "ApprovalsController",
+    "handler": "cancel",
+    "file": "apps/api/src/approvals/approvals.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/approvals/requests/:id/decide",
+    "controller": "ApprovalsController",
+    "handler": "decide",
+    "file": "apps/api/src/approvals/approvals.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/approvals/workflows",
+    "controller": "ApprovalsController",
+    "handler": "listWorkflows",
+    "file": "apps/api/src/approvals/approvals.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/approvals/workflows/:entityType",
+    "controller": "ApprovalsController",
+    "handler": "upsertWorkflow",
+    "file": "apps/api/src/approvals/approvals.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/audit",
+    "controller": "AuditController",
+    "handler": "list",
+    "file": "apps/api/src/audit/audit.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "AUDIT_VIEW",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/accept-invitation",
+    "controller": "AuthController",
+    "handler": "acceptInvitation",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/invitation-preview",
+    "controller": "AuthController",
+    "handler": "invitationPreview",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login",
+    "controller": "AuthController",
+    "handler": "login",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/logout",
+    "controller": "AuthController",
+    "handler": "logout",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/auth/me",
+    "controller": "AuthController",
+    "handler": "me",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "PATCH",
+    "path": "/auth/me",
+    "controller": "AuthController",
+    "handler": "updateProfile",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/auth/me/change-password",
+    "controller": "AuthController",
+    "handler": "changePassword",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/auth/me/notification-settings",
+    "controller": "AuthController",
+    "handler": "updateNotificationSettings",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/auth/password/confirm-reset",
+    "controller": "PasswordController",
+    "handler": "confirmReset",
+    "file": "apps/api/src/password/password.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/password/request-reset",
+    "controller": "PasswordController",
+    "handler": "requestReset",
+    "file": "apps/api/src/password/password.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/refresh",
+    "controller": "AuthController",
+    "handler": "refresh",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/auth/register",
+    "controller": "AuthController",
+    "handler": "register",
+    "file": "apps/api/src/auth/auth.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/billing",
+    "controller": "BillingController",
+    "handler": "status",
+    "file": "apps/api/src/billing/billing.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "BILLING_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/billing/plan",
+    "controller": "BillingController",
+    "handler": "setPlan",
+    "file": "apps/api/src/billing/billing.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "BILLING_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/comments",
+    "controller": "CommentsController",
+    "handler": "list",
+    "file": "apps/api/src/comments/comments.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/comments",
+    "controller": "CommentsController",
+    "handler": "create",
+    "file": "apps/api/src/comments/comments.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/comments/:id",
+    "controller": "CommentsController",
+    "handler": "remove",
+    "file": "apps/api/src/comments/comments.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/comments/:id",
+    "controller": "CommentsController",
+    "handler": "update",
+    "file": "apps/api/src/comments/comments.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/connectors",
+    "controller": "ConnectorsController",
+    "handler": "list",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/connectors",
+    "controller": "ConnectorsController",
+    "handler": "create",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/connectors/:id",
+    "controller": "ConnectorsController",
+    "handler": "remove",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/connectors/:id",
+    "controller": "ConnectorsController",
+    "handler": "getById",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/connectors/:id",
+    "controller": "ConnectorsController",
+    "handler": "update",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/connectors/:id/run",
+    "controller": "ConnectorsController",
+    "handler": "run",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/connectors/:id/runs",
+    "controller": "ConnectorsController",
+    "handler": "runs",
+    "file": "apps/api/src/connectors/connectors.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/custom-domains",
+    "controller": "CustomDomainsController",
+    "handler": "list",
+    "file": "apps/api/src/custom-domains/custom-domains.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/custom-domains",
+    "controller": "CustomDomainsController",
+    "handler": "register",
+    "file": "apps/api/src/custom-domains/custom-domains.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/custom-domains/:id",
+    "controller": "CustomDomainsController",
+    "handler": "remove",
+    "file": "apps/api/src/custom-domains/custom-domains.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/custom-domains/:id/verify",
+    "controller": "CustomDomainsController",
+    "handler": "verify",
+    "file": "apps/api/src/custom-domains/custom-domains.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards",
+    "controller": "DashboardsController",
+    "handler": "list",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards",
+    "controller": "DashboardsController",
+    "handler": "create",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/:id",
+    "controller": "DashboardsController",
+    "handler": "remove",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "RequireResourceAccess",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/:id",
+    "controller": "DashboardsController",
+    "handler": "getById",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "RequireResourceAccess"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/dashboards/:id",
+    "controller": "DashboardsController",
+    "handler": "update",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "RequireResourceAccess"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/:id/purge",
+    "controller": "DashboardsController",
+    "handler": "purge",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/restore",
+    "controller": "DashboardsController",
+    "handler": "restore",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/set-default",
+    "controller": "DashboardsController",
+    "handler": "setDefault",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/:id/share",
+    "controller": "DashboardsController",
+    "handler": "listShareLinks",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/share",
+    "controller": "DashboardsController",
+    "handler": "createShareLink",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/:id/snapshots",
+    "controller": "DashboardsController",
+    "handler": "listSnapshots",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/snapshots",
+    "controller": "DashboardsController",
+    "handler": "captureSnapshot",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/:id/unit-assignments",
+    "controller": "DashboardsController",
+    "handler": "listUnitAssignments",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/unit-assignments",
+    "controller": "DashboardsController",
+    "handler": "assignUnit",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/:id/unit-assignments/:orgUnitId",
+    "controller": "DashboardsController",
+    "handler": "unassignUnit",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/:id/widgets",
+    "controller": "DashboardsController",
+    "handler": "listWidgets",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/widgets",
+    "controller": "DashboardsController",
+    "handler": "addWidget",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/:id/widgets/:wid",
+    "controller": "DashboardsController",
+    "handler": "removeWidget",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/dashboards/:id/widgets/:wid",
+    "controller": "DashboardsController",
+    "handler": "updateWidget",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/dashboards/:id/widgets/:wid/position",
+    "controller": "DashboardsController",
+    "handler": "updateWidgetPosition",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/archived",
+    "controller": "DashboardsController",
+    "handler": "listArchived",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/share/:linkId",
+    "controller": "DashboardsController",
+    "handler": "revokeShareLink",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/dashboards/snapshots/:snapshotId",
+    "controller": "DashboardsController",
+    "handler": "deleteSnapshot",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/snapshots/:snapshotId",
+    "controller": "DashboardsController",
+    "handler": "getSnapshot",
+    "file": "apps/api/src/dashboards/dashboards.controller.ts",
+    "public": false,
+    "permissions": [
+      "DASHBOARD_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/demo-data/seed",
+    "controller": "DemoDataController",
+    "handler": "seed",
+    "file": "apps/api/src/demo-data/demo-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "controller": "HealthController",
+    "handler": "check",
+    "file": "apps/api/src/health/health.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/health/details",
+    "controller": "HealthController",
+    "handler": "details",
+    "file": "apps/api/src/health/health.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/ingest",
+    "controller": "IngestController",
+    "handler": "run",
+    "file": "apps/api/src/ingest/ingest.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DATA_ENTRY"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/insights",
+    "controller": "InsightsController",
+    "handler": "list",
+    "file": "apps/api/src/insights/insights.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/insights/:id/dismiss",
+    "controller": "InsightsController",
+    "handler": "dismiss",
+    "file": "apps/api/src/insights/insights.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/insights/generate",
+    "controller": "InsightsController",
+    "handler": "generate",
+    "file": "apps/api/src/insights/insights.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/insights/generate-batch",
+    "controller": "InsightsController",
+    "handler": "generateBatch",
+    "file": "apps/api/src/insights/insights.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/insights/schedule-daily",
+    "controller": "InsightsController",
+    "handler": "scheduleDaily",
+    "file": "apps/api/src/insights/insights.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/integrations",
+    "controller": "IntegrationsController",
+    "handler": "list",
+    "file": "apps/api/src/integrations/integrations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/integrations",
+    "controller": "IntegrationsController",
+    "handler": "create",
+    "file": "apps/api/src/integrations/integrations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/integrations/:id",
+    "controller": "IntegrationsController",
+    "handler": "remove",
+    "file": "apps/api/src/integrations/integrations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/integrations/:id",
+    "controller": "IntegrationsController",
+    "handler": "getById",
+    "file": "apps/api/src/integrations/integrations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/integrations/jira/webhook",
+    "controller": "IntegrationProvidersController",
+    "handler": "jiraWebhook",
+    "file": "apps/api/src/integrations/providers/integration-providers.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/integrations/slack/interactive",
+    "controller": "IntegrationProvidersController",
+    "handler": "slackInteractive",
+    "file": "apps/api/src/integrations/providers/integration-providers.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpi-cascades",
+    "controller": "KpiCascadesController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-cascades/kpi-cascades.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpi-cascades",
+    "controller": "KpiCascadesController",
+    "handler": "attach",
+    "file": "apps/api/src/kpi-cascades/kpi-cascades.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpi-cascades/:id",
+    "controller": "KpiCascadesController",
+    "handler": "detach",
+    "file": "apps/api/src/kpi-cascades/kpi-cascades.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpi-cascades/all",
+    "controller": "KpiCascadesController",
+    "handler": "tree",
+    "file": "apps/api/src/kpi-cascades/kpi-cascades.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpi-categories",
+    "controller": "KpiCategoriesController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-categories/kpi-categories.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpi-categories",
+    "controller": "KpiCategoriesController",
+    "handler": "create",
+    "file": "apps/api/src/kpi-categories/kpi-categories.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpi-categories/:id",
+    "controller": "KpiCategoriesController",
+    "handler": "remove",
+    "file": "apps/api/src/kpi-categories/kpi-categories.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DELETE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpi-categories/:id",
+    "controller": "KpiCategoriesController",
+    "handler": "getById",
+    "file": "apps/api/src/kpi-categories/kpi-categories.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/kpi-categories/:id",
+    "controller": "KpiCategoriesController",
+    "handler": "update",
+    "file": "apps/api/src/kpi-categories/kpi-categories.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpi-templates",
+    "controller": "KpiTemplatesController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-templates/kpi-templates.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpi-templates",
+    "controller": "KpiTemplatesController",
+    "handler": "create",
+    "file": "apps/api/src/kpi-templates/kpi-templates.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpi-templates/:id/instantiate",
+    "controller": "KpiTemplatesController",
+    "handler": "instantiate",
+    "file": "apps/api/src/kpi-templates/kpi-templates.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis",
+    "controller": "KpisController",
+    "handler": "list",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis",
+    "controller": "KpisController",
+    "handler": "create",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:id",
+    "controller": "KpisController",
+    "handler": "remove",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DELETE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:id",
+    "controller": "KpisController",
+    "handler": "getById",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/kpis/:id",
+    "controller": "KpisController",
+    "handler": "update",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:id/data",
+    "controller": "KpiDataController",
+    "handler": "listForKpi",
+    "file": "apps/api/src/kpis/kpi-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:id/data",
+    "controller": "KpiDataController",
+    "handler": "recordOrgWide",
+    "file": "apps/api/src/kpis/kpi-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DATA_ENTRY"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:id/purge",
+    "controller": "KpisController",
+    "handler": "purge",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DELETE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:id/restore",
+    "controller": "KpisController",
+    "handler": "restore",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:id/transition",
+    "controller": "KpisController",
+    "handler": "transition",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:id/versions",
+    "controller": "KpisController",
+    "handler": "versions",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/anomalies",
+    "controller": "AnalyticsController",
+    "handler": "listAnomalies",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/kpis/:kpiId/anomalies/:id/confirm",
+    "controller": "AnalyticsController",
+    "handler": "confirm",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/anomalies/detect",
+    "controller": "AnalyticsController",
+    "handler": "detect",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/benchmarks",
+    "controller": "KpiBenchmarksController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-benchmarks/kpi-benchmarks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/benchmarks",
+    "controller": "KpiBenchmarksController",
+    "handler": "create",
+    "file": "apps/api/src/kpi-benchmarks/kpi-benchmarks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:kpiId/benchmarks/:benchmarkId",
+    "controller": "KpiBenchmarksController",
+    "handler": "remove",
+    "file": "apps/api/src/kpi-benchmarks/kpi-benchmarks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/benchmarks/compute",
+    "controller": "KpiBenchmarksController",
+    "handler": "compute",
+    "file": "apps/api/src/kpi-benchmarks/kpi-benchmarks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/forecasts",
+    "controller": "AnalyticsController",
+    "handler": "listForecasts",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/forecasts",
+    "controller": "AnalyticsController",
+    "handler": "forecast",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:kpiId/formula",
+    "controller": "KpiFormulaController",
+    "handler": "detach",
+    "file": "apps/api/src/kpi-formula/kpi-formula.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/formula",
+    "controller": "KpiFormulaController",
+    "handler": "get",
+    "file": "apps/api/src/kpi-formula/kpi-formula.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/kpis/:kpiId/formula",
+    "controller": "KpiFormulaController",
+    "handler": "attach",
+    "file": "apps/api/src/kpi-formula/kpi-formula.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/recompute",
+    "controller": "CalculationEngineController",
+    "handler": "recompute",
+    "file": "apps/api/src/calculation-engine/calculation-engine.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/rollup",
+    "controller": "CalculationEngineController",
+    "handler": "rollup",
+    "file": "apps/api/src/calculation-engine/calculation-engine.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/seasonality",
+    "controller": "AnalyticsController",
+    "handler": "decompose",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/targets",
+    "controller": "KpiTargetsController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-targets/kpi-targets.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/targets",
+    "controller": "KpiTargetsController",
+    "handler": "create",
+    "file": "apps/api/src/kpi-targets/kpi-targets.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:kpiId/targets/:targetId",
+    "controller": "KpiTargetsController",
+    "handler": "remove",
+    "file": "apps/api/src/kpi-targets/kpi-targets.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/kpis/:kpiId/targets/:targetId",
+    "controller": "KpiTargetsController",
+    "handler": "update",
+    "file": "apps/api/src/kpi-targets/kpi-targets.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/targets/active",
+    "controller": "KpiTargetsController",
+    "handler": "active",
+    "file": "apps/api/src/kpi-targets/kpi-targets.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/threshold-bands",
+    "controller": "KpiThresholdBandsController",
+    "handler": "list",
+    "file": "apps/api/src/kpi-threshold-bands/kpi-threshold-bands.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/threshold-bands",
+    "controller": "KpiThresholdBandsController",
+    "handler": "create",
+    "file": "apps/api/src/kpi-threshold-bands/kpi-threshold-bands.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/kpis/:kpiId/threshold-bands/:bandId",
+    "controller": "KpiThresholdBandsController",
+    "handler": "remove",
+    "file": "apps/api/src/kpi-threshold-bands/kpi-threshold-bands.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/kpis/:kpiId/threshold-bands/:bandId",
+    "controller": "KpiThresholdBandsController",
+    "handler": "update",
+    "file": "apps/api/src/kpi-threshold-bands/kpi-threshold-bands.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/:kpiId/threshold-bands/status",
+    "controller": "KpiThresholdBandsController",
+    "handler": "status",
+    "file": "apps/api/src/kpi-threshold-bands/kpi-threshold-bands.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/:kpiId/whatif",
+    "controller": "AnalyticsController",
+    "handler": "simulate",
+    "file": "apps/api/src/analytics/analytics.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/archived",
+    "controller": "KpisController",
+    "handler": "listArchived",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/kpis/dashboard-summary",
+    "controller": "KpiDataController",
+    "handler": "dashboardSummary",
+    "file": "apps/api/src/kpis/kpi-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/import/commit",
+    "controller": "KpisController",
+    "handler": "importCommit",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/kpis/import/dry-run",
+    "controller": "KpisController",
+    "handler": "importDryRun",
+    "file": "apps/api/src/kpis/kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/lineage/:type/:id/downstream",
+    "controller": "LineageController",
+    "handler": "downstream",
+    "file": "apps/api/src/lineage/lineage.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/lineage/:type/:id/trace",
+    "controller": "LineageController",
+    "handler": "trace",
+    "file": "apps/api/src/lineage/lineage.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/lineage/:type/:id/upstream",
+    "controller": "LineageController",
+    "handler": "upstream",
+    "file": "apps/api/src/lineage/lineage.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/me/mentions",
+    "controller": "MentionsController",
+    "handler": "list",
+    "file": "apps/api/src/comments/mentions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/me/mentions/:id/read",
+    "controller": "MentionsController",
+    "handler": "read",
+    "file": "apps/api/src/comments/mentions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/me/mentions/read-all",
+    "controller": "MentionsController",
+    "handler": "readAll",
+    "file": "apps/api/src/comments/mentions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/me/mentions/unread-count",
+    "controller": "MentionsController",
+    "handler": "unreadCount",
+    "file": "apps/api/src/comments/mentions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "GET",
+    "path": "/me/sessions",
+    "controller": "MeSessionsController",
+    "handler": "list",
+    "file": "apps/api/src/auth/me-sessions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "DELETE",
+    "path": "/me/sessions/:id",
+    "controller": "MeSessionsController",
+    "handler": "revokeOne",
+    "file": "apps/api/src/auth/me-sessions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/me/sessions/revoke-all",
+    "controller": "MeSessionsController",
+    "handler": "revokeAll",
+    "file": "apps/api/src/auth/me-sessions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mfa/confirm",
+    "controller": "MfaController",
+    "handler": "confirm",
+    "file": "apps/api/src/mfa/mfa.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mfa/disable",
+    "controller": "MfaController",
+    "handler": "disable",
+    "file": "apps/api/src/mfa/mfa.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/mfa/enroll",
+    "controller": "MfaController",
+    "handler": "enroll",
+    "file": "apps/api/src/mfa/mfa.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/nlq/ask",
+    "controller": "NlqController",
+    "handler": "ask",
+    "file": "apps/api/src/nlq/nlq.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/nlq/reembed",
+    "controller": "NlqController",
+    "handler": "reembed",
+    "file": "apps/api/src/nlq/nlq.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/notification-channels",
+    "controller": "NotificationChannelsController",
+    "handler": "list",
+    "file": "apps/api/src/notification-channels/notification-channels.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/notification-channels",
+    "controller": "NotificationChannelsController",
+    "handler": "create",
+    "file": "apps/api/src/notification-channels/notification-channels.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/notification-channels/:id",
+    "controller": "NotificationChannelsController",
+    "handler": "remove",
+    "file": "apps/api/src/notification-channels/notification-channels.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/notification-channels/:id",
+    "controller": "NotificationChannelsController",
+    "handler": "update",
+    "file": "apps/api/src/notification-channels/notification-channels.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/notification-channels/:id/test",
+    "controller": "NotificationChannelsController",
+    "handler": "test",
+    "file": "apps/api/src/notification-channels/notification-channels.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/notification-deliveries",
+    "controller": "NotificationsController",
+    "handler": "list",
+    "file": "apps/api/src/notifications/notifications.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/notification-deliveries/:id/retry",
+    "controller": "NotificationsController",
+    "handler": "retry",
+    "file": "apps/api/src/notifications/notifications.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/objectives",
+    "controller": "OkrsController",
+    "handler": "list",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/objectives",
+    "controller": "OkrsController",
+    "handler": "create",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/objectives/:id",
+    "controller": "OkrsController",
+    "handler": "remove",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DELETE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/objectives/:id",
+    "controller": "OkrsController",
+    "handler": "getById",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/objectives/:id",
+    "controller": "OkrsController",
+    "handler": "update",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/objectives/:id/key-results",
+    "controller": "OkrsController",
+    "handler": "listKeyResults",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/objectives/:id/key-results",
+    "controller": "OkrsController",
+    "handler": "createKeyResult",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/objectives/:id/key-results/:krId",
+    "controller": "OkrsController",
+    "handler": "removeKeyResult",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DELETE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/objectives/:id/key-results/:krId",
+    "controller": "OkrsController",
+    "handler": "updateKeyResult",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/objectives/:id/sync-from-linked-kpis",
+    "controller": "OkrsController",
+    "handler": "sync",
+    "file": "apps/api/src/okrs/okrs.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/onboarding/:id",
+    "controller": "OnboardingController",
+    "handler": "get",
+    "file": "apps/api/src/onboarding/onboarding.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/onboarding/:id",
+    "controller": "OnboardingController",
+    "handler": "patch",
+    "file": "apps/api/src/onboarding/onboarding.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/:id/apply-template",
+    "controller": "OnboardingController",
+    "handler": "applyTemplate",
+    "file": "apps/api/src/onboarding/onboarding.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/:id/complete",
+    "controller": "OnboardingController",
+    "handler": "complete",
+    "file": "apps/api/src/onboarding/onboarding.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/ai/apply",
+    "controller": "OnboardingAiController",
+    "handler": "apply",
+    "file": "apps/api/src/onboarding-ai/onboarding-ai.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/ai/assistant",
+    "controller": "OnboardingAiController",
+    "handler": "assistant",
+    "file": "apps/api/src/onboarding-ai/onboarding-ai.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/ai/explain",
+    "controller": "OnboardingAiController",
+    "handler": "explain",
+    "file": "apps/api/src/onboarding-ai/onboarding-ai.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/ai/generate",
+    "controller": "OnboardingAiController",
+    "handler": "generate",
+    "file": "apps/api/src/onboarding-ai/onboarding-ai.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/ai/suggest",
+    "controller": "OnboardingAiController",
+    "handler": "suggest",
+    "file": "apps/api/src/onboarding-ai/onboarding-ai.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/onboarding/start",
+    "controller": "OnboardingController",
+    "handler": "start",
+    "file": "apps/api/src/onboarding/onboarding.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-templates",
+    "controller": "OrgTemplatesController",
+    "handler": "list",
+    "file": "apps/api/src/org-templates/org-templates.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-templates/:slug",
+    "controller": "OrgTemplatesController",
+    "handler": "preview",
+    "file": "apps/api/src/org-templates/org-templates.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-templates/preview",
+    "controller": "OrgTemplatesController",
+    "handler": "previewBody",
+    "file": "apps/api/src/org-templates/org-templates.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-unit-dimensions",
+    "controller": "OrgUnitDimensionsController",
+    "handler": "list",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-unit-dimensions",
+    "controller": "OrgUnitDimensionsController",
+    "handler": "create",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/org-unit-dimensions/:id",
+    "controller": "OrgUnitDimensionsController",
+    "handler": "remove",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/org-unit-dimensions/:id",
+    "controller": "OrgUnitDimensionsController",
+    "handler": "update",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-unit-types",
+    "controller": "OrgUnitTypesController",
+    "handler": "list",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-unit-types",
+    "controller": "OrgUnitTypesController",
+    "handler": "create",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/org-unit-types/:id",
+    "controller": "OrgUnitTypesController",
+    "handler": "remove",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/org-unit-types/:id",
+    "controller": "OrgUnitTypesController",
+    "handler": "update",
+    "file": "apps/api/src/org-structure/org-structure.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units",
+    "controller": "OrgUnitsController",
+    "handler": "list",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units",
+    "controller": "OrgUnitsController",
+    "handler": "create",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/org-units/:id",
+    "controller": "OrgUnitsController",
+    "handler": "remove",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units/:id",
+    "controller": "OrgUnitsController",
+    "handler": "getById",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/org-units/:id",
+    "controller": "OrgUnitsController",
+    "handler": "update",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units/:id/members",
+    "controller": "OrgUnitsController",
+    "handler": "listMembers",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:id/members",
+    "controller": "OrgUnitsController",
+    "handler": "addMember",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/org-units/:id/members/:userId",
+    "controller": "OrgUnitsController",
+    "handler": "removeMember",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:id/merge-into",
+    "controller": "OrgUnitsController",
+    "handler": "mergeInto",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units/:id/name-history",
+    "controller": "OrgUnitsController",
+    "handler": "nameHistory",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:id/rename",
+    "controller": "OrgUnitsController",
+    "handler": "rename",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:id/split",
+    "controller": "OrgUnitsController",
+    "handler": "split",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units/:orgUnitId/kpis",
+    "controller": "OrgUnitKpisController",
+    "handler": "list",
+    "file": "apps/api/src/org-unit-kpis/org-unit-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:orgUnitId/kpis",
+    "controller": "OrgUnitKpisController",
+    "handler": "assign",
+    "file": "apps/api/src/org-unit-kpis/org-unit-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE",
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/org-units/:orgUnitId/kpis/:kpiId",
+    "controller": "OrgUnitKpisController",
+    "handler": "unassign",
+    "file": "apps/api/src/org-unit-kpis/org-unit-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/:orgUnitId/kpis/:kpiId/override",
+    "controller": "OrgUnitKpisController",
+    "handler": "override",
+    "file": "apps/api/src/org-unit-kpis/org-unit-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/org-units/by-user/:userId/memberships",
+    "controller": "OrgUnitsController",
+    "handler": "membershipsByUser",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/kpi-assignments/:assignmentId/data",
+    "controller": "KpiDataController",
+    "handler": "recordPerUnit",
+    "file": "apps/api/src/kpis/kpi-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DATA_ENTRY"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/org-units/move-users",
+    "controller": "OrgUnitsController",
+    "handler": "moveUsers",
+    "file": "apps/api/src/org-units/org-units.controller.ts",
+    "public": false,
+    "permissions": [
+      "GROUPS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/organizations/me",
+    "controller": "OrganizationsController",
+    "handler": "getMine",
+    "file": "apps/api/src/organizations/organizations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "PATCH",
+    "path": "/organizations/me",
+    "controller": "OrganizationsController",
+    "handler": "updateMine",
+    "file": "apps/api/src/organizations/organizations.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/organizations/me/terminology",
+    "controller": "OrganizationsController",
+    "handler": "getTerminology",
+    "file": "apps/api/src/organizations/organizations.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "GET",
+    "path": "/permission-delegations",
+    "controller": "PermissionDelegationsController",
+    "handler": "list",
+    "file": "apps/api/src/permission-delegations/permission-delegations.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/permission-delegations",
+    "controller": "PermissionDelegationsController",
+    "handler": "create",
+    "file": "apps/api/src/permission-delegations/permission-delegations.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/permission-delegations/:id",
+    "controller": "PermissionDelegationsController",
+    "handler": "revoke",
+    "file": "apps/api/src/permission-delegations/permission-delegations.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/platform/admins",
+    "controller": "PlatformAdminController",
+    "handler": "list",
+    "file": "apps/api/src/platform-admin/platform-admin.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [
+      "PlatformAdminGuard"
+    ],
+    "decorators": [
+      "UseGuards"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/platform/admins",
+    "controller": "PlatformAdminController",
+    "handler": "grant",
+    "file": "apps/api/src/platform-admin/platform-admin.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [
+      "PlatformAdminGuard"
+    ],
+    "decorators": [
+      "UseGuards",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/platform/admins/:userId",
+    "controller": "PlatformAdminController",
+    "handler": "revoke",
+    "file": "apps/api/src/platform-admin/platform-admin.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [
+      "PlatformAdminGuard"
+    ],
+    "decorators": [
+      "UseGuards",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/plugins",
+    "controller": "PluginsController",
+    "handler": "list",
+    "file": "apps/api/src/plugins/plugins.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/plugins",
+    "controller": "PluginsController",
+    "handler": "install",
+    "file": "apps/api/src/plugins/plugins.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/plugins/:id",
+    "controller": "PluginsController",
+    "handler": "remove",
+    "file": "apps/api/src/plugins/plugins.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/plugins/:id",
+    "controller": "PluginsController",
+    "handler": "getById",
+    "file": "apps/api/src/plugins/plugins.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/plugins/:id",
+    "controller": "PluginsController",
+    "handler": "setEnabled",
+    "file": "apps/api/src/plugins/plugins.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/positions",
+    "controller": "PositionsController",
+    "handler": "list",
+    "file": "apps/api/src/positions/positions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/positions",
+    "controller": "PositionsController",
+    "handler": "create",
+    "file": "apps/api/src/positions/positions.controller.ts",
+    "public": false,
+    "permissions": [
+      "POSITIONS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/positions/:id",
+    "controller": "PositionsController",
+    "handler": "remove",
+    "file": "apps/api/src/positions/positions.controller.ts",
+    "public": false,
+    "permissions": [
+      "POSITIONS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/positions/:id",
+    "controller": "PositionsController",
+    "handler": "getById",
+    "file": "apps/api/src/positions/positions.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "PATCH",
+    "path": "/positions/:id",
+    "controller": "PositionsController",
+    "handler": "update",
+    "file": "apps/api/src/positions/positions.controller.ts",
+    "public": false,
+    "permissions": [
+      "POSITIONS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/public/dashboards/:token",
+    "controller": "PublicDashboardsController",
+    "handler": "resolve",
+    "file": "apps/api/src/dashboards/public-dashboards.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/public/dashboards/:token",
+    "controller": "PublicDashboardsController",
+    "handler": "resolveWithPassword",
+    "file": "apps/api/src/dashboards/public-dashboards.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/public/embed/kpi/:token",
+    "controller": "PublicEmbedController",
+    "handler": "resolveEmbed",
+    "file": "apps/api/src/reports/public-embed.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/realtime/stream",
+    "controller": "RealtimeController",
+    "handler": "stream",
+    "file": "apps/api/src/realtime/realtime.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "GET",
+    "path": "/recommendations",
+    "controller": "RecommendationsController",
+    "handler": "list",
+    "file": "apps/api/src/recommendations/recommendations.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/recommendations/:id/status",
+    "controller": "RecommendationsController",
+    "handler": "updateStatus",
+    "file": "apps/api/src/recommendations/recommendations.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_EDIT"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/recommendations/generate",
+    "controller": "RecommendationsController",
+    "handler": "generate",
+    "file": "apps/api/src/recommendations/recommendations.controller.ts",
+    "public": false,
+    "permissions": [
+      "INSIGHTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/reports/board-pack",
+    "controller": "ReportsController",
+    "handler": "getBoardPack",
+    "file": "apps/api/src/reports/reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "REPORTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/reports/generate",
+    "controller": "ReportsController",
+    "handler": "generate",
+    "file": "apps/api/src/reports/reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "REPORTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/reports/kpis/:id/embed-token",
+    "controller": "ReportsController",
+    "handler": "mintEmbedToken",
+    "file": "apps/api/src/reports/reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/reports/kpis/:id/embed-token/revoke",
+    "controller": "ReportsController",
+    "handler": "revokeEmbedToken",
+    "file": "apps/api/src/reports/reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/resource-permissions",
+    "controller": "ResourcePermissionsController",
+    "handler": "list",
+    "file": "apps/api/src/resource-permissions/resource-permissions.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/resource-permissions",
+    "controller": "ResourcePermissionsController",
+    "handler": "create",
+    "file": "apps/api/src/resource-permissions/resource-permissions.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/resource-permissions/:id",
+    "controller": "ResourcePermissionsController",
+    "handler": "remove",
+    "file": "apps/api/src/resource-permissions/resource-permissions.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/retention-policies",
+    "controller": "RetentionController",
+    "handler": "list",
+    "file": "apps/api/src/retention/retention.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/retention-policies/apply-tier",
+    "controller": "RetentionController",
+    "handler": "applyTier",
+    "file": "apps/api/src/retention/retention.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/retention-policies/tiers/list",
+    "controller": "RetentionController",
+    "handler": "tiers",
+    "file": "apps/api/src/retention/retention.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/roles",
+    "controller": "RolesController",
+    "handler": "list",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/roles",
+    "controller": "RolesController",
+    "handler": "create",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/roles/:id",
+    "controller": "RolesController",
+    "handler": "remove",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/roles/:id",
+    "controller": "RolesController",
+    "handler": "getById",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "PATCH",
+    "path": "/roles/:id",
+    "controller": "RolesController",
+    "handler": "update",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/roles/:id/apply-preset",
+    "controller": "RolesController",
+    "handler": "applyPreset",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/roles/:id/audit",
+    "controller": "RolesController",
+    "handler": "getAudit",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/roles/hierarchy",
+    "controller": "RolesController",
+    "handler": "getHierarchy",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/roles/presets/list",
+    "controller": "RolesController",
+    "handler": "listPresets",
+    "file": "apps/api/src/roles/roles.controller.ts",
+    "public": false,
+    "permissions": [
+      "ROLES_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scheduled-reports",
+    "controller": "ScheduledReportsController",
+    "handler": "list",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "REPORTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/scheduled-reports",
+    "controller": "ScheduledReportsController",
+    "handler": "create",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/scheduled-reports/:id",
+    "controller": "ScheduledReportsController",
+    "handler": "remove",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scheduled-reports/:id",
+    "controller": "ScheduledReportsController",
+    "handler": "get",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "REPORTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/scheduled-reports/:id",
+    "controller": "ScheduledReportsController",
+    "handler": "update",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/scheduled-reports/:id/trigger",
+    "controller": "ScheduledReportsController",
+    "handler": "trigger",
+    "file": "apps/api/src/reports/scheduled-reports.controller.ts",
+    "public": false,
+    "permissions": [
+      "REPORTS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/tokens",
+    "controller": "ScimTokensController",
+    "handler": "list",
+    "file": "apps/api/src/scim/scim-tokens.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/scim/tokens",
+    "controller": "ScimTokensController",
+    "handler": "mint",
+    "file": "apps/api/src/scim/scim-tokens.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/scim/tokens/:id",
+    "controller": "ScimTokensController",
+    "handler": "revoke",
+    "file": "apps/api/src/scim/scim-tokens.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "controller": "ScimController",
+    "handler": "listGroups",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/Groups/:id",
+    "controller": "ScimController",
+    "handler": "getGroup",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/:id",
+    "controller": "ScimController",
+    "handler": "patchGroup",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/ResourceTypes",
+    "controller": "ScimController",
+    "handler": "resourceTypes",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/ServiceProviderConfig",
+    "controller": "ScimController",
+    "handler": "serviceProviderConfig",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "controller": "ScimController",
+    "handler": "listUsers",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "controller": "ScimController",
+    "handler": "createUser",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/scim/v2/Users/:id",
+    "controller": "ScimController",
+    "handler": "deleteUser",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/scim/v2/Users/:id",
+    "controller": "ScimController",
+    "handler": "getUser",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/scim/v2/Users/:id",
+    "controller": "ScimController",
+    "handler": "patchUser",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/scim/v2/Users/:id",
+    "controller": "ScimController",
+    "handler": "replaceUser",
+    "file": "apps/api/src/scim/scim.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/search",
+    "controller": "SearchController",
+    "handler": "run",
+    "file": "apps/api/src/search/search.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/setup-checklist",
+    "controller": "SetupChecklistController",
+    "handler": "list",
+    "file": "apps/api/src/setup-checklist/setup-checklist.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/setup-checklist/:key/complete",
+    "controller": "SetupChecklistController",
+    "handler": "complete",
+    "file": "apps/api/src/setup-checklist/setup-checklist.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/setup-checklist/:key/dismiss",
+    "controller": "SetupChecklistController",
+    "handler": "dismiss",
+    "file": "apps/api/src/setup-checklist/setup-checklist.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "POST",
+    "path": "/setup-checklist/:key/reset",
+    "controller": "SetupChecklistController",
+    "handler": "reset",
+    "file": "apps/api/src/setup-checklist/setup-checklist.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": []
+  },
+  {
+    "method": "GET",
+    "path": "/sso/config",
+    "controller": "SsoController",
+    "handler": "get",
+    "file": "apps/api/src/sso/sso.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/sso/config",
+    "controller": "SsoController",
+    "handler": "upsert",
+    "file": "apps/api/src/sso/sso.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks",
+    "controller": "TasksController",
+    "handler": "list",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/tasks",
+    "controller": "TasksController",
+    "handler": "create",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/tasks/:id",
+    "controller": "TasksController",
+    "handler": "remove",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/:id",
+    "controller": "TasksController",
+    "handler": "getById",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/tasks/:id",
+    "controller": "TasksController",
+    "handler": "update",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/by-kpi/:kpiId",
+    "controller": "TasksController",
+    "handler": "byKpi",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/my-tasks",
+    "controller": "TasksController",
+    "handler": "myTasks",
+    "file": "apps/api/src/tasks/tasks.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/user-kpis/assign",
+    "controller": "UserKpisController",
+    "handler": "assign",
+    "file": "apps/api/src/user-kpis/user-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE",
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/user-kpis/assignments/:id",
+    "controller": "UserKpisController",
+    "handler": "unassign",
+    "file": "apps/api/src/user-kpis/user-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_CREATE",
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/user-kpis/my-kpis",
+    "controller": "UserKpisController",
+    "handler": "myKpis",
+    "file": "apps/api/src/user-kpis/user-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/user-kpis/my-kpis/:assignmentId/data",
+    "controller": "KpiDataController",
+    "handler": "recordPerUser",
+    "file": "apps/api/src/kpis/kpi-data.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_DATA_ENTRY"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/user-kpis/team",
+    "controller": "UserKpisController",
+    "handler": "team",
+    "file": "apps/api/src/user-kpis/user-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "KPI_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/user-kpis/user/:userId",
+    "controller": "UserKpisController",
+    "handler": "forUser",
+    "file": "apps/api/src/user-kpis/user-kpis.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/users",
+    "controller": "UsersController",
+    "handler": "list",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/users",
+    "controller": "UsersController",
+    "handler": "invite",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/users/:id",
+    "controller": "UsersController",
+    "handler": "getById",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_VIEW"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "OwnerOverride"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/users/:id/access-override",
+    "controller": "UsersController",
+    "handler": "deleteAccessOverride",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/users/:id/access-override",
+    "controller": "UsersController",
+    "handler": "getAccessOverride",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/users/:id/access-override",
+    "controller": "UsersController",
+    "handler": "upsertAccessOverride",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/users/:id/access-profile",
+    "controller": "UsersController",
+    "handler": "getAccessProfile",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/offboard",
+    "controller": "UsersController",
+    "handler": "offboard",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/purge",
+    "controller": "UsersController",
+    "handler": "purge",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/reactivate",
+    "controller": "UsersController",
+    "handler": "reactivate",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/suspend",
+    "controller": "UsersController",
+    "handler": "suspend",
+    "file": "apps/api/src/users/users.controller.ts",
+    "public": false,
+    "permissions": [
+      "USERS_MANAGE"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/webhooks",
+    "controller": "WebhooksController",
+    "handler": "list",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks",
+    "controller": "WebhooksController",
+    "handler": "create",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/webhooks/:id",
+    "controller": "WebhooksController",
+    "handler": "remove",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/webhooks/:id",
+    "controller": "WebhooksController",
+    "handler": "update",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/:id/rotate-secret",
+    "controller": "WebhooksController",
+    "handler": "rotateSecret",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/:id/test",
+    "controller": "WebhooksController",
+    "handler": "test",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/webhooks/events",
+    "controller": "WebhooksController",
+    "handler": "events",
+    "file": "apps/api/src/webhooks/webhooks.controller.ts",
+    "public": false,
+    "permissions": [],
+    "anyPermissions": [
+      "INTEGRATIONS_MANAGE",
+      "ORG_SETTINGS"
+    ],
+    "guards": [],
+    "decorators": [
+      "RequireAnyPermission"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/inbound/email",
+    "controller": "InboundEmailController",
+    "handler": "email",
+    "file": "apps/api/src/inbound-email/inbound-email.controller.ts",
+    "public": true,
+    "permissions": [],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "Public",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/workflows",
+    "controller": "WorkflowsController",
+    "handler": "list",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/workflows",
+    "controller": "WorkflowsController",
+    "handler": "create",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/workflows/:id",
+    "controller": "WorkflowsController",
+    "handler": "remove",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/workflows/:id",
+    "controller": "WorkflowsController",
+    "handler": "getById",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/workflows/:id",
+    "controller": "WorkflowsController",
+    "handler": "update",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/workflows/:id/trigger",
+    "controller": "WorkflowsController",
+    "handler": "trigger",
+    "file": "apps/api/src/workflows/workflows.controller.ts",
+    "public": false,
+    "permissions": [
+      "ORG_SETTINGS"
+    ],
+    "anyPermissions": [],
+    "guards": [],
+    "decorators": [
+      "RequirePermissions",
+      "HttpCode"
+    ]
+  }
+]

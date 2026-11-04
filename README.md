@@ -33,19 +33,22 @@ kpi-nexus-final/
 ├── apps/
 │   ├── web/         Next.js 15 — UI only, no DB
 │   ├── api/         NestJS 11 — HTTP + business logic
-│   ├── worker/      NestJS — BullMQ processors, same modules as api
+│   ├── worker/      NestJS scaffold (echo processor only) — the BullMQ
+│   │                processors currently run inside api (audit OT-003)
 │   └── ml/          Python FastAPI — stateless math service
 ├── packages/
 │   ├── contracts/   Zod schemas + TS types shared web ↔ api
 │   ├── db/          Prisma schema + migrations + client wrapper
 │   ├── ai/          Provider-agnostic AI layer
-│   ├── formula/     Formula parser + evaluator (isolated-vm sandbox)
+│   ├── formula/     Unused placeholder — the formula engine is
+│   │                apps/api/src/formula (hand-written parser + AST
+│   │                evaluator; no eval/Function)
 │   ├── ui/          Design tokens + theme + primitive utilities
 │   └── config/      Shared tsconfig / eslint / vitest / tailwind
 ├── infra/
 │   ├── docker/      docker-compose for local dev
-│   ├── fly/         fly.toml per service
-│   └── github/      CI workflows
+│   ├── fly/         (empty — deploy config not written yet, audit OT-011)
+│   └── github/      (empty — CI lives in .github/workflows)
 ├── docs/
 │   ├── superpowers/specs/   Design specs
 │   ├── superpowers/plans/   Per-phase implementation plans
@@ -64,7 +67,7 @@ kpi-nexus-final/
 | Node.js | 20 LTS (or 22) | Runtime for pnpm + apps |
 | pnpm | 9.x | Workspace package manager (`npm install -g pnpm@9`) |
 | Python | 3.12 | ML sidecar (apps/ml) |
-| Docker Desktop | 24+ | Postgres, Redis, MinIO, Mailhog, Jaeger via compose |
+| Docker Desktop | 24+ | Postgres, Redis, SeaweedFS (S3), Mailhog, Jaeger via compose |
 | git | any recent | Version control |
 
 ## Quick start
@@ -80,7 +83,7 @@ cp apps/web/.env.example apps/web/.env
 cp apps/worker/.env.example apps/worker/.env
 cp apps/ml/.env.example apps/ml/.env
 
-# 3. Bring up local infra (Postgres + TimescaleDB + Redis + MinIO + Mailhog + Jaeger)
+# 3. Bring up local infra (Postgres + TimescaleDB + Redis + SeaweedFS S3 + Mailhog + Jaeger)
 pnpm docker:up
 
 # 4. Provision database (probes Postgres, runs prisma push, verifies extensions)
@@ -131,8 +134,7 @@ pnpm docker:ps      # show container status
 | ML (FastAPI) | 8000 | http://localhost:8000 |
 | Postgres | 5432 | `postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus` |
 | Redis | 6379 | `redis://localhost:6379` |
-| MinIO API | 9000 | http://localhost:9000 |
-| MinIO Console | 9001 | http://localhost:9001 (minioadmin / minioadmin) |
+| S3 (SeaweedFS) | 9000 | http://localhost:9000 (key kpinexus / kpinexus-dev-secret) |
 | Mailhog SMTP | 1025 | (smtp) |
 | Mailhog UI | 8025 | http://localhost:8025 |
 | Jaeger UI | 16686 | http://localhost:16686 |
@@ -149,11 +151,9 @@ pnpm docker:ps      # show container status
 
 ## Current status
 
-Phase **P0 (Foundation)** code is merged to master. P1 (Identity + Tenancy + RBAC) is next. See:
-- [ROADMAP](./ROADMAP.md)
-- [P1 plan](./docs/superpowers/plans/P1-identity-tenancy-rbac.md)
+All ten phases (P0–P9) are implemented and tagged (`p0-complete` … `p9-complete`, `v1.0.0`); see [ROADMAP](./ROADMAP.md).
 
-Static verification (typecheck + lint + test + build) is green; live-infra acceptance (docker:up, db:setup, /health, e2e) ran end of the P0 session. `git tag p0-complete` was placed when those passed.
+A full audit (October 2026) is being worked through on branch `fix/full-audit`. Its findings, their status and the fix log are in [docs/audit/README.md](./docs/audit/README.md) — that is the current source of truth for what is broken or open. `TODOS.md` checkboxes predate v1.0.0 and are stale; trust its status banner instead.
 
 ## Context
 

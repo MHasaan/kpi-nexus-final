@@ -9,6 +9,8 @@ import { Logger } from 'nestjs-pino';
 
 import { ensureProviderKeysLoaded } from './ai/provider-key-loader.js';
 import { AppModule } from './app.module.js';
+import { assertProductionSecrets } from './config/secrets.js';
+import { fastifyTrustProxy } from './config/trust-proxy.js';
 
 async function bootstrap(): Promise<void> {
   // Load AI provider keys from the local .env even if a launcher pre-set them
@@ -19,9 +21,18 @@ async function bootstrap(): Promise<void> {
     AppModule,
     // maxParamLength default is 100, which 404s long path params — e.g. the public
     // embed-resolve token (/public/embed/kpi/:token, a ~200-char signed token).
-    new FastifyAdapter({ trustProxy: true, maxParamLength: 4096 }),
-    { bufferLogs: true },
+    // trustProxy: only honour X-Forwarded-* when TRUST_PROXY says a proxy is in
+    // front (read from the process environment, not .env). Otherwise req.ip is
+    // the socket peer and can't be spoofed to dodge per-IP rate limits.
+    new FastifyAdapter({ trustProxy: fastifyTrustProxy(process.env.TRUST_PROXY), maxParamLength: 4096 }),
+    // rawBody: keep the exact request bytes on `req.rawBody` so provider
+    // webhooks (Slack) can verify signatures over what was actually signed.
+    { bufferLogs: true, rawBody: true },
   );
+
+  // Refuse to run with a public dev-default secret in production (OT-008).
+  // After create(): ConfigModule has loaded .env by now.
+  assertProductionSecrets();
 
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { EmailService } from '../email/email.service.js';
+import { OutboundUrlBlockedError, outboundFetch } from '../outbound/outbound-fetch.js';
 
 export interface NotificationPayload {
   alertId: string;
@@ -84,15 +85,17 @@ export class NotificationAdaptersService {
 
   private async postJson(url: string, body: unknown): Promise<void> {
     if (!url) throw new NonRetryableDeliveryError('Channel missing target URL');
-    let res: Response;
+    let res: Awaited<ReturnType<typeof outboundFetch>>;
     try {
-      res = await fetch(url, {
+      res = await outboundFetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(10_000),
       });
     } catch (err) {
+      // An internal/forbidden target will never succeed — don't retry it.
+      if (err instanceof OutboundUrlBlockedError) throw new NonRetryableDeliveryError(err.message);
       // Network error — retryable.
       throw new Error(`Delivery network error: ${String(err)}`);
     }

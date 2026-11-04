@@ -22,7 +22,6 @@ import {
 import { WidgetEditor } from '../../../components/dashboard-grid/widget-editor';
 import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
 import {
-  TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
@@ -39,6 +38,7 @@ import {
   Segmented,
   Skeleton,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -48,9 +48,7 @@ const DashboardGrid = dynamic(
 
 export default function DashboardDetailPage() {
   return (
-    <TerminologyProvider>
-      <DashboardDetailInner />
-    </TerminologyProvider>
+    <DashboardDetailInner />
   );
 }
 
@@ -118,7 +116,7 @@ function DashboardDetailInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       if (err instanceof ApiError && err.status === 404) {
@@ -135,7 +133,7 @@ function DashboardDetailInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();

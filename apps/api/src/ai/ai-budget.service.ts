@@ -2,11 +2,12 @@ import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import type { CircuitBreakerMode } from '@kpi-nexus/contracts';
 import { Redis } from 'ioredis';
 
+import { attachRedisErrorLogger } from '../redis/redis-error-logger.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type BudgetDecision, evaluateBudget } from './ai-budget-policy.js';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 export interface SpendSnapshot {
   dailySpend: number;
@@ -36,7 +37,9 @@ export class AiBudgetService implements OnModuleDestroy {
   private readonly logger = new Logger(AiBudgetService.name);
   private readonly redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 2, lazyConnect: false });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    attachRedisErrorLogger(this.redis, this.logger, 'ai-budget');
+  }
 
   private dayKey(orgId: string): string {
     return `ai_budget:${orgId}:daily:${dayStamp(new Date())}`;

@@ -111,18 +111,18 @@ test.describe('Full happy-path: invite user → accept → role gating visible',
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText(inviteeEmail).first()).toBeVisible();
 
-    // 7. Permission gating: invitee is Employee → /roles is authenticated
-    //    (USERS_VIEW not in Employee perms BUT /roles is auth-only, not
-    //    perm-gated). The list endpoint allows authenticated users.
+    // 7. Permission gating: the Employee role lacks ROLES_MANAGE. The /roles
+    //    page is gated on it (redirect to /unauthorized), and — since the
+    //    frontend never trusts itself — the API refuses role creation too.
     await page.goto('/roles');
-    await expect(page.getByRole('heading', { name: /^Roles$/ })).toBeVisible();
-    // Employee role lacks ROLES_MANAGE — trying to create should error
-    await page.getByLabel('Name').fill(`Should-Not-Work-${suffix()}`);
-    const createResp = page.waitForResponse(
-      (r) => r.url().endsWith('/roles') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /^Create role$/ }).click();
-    expect((await createResp).status()).toBe(403);
+    await expect(page).toHaveURL(/\/unauthorized$/);
+    const inviteeToken = await page.evaluate(() => window.localStorage.getItem('kpi-nexus.access-token'));
+    expect(inviteeToken).toBeTruthy();
+    const createResp = await apiCtx.post('/roles', {
+      headers: { authorization: `Bearer ${inviteeToken}` },
+      data: { name: `Should-Not-Work-${suffix()}`, permissions: [] },
+    });
+    expect(createResp.status()).toBe(403);
 
     await apiCtx.dispose();
   });

@@ -98,14 +98,10 @@ export class KpisService {
     if (!kpi) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
-    // Enforce visibility on single-get too — Manager/Employee can't peek at
-    // PER_USER KPIs assigned to other users, even with the id.
-    const visibility = await this.buildVisibilityContext();
-    if (!visibility.isAdmin) {
-      const visible = await this.isVisibleToUser(kpi, visibility);
-      if (!visible) {
-        throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
-      }
+    // Same rule as GET /kpis (scope + assignments + category) — a KPI you can't
+    // list, you can't open by id either (BE-003). 404, no existence leak.
+    if (!(await this.accessContext.isKpiVisible(id))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
     return kpi;
   }
@@ -463,34 +459,6 @@ export class KpisService {
     const ctx = RequestContextStore.require();
     const profile = await this.accessContext.resolveForCurrentPrincipal();
     return kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
-  }
-
-  private async isVisibleToUser(
-    kpi: PublicKpi,
-    visibility: Awaited<ReturnType<KpisService['buildVisibilityContext']>>,
-  ): Promise<boolean> {
-    // Layer-3 category allowlist (Phase 3): KPIs outside the allowed categories are
-    // hidden for everyone the filter applies to — including ORG_WIDE. A null allowlist
-    // (admins + unconfigured roles) means all categories (parity).
-    if (
-      visibility.allowedCategoryIds != null &&
-      !(kpi.categoryId != null && visibility.allowedCategoryIds.includes(kpi.categoryId))
-    ) {
-      return false;
-    }
-    if (kpi.scope === 'ORG_WIDE') return true;
-    if (kpi.scope === 'PER_UNIT') {
-      const allowedUnits = new Set([
-        ...visibility.managedOrgUnitIds,
-        ...visibility.memberOrgUnitIds,
-      ]);
-      return kpi.orgUnitAssignments.some((a) => allowedUnits.has(a.orgUnitId));
-    }
-    if (kpi.scope === 'PER_USER') {
-      const allowedUsers = new Set([visibility.userId, ...visibility.directReportIds]);
-      return kpi.userAssignments.some((a) => allowedUsers.has(a.userId));
-    }
-    return false;
   }
 
   private assertScopeAssignments(

@@ -12,6 +12,14 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import { ConnectorsService } from './connectors.service.js';
 
+// The SSRF guard has its own spec (src/outbound/outbound-fetch.spec.ts). Here
+// the fake hostnames shouldn't hit DNS, and requests go to the stubbed fetch.
+vi.mock('../outbound/outbound-fetch.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../outbound/outbound-fetch.js')>()),
+  validateOutboundUrl: vi.fn(async () => undefined),
+  outboundFetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+}));
+
 interface FakeConnector {
   id: string;
   organizationId: string;

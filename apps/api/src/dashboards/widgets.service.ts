@@ -3,6 +3,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { assertSameTenant } from '../tenancy/assert-same-tenant.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
 import type {
@@ -37,6 +38,21 @@ export class WidgetsService {
   ) {}
 
   /** Reuses DashboardsService.getById, so visibility + tenancy are enforced. */
+  /**
+   * BE-021: KPI ids in a widget config (config.kpiId / config.kpiIds) must be
+   * this tenant's KPIs — otherwise a widget can point at another org's KPI.
+   */
+  private async assertConfigKpisInTenant(config: Record<string, unknown>, organizationId: string): Promise<void> {
+    if (typeof config.kpiId === 'string') {
+      await assertSameTenant(this.prisma, 'kPI', config.kpiId, organizationId, 'config.kpiId');
+    }
+    if (Array.isArray(config.kpiIds)) {
+      for (const id of config.kpiIds) {
+        if (typeof id === 'string') await assertSameTenant(this.prisma, 'kPI', id, organizationId, 'config.kpiIds');
+      }
+    }
+  }
+
   private async assertDashboardAccess(dashboardId: string): Promise<void> {
     await this.dashboards.getById(dashboardId);
   }
@@ -53,6 +69,7 @@ export class WidgetsService {
   async add(dashboardId: string, dto: AddWidgetDto): Promise<PublicWidget> {
     const ctx = RequestContextStore.require();
     await this.assertDashboardAccess(dashboardId);
+    await this.assertConfigKpisInTenant(dto.config, ctx.organizationId);
 
     // Default sortOrder to (max existing + 1) so newly added widgets land
     // at the bottom of the explicit order.
@@ -86,6 +103,9 @@ export class WidgetsService {
   ): Promise<PublicWidget> {
     await this.assertDashboardAccess(dashboardId);
     const existing = await this.findWidget(dashboardId, widgetId);
+    if (dto.config) {
+      await this.assertConfigKpisInTenant(dto.config, RequestContextStore.require().organizationId);
+    }
 
     const updated = await this.prisma.dashboardWidget.update({
       where: { id: existing.id },

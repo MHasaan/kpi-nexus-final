@@ -7,6 +7,7 @@ import {
   clampHistoryFrom,
   clampTake,
   kpiContextFromProfile,
+  kpiDataPointScopeWhere,
   type KpiVisibilityContext,
   type KpiVisibilityOrBranch,
 } from './kpi-visibility.js';
@@ -379,5 +380,41 @@ describe('clampTake — Layer-4 row cap (Phase 4)', () => {
   });
   test('max above take ⇒ take', () => {
     expect(clampTake(50, 1000)).toBe(50);
+  });
+});
+
+// BE-003: the data / summary paths hand-rolled "units + reports" for data
+// points and ignored the KPIS scope, so a SELF-scoped user saw unit data.
+describe('kpiDataPointScopeWhere — which points of a visible KPI a principal may read (BE-003)', () => {
+  const base = {
+    organizationId: 'org',
+    userId: 'me',
+    isAdmin: false,
+    managedOrgUnitIds: ['u_managed'],
+    memberOrgUnitIds: ['u_member'],
+    directReportIds: ['r1'],
+  };
+
+  test('admin or ORG scope → unrestricted', () => {
+    expect(kpiDataPointScopeWhere('PER_USER', { ...base, isAdmin: true, scope: 'SELF' })).toEqual({});
+    expect(kpiDataPointScopeWhere('PER_UNIT', { ...base, scope: 'ORG' })).toEqual({});
+  });
+
+  test('ORG_WIDE KPI → unrestricted at any scope', () => {
+    expect(kpiDataPointScopeWhere('ORG_WIDE', { ...base, scope: 'SELF' })).toEqual({});
+  });
+
+  test('PER_USER: SELF → own points only; DIRECT_REPORTS/UNITS → self + reports', () => {
+    expect(kpiDataPointScopeWhere('PER_USER', { ...base, scope: 'SELF' })).toEqual({ userId: { in: ['me'] } });
+    expect(kpiDataPointScopeWhere('PER_USER', { ...base, scope: 'DIRECT_REPORTS' })).toEqual({ userId: { in: ['me', 'r1'] } });
+    expect(kpiDataPointScopeWhere('PER_USER', { ...base, scope: 'UNITS' })).toEqual({ userId: { in: ['me', 'r1'] } });
+  });
+
+  test('PER_UNIT: only at UNITS scope (managed ∪ member); narrower scopes see none', () => {
+    expect(kpiDataPointScopeWhere('PER_UNIT', { ...base, scope: 'UNITS' })).toEqual({
+      orgUnitId: { in: ['u_managed', 'u_member'] },
+    });
+    expect(kpiDataPointScopeWhere('PER_UNIT', { ...base, scope: 'SELF' })).toEqual({ orgUnitId: { in: [] } });
+    expect(kpiDataPointScopeWhere('PER_UNIT', { ...base, scope: 'DIRECT_REPORTS' })).toEqual({ orgUnitId: { in: [] } });
   });
 });

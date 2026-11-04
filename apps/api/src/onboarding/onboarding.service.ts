@@ -7,8 +7,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { deriveDraftToken, hashDraftToken, mergeDraft, verifyDraftToken } from './draft-token.js';
 import { type TemplatePayload, validateTemplatePayload } from '../org-templates/template-payload.js';
+import { ONBOARDING_DRAFT_SPEC, resolveSecret } from '../config/secrets.js';
 
-const DRAFT_SECRET = process.env.ONBOARDING_DRAFT_SECRET ?? process.env.JWT_SECRET ?? 'dev-onboarding-secret';
+// Resolved lazily: a module-level constant is evaluated before ConfigModule has
+// loaded .env, so it silently ignored ONBOARDING_DRAFT_SECRET / JWT_SECRET from
+// .env and used the public dev default. Dev default refused in production (OT-008).
+const draftSecret = (): string => resolveSecret(ONBOARDING_DRAFT_SPEC);
 const VALID_SIZE_TIERS = new Set(['SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE']);
 
 function mapTrack(track: string): 'IC' | 'MANAGEMENT' | 'EXECUTIVE' {
@@ -43,7 +47,7 @@ export class OnboardingService {
           payload: { organization: { name: input.organizationName } } as unknown as object,
         },
       });
-      const draftToken = deriveDraftToken(session.id, DRAFT_SECRET);
+      const draftToken = deriveDraftToken(session.id, draftSecret());
       await this.prisma.onboardingSession.update({
         where: { id: session.id },
         data: { draftTokenHash: hashDraftToken(draftToken) },
@@ -100,13 +104,15 @@ export class OnboardingService {
    */
   async cleanupStale(olderThanDays = 30): Promise<{ cleaned: number }> {
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
-    const result = await this.prisma.onboardingSession.updateMany({
-      where: {
-        status: 'in_progress',
-        updatedAt: { lt: cutoff },
-      },
-      data: { status: 'archived' },
-    });
+    const result = await RequestContextStore.runWithBypass('onboarding-cleanup', () =>
+      this.prisma.onboardingSession.updateMany({
+        where: {
+          status: 'in_progress',
+          updatedAt: { lt: cutoff },
+        },
+        data: { status: 'archived' },
+      }),
+    );
     return { cleaned: result.count };
   }
 

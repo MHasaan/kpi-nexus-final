@@ -7,25 +7,31 @@ interface ListWidgetProps {
   summaryRows?: DashboardSummaryRow[];
 }
 
+// Server-computed, direction-aware status (FE-001): the old latest/target ratio
+// painted an over-target lower-is-better KPI (e.g. churn) green.
+const STATUS_COLOR: Record<string, string> = {
+  OFF_TRACK: 'text-status-critical',
+  AT_RISK: 'text-status-warning',
+  ON_TRACK: 'text-status-success',
+};
+// Problems first, then healthy, then no target / no data.
+const STATUS_RANK: Record<string, number> = { OFF_TRACK: 0, AT_RISK: 1, ON_TRACK: 2 };
+
 function statusColor(row: DashboardSummaryRow): string {
-  if (!row.latestValue || !row.targetValue) return 'text-content-muted';
-  const pct = row.latestValue / row.targetValue;
-  if (pct < 0.5) return 'text-status-critical';
-  if (pct < 0.8) return 'text-status-warning';
-  return 'text-status-success';
+  return STATUS_COLOR[row.status] ?? 'text-content-muted';
 }
 
 export function ListWidget({ widget, summaryRows = [] }: ListWidgetProps) {
   const title = widget.title ?? 'KPI List';
   const maxItems = (widget.config['maxItems'] as number | undefined) ?? 10;
 
-  // Sort by at-risk: lowest (latestValue / targetValue) first
+  // Sort by status (off track first), then lowest attainment within a status.
   const sorted = [...summaryRows]
-    .sort((a, b) => {
-      const ar = a.targetValue ? (a.latestValue ?? 0) / a.targetValue : 1;
-      const br = b.targetValue ? (b.latestValue ?? 0) / b.targetValue : 1;
-      return ar - br;
-    })
+    .sort(
+      (a, b) =>
+        (STATUS_RANK[a.status] ?? 3) - (STATUS_RANK[b.status] ?? 3) ||
+        (a.attainmentPct ?? Infinity) - (b.attainmentPct ?? Infinity),
+    )
     .slice(0, maxItems);
 
   return (

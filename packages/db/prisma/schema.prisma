@@ -207,6 +207,47 @@ model Organization {
   apiKeys               ApiKey[]
 
   @@index([tenantStatus])
+
+  // Tenant FKs (OT-016) — rows go with their organization
+  aiBudget AiBudget?
+  aiCallLogs AiCallLog[]
+  aiFeatureConfigs AiFeatureConfig[]
+  aiProviders AiProvider[]
+  anomalyDetections AnomalyDetection[]
+  approvalRequests ApprovalRequest[]
+  approvalWorkflows ApprovalWorkflow[]
+  comments Comment[]
+  connectors Connector[]
+  forecasts Forecast[]
+  formulaExpressions FormulaExpression[]
+  ingestionJobs IngestionJob[]
+  integrationConnections IntegrationConnection[]
+  kpiAssignmentOrgUnits KPIAssignmentOrgUnit[]
+  kpiAssignmentUsers KPIAssignmentUser[]
+  kpiBenchmarks KPIBenchmark[]
+  kpiCascades KPICascade[]
+  kpiDependencys KPIDependency[]
+  kpiInsights KPIInsight[]
+  kpiTargets KPITarget[]
+  kpiTemplates KPITemplate[]
+  kpiThresholdBands KPIThresholdBand[]
+  keyResults KeyResult[]
+  kpiCatalogEmbeddings KpiCatalogEmbedding[]
+  lineageEdges LineageEdge[]
+  loginAttempts LoginAttempt[]
+  mentions Mention[]
+  nlqQuerys NLQQuery[]
+  objectives Objective[]
+  onboardingSessions OnboardingSession[]
+  onboardingTasks OnboardingTask[]
+  orgTemplates OrgTemplate[]
+  pipelines Pipeline[]
+  plugins Plugin[]
+  recommendations Recommendation[]
+  scimTokens ScimToken[]
+  ssoConfig SsoConfig?
+  tasks Task[]
+  workflows Workflow[]
 }
 
 model CustomDomain {
@@ -332,6 +373,7 @@ model LoginAttempt {
   id             String             @id @default(cuid())
   email          String
   organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String?
   status         LoginAttemptStatus
   reason         String?
@@ -844,6 +886,7 @@ model KPIVersion {
 model KPIAssignmentOrgUnit {
   id                  String   @id @default(cuid())
   organizationId      String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId               String
   kpi                 KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
   orgUnitId           String
@@ -866,6 +909,7 @@ model KPIAssignmentOrgUnit {
 model KPIAssignmentUser {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String
   kpi            KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
   userId         String
@@ -976,6 +1020,7 @@ enum RollupMethod {
 model KPICascade {
   id              String       @id @default(cuid())
   organizationId  String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   parentKpiId     String
   parentKpi       KPI          @relation("CascadeParent", fields: [parentKpiId], references: [id], onDelete: Cascade)
   childKpiId      String
@@ -1384,6 +1429,7 @@ enum KPITargetType {
 model KPITarget {
   id              String        @id @default(cuid())
   organizationId  String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId           String
   type            KPITargetType @default(STATIC)
   value           Float?
@@ -1415,6 +1461,7 @@ model KPITarget {
 model KPIThresholdBand {
   id                        String   @id @default(cuid())
   organizationId            String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId                     String
   name                      String
   lower                     Float?
@@ -1441,6 +1488,7 @@ model KPIThresholdBand {
 model KPIBenchmark {
   id             String    @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String
   kind           String
   value          Float
@@ -1465,6 +1513,7 @@ model KPIBenchmark {
 model KPITemplate {
   id                String             @id @default(cuid())
   organizationId    String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   slug              String             @unique
   name              String
   description       String?
@@ -1501,6 +1550,7 @@ model KPITemplate {
 model LineageEdge {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sourceType     String
   sourceId       String
   targetType     String
@@ -1526,6 +1576,7 @@ model LineageEdge {
 model FormulaExpression {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String   @unique
   raw            String
   ast            Json
@@ -1542,6 +1593,7 @@ model FormulaExpression {
 model KPIDependency {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sourceKpiId    String
   dependentKpiId String
   formulaRef     String?
@@ -1580,6 +1632,7 @@ enum CircuitBreakerMode {
 model AiProvider {
   id                   String        @id @default(cuid())
   organizationId       String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   key                  AiProviderKey
   displayName          String
   isEnabled            Boolean       @default(true)
@@ -1598,6 +1651,7 @@ model AiProvider {
 model AiFeatureConfig {
   id                 String   @id @default(cuid())
   organizationId     String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   feature            String
   providerId         String
   model              String
@@ -1616,6 +1670,7 @@ model AiFeatureConfig {
 model AiCallLog {
   id             String        @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   feature        String
   providerKey    AiProviderKey
   modelId        String
@@ -1639,6 +1694,7 @@ model AiCallLog {
 model AiBudget {
   id                  String             @id @default(cuid())
   organizationId      String             @unique
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   dailyCapUsd         Float              @default(1.0)
   monthlyCapUsd       Float              @default(30.0)
   circuitBreaker      CircuitBreakerMode @default(FAIL_CLOSED)
@@ -1663,6 +1719,7 @@ enum RecommendationStatus {
 model KPIInsight {
   id               String    @id @default(cuid())
   organizationId   String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId            String
   narrative        String
   model            String
@@ -1687,6 +1744,7 @@ model KPIInsight {
 model Recommendation {
   id             String               @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String
   alertId        String?
   anomalyId      String?
@@ -1713,6 +1771,7 @@ model Recommendation {
 model KpiCatalogEmbedding {
   id               String                        @id @default(cuid())
   organizationId   String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId            String
   embedding_openai Unsupported("vector(1536)")?
   embedding_gemini Unsupported("vector(768)")?
@@ -1730,6 +1789,7 @@ model KpiCatalogEmbedding {
 model NLQQuery {
   id             String        @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
   question       String
   response       Json
@@ -1762,6 +1822,7 @@ enum ForecastModelKind {
 model AnomalyDetection {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String
   dataPointId    String?
   score          Float
@@ -1780,6 +1841,7 @@ model AnomalyDetection {
 model Forecast {
   id             String            @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String
   horizon        Int
   model          ForecastModelKind
@@ -1813,6 +1875,7 @@ enum OnboardingAiMode {
 model OnboardingSession {
   id               String           @id @default(cuid())
   organizationId   String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationName String
   userId           String?
   userEmail        String
@@ -1854,6 +1917,7 @@ model OnboardingAIInteraction {
 model OrgTemplate {
   id             String   @id @default(cuid())
   organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   slug           String   @unique
   name           String
   description    String?
@@ -1875,6 +1939,7 @@ model OrgTemplate {
 model OnboardingTask {
   id             String    @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   key            String
   status         String    @default("pending")
   dueAt          DateTime?
@@ -1934,6 +1999,7 @@ enum ApprovalRequestStatus {
 model Task {
   id             String       @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kpiId          String?
   alertId        String?
   title          String
@@ -1957,6 +2023,7 @@ model Task {
 model Comment {
   id               String    @id @default(cuid())
   organizationId   String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entityType       String // "kpi" | "dashboard" | "alert" | "task" | "objective"
   entityId         String
   parentCommentId  String? // threading
@@ -1975,6 +2042,7 @@ model Comment {
 model Mention {
   id              String    @id @default(cuid())
   organizationId  String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   commentId       String
   mentionedUserId String
   readAt          DateTime?
@@ -1989,6 +2057,7 @@ model Mention {
 model Objective {
   id                String          @id @default(cuid())
   organizationId    String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name              String
   description       String?
   ownerUserId       String
@@ -2009,6 +2078,7 @@ model Objective {
 model KeyResult {
   id             String   @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   objectiveId    String
   name           String
   description    String?
@@ -2029,6 +2099,7 @@ model KeyResult {
 model ApprovalWorkflow {
   id                      String             @id @default(cuid())
   organizationId          String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entityType              ApprovalEntityType
   requiredApproverRoleIds String[]
   requireAll              Boolean            @default(false)
@@ -2045,6 +2116,7 @@ model ApprovalWorkflow {
 model ApprovalRequest {
   id              String                @id @default(cuid())
   organizationId  String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   workflowId      String
   entityType      ApprovalEntityType
   entityId        String
@@ -2068,6 +2140,7 @@ model ApprovalRequest {
 model Workflow {
   id             String    @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   description    String?
   triggers       String[]
@@ -2124,6 +2197,7 @@ enum PluginType {
 model IntegrationConnection {
   id              String                      @id @default(cuid())
   organizationId  String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   provider        String
   displayName     String?
   encryptedTokens Json
@@ -2144,6 +2218,7 @@ model IntegrationConnection {
 model Connector {
   id             String        @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   type           ConnectorType
   config         Json
@@ -2163,6 +2238,7 @@ model Connector {
 model Pipeline {
   id             String         @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connectorId    String
   name           String
   steps          Json
@@ -2178,6 +2254,7 @@ model Pipeline {
 model IngestionJob {
   id             String    @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kind           String
   source         Json
   status         String
@@ -2194,6 +2271,7 @@ model IngestionJob {
 model Plugin {
   id             String     @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   type           PluginType
   version        String
@@ -2221,6 +2299,7 @@ enum SsoProtocol {
 model SsoConfig {
   id                   String      @id @default(cuid())
   organizationId       String      @unique
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   protocol             SsoProtocol
   idpEntityId          String?
   idpSsoUrl            String?
@@ -2237,6 +2316,7 @@ model SsoConfig {
 model ScimToken {
   id             String    @id @default(cuid())
   organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   label          String
   hashedToken    String    @unique
   expiresAt      DateTime?

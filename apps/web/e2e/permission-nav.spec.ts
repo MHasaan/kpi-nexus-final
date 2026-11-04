@@ -111,7 +111,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(page.getByLabel('URL slug')).toHaveValue(orgName);
     await page.getByLabel('Your full name').fill('Nav Admin');
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const registerResp = page.waitForResponse(
       (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
@@ -127,12 +127,14 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
       nav.getByRole('link', { name: 'Dashboard', exact: true }),
     ).toBeVisible();
     await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible();
     // Admin-only entries present:
     await expect(nav.getByRole('link', { name: 'Roles' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Settings' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Members' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Teams' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'People' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Org units' })).toBeVisible();
+    // Profile moved from the sidebar into the account menu (shell redesign).
+    await page.getByTestId('appshell-user-menu').click();
+    await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
   });
 
   test('Employee user → gated nav entries hidden + /roles redirects to /unauthorized', async ({
@@ -202,15 +204,18 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(
       nav.getByRole('link', { name: 'Dashboard', exact: true }),
     ).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible(); // KPI_VIEW
     await expect(nav.getByRole('link', { name: 'Alerts' })).toBeVisible(); // ALERTS_VIEW
 
     // … but the entries the Employee lacks must be hidden.
     await expect(nav.getByRole('link', { name: 'Roles' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Settings' })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Members' })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Teams' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'People' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Org units' })).toHaveCount(0);
+    // Profile is in the account menu for everyone.
+    await page.getByTestId('appshell-user-menu').click();
+    await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
+    await page.keyboard.press('Escape');
 
     // 4. Route guard: visiting /roles directly redirects to /unauthorized.
     await page.goto('/roles');
@@ -299,7 +304,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     const adminPage = await adminContext.newPage();
     await adminPage.goto('/login');
     await adminPage.getByLabel(/email/i).fill(adminEmail);
-    await adminPage.getByLabel(/password/i).fill(adminPassword);
+    await adminPage.getByLabel('Password', { exact: true }).fill(adminPassword);
     const loginResp = adminPage.waitForResponse(
       (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
     );

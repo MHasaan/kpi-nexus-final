@@ -23,6 +23,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const PURGE_WINDOW_DAYS = 30;
 
@@ -52,7 +53,7 @@ export default function DashboardArchivePage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     load();

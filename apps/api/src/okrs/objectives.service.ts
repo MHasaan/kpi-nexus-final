@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -6,10 +6,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
-import type {
-  CreateObjectiveDto,
-  ListObjectivesQuery,
-  UpdateObjectiveDto,
+import {
+  periodOrdered,
+  type CreateObjectiveDto,
+  type ListObjectivesQuery,
+  type UpdateObjectiveDto,
 } from './dto/okr.dto.js';
 import { keyResultProgress, objectiveProgress } from './progress-math.js';
 
@@ -118,8 +119,22 @@ export class ObjectivesService {
   }
 
   async update(id: string, dto: UpdateObjectiveDto): Promise<PublicObjective> {
-    await this.getById(id);
-    if (dto.parentObjectiveId) await this.getById(dto.parentObjectiveId);
+    const current = await this.getById(id);
+    if (dto.parentObjectiveId) {
+      await this.getById(dto.parentObjectiveId);
+      await this.assertNotOwnAncestor(id, dto.parentObjectiveId);
+    }
+    if (
+      !periodOrdered({
+        periodStart: dto.periodStart ?? current.periodStart,
+        periodEnd: dto.periodEnd ?? current.periodEnd,
+      })
+    ) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'periodEnd must be on or after periodStart',
+      });
+    }
     const updated = await this.prisma.objective.update({
       where: { id },
       data: {
@@ -135,6 +150,31 @@ export class ObjectivesService {
     });
     await this.audit.record({ action: 'UPDATE', entityType: 'Objective', entityId: id });
     return updated;
+  }
+
+  /**
+   * Reject a re-parent that would make `id` its own ancestor (BE-020). Walks up
+   * from the proposed parent within the org — unscoped, so an ancestor the caller
+   * can't see still counts. A visited set stops on cycles already in the data.
+   */
+  private async assertNotOwnAncestor(id: string, parentId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const visited = new Set<string>();
+    let cursor: string | null = parentId;
+    while (cursor && !visited.has(cursor)) {
+      if (cursor === id) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'An objective cannot be aligned under itself or one of its own sub-objectives',
+        });
+      }
+      visited.add(cursor);
+      const row: { parentObjectiveId: string | null } | null = await this.prisma.objective.findFirst({
+        where: { id: cursor, organizationId: ctx.organizationId },
+        select: { parentObjectiveId: true },
+      });
+      cursor = row?.parentObjectiveId ?? null;
+    }
   }
 
   async remove(id: string): Promise<void> {

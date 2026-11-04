@@ -124,7 +124,9 @@ describe('AccountService.updateProfile', () => {
   });
 });
 
-describe('AccountService.changePassword', () => {
+// Real bcrypt at cost 12 (several hashes per test): fast when idle, but it can
+// exceed the 5s default while the whole suite runs in parallel.
+describe('AccountService.changePassword', { timeout: 30_000 }, () => {
   test('rejects when current password is wrong', async () => {
     const currentHash = await bcrypt.hash('RightCurrent1', 12);
     const { service, updateMock, revokeAllMock } = makeMocks({ passwordHash: currentHash });

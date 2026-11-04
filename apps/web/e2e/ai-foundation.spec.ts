@@ -62,7 +62,7 @@ test('ai configs: lists 11 features with defaults, overrides one, reverts it', a
   expect(list.every((c) => c.isOverride === false)).toBe(true);
   const nlq = list.find((c) => c.feature === 'NLQ_PRIMARY')!;
   expect(nlq.provider).toBe('GEMINI');
-  expect(nlq.model).toBe('gemini-2.5-flash');
+  expect(nlq.model).toBe('gemini-3.5-flash'); // free-tier reasoning tier (2026-10-09)
 
   // Override INSIGHTS to Claude.
   const put = await api.put('/ai/configs/INSIGHTS', {

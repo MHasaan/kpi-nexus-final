@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+import { attachRedisErrorLogger } from '../redis/redis-error-logger.js';
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -11,14 +11,26 @@ export interface RateLimitResult {
 /**
  * Redis ZSET sliding-window rate limiter. Each request adds a timestamped
  * member; old members outside the window are evicted; the live count is
- * compared to the limit. Fails OPEN (allow) on a Redis error so a cache hiccup
+ * compared to the limit, and a refused request's member is removed again so
+ * only admitted requests count. Fails OPEN (allow) on a Redis error so a cache hiccup
  * never takes the API down.
  */
 @Injectable()
 export class RateLimitService implements OnModuleDestroy {
   private readonly logger = new Logger(RateLimitService.name);
-  private readonly redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 2, lazyConnect: false });
+  // Read at construction (after ConfigModule loaded .env), not at module load.
+  private readonly redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379', {
+    maxRetriesPerRequest: 2,
+    lazyConnect: false,
+    // This runs on EVERY request (global guard). A frozen Redis (socket open, no
+    // replies) must not hang the API: reject the command so consume() fails open.
+    commandTimeout: 1_000,
+  });
   private seq = 0;
+
+  constructor() {
+    attachRedisErrorLogger(this.redis, this.logger, 'rate-limit');
+  }
 
   async consume(bucketKey: string, limit: number, windowSec: number, nowMs: number): Promise<RateLimitResult> {
     const windowStart = nowMs - windowSec * 1000;
@@ -33,7 +45,16 @@ export class RateLimitService implements OnModuleDestroy {
         .exec();
       // result[2] = [err, count] from ZCARD.
       const count = Number(result?.[2]?.[1] ?? 0);
-      return { allowed: count <= limit, remaining: Math.max(0, limit - count) };
+      if (count > limit) {
+        // Refused: take the attempt back out so only ADMITTED requests occupy
+        // the window. Otherwise sustained spam keeps a bucket full forever —
+        // for a shared bucket (the onboarding-AI daily cap) that's a lockout
+        // for everyone (BE-010).
+        // Best effort: a failed cleanup must not flip this refusal to "allow".
+        await this.redis.zrem(bucketKey, member).catch(() => undefined);
+        return { allowed: false, remaining: 0 };
+      }
+      return { allowed: true, remaining: limit - count };
     } catch (err) {
       this.logger.warn(`rate-limit consume failed for ${bucketKey} (failing open): ${String(err)}`);
       return { allowed: true, remaining: limit };

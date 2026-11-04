@@ -28,6 +28,8 @@ const mockKpis = {
 
 // Layer-4 data limits — null ⇒ unlimited / parity (admin default).
 const mockAccessContext = {
+  // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
+  isKpiAnalyticsAllowed: vi.fn(async () => true),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -55,7 +57,7 @@ beforeEach(() => {
     maxExportRows: null,
   });
   mockKpis.getById.mockResolvedValue({ id: 'kpi_1' });
-  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([{ value: 1, recordedAt: new Date('2026-01-01') }]);
   mockPrisma.forecast.create.mockResolvedValue({ id: 'fc_1' });
   mockMl.post.mockResolvedValue({ predictions: [], fitMetrics: {}, model: 'naive' });
   vi.spyOn(RequestContextStore, 'require').mockReturnValue({
@@ -120,5 +122,25 @@ describe('ForecastsService.forecast', () => {
     expect(call.where.organizationId).toBe(ORG);
     expect(call.where.kpiId).toBe('kpi_1');
     expect(call.where.recordedAt).toBeUndefined();
+  });
+});
+
+describe('ForecastsService.forecast with no data (BE-024)', () => {
+  it('answers 422 INSUFFICIENT_DATA instead of asking the sidecar to forecast an empty series', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+    await expect(makeSvc().forecast('kpi_1', { horizon: 7 })).rejects.toMatchObject({
+      status: 422,
+      response: { code: 'INSUFFICIENT_DATA' },
+    });
+    expect(mockMl.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('ForecastsService.forecast — ANALYTICS scope (BE-004)', () => {
+  it('a visible KPI outside the ANALYTICS scope is a 404 and never reaches the sidecar', async () => {
+    mockAccessContext.isKpiAnalyticsAllowed.mockResolvedValueOnce(false);
+    await expect(makeSvc().forecast('kpi_1', { horizon: 7 })).rejects.toMatchObject({ status: 404 });
+    expect(mockMl.post).not.toHaveBeenCalled();
+    expect(mockPrisma.kPIDataPoint.findMany).not.toHaveBeenCalled();
   });
 });

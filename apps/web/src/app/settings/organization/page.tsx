@@ -15,15 +15,13 @@ import {
 } from '../../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../../lib/terminology-context';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function OrganizationSettingsPage() {
   return (
-    <TerminologyProvider>
-      <OrganizationSettingsInner />
-    </TerminologyProvider>
+    <OrganizationSettingsInner />
   );
 }
 
@@ -64,7 +62,7 @@ function OrganizationSettingsInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getMyOrganization()
@@ -98,7 +96,7 @@ function OrganizationSettingsInner() {
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setError(err instanceof ApiError ? err.message : 'Failed to load settings');

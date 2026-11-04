@@ -2,33 +2,53 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { KpiDataService } from '../../kpis/kpi-data.service.js';
+import type { KpiHealthStatus } from '../../kpis/kpi-health.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 
-export interface BoardPackKpiSummary {
+/** Board-level health of one KPI — the shared server rule (kpis/kpi-health.ts). */
+export type BoardPackStatus = KpiHealthStatus;
+
+export interface BoardPackMover {
   kpiId: string;
   name: string;
   unit: string | null;
-  latestValue: number | null;
+  previousValue: number | null;
+  currentValue: number | null;
   change: number | null;
-  pointCount: number;
+  changePct: number | null;
+}
+
+export interface BoardPackQuadrantKpi {
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  value: number | null;
+  status: BoardPackStatus;
 }
 
 export interface BoardPackQuadrant {
-  /** Category name — from KPICategory.name or 'All KPIs' if no category set. */
+  /** KPI category name ('Uncategorized' when none). */
   name: string;
-  /** Count of KPIs in each health bucket. */
-  health: { ok: number; warning: number; critical: number; unknown: number };
-  /** Top 5 KPIs by latest value (desc), or all if fewer than 5. */
-  topKpis: Array<{ kpiId: string; name: string; latestValue: number | null }>;
+  /** Problems first (OFF_TRACK, AT_RISK), then ON_TRACK, then no target/data. */
+  kpis: BoardPackQuadrantKpi[];
+  /** Count of KPIs per status (only statuses that occur). */
+  healthDistribution: Partial<Record<BoardPackStatus, number>>;
 }
 
+/**
+ * Shape consumed by apps/web/src/lib/api-client.ts (BoardPack). It drifted
+ * from the web contract (topKpis/latestValue/health) and crashed the page
+ * (BE-027 / FE-012).
+ */
 export interface BoardPackResult {
-  org: { name: string };
+  org: { id: string; name: string };
   period: { sinceDays: number; from: Date; to: Date };
-  /** Top 6 KPIs by largest absolute change (desc). */
-  topMovers: BoardPackKpiSummary[];
+  /** Up to 6 KPIs with the largest |% change| over the period. */
+  topMovers: BoardPackMover[];
   quadrants: BoardPackQuadrant[];
 }
+
+const STATUS_ORDER: BoardPackStatus[] = ['OFF_TRACK', 'AT_RISK', 'ON_TRACK', 'NO_TARGET', 'NO_DATA'];
 
 @Injectable()
 export class BoardPackService {
@@ -38,162 +58,83 @@ export class BoardPackService {
   ) {}
 
   /**
-   * Compose a board-pack JSON result.
-   * Uses KpiDataService.dashboardSummary for all visible KPIs in the window,
-   * then adds category grouping and top-movers ranking.
+   * Compose the board pack for the last `sinceDays`.
+   *
+   * "Current" is each KPI's latest value whose period ended by now; "previous"
+   * is the latest whose period ended by the window start. Both come from
+   * dashboardSummary, so visibility + data limits apply exactly as on the
+   * dashboard. (Asking dashboardSummary for points *inside* the window — what
+   * this used to do — requires a period to fit entirely in it, so a monthly
+   * KPI never showed in a 30-day pack: every value was null — BE-027.)
    */
   async compose({ sinceDays }: { sinceDays: number }): Promise<BoardPackResult> {
     const ctx = RequestContextStore.require();
-
     const to = new Date();
     const from = new Date(to.getTime() - sinceDays * 24 * 60 * 60 * 1000);
 
-    // Org name for the report header.
-    const org = await this.prisma.organization.findUnique({
-      where: { id: ctx.organizationId },
-      select: { name: true },
+    const [org, current, previous] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { id: true, name: true } }),
+      this.kpiData.dashboardSummary({ to }),
+      this.kpiData.dashboardSummary({ to: from }),
+    ]);
+    const result: BoardPackResult = {
+      org: { id: ctx.organizationId, name: org?.name ?? 'Unknown Org' },
+      period: { sinceDays, from, to },
+      topMovers: [],
+      quadrants: [],
+    };
+    if (current.length === 0) return result;
+
+    const previousById = new Map(previous.map((r) => [r.kpiId, r.latestValue]));
+    const kpiRows = await this.prisma.kPI.findMany({
+      where: { id: { in: current.map((r) => r.kpiId) }, organizationId: ctx.organizationId, deletedAt: null },
+      select: { id: true, category: { select: { name: true } } },
     });
-    const orgName = org?.name ?? 'Unknown Org';
+    const categoryById = new Map(kpiRows.map((k) => [k.id, k.category?.name ?? null]));
 
-    // dashboardSummary returns one row per visible KPI with latestValue + aggregatedValue.
-    const summary = await this.kpiData.dashboardSummary({ from, to });
-
-    if (summary.length === 0) {
-      return {
-        org: { name: orgName },
-        period: { sinceDays, from, to },
-        topMovers: [],
-        quadrants: [],
-      };
-    }
-
-    // Build the KPI summary list with change.
-    // `aggregatedValue` is computed over the window — we approximate change as
-    // (latestValue - aggregatedValue) which gives meaningful signal when
-    // aggregationMethod is LAST / FIRST (the most common case).
-    // For SUM/AVG methods this is less meaningful but still sortable.
-    const kpiSummaries: BoardPackKpiSummary[] = summary.map((row) => {
-      const change =
-        row.latestValue !== null && row.aggregatedValue !== null
-          ? row.latestValue - row.aggregatedValue
-          : null;
-      return {
-        kpiId: row.kpiId,
-        name: row.name,
-        unit: row.unit,
-        latestValue: row.latestValue,
-        change,
-        pointCount: row.pointCount,
-      };
-    });
-
-    // Top 6 movers by |change| descending.
-    const topMovers = [...kpiSummaries]
-      .filter((k) => k.change !== null)
-      .sort((a, b) => Math.abs(b.change!) - Math.abs(a.change!))
+    // ── Top movers ──────────────────────────────────────────────────────────
+    result.topMovers = current
+      .map((r): BoardPackMover => {
+        const prev = previousById.get(r.kpiId) ?? null;
+        const change = r.latestValue !== null && prev !== null ? r.latestValue - prev : null;
+        return {
+          kpiId: r.kpiId,
+          name: r.name,
+          unit: r.unit,
+          previousValue: prev,
+          currentValue: r.latestValue,
+          change,
+          changePct: change !== null && prev !== null && prev !== 0 ? (change / Math.abs(prev)) * 100 : null,
+        };
+      })
+      // % change is comparable across units (USD vs %); absolute change is not.
+      .filter((m) => m.changePct !== null && m.changePct !== 0)
+      .sort((a, b) => Math.abs(b.changePct!) - Math.abs(a.changePct!))
       .slice(0, 6);
 
-    // ── Quadrants (category grouping) ─────────────────────────────────────────
-    // Fetch category info for all visible KPIs.
-    const kpiIds = summary.map((r) => r.kpiId);
-    const kpiRows = await this.prisma.kPI.findMany({
-      where: { id: { in: kpiIds }, organizationId: ctx.organizationId, deletedAt: null },
-      select: {
-        id: true,
-        warningThreshold: true,
-        criticalThreshold: true,
-        direction: true,
-        targetValue: true,
-        category: { select: { name: true } },
-      },
+    // ── Quadrants (by category) ─────────────────────────────────────────────
+    const groups = new Map<string, BoardPackQuadrantKpi[]>();
+    for (const r of current) {
+      // Same server-computed status the dashboard shows (bands → thresholds → target).
+      const group = categoryById.get(r.kpiId) ?? 'Uncategorized';
+      groups.set(group, [
+        ...(groups.get(group) ?? []),
+        { kpiId: r.kpiId, name: r.name, unit: r.unit, value: r.latestValue, status: r.status },
+      ]);
+    }
+    result.quadrants = Array.from(groups.entries()).map(([name, kpis]) => {
+      const healthDistribution: Partial<Record<BoardPackStatus, number>> = {};
+      for (const s of STATUS_ORDER) {
+        const n = kpis.filter((k) => k.status === s).length;
+        if (n > 0) healthDistribution[s] = n;
+      }
+      return {
+        name,
+        kpis: [...kpis].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)),
+        healthDistribution,
+      };
     });
 
-    // Build a lookup: kpiId → { category name, thresholds }
-    const kpiMeta = new Map(
-      kpiRows.map((k) => [
-        k.id,
-        {
-          category: k.category?.name ?? null,
-          warningThreshold: k.warningThreshold,
-          criticalThreshold: k.criticalThreshold,
-          direction: k.direction,
-          targetValue: k.targetValue,
-        },
-      ]),
-    );
-
-    // Group by category name.
-    const groups = new Map<string, BoardPackKpiSummary[]>();
-    for (const ks of kpiSummaries) {
-      const meta = kpiMeta.get(ks.kpiId);
-      const groupName = meta?.category ?? 'Uncategorized';
-      const arr = groups.get(groupName) ?? [];
-      arr.push(ks);
-      groups.set(groupName, arr);
-    }
-
-    const quadrants: BoardPackQuadrant[] = Array.from(groups.entries()).map(
-      ([groupName, groupKpis]) => {
-        const health = { ok: 0, warning: 0, critical: 0, unknown: 0 };
-        for (const ks of groupKpis) {
-          const meta = kpiMeta.get(ks.kpiId);
-          const status = computeSimpleStatus(
-            ks.latestValue,
-            meta?.targetValue ?? null,
-            meta?.warningThreshold ?? null,
-            meta?.criticalThreshold ?? null,
-            meta?.direction ?? 'NEUTRAL',
-          );
-          health[status]++;
-        }
-
-        const topKpis = [...groupKpis]
-          .sort((a, b) => (b.latestValue ?? -Infinity) - (a.latestValue ?? -Infinity))
-          .slice(0, 5)
-          .map((ks) => ({ kpiId: ks.kpiId, name: ks.name, latestValue: ks.latestValue }));
-
-        return { name: groupName, health, topKpis };
-      },
-    );
-
-    return {
-      org: { name: orgName },
-      period: { sinceDays, from, to },
-      topMovers,
-      quadrants,
-    };
+    return result;
   }
-}
-
-function computeSimpleStatus(
-  latestValue: number | null,
-  targetValue: number | null,
-  warningThreshold: number | null,
-  criticalThreshold: number | null,
-  direction: string,
-): 'ok' | 'warning' | 'critical' | 'unknown' {
-  if (latestValue === null) return 'unknown';
-  if (criticalThreshold === null && warningThreshold === null) return 'unknown';
-
-  if (direction === 'HIGHER_IS_BETTER') {
-    if (criticalThreshold !== null && latestValue <= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && latestValue <= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  if (direction === 'LOWER_IS_BETTER') {
-    if (criticalThreshold !== null && latestValue >= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && latestValue >= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  // TARGET_IS_BEST / NEUTRAL
-  if (targetValue !== null) {
-    const deviation = Math.abs(latestValue - targetValue) / (Math.abs(targetValue) || 1);
-    if (criticalThreshold !== null && deviation >= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && deviation >= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  return 'unknown';
 }

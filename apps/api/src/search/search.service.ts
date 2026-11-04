@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
+import { DashboardsService } from '../dashboards/dashboards.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { scoreMatch } from './search-score.js';
 
@@ -20,7 +22,11 @@ const OVERALL_CAP = 50;
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accessContext: AccessContextService,
+    private readonly dashboards: DashboardsService,
+  ) {}
 
   async search(q: string, opts: { types?: SearchType[]; limit?: number }): Promise<SearchResult[]> {
     const query = q.trim();
@@ -28,27 +34,37 @@ export class SearchService {
     const ctx = RequestContextStore.require();
     const want = (t: SearchType) => !opts.types || opts.types.includes(t);
     const contains = { contains: query, mode: 'insensitive' as const };
+    // Every result type follows the caller's visibility (null ⇒ unrestricted).
+    // KPIs and dashboards leaked across scopes before; people and units follow
+    // the PEOPLE / ORG scopes (BE-004).
+    const [kpiIds, peopleIds, unitIds, dashboardWhere] = await Promise.all([
+      want('kpi') ? this.accessContext.visibleKpiIds() : null,
+      want('user') ? this.accessContext.visiblePeopleIds() : null,
+      want('orgUnit') ? this.accessContext.visibleOrgUnitIds() : null,
+      want('dashboard') ? this.dashboards.visibilityWhere() : null,
+    ]);
+    const onlyIds = (ids: string[] | null) => (ids ? { id: { in: ids } } : {});
 
     const [kpis, dashboards, users, orgUnits] = await Promise.all([
       want('kpi')
         ? this.prisma.kPI.findMany({
-            where: { organizationId: ctx.organizationId, deletedAt: null, OR: [{ name: contains }, { tags: { has: query } }] } as Prisma.KPIWhereInput,
+            where: { organizationId: ctx.organizationId, deletedAt: null, ...onlyIds(kpiIds), OR: [{ name: contains }, { tags: { has: query } }] } as Prisma.KPIWhereInput,
             select: { id: true, name: true, tags: true },
             take: 50,
           })
         : Promise.resolve([]),
       want('dashboard')
-        ? this.prisma.dashboard.findMany({ where: { organizationId: ctx.organizationId, deletedAt: null, name: contains }, select: { id: true, name: true }, take: 50 })
+        ? this.prisma.dashboard.findMany({ where: { ...dashboardWhere, name: contains }, select: { id: true, name: true }, take: 50 })
         : Promise.resolve([]),
       want('user')
         ? this.prisma.user.findMany({
-            where: { organizationId: ctx.organizationId, status: { notIn: ['ARCHIVED', 'DELETED'] }, OR: [{ fullName: contains }, { email: contains }] },
+            where: { organizationId: ctx.organizationId, ...onlyIds(peopleIds), status: { notIn: ['ARCHIVED', 'DELETED'] }, OR: [{ fullName: contains }, { email: contains }] },
             select: { id: true, fullName: true, email: true },
             take: 50,
           })
         : Promise.resolve([]),
       want('orgUnit')
-        ? this.prisma.orgUnit.findMany({ where: { organizationId: ctx.organizationId, name: contains }, select: { id: true, name: true }, take: 50 })
+        ? this.prisma.orgUnit.findMany({ where: { organizationId: ctx.organizationId, ...onlyIds(unitIds), name: contains }, select: { id: true, name: true }, take: 50 })
         : Promise.resolve([]),
     ]);
 

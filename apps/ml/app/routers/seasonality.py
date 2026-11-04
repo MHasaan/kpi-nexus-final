@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.seasonality import decompose
+from app.validation import Series
 
 router = APIRouter(tags=["seasonality"])
 
 
 class SeasonalityRequest(BaseModel):
-    series: list[float]
-    period: Optional[int] = None
-    model: str = "additive"
+    series: Series
+    period: Optional[int] = Field(default=None, ge=2, le=365)
+    model: Literal["additive", "multiplicative"] = "additive"
 
 
 @router.post("/seasonality")

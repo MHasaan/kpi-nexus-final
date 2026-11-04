@@ -22,6 +22,8 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { AuditService } from '../audit/audit.service.js';
+import { EmailService } from '../email/email.service.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -46,6 +48,8 @@ export interface InviteResult {
   inviteToken?: string;
   /** Frontend accept-invitation URL — only when NODE_ENV !== 'production'. */
   acceptUrl?: string;
+  /** Whether the invitation email was handed to the mail server. */
+  emailSent: boolean;
 }
 
 const userSelect = {
@@ -108,12 +112,15 @@ export class UsersService {
     private readonly audit: AuditService,
     private readonly resolver: PermissionResolverService,
     private readonly accessContext: AccessContextService,
+    private readonly email: EmailService,
   ) {}
 
-  list(): Promise<PublicUser[]> {
+  /** People the caller may see (PEOPLE scope, BE-004); everyone at the ORG default. */
+  async list(): Promise<PublicUser[]> {
     const ctx = RequestContextStore.require();
+    const visible = await this.accessContext.visiblePeopleIds();
     return this.prisma.user.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, ...(visible ? { id: { in: visible } } : {}) },
       select: userSelect,
       orderBy: { createdAt: 'desc' },
     });
@@ -125,10 +132,20 @@ export class UsersService {
       where: { id, organizationId: ctx.organizationId },
       select: userSelect,
     });
-    if (!user) {
+    // Out-of-scope people are a 404, as if absent (BE-004). Self is always visible.
+    if (!user || !(await this.accessContext.isPersonVisible(id))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return user;
+  }
+
+  /**
+   * 404 unless `userId` is a user in the caller's org that the caller may see
+   * (PEOPLE scope). Guards every per-user management action, so a scoped
+   * USERS_MANAGE holder manages only the people they can see (BE-004).
+   */
+  async assertPersonVisible(userId: string): Promise<void> {
+    await this.requireUserInTenant(userId);
   }
 
   // ---------------------------------------------------------------------------
@@ -147,7 +164,7 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { roleId: true },
     });
-    if (!user) {
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
     return RequestContextStore.run(
@@ -258,7 +275,7 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true },
     });
-    if (!user) {
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
     }
   }
@@ -283,7 +300,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status === 'ARCHIVED' || user.status === 'DELETED' || user.status === 'PURGED') {
       throw new BadRequestException({
         code: 'NOT_SUSPENDABLE',
@@ -321,7 +340,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status !== 'SUSPENDED') {
       throw new BadRequestException({
         code: 'NOT_SUSPENDED',
@@ -357,7 +378,9 @@ export class UsersService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true, status: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
     if (user.status !== 'ARCHIVED') {
       throw new UnprocessableEntityException({
         code: 'NOT_ARCHIVED',
@@ -479,27 +502,45 @@ export class UsersService {
       metadata: { reason: 'invited', email: dto.email },
     });
 
-    const isDev = process.env.NODE_ENV !== 'production';
-    const acceptUrl = isDev ? this.acceptUrlForDev(plaintext) : undefined;
-    if (isDev) {
-      this.logger.log(`[invite] ${dto.email} → ${acceptUrl} (expires ${expiresAt.toISOString()})`);
-    }
+    const link = webAppUrl(`/accept-invitation?token=${encodeURIComponent(plaintext)}`);
+    const emailSent = await this.sendInviteEmail(user.id, dto.email, link, expiresAt);
 
+    const isDev = process.env.NODE_ENV !== 'production';
     return {
       user,
       inviteToken: isDev ? plaintext : undefined,
-      acceptUrl,
+      acceptUrl: isDev ? link : undefined,
+      emailSent,
     };
+  }
+
+  /** Emails the accept link (never logged). Returns false if delivery failed. */
+  private async sendInviteEmail(userId: string, to: string, link: string, expiresAt: Date): Promise<boolean> {
+    const ctx = RequestContextStore.require();
+    const [org, inviter] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { name: true } }),
+      ctx.userId ? this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { fullName: true } }) : null,
+    ]);
+    const orgName = org?.name ?? 'your organization';
+    const who = inviter?.fullName ? `${inviter.fullName} has` : "You've been";
+    try {
+      await this.email.send({
+        to,
+        subject: `You're invited to ${orgName} on KPI Nexus`,
+        html:
+          `<p>${who} invited you to join <strong>${orgName}</strong> on KPI Nexus.</p>` +
+          `<p><a href="${link}">Accept the invitation</a></p>` +
+          `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
+        text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expiresAt.toUTCString()}`,
+      });
+      return true;
+    } catch (err) {
+      this.logger.warn(`invitation email failed (user ${userId}): ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   }
 
   private hash(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  private acceptUrlForDev(token: string): string {
-    const webBase =
-      process.env.NEXT_PUBLIC_WEB_URL ??
-      (process.env.NEXT_PUBLIC_API_URL?.replace(':4000', ':3000') ?? 'http://localhost:3000');
-    return `${webBase}/accept-invitation?token=${token}`;
   }
 }

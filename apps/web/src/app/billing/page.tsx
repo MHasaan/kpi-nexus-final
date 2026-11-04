@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { ApiError, getAccessToken, getBilling, type BillingStatus } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function BillingPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

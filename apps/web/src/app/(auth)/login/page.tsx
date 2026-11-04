@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { ApiError, loginRequest, setTokens } from '../../../lib/api-client';
+import { safeNextPath } from '../../../lib/auth-redirect';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function LoginPage() {
         mfaCode: mfaRequired ? mfaCode : undefined,
       });
       setTokens(result.accessToken, result.refreshToken);
-      router.push('/dashboard');
+      // Back to the page that sent the user here (FE-009) — same-origin paths only.
+      router.push(safeNextPath(new URLSearchParams(window.location.search).get('next')) ?? '/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
         setMfaRequired(true);
@@ -60,10 +62,15 @@ export default function LoginPage() {
           onChange={(v) => setEmail(v)}
           disabled={submitting}
         />
-        <label className="block">
-          <span className="text-sm font-medium text-content-default">Password</span>
+        {/* The label names ONLY the input; the show/hide toggle sits outside it, so
+            the field is announced as "Password", not "Password Show password" (FE-008). */}
+        <div className="block">
+          <label htmlFor="login-password" className="text-sm font-medium text-content-default">
+            Password
+          </label>
           <div className="relative mt-1">
             <input
+              id="login-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               required
@@ -88,7 +95,7 @@ export default function LoginPage() {
               )}
             </button>
           </div>
-        </label>
+        </div>
         {mfaRequired && (
           <Field
             label="Authenticator code"
@@ -118,6 +125,11 @@ export default function LoginPage() {
         >
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+        <p className="text-right text-sm">
+          <Link href="/forgot-password" className="font-medium text-accent-primary hover:underline">
+            Forgot password?
+          </Link>
+        </p>
       </form>
 
       <p className="mt-6 text-center text-sm text-content-muted">

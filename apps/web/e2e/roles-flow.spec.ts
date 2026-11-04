@@ -43,7 +43,7 @@ async function signInAsFreshAdmin(page: Page): Promise<{ email: string }> {
   await page.getByLabel('URL slug').fill(slug);
   await page.getByLabel('Your full name').fill('UC-02 Admin');
   await page.getByLabel('Your email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
 
   await Promise.all([
     page.waitForResponse(
@@ -55,6 +55,20 @@ async function signInAsFreshAdmin(page: Page): Promise<{ email: string }> {
   return { email };
 }
 
+
+/** The roles page is master/detail: a row selects the role; actions live in the detail panel. */
+async function selectRole(page: Page, name: string): Promise<void> {
+  await page.getByTestId(`role-row-${name}`).getByRole('button').click();
+  // Substring match — the heading also carries an "admin" badge for admin roles.
+  await expect(page.getByRole('heading', { name: `Permission matrix · ${name}` })).toBeVisible();
+}
+
+/** The create form is collapsed behind the header's "New role" button. */
+async function openCreateForm(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /^new role$/i }).click();
+  await expect(page.locator('#role-name')).toBeVisible();
+}
+
 test.describe('UC-02: Manage User Roles happy-path', () => {
   test('sign in → /roles → create custom role → delete → gone', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
@@ -63,7 +77,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
 
     // Navigate to /roles — the dashboard nav link points there
     await page.goto('/roles');
-    await expect(page.getByRole('heading', { name: /^Roles$/ })).toBeVisible();
+    await expect(page.getByTestId('roles-heading')).toBeVisible();
 
     // Default seed: Admin / Manager / Employee / Viewer rows are present
     await expect(page.getByTestId('role-row-Admin')).toBeVisible();
@@ -71,25 +85,27 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     await expect(page.getByTestId('role-row-Employee')).toBeVisible();
     await expect(page.getByTestId('role-row-Viewer')).toBeVisible();
 
-    // Admin role displays the "admin" badge (the <span> with class containing accent-primary)
+    // Admin role displays the "admin" badge
     const adminRow = page.getByTestId('role-row-Admin');
-    await expect(adminRow.locator('span.text-accent-primary').getByText('admin', { exact: true })).toBeVisible();
+    await expect(adminRow.getByText('admin', { exact: true })).toBeVisible();
 
     // Create a custom role
     const customName = `Field Engineer ${suffix()}`;
-    await page.getByLabel('Name').fill(customName);
-    await page.getByLabel('Description').fill('Custom role made by UC-02 e2e');
+    await openCreateForm(page);
+    await page.locator('#role-name').fill(customName);
+    await page.locator('#role-desc').fill('Custom role made by UC-02 e2e');
 
     const createResp = page.waitForResponse(
       (r) => r.url().endsWith('/roles') && r.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: /^Create role$/ }).click();
+    await page.getByRole('button', { name: /^Create$/ }).click();
     expect((await createResp).status()).toBe(201);
 
-    // The new row shows up
+    // The new row shows up; selecting it shows the description in the detail panel
     const customRow = page.getByTestId(`role-row-${customName}`);
     await expect(customRow).toBeVisible();
-    await expect(customRow.getByText('Custom role made by UC-02 e2e')).toBeVisible();
+    await selectRole(page, customName);
+    await expect(page.getByText('Custom role made by UC-02 e2e')).toBeVisible();
 
     // Delete it
     const deleteResp = page.waitForResponse(
@@ -97,7 +113,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
         r.url().includes('/roles/') &&
         r.request().method() === 'DELETE',
     );
-    await customRow.getByRole('button', { name: new RegExp(`delete ${customName}`, 'i') }).click();
+    await page.getByRole('button', { name: `Delete ${customName}`, exact: true }).click();
     expect((await deleteResp).status()).toBe(204);
 
     // Row is gone
@@ -109,15 +125,16 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
 
     await signInAsFreshAdmin(page);
     await page.goto('/roles');
-    await expect(page.getByRole('heading', { name: /^Roles$/ })).toBeVisible();
+    await expect(page.getByTestId('roles-heading')).toBeVisible();
 
-    const adminRow = page.getByTestId('role-row-Admin');
+    await selectRole(page, 'Admin');
     const deleteResp = page.waitForResponse(
       (r) => r.url().includes('/roles/') && r.request().method() === 'DELETE',
     );
-    await adminRow.getByRole('button', { name: /delete admin/i }).click();
+    await page.getByRole('button', { name: 'Delete Admin', exact: true }).click();
     const resp = await deleteResp;
     expect(resp.status()).toBe(409);
+    await expect(page.getByRole('alert').filter({ hasText: /still has/i })).toBeVisible();
 
     // The Admin row must still be present — the api refused the delete.
     await expect(page.getByTestId('role-row-Admin')).toBeVisible();
@@ -130,12 +147,13 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     await page.goto('/roles');
     await expect(page.getByTestId('role-row-Manager')).toBeVisible();
 
-    await page.getByLabel('Name').fill('Manager'); // already seeded
+    await openCreateForm(page);
+    await page.locator('#role-name').fill('Manager'); // already seeded
 
     const createResp = page.waitForResponse(
       (r) => r.url().endsWith('/roles') && r.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: /^Create role$/ }).click();
+    await page.getByRole('button', { name: /^Create$/ }).click();
     expect((await createResp).status()).toBe(409);
   });
 
@@ -147,6 +165,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
 
     // Wait for the role list and preset selects to load
     await expect(page.getByTestId('role-row-Employee')).toBeVisible();
+    await selectRole(page, 'Employee');
 
     // The preset select should appear once presets are fetched
     const presetSelect = page.getByTestId('preset-select-Employee');
@@ -164,9 +183,41 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
     // API returns 200 or 201 depending on implementation
     expect([200, 201]).toContain(resp.status());
 
-    // Success feedback must appear in the Employee row
+    // Success feedback must appear in the Employee detail panel
     const feedback = page.getByTestId('preset-feedback-Employee');
     await expect(feedback).toBeVisible({ timeout: 5000 });
     await expect(feedback).toContainText(/preset applied/i);
+  });
+});
+
+test.describe('UC-02: role permission editing (FE-002)', () => {
+  test('admin grants a permission on a role → saved → persists after reload; admin roles are locked', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    await signInAsFreshAdmin(page);
+    await page.goto('/roles');
+    await selectRole(page, 'Viewer');
+
+    // One of the 7 permissions the old read-only matrix never showed.
+    const exportsBox = page.getByTestId('perm-Viewer-EXPORTS');
+    await expect(exportsBox).not.toBeChecked();
+    await exportsBox.check({ force: true }); // visually-hidden native checkbox
+
+    const saved = page.waitForResponse(
+      (r) => r.url().includes('/roles/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('perm-save-Viewer').click();
+    expect((await saved).status()).toBe(200);
+    await expect(page.getByTestId('perm-feedback-Viewer')).toHaveText(/permissions saved/i);
+
+    await page.reload();
+    await selectRole(page, 'Viewer');
+    await expect(page.getByTestId('perm-Viewer-EXPORTS')).toBeChecked();
+
+    // Admin role: every box granted and disabled, no save button.
+    await selectRole(page, 'Admin');
+    await expect(page.getByTestId('perm-Admin-BILLING_MANAGE')).toBeChecked();
+    await expect(page.getByTestId('perm-Admin-BILLING_MANAGE')).toBeDisabled();
+    await expect(page.getByTestId('perm-save-Admin')).toHaveCount(0);
   });
 });

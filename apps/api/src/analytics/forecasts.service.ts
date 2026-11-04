@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import type { Forecast, ForecastModelKind } from '@kpi-nexus/db';
 
 import { KpisService } from '../kpis/kpis.service.js';
+import { requireAnalyticsKpi } from './analytics-scope.js';
 import { MlClientService } from '../ml/ml-client.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { InsufficientDataError } from './insufficient-data.error.js';
 
 const WINDOW = 365;
 
@@ -40,7 +42,7 @@ export class ForecastsService {
 
   async forecast(kpiId: string, opts: { horizon: number; model?: string }): Promise<Forecast> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing read window to the principal's historyWindowDays
     // (null ⇒ parity / admin). Fixed WINDOW read with no request `from`.
@@ -58,6 +60,7 @@ export class ForecastsService {
       take: WINDOW,
       select: { value: true, recordedAt: true },
     });
+    if (points.length === 0) throw new InsufficientDataError('forecast');
     const ordered = points.reverse();
 
     const result = await this.ml.post<MlForecast>('/forecast', {
@@ -81,7 +84,7 @@ export class ForecastsService {
 
   async list(kpiId: string, model?: string): Promise<Forecast[]> {
     const ctx = RequestContextStore.require();
-    await this.kpis.getById(kpiId); // visibility gate
+    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
     return this.prisma.forecast.findMany({
       where: {
         organizationId: ctx.organizationId,

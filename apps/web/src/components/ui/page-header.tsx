@@ -25,7 +25,7 @@ export function PageHeader({ title, subtitle, eyebrow, actions, className, title
         <h1 data-testid={titleTestId} className="text-2xl font-bold tracking-tight text-content-strong">{title}</h1>
         {subtitle && <p className="text-sm text-content-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>}
     </div>
   );
 }

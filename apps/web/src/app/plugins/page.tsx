@@ -13,6 +13,8 @@ import {
   listPlugins,
   setPluginEnabled,
 } from '../../lib/integrations-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { RequirePermission } from '../../components/auth/require-permission';
 
 export default function PluginsPage() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export default function PluginsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -70,7 +72,9 @@ export default function PluginsPage() {
     }
   };
 
+  // FE-014: same permission the page's API enforces — no broken 403 screens.
   return (
+    <RequirePermission permission="ORG_SETTINGS">
     <main className="min-h-screen bg-surface-bg">
       <header className="border-b border-border bg-surface-1">
         <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
@@ -127,5 +131,6 @@ export default function PluginsPage() {
         </div>
       </div>
     </main>
+    </RequirePermission>
   );
 }

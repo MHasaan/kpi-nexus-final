@@ -178,14 +178,19 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T>): Promise
   ) as Promise<T>;
 }
 
-function makeService() {
+/** The caller's resolved access. Defaults to an admin so pre-existing tests keep their meaning. */
+function makeService(caller: { isAdmin: boolean; permissions: string[] } = { isAdmin: true, permissions: [] }) {
   const prisma = new FakePrisma();
   const audit: Pick<AuditService, 'record' | 'list'> = {
     record: vi.fn(async () => undefined),
     list: vi.fn(async () => []),
   };
-  const resolver: Pick<PermissionResolverService, 'invalidateAll'> = {
+  const resolver: Pick<PermissionResolverService, 'invalidateAll' | 'resolveForUser'> = {
     invalidateAll: vi.fn(),
+    resolveForUser: vi.fn(async () => ({
+      isAdmin: caller.isAdmin,
+      permissions: new Set(caller.permissions),
+    })) as unknown as PermissionResolverService['resolveForUser'],
   };
   const accessContext: Pick<AccessContextService, 'invalidateAll'> = {
     invalidateAll: vi.fn(),
@@ -653,5 +658,98 @@ describe('RolesService.update — dataLimits', () => {
     const result = await withCtx(BASE_CTX, () => service.update('role_1', { name: 'Renamed' }));
 
     expect(result.dataLimits).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Privilege-escalation guard (FE-002 prerequisite)
+// ---------------------------------------------------------------------------
+
+describe('RolesService — non-admins cannot grant what they lack', () => {
+  const manager = { isAdmin: false, permissions: [PermissionKey.ROLES_MANAGE, PermissionKey.KPI_VIEW] };
+
+  test('update: adding a permission the caller lacks is forbidden', async () => {
+    const { service, prisma } = makeService(manager);
+    prisma.roles.push(makeRole({ permissions: [PermissionKey.KPI_VIEW] }));
+    await expect(
+      withCtx(BASE_CTX, () =>
+        service.update('role_1', { permissions: [PermissionKey.KPI_VIEW, PermissionKey.BILLING_MANAGE] }),
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(prisma.roleDefinition.update).not.toHaveBeenCalled();
+  });
+
+  test('update: removing a permission the caller lacks is allowed (only additions are checked)', async () => {
+    const { service, prisma } = makeService(manager);
+    prisma.roles.push(makeRole({ permissions: [PermissionKey.KPI_VIEW, PermissionKey.BILLING_MANAGE] }));
+    await withCtx(BASE_CTX, () => service.update('role_1', { permissions: [PermissionKey.KPI_VIEW] }));
+    expect(prisma.roles[0]!.permissions).toEqual([PermissionKey.KPI_VIEW]);
+  });
+
+  test('update: a non-admin cannot change isAdmin', async () => {
+    const { service, prisma } = makeService(manager);
+    prisma.roles.push(makeRole());
+    await expect(withCtx(BASE_CTX, () => service.update('role_1', { isAdmin: true }))).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
+  test('create: a non-admin cannot mint a role with permissions they lack or isAdmin', async () => {
+    const { service } = makeService(manager);
+    await expect(
+      withCtx(BASE_CTX, () =>
+        service.create({ name: 'Sneaky', permissions: [PermissionKey.AUDIT_VIEW], isAdmin: false, level: 0, canAccessModules: [] }),
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      withCtx(BASE_CTX, () =>
+        service.create({ name: 'Sneaky2', permissions: [], isAdmin: true, level: 0, canAccessModules: [] }),
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  test('applyPreset: a non-admin cannot apply a preset that adds what they lack', async () => {
+    const { service, prisma } = makeService(manager);
+    prisma.roles.push(makeRole());
+    await expect(withCtx(BASE_CTX, () => service.applyPreset('role_1', 'ADMIN'))).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(prisma.roleDefinition.update).not.toHaveBeenCalled();
+  });
+
+  test('admins may grant anything', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole());
+    await withCtx(BASE_CTX, () =>
+      service.update('role_1', { permissions: [PermissionKey.BILLING_MANAGE], isAdmin: true }),
+    );
+    expect(prisma.roles[0]!.isAdmin).toBe(true);
+  });
+});
+
+describe('RolesService — approval paths', () => {
+  test('applying an approved change (bypassApproval) is not re-checked against the approver', async () => {
+    const { service, prisma } = makeService({ isAdmin: false, permissions: [PermissionKey.ROLES_MANAGE] });
+    prisma.roles.push(makeRole());
+    await withCtx(BASE_CTX, () =>
+      service.update('role_1', { permissions: [PermissionKey.BILLING_MANAGE] }, { bypassApproval: true }),
+    );
+    expect(prisma.roles[0]!.permissions).toEqual([PermissionKey.BILLING_MANAGE]);
+  });
+
+  test('applyPreset honours an active ROLE_PERMISSIONS approval workflow', async () => {
+    const prisma = new FakePrisma();
+    prisma.roles.push(makeRole());
+    const gate = { requireApprovalIfActive: vi.fn(async () => { throw new Error('APPROVAL_REQUIRED'); }) };
+    const service = new RolesService(
+      prisma as unknown as PrismaService,
+      { invalidateAll: vi.fn(), resolveForUser: vi.fn(async () => ({ isAdmin: true, permissions: new Set() })) } as unknown as PermissionResolverService,
+      { invalidateAll: vi.fn() } as unknown as AccessContextService,
+      gate as never,
+      undefined,
+    );
+    await expect(withCtx(BASE_CTX, () => service.applyPreset('role_1', 'VIEWER'))).rejects.toThrow('APPROVAL_REQUIRED');
+    expect(gate.requireApprovalIfActive).toHaveBeenCalledWith('ROLE_PERMISSIONS', 'role_1', expect.anything(), expect.anything());
+    expect(prisma.roleDefinition.update).not.toHaveBeenCalled();
   });
 });

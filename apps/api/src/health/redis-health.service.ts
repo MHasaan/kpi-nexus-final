@@ -1,17 +1,27 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
+import { attachRedisErrorLogger } from '../redis/redis-error-logger.js';
+
 @Injectable()
 export class RedisHealthService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisHealthService.name);
   private readonly redis = new Redis(
-    process.env.REDIS_URL ?? 'redis://localhost:6379',
+    process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
     {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
+      // Reject a stalled command/connect instead of leaving it pending (BE-018);
+      // the controller also bounds the whole ping.
+      commandTimeout: 2_000,
+      connectTimeout: 2_000,
     },
   );
+
+  constructor() {
+    attachRedisErrorLogger(this.redis, this.logger, 'health');
+  }
 
   async onModuleDestroy(): Promise<void> {
     try {
@@ -23,6 +33,10 @@ export class RedisHealthService implements OnModuleDestroy {
 
   async ping(): Promise<boolean> {
     try {
+      // lazyConnect + no offline queue: a command sent before the socket is
+      // open is rejected, not queued — so open it first or the first health
+      // check after boot falsely reports Redis as down.
+      if (this.redis.status === 'wait') await this.redis.connect();
       const result = await this.redis.ping();
       return result === 'PONG';
     } catch {

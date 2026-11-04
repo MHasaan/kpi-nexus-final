@@ -203,6 +203,8 @@ export async function listRoles(): Promise<RoleSummary[]> {
 export async function updateRole(
   id: string,
   patch: {
+    /** Full permission list (FE-002). May be queued for approval: see isApprovalPending. */
+    permissions?: string[];
     scopeConfig?: ScopeConfig;
     dataTypeConfig?: DataTypeConfig;
     dataLimits?: DataLimitsConfig;
@@ -427,6 +429,24 @@ export async function previewInvitation(
   return api('/auth/invitation-preview', {
     method: 'POST',
     body: JSON.stringify({ token }),
+    auth: false,
+  });
+}
+
+/** Emails a reset link if the account exists. Always resolves the same way. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api('/auth/password/request-reset', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    auth: false,
+  });
+}
+
+/** Completes a reset with the token from the emailed link. */
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await api('/auth/password/confirm-reset', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
     auth: false,
   });
 }
@@ -833,6 +853,11 @@ export interface DashboardSummaryRow {
   aggregatedValue: number | null;
   pointCount: number;
   scorecardQuadrant: string | null;
+  direction: string;
+  /** Server-computed health (bands → thresholds → direction-aware target). */
+  status: BoardPackStatus;
+  /** Direction-aware % of target achieved, or null. */
+  attainmentPct: number | null;
 }
 
 export async function getDashboardSummary(
@@ -1313,17 +1338,22 @@ export interface BoardPackMover {
   changePct: number | null;
 }
 
+/** Mirrors BoardPackStatus in apps/api/src/reports/services/board-pack.service.ts. */
+export type BoardPackStatus = 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NO_TARGET' | 'NO_DATA';
+
 export interface BoardPackQuadrantKpi {
   kpiId: string;
   name: string;
+  unit?: string | null;
   value: number | null;
-  status: string | null;
+  status: BoardPackStatus | null;
 }
 
 export interface BoardPackQuadrant {
   name: string;
+  /** Problems first (OFF_TRACK, AT_RISK), then ON_TRACK, then no target / no data. */
   kpis: BoardPackQuadrantKpi[];
-  healthDistribution?: Record<string, number>;
+  healthDistribution?: Partial<Record<BoardPackStatus, number>>;
 }
 
 export interface BoardPack {
@@ -1587,6 +1617,14 @@ export async function createAlertRule(body: {
   escalationLevels?: EscalationLevelInput[];
 }): Promise<AlertRule> {
   return api('/alert-rules', { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** PATCH /alert-rules/:id — name, description, severity, pause/resume (isActive). */
+export async function updateAlertRule(
+  id: string,
+  body: { name?: string; description?: string; severity?: AlertSeverity; isActive?: boolean },
+): Promise<AlertRule> {
+  return api(`/alert-rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export async function deleteAlertRule(id: string): Promise<void> {
@@ -1892,6 +1930,158 @@ export async function createTarget(
 }
 export async function deleteTarget(kpiId: string, targetId: string): Promise<void> {
   return api(`/kpis/${kpiId}/targets/${targetId}`, { method: 'DELETE' });
+}
+
+export interface NlqSource {
+  kpiId: string;
+  name: string;
+}
+export interface NlqAnswer {
+  answer: string;
+  sources: NlqSource[];
+  latencyMs?: number;
+  costUsd: number;
+  provider: string;
+  model: string;
+}
+export async function askNlq(question: string): Promise<NlqAnswer> {
+  return api('/nlq/ask', { method: 'POST', body: JSON.stringify({ question }) });
+}
+
+// =============================================================================
+// AI Insights (P5)
+// =============================================================================
+
+export interface Insight {
+  id: string;
+  kpiId: string;
+  narrative: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  generatedAt: string;
+  status: string;
+  confidence: number;
+}
+
+export async function listInsights(): Promise<Insight[]> {
+  return api('/insights');
+}
+
+export async function generateInsightsBatch(
+  body: { thresholdChangePct?: number; topN?: number } = {},
+): Promise<Insight[]> {
+  const res = await api<{ insights: Insight[] }>('/insights/generate-batch', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return res.insights;
+}
+
+// =============================================================================
+// AI feature routing config + budget (P5 settings)
+// =============================================================================
+
+export type AiProviderKey = 'GEMINI' | 'CLAUDE' | 'OPENAI' | 'OLLAMA';
+
+/** Effective per-feature route (override or default) as returned by GET /ai/configs. */
+export interface AiFeatureConfig {
+  feature: string;
+  provider: AiProviderKey;
+  model: string;
+  isOverride: boolean;
+  fallback?: { provider: AiProviderKey; model: string };
+  perFeatureCapUsd?: number;
+}
+
+export async function listAiConfigs(): Promise<AiFeatureConfig[]> {
+  return api('/ai/configs');
+}
+
+/**
+ * Override a feature's routing (org-scoped upsert of the AiFeatureConfig).
+ * Mirrors `PUT /ai/configs/:feature` — body keys are `providerId`/`model`
+ * (NOT `provider`), with optional fallback + per-feature cap.
+ */
+export async function updateAiFeatureConfig(
+  feature: string,
+  body: {
+    providerId: AiProviderKey;
+    model: string;
+    fallbackProviderId?: AiProviderKey;
+    fallbackModel?: string;
+    perFeatureCapUsd?: number;
+  },
+): Promise<AiFeatureConfig> {
+  return api(`/ai/configs/${encodeURIComponent(feature)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Clear an org override, reverting the feature to its built-in default route. */
+export async function resetAiFeatureConfig(feature: string): Promise<void> {
+  await api(`/ai/configs/${encodeURIComponent(feature)}`, { method: 'DELETE' });
+}
+
+/** Generate (and persist) a fresh insight for one KPI. Returns null if too few points. */
+export async function generateInsight(kpiId: string): Promise<Insight | null> {
+  const res = await api<{ insight: Insight | null }>('/insights/generate', {
+    method: 'POST',
+    body: JSON.stringify({ kpiId }),
+  });
+  return res.insight;
+}
+
+export async function dismissInsight(id: string): Promise<Insight> {
+  return api(`/insights/${id}/dismiss`, { method: 'POST' });
+}
+
+// =============================================================================
+// AI Recommendations (P5)
+// =============================================================================
+
+export interface RecommendationSuggestedAction {
+  action: string;
+  rationale: string;
+  priority: 'P1' | 'P2' | 'P3';
+}
+
+export interface Recommendation {
+  id: string;
+  kpiId: string;
+  alertId: string | null;
+  status: 'PENDING' | 'ACTIONED' | 'DISMISSED';
+  confidence: number;
+  createdAt: string;
+  content: {
+    summary?: string;
+    rootCauseHypotheses?: string[];
+    suggestedActions?: RecommendationSuggestedAction[];
+  };
+}
+
+export async function listRecommendations(filter: {
+  kpiId?: string;
+  alertId?: string;
+  status?: Recommendation['status'];
+} = {}): Promise<Recommendation[]> {
+  const params = new URLSearchParams();
+  if (filter.kpiId) params.set('kpiId', filter.kpiId);
+  if (filter.alertId) params.set('alertId', filter.alertId);
+  if (filter.status) params.set('status', filter.status);
+  const q = params.toString();
+  return api(`/recommendations${q ? `?${q}` : ''}`);
+}
+
+export async function setRecommendationStatus(
+  id: string,
+  status: 'ACTIONED' | 'DISMISSED',
+): Promise<Recommendation> {
+  return api(`/recommendations/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }
 
 export interface ThresholdBand {

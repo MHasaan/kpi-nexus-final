@@ -9,6 +9,7 @@ import { type Mention, listMentions, markAllMentionsRead, markMentionRead } from
 import { AppShell } from '../../../components/app-shell';
 import { PageHeader, Card, CardContent, Badge, Button, EmptyState, Skeleton } from '../../../components/ui';
 import { cn } from '../../../lib/cn';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function MentionsPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function MentionsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

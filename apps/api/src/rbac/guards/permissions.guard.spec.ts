@@ -17,7 +17,7 @@ import type { Reflector } from '@nestjs/core';
 import { PermissionKey } from '@kpi-nexus/contracts';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { RequestContext } from '../../tenancy/request-context.js';
+import { type RequestContext, RequestContextStore } from '../../tenancy/request-context.js';
 import { OWNER_OVERRIDE_KEY } from '../decorators/owner-override.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import {
@@ -432,6 +432,38 @@ describe('PermissionsGuard', () => {
         null,
       );
       await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // Guards run BEFORE TenancyInterceptor sets the request context. Under
+  // Postgres RLS (OT-014) the resolver's reads — RoleDefinition,
+  // RoleInheritance, PermissionDelegation, ResourcePermission — would see
+  // nothing without one, so the guard must establish the principal's context.
+  describe('tenant context for the DB-backed checks (OT-014)', () => {
+    test('resolveForUser and hasResourceGrant run inside the principal\'s context', async () => {
+      const { context, guard, resolver } = makeContext(
+        {
+          requireAll: [PermissionKey.KPI_EDIT],
+          resourceAccess: { resourceType: 'kpi', paramKey: 'id', action: 'edit' },
+        },
+        { user: userPrincipal, params: { id: 'kpi-1' } },
+        { isAdmin: false, permissions: new Set() },
+        true,
+      );
+      const seen: Array<string | undefined> = [];
+      resolver.resolveForUser.mockImplementation(async () => {
+        seen.push(RequestContextStore.get()?.organizationId);
+        return { isAdmin: false, permissions: new Set() };
+      });
+      resolver.hasResourceGrant.mockImplementation(async () => {
+        seen.push(RequestContextStore.get()?.organizationId);
+        return true;
+      });
+
+      expect(RequestContextStore.get()).toBeUndefined();
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+      expect(seen).toEqual(['org_1', 'org_1']);
+      expect(RequestContextStore.get()).toBeUndefined(); // doesn't leak out of the guard
     });
   });
 });

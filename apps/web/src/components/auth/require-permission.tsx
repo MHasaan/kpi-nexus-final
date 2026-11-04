@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { usePermissions } from '../../lib/use-permissions';
 
 // ---------------------------------------------------------------------------
@@ -32,20 +33,27 @@ export function RequirePermission({
   fallback,
   children,
 }: RequirePermissionProps) {
-  const { ready, has } = usePermissions();
+  const { ready, authenticated, has } = usePermissions();
   const router = useRouter();
   const granted = has(permission);
 
   useEffect(() => {
-    if (ready && !granted && fallback === undefined) {
+    if (!ready) return;
+    // Signed out (expired session, deep link): sign in and come back — not
+    // "/unauthorized", which offers no way to sign in (FE-009).
+    if (!authenticated) {
+      router.replace(currentLoginRedirect());
+      return;
+    }
+    if (!granted && fallback === undefined) {
       router.replace('/unauthorized');
     }
     // `fallback` is intentionally omitted from the deps: it is only used as an
     // identity comparison in the guard condition, so re-running on its
     // reference change would cause needless effect churn.
-  }, [ready, granted, router]);
+  }, [ready, authenticated, granted, router]);
 
-  if (!ready) return null;
+  if (!ready || !authenticated) return null;
   if (!granted) return fallback !== undefined ? <>{fallback}</> : null;
   return <>{children}</>;
 }
@@ -75,19 +83,26 @@ export function RequireAnyPermission({
   fallback,
   children,
 }: RequireAnyPermissionProps) {
-  const { ready, hasAny } = usePermissions();
+  const { ready, authenticated, hasAny } = usePermissions();
   const router = useRouter();
   const granted = hasAny(permissions);
 
   useEffect(() => {
-    if (ready && !granted && fallback === undefined) {
+    if (!ready) return;
+    // Signed out (expired session, deep link): sign in and come back — not
+    // "/unauthorized", which offers no way to sign in (FE-009).
+    if (!authenticated) {
+      router.replace(currentLoginRedirect());
+      return;
+    }
+    if (!granted && fallback === undefined) {
       router.replace('/unauthorized');
     }
     // `fallback` is intentionally omitted from the deps (identity-only use in
     // the condition above).
-  }, [ready, granted, router]);
+  }, [ready, authenticated, granted, router]);
 
-  if (!ready) return null;
+  if (!ready || !authenticated) return null;
   if (!granted) return fallback !== undefined ? <>{fallback}</> : null;
   return <>{children}</>;
 }

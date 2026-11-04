@@ -146,7 +146,10 @@ export class AuthService {
     });
   }
 
-  async login(dto: LoginDto): Promise<AuthPair & { user: PublicUser }> {
+  async login(
+    dto: LoginDto,
+    client: { ip?: string; userAgent?: string } = {},
+  ): Promise<AuthPair & { user: PublicUser }> {
     return RequestContextStore.runWithBypass('login', async () => {
       // Find user (within org if specified, else first ACTIVE match across orgs).
       const where = dto.organizationId
@@ -179,6 +182,8 @@ export class AuthService {
             userId: user?.id,
             status,
             reason,
+            ipAddress: client.ip,
+            userAgent: client.userAgent?.slice(0, 500),
           },
         });
 
@@ -388,21 +393,27 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<AuthPair> {
-    const next = await this.refreshTokens.rotate(refreshToken);
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: next.userId },
-      select: { id: true, organizationId: true, roleId: true },
+    // Public route: the caller is known only by the refresh token, so the token
+    // rotation and these lookups are cross-tenant by nature — run them under the
+    // RLS bypass, like login (OT-014).
+    const { next, user, isAdmin } = await RequestContextStore.runWithBypass('refresh', async () => {
+      const next = await this.refreshTokens.rotate(refreshToken);
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: { id: next.userId },
+        select: { id: true, organizationId: true, roleId: true },
+      });
+      const isAdmin = user.roleId
+        ? Boolean(
+            (
+              await this.prisma.roleDefinition.findUnique({
+                where: { id: user.roleId },
+                select: { isAdmin: true },
+              })
+            )?.isAdmin,
+          )
+        : false;
+      return { next, user, isAdmin };
     });
-    const isAdmin = user.roleId
-      ? Boolean(
-          (
-            await this.prisma.roleDefinition.findUnique({
-              where: { id: user.roleId },
-              select: { isAdmin: true },
-            })
-          )?.isAdmin,
-        )
-      : false;
     const accessToken = await this.signAccess({
       sub: user.id,
       org: user.organizationId,
@@ -417,7 +428,8 @@ export class AuthService {
   }
 
   async logout(refreshToken: string): Promise<void> {
-    await this.refreshTokens.revoke(refreshToken);
+    // Public route — the refresh token is the only credential (OT-014).
+    await RequestContextStore.runWithBypass('logout', () => this.refreshTokens.revoke(refreshToken));
   }
 
   private async issuePair(payload: JwtPayload): Promise<AuthPair> {
@@ -437,12 +449,20 @@ export class AuthService {
     roleId: string;
     isAdmin: boolean;
   }): Promise<AuthPair> {
-    return this.issuePair({
-      sub: params.userId,
-      org: params.organizationId,
-      rid: params.roleId,
-      adm: params.isAdmin,
-    });
+    // Callers are pre-login flows with no request context; the refresh-token
+    // write belongs to the user's own org, so run it there (OT-014).
+    return Promise.resolve(
+      RequestContextStore.run(
+        { userId: params.userId, organizationId: params.organizationId, roleId: params.roleId || null, principalType: 'user' },
+        () =>
+          this.issuePair({
+            sub: params.userId,
+            org: params.organizationId,
+            rid: params.roleId,
+            adm: params.isAdmin,
+          }),
+      ),
+    );
   }
 
   private signAccess(payload: JwtPayload): Promise<string> {

@@ -56,18 +56,20 @@ export class InboundEmailService {
       throw new BadRequestException({ code: 'UNROUTABLE', message: 'Email recipient is not a routable inbound address' });
     }
 
-    // 3. Resolve the entity's org (cross-tenant lookup — owner connection).
-    const organizationId = await this.resolveOrg(target);
+    // 3. Resolve the entity's org (cross-tenant lookup: explicit RLS bypass, OT-014).
+    const organizationId = await RequestContextStore.runWithBypass('inbound-email-resolve', () => this.resolveOrg(target));
     if (!organizationId) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: `${target.type} ${target.id} not found` });
     }
 
     // 4. Sender must be a member of that org.
     const senderEmail = extractEmailAddress(payload.from);
-    const sender = await this.prisma.user.findFirst({
-      where: { organizationId, email: senderEmail },
-      select: { id: true },
-    });
+    const sender = await RequestContextStore.runWithBypass('inbound-email-sender', () =>
+      this.prisma.user.findFirst({
+        where: { organizationId, email: senderEmail },
+        select: { id: true },
+      }),
+    );
     if (!sender) {
       throw new ForbiddenException({ code: 'UNKNOWN_SENDER', message: 'Sender is not a member of the target organization' });
     }

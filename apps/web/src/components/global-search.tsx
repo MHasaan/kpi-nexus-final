@@ -1,5 +1,6 @@
 'use client';
 
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
@@ -63,9 +64,13 @@ export function GlobalSearch() {
         type="button"
         data-testid="global-search-trigger"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-border bg-surface-bg px-3 py-1.5 text-sm text-content-muted hover:border-accent-primary"
+        aria-label={t('search.placeholder')}
+        className="flex items-center rounded-md border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-muted hover:border-accent-primary sm:px-3"
       >
-        {t('search.placeholder')} <kbd className="ml-2 rounded border border-border px-1 text-xs">⌘K</kbd>
+        {/* Icon-only on phones so the topbar fits (FE-017). */}
+        <Search className="h-4 w-4 sm:hidden" aria-hidden />
+        <span className="hidden sm:inline">{t('search.placeholder')}</span>
+        <kbd className="ml-2 hidden rounded border border-border px-1 text-xs sm:inline">⌘K</kbd>
       </button>
 
       {open && (

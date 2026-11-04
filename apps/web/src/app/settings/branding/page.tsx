@@ -14,6 +14,7 @@ import {
   updateMyOrganization,
   type OrganizationSettings,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function BrandingSettingsPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function BrandingSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getMyOrganization()
@@ -43,7 +44,7 @@ export default function BrandingSettingsPage() {
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setError(err instanceof ApiError ? err.message : 'Failed to load branding');

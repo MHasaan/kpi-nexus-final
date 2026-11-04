@@ -16,14 +16,25 @@ function makeService(seed: {
   dashboards?: Array<{ id: string; name: string }>;
   users?: Array<{ id: string; fullName: string; email: string }>;
   orgUnits?: Array<{ id: string; name: string }>;
-}) {
+}, scope: { kpis?: string[] | null; people?: string[] | null; units?: string[] | null; dashboardWhere?: Record<string, unknown> } = {}) {
   const prisma = {
     kPI: { findMany: vi.fn(async () => (seed.kpis ?? []).map((k) => ({ ...k, tags: k.tags ?? [] }))) },
     dashboard: { findMany: vi.fn(async () => seed.dashboards ?? []) },
     user: { findMany: vi.fn(async () => seed.users ?? []) },
     orgUnit: { findMany: vi.fn(async () => seed.orgUnits ?? []) },
   };
-  return { service: new SearchService(prisma as unknown as PrismaService), prisma };
+  const accessContext = {
+    visibleKpiIds: vi.fn(async () => scope.kpis ?? null),
+    visiblePeopleIds: vi.fn(async () => scope.people ?? null),
+    visibleOrgUnitIds: vi.fn(async () => scope.units ?? null),
+  };
+  const dashboards = {
+    visibilityWhere: vi.fn(async () => scope.dashboardWhere ?? { organizationId: ORG, deletedAt: null }),
+  };
+  return {
+    service: new SearchService(prisma as unknown as PrismaService, accessContext as never, dashboards as never),
+    prisma,
+  };
 }
 
 function withCtx<T>(fn: () => Promise<T> | T): Promise<T> | T {
@@ -78,5 +89,37 @@ describe('SearchService.search', () => {
   test('empty query returns nothing', async () => {
     const { service } = makeService({ kpis: [{ id: 'k1', name: 'Revenue' }] });
     expect(await withCtx(() => service.search('  ', {}))).toEqual([]);
+  });
+});
+
+describe('SearchService — results respect the caller scopes', () => {
+  const whereOf = (fn: { mock: { calls: unknown[][] } }) => (fn.mock.calls[0]![0] as { where: Record<string, unknown> }).where;
+
+  test('KPIs are limited to visible KPIs, dashboards to the dashboard visibility rule', async () => {
+    const { service, prisma } = makeService({}, {
+      kpis: ['k_mine'],
+      dashboardWhere: { organizationId: ORG, deletedAt: null, OR: [{ ownerUserId: { in: ['u1'] } }, { isShared: true }] },
+    });
+    await withCtx(() => service.search('revenue', {}));
+    expect(whereOf(prisma.kPI.findMany)).toMatchObject({ id: { in: ['k_mine'] } });
+    expect(whereOf(prisma.dashboard.findMany)).toMatchObject({
+      OR: [{ ownerUserId: { in: ['u1'] } }, { isShared: true }],
+      name: { contains: 'revenue', mode: 'insensitive' },
+    });
+  });
+
+  test('people and org units are limited by the PEOPLE / ORG scopes (BE-004)', async () => {
+    const { service, prisma } = makeService({}, { people: ['u1', 'u2'], units: ['unit_a'] });
+    await withCtx(() => service.search('revenue', {}));
+    expect(whereOf(prisma.user.findMany)).toMatchObject({ id: { in: ['u1', 'u2'] } });
+    expect(whereOf(prisma.orgUnit.findMany)).toMatchObject({ id: { in: ['unit_a'] } });
+  });
+
+  test('at ORG scope / admin nothing extra is filtered (parity)', async () => {
+    const { service, prisma } = makeService({});
+    await withCtx(() => service.search('revenue', {}));
+    expect(whereOf(prisma.kPI.findMany)).not.toHaveProperty('id');
+    expect(whereOf(prisma.user.findMany)).not.toHaveProperty('id');
+    expect(whereOf(prisma.orgUnit.findMany)).not.toHaveProperty('id');
   });
 });

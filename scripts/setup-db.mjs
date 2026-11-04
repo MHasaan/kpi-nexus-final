@@ -27,7 +27,7 @@ const REPO_ROOT = resolve(__dirname, '..');
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  'postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus';
+  'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 
 const c = {
   reset: '\x1b[0m',
@@ -225,11 +225,31 @@ async function verifyContinuousAggregates(client) {
   } else {
     log.warn(`only ${refreshN} refresh policies present (expected ≥${required.length})`);
   }
-  // 5 CAGG compression policies + 1 base-hypertable compression policy = 6.
+  // 5 CAGG compression policies. The base hypertable is not compressed — it
+  // carries row-level security, which TimescaleDB compression forbids (OT-014).
   if (compressN >= required.length) {
     log.ok(`${compressN} compression policies present`);
   } else {
     log.warn(`only ${compressN} compression policies present (expected ≥${required.length})`);
+  }
+}
+
+/**
+ * Production / CI set real passwords for the two runtime roles; locally the
+ * dev defaults from rls-policies.sql stay. Values are passed as literals via
+ * format(%L) so they are quoted safely and never logged.
+ */
+async function setRolePasswords(client) {
+  for (const [role, envName] of [
+    ['kpi_app', 'KPI_APP_DB_PASSWORD'],
+    ['kpi_system', 'KPI_SYSTEM_DB_PASSWORD'],
+  ]) {
+    const pw = process.env[envName];
+    if (!pw) continue;
+    await client.query(`SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text)`, [role, pw]).then(
+      ({ rows }) => client.query(rows[0].format),
+    );
+    log.ok(`${role} password set from ${envName}`);
   }
 }
 
@@ -295,12 +315,15 @@ async function main() {
   try {
     await client.connect();
     await applySql(client, 'packages/db/prisma/sql/extensions.sql');
-    await applySql(client, 'packages/db/prisma/sql/rls-policies.sql');
     await applySql(client, 'packages/db/prisma/sql/hypertables.sql');
     // CAGG DDL cannot run inside a transaction block — apply statement-by-statement.
     await applySql(client, 'packages/db/prisma/sql/continuous-aggregates.sql', {
       splitStatements: true,
     });
+    // RLS last (OT-014): KPIDataPoint's compression must already be off, and
+    // the continuous aggregates must exist so the request role can be revoked.
+    await applySql(client, 'packages/db/prisma/sql/rls-policies.sql');
+    await setRolePasswords(client);
     await verifyExtensions(client);
     await verifyHypertables(client);
     await verifyContinuousAggregates(client);

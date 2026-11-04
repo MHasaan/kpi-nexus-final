@@ -164,17 +164,21 @@ export class MfaService {
    * if the code is valid (TOTP or recovery code — recovery consumed on use).
    */
   async verifyForLogin(userId: string, code: string): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { mfaSecret: true, mfaRecoveryHashes: true },
+    // Login-time (no session yet): read + consume-recovery-code under the RLS
+    // bypass, like AuthService.login (OT-014).
+    return RequestContextStore.runWithBypass('mfa-login', async () => {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { mfaSecret: true, mfaRecoveryHashes: true },
+      });
+      if (!user?.mfaSecret) return false;
+      return this.verifyCodeAgainstSecretOrRecovery(
+        code,
+        user.mfaSecret,
+        user.mfaRecoveryHashes,
+        userId,
+      );
     });
-    if (!user?.mfaSecret) return false;
-    return this.verifyCodeAgainstSecretOrRecovery(
-      code,
-      user.mfaSecret,
-      user.mfaRecoveryHashes,
-      userId,
-    );
   }
 
   private async verifyCodeAgainstSecretOrRecovery(

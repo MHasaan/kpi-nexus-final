@@ -8,6 +8,7 @@ import { AppShell } from '../../../../components/app-shell';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import { KpiForm } from '../../../../components/kpis/kpi-form';
 import { PageHeader, Skeleton } from '../../../../components/ui';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 export default function EditKpiPage() {
   const params = useParams<{ id: string }>();
@@ -20,7 +21,7 @@ export default function EditKpiPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     let cancelled = false;

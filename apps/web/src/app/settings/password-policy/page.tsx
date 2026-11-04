@@ -15,6 +15,7 @@ import {
   type OrganizationSettings,
   type PasswordPolicy,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const DEFAULT_POLICY: PasswordPolicy = {
   minLength: 8,
@@ -42,7 +43,7 @@ export default function PasswordPolicySettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     getMyOrganization()
@@ -53,7 +54,7 @@ export default function PasswordPolicySettingsPage() {
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
           return;
         }
         setError(err instanceof ApiError ? err.message : 'Failed to load password policy');

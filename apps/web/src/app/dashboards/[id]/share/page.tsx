@@ -28,6 +28,7 @@ import {
   Label,
   PageHeader,
 } from '../../../../components/ui';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
@@ -58,7 +59,7 @@ export default function DashboardSharePage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -76,7 +77,7 @@ export default function DashboardSharePage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load share links');

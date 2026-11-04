@@ -10,13 +10,7 @@
  *     and that update only fires when embedding-relevant fields change.
  */
 
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { RequestContextStore } from '../tenancy/request-context.js';
 
@@ -81,17 +75,21 @@ describe('ReembedProcessor', () => {
   it("'reembed-kpi' job calls reembedKpi under the org's RequestContext", async () => {
     const { ReembedProcessor } = await import('./reembed.processor.js');
 
+    let capturedOrgId: string | undefined;
     const mockEmbedding = {
-      reembedKpi: vi.fn().mockResolvedValue(true),
+      reembedKpi: vi.fn(async () => {
+        // Captured inside the call: proves the processor established the org's context.
+        capturedOrgId = RequestContextStore.get()?.organizationId;
+        return true;
+      }),
       reembedAllForOrg: vi.fn().mockResolvedValue(0),
     };
     const processor = new ReembedProcessor(mockEmbedding as never);
 
     const job = { name: 'reembed-kpi', data: { orgId: 'org-1', kpiId: 'kpi-abc' } };
 
-    let capturedOrgId: string | undefined;
-    // Run inside a real RequestContext to verify the processor establishes one
     await processor.process(job as never);
+    expect(capturedOrgId).toBe('org-1');
 
     // The embedding service's reembedKpi should have been called
     expect(mockEmbedding.reembedKpi).toHaveBeenCalledOnce();
@@ -232,6 +230,7 @@ describe('KpisService reembed trigger', () => {
     const audit = { record: vi.fn().mockResolvedValue(undefined) };
     const billing = { assertWithinQuota: vi.fn().mockResolvedValue(undefined) };
     const accessContext = {
+      isKpiVisible: vi.fn().mockResolvedValue(true),
       resolveForCurrentPrincipal: vi.fn().mockResolvedValue({
         isAdmin: true,
         capabilities: [],

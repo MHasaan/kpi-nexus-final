@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { Recommendation, RecommendationStatus } from '@kpi-nexus/db';
+import type { KPIDirection, Recommendation, RecommendationStatus } from '@kpi-nexus/db';
 
 import { AiRouterService } from '../ai/ai-router.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -8,9 +8,42 @@ import { parseRecommendation } from './recommendation-parser.js';
 
 const SYSTEM_PROMPT = [
   'You are a performance-improvement advisor. Given a KPI and its recent data, produce actionable advice.',
+  'When a target and the latest on/off-target status are given, anchor your advice to closing the gap to that target.',
   'Respond with ONLY JSON: {"summary": string, "rootCauseHypotheses": string[], "suggestedActions": [{"action": string, "rationale": string, "priority": "P1"|"P2"|"P3"}], "confidence": number 0-1}.',
   'No prose outside the JSON.',
 ].join('\n');
+
+/**
+ * On/under/over-target status honoring direction — mirrors NLQ. Only meaningful
+ * when a target is set and a value is present (caller guards). TARGET_IS_BEST /
+ * NEUTRAL have no simple over/under reading, so they return null.
+ */
+function targetStatus(value: number, target: number, direction: KPIDirection): string | null {
+  switch (direction) {
+    case 'HIGHER_IS_BETTER':
+      return value >= target ? 'on target' : 'below target';
+    case 'LOWER_IS_BETTER':
+      return value <= target ? 'on target' : 'above target';
+    default:
+      return null;
+  }
+}
+
+/** Compact number formatting: keep integers integer, round others to 2dp. */
+function formatNum(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+/** Percent change across a series: (last − first)/|first|, rounded to 1dp. */
+function changePct(series: number[]): number | null {
+  if (series.length < 2) return null;
+  const first = series[0]!;
+  const last = series[series.length - 1]!;
+  if (first === 0) return null; // undefined % change
+  const pct = ((last - first) / Math.abs(first)) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return Math.round(pct * 10) / 10;
+}
 
 export interface GenerateInput {
   kpiId?: string;
@@ -54,7 +87,15 @@ export class RecommendationsService {
 
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, name: true, direction: true },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        direction: true,
+        targetValue: true,
+        warningThreshold: true,
+        criticalThreshold: true,
+      },
     });
     if (!kpi) throw new NotFoundException({ code: 'KPI_NOT_FOUND', message: 'KPI not found' });
 
@@ -65,10 +106,33 @@ export class RecommendationsService {
       select: { value: true },
     });
     const values = points.map((p) => p.value).reverse();
+    const latest = values.length > 0 ? values[values.length - 1]! : null;
 
     const userMsg = [
-      `KPI: ${kpi.name} (direction: ${kpi.direction})`,
+      `KPI: ${kpi.name}${kpi.unit ? ` (${kpi.unit})` : ''} (direction: ${kpi.direction})`,
       `Recent values (oldest→newest): ${values.join(', ') || 'none'}`,
+      // Target + on/off-target status of the latest value, anchoring the advice.
+      kpi.targetValue != null
+        ? `Target: ${formatNum(kpi.targetValue)}${
+            latest != null && targetStatus(latest, kpi.targetValue, kpi.direction)
+              ? ` (latest is ${targetStatus(latest, kpi.targetValue, kpi.direction)})`
+              : ''
+          }`
+        : null,
+      // Thresholds (only those that are set).
+      [
+        kpi.warningThreshold != null ? `warning ${formatNum(kpi.warningThreshold)}` : null,
+        kpi.criticalThreshold != null ? `critical ${formatNum(kpi.criticalThreshold)}` : null,
+      ].some(Boolean)
+        ? `Thresholds: ${[
+            kpi.warningThreshold != null ? `warning ${formatNum(kpi.warningThreshold)}` : null,
+            kpi.criticalThreshold != null ? `critical ${formatNum(kpi.criticalThreshold)}` : null,
+          ]
+            .filter(Boolean)
+            .join(', ')}`
+        : null,
+      // Cheap % change over the window we already loaded.
+      changePct(values) != null ? `Change over window (first→last): ${changePct(values)}%` : null,
       input.alertId ? 'This was triggered by an alert breach.' : null,
       input.anomalyId ? 'This was triggered by a confirmed anomaly.' : null,
       'Produce the recommendation JSON.',

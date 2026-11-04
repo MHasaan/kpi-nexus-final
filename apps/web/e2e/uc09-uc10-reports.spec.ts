@@ -233,7 +233,7 @@ test.describe('UC-09: Scheduled Reports', () => {
         window.localStorage.removeItem('kpi-nexus.refresh-token');
       });
       await page.goto('/reports');
-      await expect(page).toHaveURL(/\/login$/);
+      await expect(page).toHaveURL(/\/login\?next=%2Freports$/);
     },
   );
 });

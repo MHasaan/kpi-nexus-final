@@ -358,7 +358,7 @@ test.describe('Dashboard builder — widget add + persistence', () => {
         window.localStorage.removeItem('kpi-nexus.refresh-token');
       });
       await page.goto('/dashboards/fake-dashboard-id');
-      await expect(page).toHaveURL(/\/login$/);
+      await expect(page).toHaveURL(/\/login\?next=%2Fdashboards%2Ffake-dashboard-id$/);
     },
   );
 });

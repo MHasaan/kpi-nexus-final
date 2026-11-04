@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
+import { Logger } from '@nestjs/common';
+
 import {
   type AiCompletionRequest,
   type AiCompletionResult,
   type AiEmbeddingRequest,
   AiProviderError,
+  AiProviderNotConfiguredError,
   type IAiProvider,
   priceCall,
 } from '@kpi-nexus/ai';
@@ -43,6 +46,8 @@ export interface RouterDeps {
   callLog: { record(entry: RouterCallLogEntry): Promise<void> | void };
   resolveConfig(feature: AiFeature): Promise<FeatureRoute> | FeatureRoute;
 }
+
+const logger = new Logger('AiRouter');
 
 const now = (): number => {
   try {
@@ -97,7 +102,13 @@ export class AiRouterService {
       const started = now();
       try {
         const provider = await this.deps.registry.getProvider(candidate.provider);
-        const req: AiCompletionRequest = { ...request, model: candidate.model };
+        // The route's reasoning budget applies to primary and fallback alike; a
+        // caller-supplied budget wins.
+        const req: AiCompletionRequest = {
+          ...request,
+          model: candidate.model,
+          reasoningBudgetTokens: request.reasoningBudgetTokens ?? config.reasoningBudgetTokens,
+        };
         const result = await (request.tools?.length
           ? provider.completeWithTools(req)
           : provider.complete(req));
@@ -115,8 +126,17 @@ export class AiRouterService {
         });
         return result;
       } catch (err) {
-        const code = err instanceof AiProviderError ? String(err.statusCode ?? 'ERR') : 'ERR';
-        attempted.push({ provider: candidate.provider, error: err instanceof Error ? err.message : String(err) });
+        const code =
+          err instanceof AiProviderNotConfiguredError
+            ? 'NOT_CONFIGURED'
+            : err instanceof AiProviderError
+              ? String(err.statusCode ?? 'ERR')
+              : 'ERR';
+        const message = err instanceof Error ? err.message : String(err);
+        attempted.push({ provider: candidate.provider, error: message });
+        // The call log keeps only the code; the provider's message is what makes a
+        // failure diagnosable (BE-026: a retired-model 404 was invisible).
+        logger.warn(`AI call failed — ${feature} via ${candidate.provider}/${candidate.model} [${code}]: ${message}`);
         await this.deps.callLog.record({
           feature,
           providerKey: candidate.provider,
@@ -155,7 +175,9 @@ export class AiRouterService {
         const provider = await this.deps.registry.getProvider(candidate.provider);
         return await provider.embed({ ...request, model: candidate.model });
       } catch (err) {
-        attempted.push({ provider: candidate.provider, error: err instanceof Error ? err.message : String(err) });
+        const message = err instanceof Error ? err.message : String(err);
+        attempted.push({ provider: candidate.provider, error: message });
+        logger.warn(`AI embedding failed — ${feature} via ${candidate.provider}/${candidate.model}: ${message}`);
       }
     }
     throw new AiProviderUnavailableError(attempted);

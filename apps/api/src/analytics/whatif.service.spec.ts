@@ -25,6 +25,8 @@ const mockKpis = {
 
 // Layer-4 data limits — null ⇒ unlimited / parity (admin default).
 const mockAccessContext = {
+  // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
+  isKpiAnalyticsAllowed: vi.fn(async () => true),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -52,7 +54,7 @@ beforeEach(() => {
     maxExportRows: null,
   });
   mockKpis.getById.mockResolvedValue({ id: 'kpi_1' });
-  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([{ value: 1, recordedAt: new Date('2026-01-01') }]);
   mockMl.post.mockResolvedValue({ baseline: [], scenarios: [] });
   vi.spyOn(RequestContextStore, 'require').mockReturnValue({
     organizationId: ORG,
@@ -120,5 +122,16 @@ describe('WhatIfService.simulate', () => {
     expect(call.where.organizationId).toBe(ORG);
     expect(call.where.kpiId).toBe('kpi_1');
     expect(call.where.recordedAt).toBeUndefined();
+  });
+});
+
+describe('WhatIfService.simulate with no data (BE-024)', () => {
+  it('answers 422 INSUFFICIENT_DATA instead of simulating an empty baseline', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+    await expect(makeSvc().simulate('kpi_1', { scenarios: [{ deltaPct: 10 }] })).rejects.toMatchObject({
+      status: 422,
+      response: { code: 'INSUFFICIENT_DATA' },
+    });
+    expect(mockMl.post).not.toHaveBeenCalled();
   });
 });

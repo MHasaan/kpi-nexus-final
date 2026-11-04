@@ -35,6 +35,7 @@ import {
   type AlertSeverity,
   type AlertStatus,
 } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -95,7 +96,7 @@ export default function AlertsPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load alerts');
@@ -104,7 +105,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     setAlerts(null);
@@ -143,6 +144,13 @@ export default function AlertsPage() {
         subtitle="Triage triggered alerts and keep your team ahead of incidents."
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              href="/alerts/rules"
+              data-testid="alerts-rules-link"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Rules
+            </Link>
             <Link
               href="/alerts/channels"
               className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isValidCron } from '../cron.js';
+
 export const ReportFormatSchema = z.enum(['CSV', 'EXCEL', 'PDF']);
 export type ReportFormat = z.infer<typeof ReportFormatSchema>;
 
@@ -34,12 +36,19 @@ export type BoardPackQuery = z.infer<typeof BoardPackQuerySchema>;
 
 // ── Scheduled Reports ─────────────────────────────────────────────────────────
 
+/** Cron validated with BullMQ's own parser — 400 here, never a 500 + orphan row (BE-019). */
+const CronSchema = z
+  .string()
+  .min(9)
+  .max(100)
+  .refine(isValidCron, { message: 'Invalid cron expression — use 5 fields, e.g. "0 8 * * 1" (Mondays 08:00)' });
+
 export const CreateScheduledReportDtoSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1024).optional(),
   dashboardId: z.string().optional(),
   kpiIds: z.array(z.string()).optional(),
-  cron: z.string().min(9).max(100), // standard 5-part cron
+  cron: CronSchema,
   format: ReportFormatSchema,
   recipients: z.array(z.string().email()).min(1).max(50),
 });
@@ -51,7 +60,7 @@ export const UpdateScheduledReportDtoSchema = z.object({
   description: z.string().max(1024).optional(),
   dashboardId: z.string().nullable().optional(),
   kpiIds: z.array(z.string()).optional(),
-  cron: z.string().min(9).max(100).optional(),
+  cron: CronSchema.optional(),
   format: ReportFormatSchema.optional(),
   recipients: z.array(z.string().email()).min(1).max(50).optional(),
   isActive: z.boolean().optional(),

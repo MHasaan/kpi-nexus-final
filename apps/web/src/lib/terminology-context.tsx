@@ -6,9 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { usePathname } from 'next/navigation';
 
 import {
   DEFAULT_TERMINOLOGY,
@@ -55,9 +57,17 @@ export function TerminologyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Mounted once at the root, which persists across client-side navigation —
+  // so refetch whenever the signed-in session changes (login, logout, switch),
+  // not just on mount (a fetch on /login would otherwise stick to defaults).
+  const pathname = usePathname();
+  const fetchedFor = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    const token = getAccessToken();
+    if (token === fetchedFor.current) return;
+    fetchedFor.current = token;
+    void refresh();
+  }, [pathname, refresh]);
 
   const value = useMemo(
     () => ({ terminology, loading, refresh }),

@@ -1,8 +1,10 @@
 name: kpi-nexus
 
+# Images are pinned (audit OT-011): a moving tag changed what "docker:up" ran.
+# Bump deliberately: pull, test, then update the tag/digest here.
 services:
   postgres:
-    image: timescale/timescaledb-ha:pg16
+    image: timescale/timescaledb-ha:pg16@sha256:0bb4a5e5c0e24119852612dee28694d71333820b33fafeb7968497e1faf4c182
     container_name: kpi-nexus-postgres
     ports:
       - "5432:5432"
@@ -11,7 +13,11 @@ services:
       POSTGRES_USER: kpi_nexus
       POSTGRES_PASSWORD: dev_password
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      # timescaledb-ha keeps its cluster in PGDATA=/home/postgres/pgdata/data, not
+      # /var/lib/postgresql/data. Mounting the old path persisted nothing: the DB
+      # lived in the container layer and was lost whenever the container was
+      # recreated (e.g. `docker compose down`, an image bump).
+      - pg_home:/home/postgres/pgdata
       - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kpi_nexus -d kpi_nexus"]
@@ -20,7 +26,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:286bd4264adb303147270bb2d735352497e950f7b73b2ca42364d63d7daf61ee
     container_name: kpi-nexus-redis
     ports:
       - "6379:6379"
@@ -32,39 +38,49 @@ services:
       timeout: 3s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    container_name: kpi-nexus-minio
+  s3:
+    # Local S3-compatible object storage (scheduled-report files). SeaweedFS
+    # (Apache-2.0) replaced MinIO, which stopped publishing pullable community
+    # images (OT-011). The API only speaks plain S3 (S3_* in .env); in
+    # production point those at a real bucket instead.
+    image: chrislusf/seaweedfs:latest@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d # 4.48
+    container_name: kpi-nexus-s3
     ports:
       - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+    command:
+      - mini
+      - -dir=/data
+      - -s3.port=9000
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -bucket=kpi-nexus-local
+      - -master.telemetry=false
     volumes:
-      - minio_data:/data
+      # /data is the image's declared data directory (checked: VOLUME /data).
+      - s3_data:/data
+      # Dev-only credentials; must match S3_ACCESS_KEY / S3_SECRET_KEY in .env.
+      - ./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      # Unauthenticated requests get 403 once the S3 gateway is up.
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null http://127.0.0.1:9000 2>&1 | grep -q '403'"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   mailhog:
-    image: mailhog/mailhog:latest
+    image: mailhog/mailhog:v1.0.1 # final release; project unmaintained since 2020
     container_name: kpi-nexus-mailhog
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:latest@sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac
     container_name: kpi-nexus-jaeger
     ports:
       - "16686:16686"  # Web UI
       - "4318:4318"    # OTLP HTTP
 
 volumes:
-  pg_data:
+  pg_home:
   redis_data:
-  minio_data:
+  s3_data:

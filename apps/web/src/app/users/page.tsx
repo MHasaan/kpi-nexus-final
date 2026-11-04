@@ -51,15 +51,13 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function UsersPage() {
   return (
-    <TerminologyProvider>
-      <UsersPageInner />
-    </TerminologyProvider>
+    <UsersPageInner />
   );
 }
 
@@ -84,7 +82,7 @@ function UsersPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -99,7 +97,7 @@ function UsersPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       // 403 USERS_VIEW missing is still a loadError — surface it, don't crash

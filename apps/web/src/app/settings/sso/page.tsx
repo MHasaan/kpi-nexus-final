@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../../lib/api-client';
 import { type SsoConfig, getSsoConfig, upsertSsoConfig } from '../../../lib/polish-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { RequirePermission } from '../../../components/auth/require-permission';
 
 export default function SsoSettingsPage() {
   const router = useRouter();
@@ -36,7 +38,7 @@ export default function SsoSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -59,7 +61,9 @@ export default function SsoSettingsPage() {
     }
   };
 
+  // FE-014: same permission the page's API enforces — no broken 403 screens.
   return (
+    <RequirePermission permission="ORG_SETTINGS">
     <main className="min-h-screen bg-surface-bg">
       <header className="border-b border-border bg-surface-1">
         <div className="mx-auto flex max-w-2xl items-center gap-6 px-6 py-4">
@@ -97,5 +101,6 @@ export default function SsoSettingsPage() {
         </div>
       </div>
     </main>
+    </RequirePermission>
   );
 }

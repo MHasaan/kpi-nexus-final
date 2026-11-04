@@ -9,6 +9,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiForm, type KpiFormInitial } from '../../../components/kpis/kpi-form';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { PageHeader, Skeleton } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 function NewKpiInner() {
   const router = useRouter();
@@ -20,7 +21,7 @@ function NewKpiInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
     }
   }, [router]);
 

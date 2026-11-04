@@ -8,6 +8,7 @@ import { ApiError, getAccessToken } from '../../lib/api-client';
 import { type ActivityItem, listActivity } from '../../lib/polish-client';
 import { AppShell } from '../../components/app-shell';
 import { PageHeader, Card, CardContent, Select, Avatar, Button, EmptyState, Skeleton } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 export default function ActivityPage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function ActivityPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load(true);

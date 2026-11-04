@@ -30,6 +30,8 @@ const mockRecommendations = {
 
 // Layer-4 data limits — null ⇒ unlimited / parity (admin default).
 const mockAccessContext = {
+  // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
+  isKpiAnalyticsAllowed: vi.fn(async () => true),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,

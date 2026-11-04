@@ -13,6 +13,7 @@ import {
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const ACTION_OPTIONS: AuditAction[] = [
   'CREATE',
@@ -42,7 +43,7 @@ function AuditPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -60,7 +61,7 @@ function AuditPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(

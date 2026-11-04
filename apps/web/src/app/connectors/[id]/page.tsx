@@ -12,6 +12,8 @@ import {
   listConnectorRuns,
   runConnector,
 } from '../../../lib/integrations-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { RequireAnyPermission } from '../../../components/auth/require-permission';
 
 interface Run {
   id: string;
@@ -45,7 +47,7 @@ export default function ConnectorDetailPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();
@@ -72,6 +74,8 @@ export default function ConnectorDetailPage() {
         { label: connector?.name ?? 'Connector' },
       ]}
     >
+      {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
+      <RequireAnyPermission permissions={['INTEGRATIONS_MANAGE', 'ORG_SETTINGS']}>
       <div className="mx-auto max-w-3xl">
         {error && <p className="mb-3 text-sm text-status-critical" role="alert" data-testid="connector-error">{error}</p>}
         {loading && (
@@ -105,6 +109,7 @@ export default function ConnectorDetailPage() {
           </>
         )}
       </div>
+      </RequireAnyPermission>
     </AppShell>
   );
 }

@@ -75,7 +75,13 @@ async function createOrgWideKpi(
   if (opts.type) await page.getByTestId('kpi-type').selectOption(opts.type);
   if (opts.unit) await page.getByTestId('kpi-unit').fill(opts.unit);
   if (opts.target) await page.getByTestId('kpi-target').fill(opts.target);
+  // Wait for the create to land: callers often navigate next, and a goto while
+  // POST /kpis is in flight aborts it (the KPI then never exists — flaky).
+  const created = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === '/kpis' && r.request().method() === 'POST',
+  );
   await page.getByTestId('kpi-submit').click();
+  expect((await created).status()).toBe(201);
 }
 
 test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
@@ -173,7 +179,7 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/kpis');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fkpis$/);
   });
 
   test('catalog filters: search + scope narrow the list and Clear filters resets', async ({

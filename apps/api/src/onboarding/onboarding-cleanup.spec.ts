@@ -6,7 +6,7 @@
  *   - OnboardingCleanupProducer — schedules the repeatable on module init with
  *     the canonical cron expression and deterministic jobId.
  */
-import { describe, beforeEach, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Minimal stubs so we can test without NestJS DI / BullMQ infrastructure

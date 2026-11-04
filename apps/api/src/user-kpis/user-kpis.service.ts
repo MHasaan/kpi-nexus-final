@@ -93,7 +93,10 @@ export class UserKpisService {
       where: { id: userId, organizationId: ctx.organizationId },
       select: { id: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    // Someone outside the caller's PEOPLE scope is a 404, as if absent (BE-004).
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    }
     return this.rowsForUser(userId);
   }
 

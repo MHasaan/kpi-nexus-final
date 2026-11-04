@@ -17,6 +17,7 @@ import {
   type KpiStatus,
 } from '../../components/ui';
 import { ApiError, getAccessToken, listTeamKpis, type MyKpiRow } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -45,7 +46,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     listTeamKpis()

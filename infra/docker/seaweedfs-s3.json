@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "kpi-nexus-dev",
+      "credentials": [
+        {
+          "accessKey": "kpinexus",
+          "secretKey": "kpinexus-dev-secret"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

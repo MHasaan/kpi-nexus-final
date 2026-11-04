@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { AiCompletionRequest } from '@kpi-nexus/ai';
 import type { AiFeature } from '@kpi-nexus/contracts';
 import type { OnboardingAiMode } from '@kpi-nexus/db';
@@ -7,6 +7,7 @@ import { AiProviderRegistry } from '../ai/ai-provider-registry.js';
 import { DEFAULT_FYP_CONFIG } from '../ai/default-fyp-config.js';
 import { OnboardingService } from '../onboarding/onboarding.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { budgetsFromEnv } from '../rate-limit/rate-limit-policy.js';
 import { RateLimitService } from '../rate-limit/rate-limit.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { limitFor } from './onboarding-ai-limits.js';
@@ -34,10 +35,15 @@ const GEN_SYSTEM = [
  * Onboarding AI co-pilot. Runs PRE-ORG (no tenant context), so it calls the
  * provider registry directly with manual primary→fallback rather than through
  * the org-scoped AiRouter (budget/call-log are org-scoped and don't apply yet).
- * Per-mode hourly rate limits are enforced per session.
+ * Anonymous spend is bounded three ways (BE-010): a per-IP hourly throttle
+ * (RateLimitGuard), per-mode hourly limits per session, and a global daily
+ * cap charged here once per real LLM call, after the draft token checks out.
  */
 @Injectable()
 export class OnboardingAiService {
+  private readonly logger = new Logger(OnboardingAiService.name);
+  private readonly globalPerDay = budgetsFromEnv().onboardingAiGlobalPerDay;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: AiProviderRegistry,
@@ -51,6 +57,18 @@ export class OnboardingAiService {
     if (!result.allowed) {
       throw new HttpException(
         { code: 'RATE_LIMITED', message: `Too many ${mode} requests; try again later`, details: { retryAfter: windowSec } },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /** Shared daily cap across ALL anonymous onboarding sessions (BE-010). */
+  private async enforceGlobalBudget(): Promise<void> {
+    const windowSec = 86_400;
+    const result = await this.rateLimit.consume('rl:onboarding-ai:global', this.globalPerDay, windowSec, Date.now());
+    if (!result.allowed) {
+      throw new HttpException(
+        { code: 'RATE_LIMITED', message: 'Onboarding AI is temporarily at capacity; try again later', details: { retryAfter: windowSec } },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -70,12 +88,16 @@ export class OnboardingAiService {
         lastError = err;
       }
     }
-    throw new ServiceUnavailableException({ code: 'AI_UNAVAILABLE', message: 'AI providers unavailable', details: String(lastError) });
+    // Public (anonymous) endpoint: the provider's error text (which can echo
+    // credential problems) goes to the server log, never the response.
+    this.logger.warn(`Onboarding AI (${feature}) — all providers failed: ${String(lastError)}`);
+    throw new ServiceUnavailableException({ code: 'AI_UNAVAILABLE', message: 'AI providers unavailable' });
   }
 
   private async run(sessionId: string, token: string, mode: OnboardingAiMode, prompt: string, systemPrompt: string) {
     await this.onboarding.getDraft(sessionId, token); // verify the draft token first
     await this.enforceLimit(sessionId, mode); // then consume the per-mode limit
+    await this.enforceGlobalBudget(); // and only then the shared daily cap
 
     const started = Date.now();
     const result = await this.callAi(FEATURE[mode], {

@@ -29,6 +29,27 @@ export type Domain = z.infer<typeof DomainSchema>;
 export const ScopeSchema = z.enum(['SELF', 'DIRECT_REPORTS', 'UNITS', 'ORG']);
 export type Scope = z.infer<typeof ScopeSchema>;
 
+/**
+ * Per-domain non-admin default scope when neither the role nor a user override
+ * sets one. Each value reproduces that domain's behaviour from before scopes
+ * were enforced: KPIS=UNITS, DASHBOARDS/TASKS=SELF, OKRS/REPORTS/ALERTS=ORG.
+ * PEOPLE / ORG / ANALYTICS are ORG (everyone could see every person, unit and
+ * analytics on any visible KPI) so enforcing them (BE-004) changes nothing until
+ * an admin narrows them. Shared so the role editor can show the real default.
+ */
+export const DOMAIN_DEFAULT_SCOPE: Record<Domain, Scope> = {
+  KPIS: 'UNITS',
+  DASHBOARDS: 'SELF',
+  ALERTS: 'ORG',
+  REPORTS: 'ORG',
+  ANALYTICS: 'ORG',
+  INSIGHTS: 'UNITS',
+  OKRS: 'ORG',
+  TASKS: 'SELF',
+  PEOPLE: 'ORG',
+  ORG: 'ORG',
+};
+
 /** Canonical verbs for ResourcePermission grants (Phase 3.5). */
 export const ResourceActionSchema = z.enum(['view', 'edit', 'delete', 'data_entry', 'manage']);
 export type ResourceAction = z.infer<typeof ResourceActionSchema>;

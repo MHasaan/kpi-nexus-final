@@ -109,6 +109,6 @@ test.describe('System Status page (/status)', () => {
     test.skip(!apiAvailable, '/health/details not reachable — needs API restart');
 
     await page.goto('/status');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fstatus$/);
   });
 });

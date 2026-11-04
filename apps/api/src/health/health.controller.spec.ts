@@ -102,3 +102,37 @@ describe('HealthController /health/details', () => {
     expect(ts).toBeLessThanOrEqual(after);
   });
 });
+
+// BE-018: with Redis paused (socket open, no replies) the ping never settled,
+// so GET /health hung — a liveness probe would restart a healthy API.
+describe('HealthController — a hung dependency reports "down" fast (BE-018)', () => {
+  const hang = () => new Promise<boolean>(() => undefined);
+
+  test('/health: a ping that never settles is "down" after the timeout; the other stays "ok"', async () => {
+    vi.useFakeTimers();
+    try {
+      const db = { ping: vi.fn().mockResolvedValue(true) } as unknown as DbHealthService;
+      const redis = { ping: vi.fn(hang) } as unknown as RedisHealthService;
+      const result = new HealthController(db, redis).check();
+      await vi.advanceTimersByTimeAsync(2_000);
+      await expect(result).resolves.toEqual({ db: 'ok', redis: 'down' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('/health/details: same bound, component marked down', async () => {
+    vi.useFakeTimers();
+    try {
+      const db = { ping: vi.fn(hang) } as unknown as DbHealthService;
+      const redis = { ping: vi.fn().mockResolvedValue(true) } as unknown as RedisHealthService;
+      const result = new HealthController(db, redis).details();
+      await vi.advanceTimersByTimeAsync(2_000);
+      const r = await result;
+      expect(r.status).toBe('degraded');
+      expect(r.components.find((c) => c.name === 'database')?.status).toBe('down');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

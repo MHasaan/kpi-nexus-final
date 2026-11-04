@@ -98,7 +98,7 @@ import { RetentionModule } from './retention/retention.module.js';
     }),
     BullModule.forRootAsync({
       useFactory: () => {
-        const url = new URL(process.env.REDIS_URL ?? 'redis://localhost:6379');
+        const url = new URL(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
         return {
           connection: {
             host: url.hostname,

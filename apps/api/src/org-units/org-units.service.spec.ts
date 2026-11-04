@@ -23,6 +23,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
+import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { OrgUnitsService } from './org-units.service.js';
 
 interface FakeUnit {
@@ -75,6 +76,16 @@ function tenantMatch(rowOrg: string, where: Record<string, unknown>): boolean {
   return where.organizationId === undefined || rowOrg === where.organizationId;
 }
 
+
+/** Matches a plain value or a Prisma `{ in: [...] }` filter (undefined ⇒ any). */
+function matchField(value: unknown, cond: unknown): boolean {
+  if (cond === undefined) return true;
+  if (cond && typeof cond === 'object' && 'in' in (cond as Record<string, unknown>)) {
+    return ((cond as { in: unknown[] }).in).includes(value);
+  }
+  return value === cond;
+}
+
 class FakePrisma {
   private n = 1;
   units: FakeUnit[] = [];
@@ -93,6 +104,7 @@ class FakePrisma {
       async ({ where }: { where: Record<string, unknown> }) => {
         return this.units
           .filter((u) => tenantMatch(u.organizationId, where))
+          .filter((u) => matchField(u.id, where.id))
           .filter((u) =>
             where.parentUnitId === undefined
               ? true
@@ -168,8 +180,8 @@ class FakePrisma {
         .filter(
           (m) =>
             tenantMatch(m.organizationId, where) &&
-            (where.orgUnitId === undefined || m.orgUnitId === where.orgUnitId) &&
-            (where.userId === undefined || m.userId === where.userId) &&
+            matchField(m.orgUnitId, where.orgUnitId) &&
+            matchField(m.userId, where.userId) &&
             (where.leftAt === undefined || m.leftAt === where.leftAt),
         )
         .map((m) => ({ ...m }));
@@ -250,6 +262,18 @@ class FakePrisma {
         )
         .map((u) => ({ id: u.id }));
     }),
+    findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const u = this.users.find((u) => u.id === where.id && tenantMatch(u.organizationId, where));
+      return u ? { id: u.id } : null;
+    }),
+  };
+
+  types: Array<{ id: string; organizationId: string }> = [{ id: 'type_1', organizationId: ORG }];
+  orgUnitType = {
+    findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+      const t = this.types.find((t) => t.id === where.id && tenantMatch(t.organizationId, where));
+      return t ? { id: t.id } : null;
+    }),
   };
 
   // Real-ish atomic transaction: snapshot, run, roll back on throw.
@@ -329,13 +353,26 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
   );
 }
 
+/** ORG / PEOPLE scope fake (BE-004): null ⇒ everything visible (the ORG default). */
+class FakeAccessContext {
+  units: string[] | null = null;
+  people: string[] | null = null;
+  visibleOrgUnitIds = vi.fn(async () => this.units);
+  isOrgUnitVisible = vi.fn(async (id: string) => this.units === null || this.units.includes(id));
+  visiblePeopleIds = vi.fn(async () => this.people);
+  isPersonVisible = vi.fn(async (id: string) => this.people === null || this.people.includes(id));
+  invalidateAll = vi.fn();
+}
+
 function makeService() {
   const prisma = new FakePrisma();
+  const accessContext = new FakeAccessContext();
   const service = new OrgUnitsService(
     prisma as unknown as PrismaService,
     new FakeAudit() as unknown as AuditService,
+    accessContext as unknown as AccessContextService,
   );
-  return { service, prisma };
+  return { service, prisma, accessContext };
 }
 
 describe('OrgUnitsService — rename + name history', () => {
@@ -623,5 +660,148 @@ describe('OrgUnitsService — listMembershipsByUser', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.id).toBe('mActive');
     expect(rows[0]!.orgUnitId).toBe('u1');
+  });
+});
+
+// BE-009: update() used to accept any parentUnitId except the unit itself —
+// cycles (P→C→P) and parents/types/heads from ANOTHER tenant went through.
+describe('OrgUnitsService — update() validates references (BE-009)', () => {
+  function tree() {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'p', name: 'Parent' });
+    prisma.seedUnit({ id: 'c', name: 'Child', parentUnitId: 'p' });
+    prisma.seedUnit({ id: 'g', name: 'Grandchild', parentUnitId: 'c' });
+    prisma.seedUnit({ id: 'other', name: 'Sibling root' });
+    prisma.seedUnit({ id: 'foreign', name: 'Org B unit', organizationId: 'org_beta' });
+    prisma.types.push({ id: 'type_foreign', organizationId: 'org_beta' });
+    prisma.seedUser({ id: 'head_ok' });
+    prisma.seedUser({ id: 'head_foreign', organizationId: 'org_beta' });
+    return { service, prisma };
+  }
+  const parentOf = (prisma: FakePrisma, id: string) => prisma.units.find((u) => u.id === id)!.parentUnitId;
+
+  test('rejects making a unit its own parent', async () => {
+    const { service } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'p' }))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  test('rejects a direct cycle (P under its child C)', async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'c' }))).rejects.toMatchObject({
+      response: { code: 'VALIDATION_ERROR', message: expect.stringMatching(/cycle/i) },
+    });
+    expect(parentOf(prisma, 'p')).toBeNull();
+  });
+
+  test('rejects a deep cycle (P under its grandchild G)', async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('p', { parentUnitId: 'g' }))).rejects.toBeInstanceOf(BadRequestException);
+    expect(parentOf(prisma, 'p')).toBeNull();
+  });
+
+  test("rejects a parent from another tenant", async () => {
+    const { service, prisma } = tree();
+    await expect(withCtx({}, () => service.update('c', { parentUnitId: 'foreign' }))).rejects.toMatchObject({
+      response: { message: expect.stringMatching(/another tenant/i) },
+    });
+    expect(parentOf(prisma, 'c')).toBe('p');
+  });
+
+  test('rejects an orgUnitTypeId or headUserId from another tenant', async () => {
+    const { service } = tree();
+    await expect(withCtx({}, () => service.update('c', { orgUnitTypeId: 'type_foreign' }))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(withCtx({}, () => service.update('c', { headUserId: 'head_foreign' }))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  test('still allows a legitimate move and same-tenant head/type', async () => {
+    const { service, prisma } = tree();
+    await withCtx({}, () => service.update('g', { parentUnitId: 'other', headUserId: 'head_ok', orgUnitTypeId: 'type_1' }));
+    expect(parentOf(prisma, 'g')).toBe('other');
+  });
+});
+
+describe('OrgUnitsService — mergeUnits() refuses to merge into a descendant (BE-009)', () => {
+  test('merging P into its child C (or grandchild G) is rejected and nothing moves', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'p', name: 'Parent' });
+    prisma.seedUnit({ id: 'c', name: 'Child', parentUnitId: 'p' });
+    prisma.seedUnit({ id: 'g', name: 'Grandchild', parentUnitId: 'c' });
+    for (const target of ['c', 'g']) {
+      await expect(withCtx({}, () => service.mergeUnits('p', target))).rejects.toMatchObject({
+        response: { code: 'VALIDATION_ERROR', message: expect.stringMatching(/cycle|descendant/i) },
+      });
+    }
+    expect(prisma.units.find((u) => u.id === 'c')!.parentUnitId).toBe('p');
+    expect(prisma.units.find((u) => u.id === 'p')!.status).toBe('ACTIVE');
+  });
+});
+
+describe('OrgUnitsService — ORG / PEOPLE scopes (BE-004)', () => {
+  function scopedEnv() {
+    const env = makeService();
+    env.prisma.seedUnit({ id: 'ou_mine', name: 'Mine' });
+    env.prisma.seedUnit({ id: 'ou_child', name: 'Child', parentUnitId: 'ou_mine' });
+    env.prisma.seedUnit({ id: 'ou_other', name: 'Other' });
+    env.prisma.seedUser({ id: 'u_peer' });
+    env.prisma.seedUser({ id: 'u_hidden' });
+    env.prisma.seedMember({ id: 'm1', orgUnitId: 'ou_mine', userId: 'u_peer' });
+    env.prisma.seedMember({ id: 'm2', orgUnitId: 'ou_mine', userId: 'u_hidden' });
+    env.prisma.seedMember({ id: 'm3', orgUnitId: 'ou_other', userId: 'u_hidden' });
+    env.accessContext.units = ['ou_mine', 'ou_child'];
+    return env;
+  }
+
+  test('list returns only visible units; ORG default is unfiltered', async () => {
+    const env = scopedEnv();
+    const rows = await withCtx({}, () => env.service.list());
+    expect(rows.map((u) => u.id).sort()).toEqual(['ou_child', 'ou_mine']);
+    env.accessContext.units = null;
+    expect(await withCtx({}, () => env.service.list())).toHaveLength(3);
+  });
+
+  test('reading an invisible unit is a 404 (detail, members, name history)', async () => {
+    const { service } = scopedEnv();
+    await expect(withCtx({}, () => service.getById('ou_other'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.listMembers('ou_other'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.getNameHistory('ou_other'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('members of a visible unit are filtered by the PEOPLE scope', async () => {
+    const env = scopedEnv();
+    env.accessContext.people = ['u_peer'];
+    const rows = await withCtx({}, () => env.service.listMembers('ou_mine'));
+    expect(rows.map((m) => m.userId)).toEqual(['u_peer']);
+  });
+
+  test('memberships-by-user list only visible units, and an invisible person is a 404', async () => {
+    const env = scopedEnv();
+    const rows = await withCtx({}, () => env.service.listMembershipsByUser('u_hidden'));
+    expect(rows.map((m) => m.orgUnitId)).toEqual(['ou_mine']);
+    env.accessContext.people = ['u_peer'];
+    await expect(withCtx({}, () => env.service.listMembershipsByUser('u_hidden'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('writes on an invisible unit are refused (rename, remove, add/remove member, merge)', async () => {
+    const { service, prisma } = scopedEnv();
+    await expect(withCtx({}, () => service.renameUnit('ou_other', 'X'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.remove('ou_other'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.addMember('ou_other', { userId: 'u_peer' } as never))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.removeMember('ou_other', 'u_hidden'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.mergeUnits('ou_mine', 'ou_other'))).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.history).toHaveLength(0);
+    expect(prisma.members.find((m) => m.id === 'm3')!.leftAt).toBeNull();
+  });
+
+  test('a unit cannot be created or moved under an invisible parent', async () => {
+    const { service } = scopedEnv();
+    await expect(
+      withCtx({}, () => service.update('ou_child', { parentUnitId: 'ou_other' } as never)),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('membership changes invalidate the cached access profiles', async () => {
+    const env = scopedEnv();
+    await withCtx({}, () => env.service.removeMember('ou_mine', 'u_peer'));
+    expect(env.accessContext.invalidateAll).toHaveBeenCalled();
   });
 });

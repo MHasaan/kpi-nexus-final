@@ -123,7 +123,7 @@ test.describe('/users page — list + invite UI', () => {
     });
 
     await page.goto('/users');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fusers$/);
   });
 
   test('invite with duplicate email shows the api error', async ({ page }) => {

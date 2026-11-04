@@ -21,6 +21,7 @@ import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 
 import type { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextStore } from '../tenancy/request-context.js';
 import { AuthService } from './auth.service.js';
 import type { RefreshTokenService } from './services/refresh-token.service.js';
 
@@ -118,5 +119,60 @@ describe('AuthService.previewInvitation()', () => {
       makeService(prisma).previewInvitation({ token: RAW_TOKEN }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.login() — attempt auditing (OT-009)', () => {
+  test('records the client IP and user agent on the login attempt', async () => {
+    const create = vi.fn().mockResolvedValue({});
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
+      loginAttempt: { create },
+    };
+    await expect(
+      makeService(prisma).login({ email: 'nobody@example.test', password: 'x' }, { ip: '203.0.113.9', userAgent: 'audit-agent/1.0' }),
+    ).rejects.toThrow();
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ email: 'nobody@example.test', status: 'USER_NOT_FOUND', ipAddress: '203.0.113.9', userAgent: 'audit-agent/1.0' }),
+    });
+  });
+});
+
+// POST /auth/refresh is public: the caller is identified only by the refresh
+// token, so the User/RoleDefinition lookups are cross-tenant by nature and must
+// run under the RLS bypass — like login (OT-014).
+describe('AuthService.refresh() — runs its lookups under the RLS bypass (OT-014)', () => {
+  test('user + role lookups see bypassRls, and the new pair is issued', async () => {
+    const seen: Array<boolean | undefined> = [];
+    const prisma = {
+      user: {
+        findUniqueOrThrow: vi.fn(async () => {
+          seen.push(RequestContextStore.get()?.bypassRls);
+          return { id: 'u1', organizationId: 'org_a', roleId: 'r1' };
+        }),
+      },
+      roleDefinition: {
+        findUnique: vi.fn(async () => {
+          seen.push(RequestContextStore.get()?.bypassRls);
+          return { isAdmin: true };
+        }),
+      },
+    };
+    const jwt = { signAsync: vi.fn(async () => 'access-token') };
+    const refreshTokens = { rotate: vi.fn(async () => ({ userId: 'u1', plaintext: 'next-refresh' })) };
+    const service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwt as unknown as JwtService,
+      {} as ConfigService,
+      refreshTokens as unknown as RefreshTokenService,
+    );
+
+    await expect(service.refresh('old-refresh')).resolves.toEqual({
+      accessToken: 'access-token',
+      refreshToken: 'next-refresh',
+      expiresIn: 900,
+    });
+    expect(seen).toEqual([true, true]);
+    expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sub: 'u1', org: 'org_a', adm: true }), expect.anything());
   });
 });

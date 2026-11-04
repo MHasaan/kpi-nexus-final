@@ -49,6 +49,12 @@ export class RealtimeController {
     reply.hijack();
 
     const raw = reply.raw;
+    // hijack() skips Fastify's send pipeline, so headers already prepared on the
+    // reply by hooks — notably @fastify/cors's Access-Control-Allow-* — would
+    // never be written, and browsers block the stream (BE-028). Carry them over.
+    for (const [name, value] of Object.entries(reply.getHeaders())) {
+      if (value !== undefined) raw.setHeader(name, value);
+    }
     raw.setHeader('Content-Type', 'text/event-stream');
     raw.setHeader('Cache-Control', 'no-cache');
     raw.setHeader('Connection', 'keep-alive');

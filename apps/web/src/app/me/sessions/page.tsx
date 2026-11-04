@@ -12,6 +12,7 @@ import {
   revokeSession,
   revokeAllOtherSessions,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function SessionsPage() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function SessionsPage() {
       setSessions(data);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setError(e instanceof ApiError ? e.message : 'Failed to load sessions');
@@ -41,7 +42,7 @@ export default function SessionsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

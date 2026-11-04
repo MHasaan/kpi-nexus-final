@@ -48,6 +48,8 @@ export class AiConfigsService {
       fallback: cfg.fallbackProviderId
         ? { provider: cfg.fallbackProviderId as AiProviderKey, model: cfg.fallbackModel ?? cfg.model }
         : DEFAULT_FYP_CONFIG[feature].fallback,
+      // The reasoning budget belongs to the feature, not the model an org picked.
+      reasoningBudgetTokens: DEFAULT_FYP_CONFIG[feature].reasoningBudgetTokens,
     };
   }
 

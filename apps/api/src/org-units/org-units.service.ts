@@ -8,6 +8,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type {
   AddMemberDto,
@@ -60,12 +61,31 @@ export class OrgUnitsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessContext: AccessContextService,
   ) {}
 
-  list() {
+  /**
+   * Membership and hierarchy decide the UNITS / DIRECT_REPORTS scopes, which are
+   * cached for 5 minutes — drop the caches after a structural change so scopes
+   * follow it immediately (BE-004).
+   */
+  private structureChanged(): void {
+    this.accessContext.invalidateAll();
+  }
+
+  /** 404 unless the unit is visible to the caller (ORG scope, BE-004). */
+  private async assertUnitVisible(id: string): Promise<void> {
+    if (!(await this.accessContext.isOrgUnitVisible(id))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
+    }
+  }
+
+  /** Units the caller may see (ORG scope, BE-004); all of them at the ORG default. */
+  async list() {
     const ctx = RequestContextStore.require();
+    const visible = await this.accessContext.visibleOrgUnitIds();
     return this.prisma.orgUnit.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, ...(visible ? { id: { in: visible } } : {}) },
       select: orgUnitSelect,
       orderBy: [{ name: 'asc' }],
     });
@@ -80,6 +100,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     return unit;
   }
 
@@ -112,6 +133,7 @@ export class OrgUnitsService {
           message: 'parentUnitId is invalid or belongs to another tenant',
         });
       }
+      await this.assertUnitVisible(dto.parentUnitId);
     }
 
     // Verify headUser belongs to tenant (if specified)
@@ -149,18 +171,33 @@ export class OrgUnitsService {
       entityId: created.id,
       changes: { name: created.name },
     });
+    this.structureChanged();
 
     return created;
   }
 
   async update(id: string, dto: UpdateOrgUnitDto) {
+    const ctx = RequestContextStore.require();
     await this.getById(id);
 
-    if (dto.parentUnitId === id) {
-      throw new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'an org unit cannot be its own parent',
-      });
+    // BE-009: every reference must belong to this tenant (as create() checks),
+    // and a new parent must not be the unit itself or one of its descendants.
+    if (dto.parentUnitId !== undefined) {
+      if (dto.parentUnitId === id) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'an org unit cannot be its own parent',
+        });
+      }
+      await this.assertInTenant('orgUnit', dto.parentUnitId, ctx.organizationId, 'parentUnitId');
+      await this.assertUnitVisible(dto.parentUnitId);
+      await this.assertNotDescendant(id, dto.parentUnitId, ctx.organizationId);
+    }
+    if (dto.orgUnitTypeId !== undefined) {
+      await this.assertInTenant('orgUnitType', dto.orgUnitTypeId, ctx.organizationId, 'orgUnitTypeId');
+    }
+    if (dto.headUserId !== undefined) {
+      await this.assertInTenant('user', dto.headUserId, ctx.organizationId, 'headUserId');
     }
 
     const { metadata, ...rest } = dto;
@@ -181,8 +218,60 @@ export class OrgUnitsService {
       entityId: id,
       changes: dto as Record<string, unknown>,
     });
+    this.structureChanged();
 
     return updated;
+  }
+
+  /** 400 unless `id` is a row of `model` in this tenant. */
+  private async assertInTenant(
+    model: 'orgUnit' | 'orgUnitType' | 'user',
+    id: string,
+    organizationId: string,
+    field: string,
+  ): Promise<void> {
+    const args = { where: { id, organizationId }, select: { id: true } } as const;
+    const row =
+      model === 'orgUnit'
+        ? await this.prisma.orgUnit.findFirst(args)
+        : model === 'orgUnitType'
+          ? await this.prisma.orgUnitType.findFirst(args)
+          : await this.prisma.user.findFirst(args);
+    if (!row) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `${field} is invalid or belongs to another tenant`,
+      });
+    }
+  }
+
+  /**
+   * 400 if `newParentId` is `unitId` or one of its descendants (walks up from
+   * the proposed parent). The visited set + depth cap keep a pre-existing bad
+   * cycle in the data from looping forever.
+   */
+  private async assertNotDescendant(
+    unitId: string,
+    newParentId: string,
+    organizationId: string,
+    message = 'parentUnitId would create a cycle (it is a descendant of this unit)',
+  ): Promise<void> {
+    const seen = new Set<string>();
+    let cur: string | null = newParentId;
+    while (cur && !seen.has(cur) && seen.size < 10_000) {
+      if (cur === unitId) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message,
+        });
+      }
+      seen.add(cur);
+      const row: { parentUnitId: string | null } | null = await this.prisma.orgUnit.findFirst({
+        where: { id: cur, organizationId },
+        select: { parentUnitId: true },
+      });
+      cur = row?.parentUnitId ?? null;
+    }
   }
 
   async remove(id: string): Promise<void> {
@@ -203,6 +292,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     if (unit._count.children > 0) {
       throw new ConflictException({
         code: 'CONFLICT',
@@ -224,12 +314,20 @@ export class OrgUnitsService {
       entityId: id,
       metadata: { name: unit.name },
     });
+    this.structureChanged();
   }
 
-  listMembers(orgUnitId: string) {
+  async listMembers(orgUnitId: string) {
     const ctx = RequestContextStore.require();
+    await this.getById(orgUnitId); // tenant + ORG-scope visibility
+    const people = await this.accessContext.visiblePeopleIds();
     return this.prisma.orgUnitMember.findMany({
-      where: { orgUnitId, organizationId: ctx.organizationId, leftAt: null },
+      where: {
+        orgUnitId,
+        organizationId: ctx.organizationId,
+        leftAt: null,
+        ...(people ? { userId: { in: people } } : {}),
+      },
       select: memberSelect,
       orderBy: { joinedAt: 'asc' },
     });
@@ -262,7 +360,7 @@ export class OrgUnitsService {
           message: 'user is already a member',
         });
       }
-      return this.prisma.orgUnitMember.update({
+      const rejoined = await this.prisma.orgUnitMember.update({
         where: { id: existing.id },
         data: {
           memberRole: dto.memberRole,
@@ -272,6 +370,8 @@ export class OrgUnitsService {
         },
         select: memberSelect,
       });
+      this.structureChanged();
+      return rejoined;
     }
 
     const created = await this.prisma.orgUnitMember.create({
@@ -290,12 +390,14 @@ export class OrgUnitsService {
       entityId: created.id,
       metadata: { orgUnitId, userId: dto.userId, memberRole: dto.memberRole },
     });
+    this.structureChanged();
 
     return created;
   }
 
   async removeMember(orgUnitId: string, userId: string): Promise<void> {
     const ctx = RequestContextStore.require();
+    await this.getById(orgUnitId); // tenant + ORG-scope visibility
     const member = await this.prisma.orgUnitMember.findFirst({
       where: { orgUnitId, userId, organizationId: ctx.organizationId, leftAt: null },
       select: { id: true },
@@ -316,6 +418,7 @@ export class OrgUnitsService {
       entityId: member.id,
       metadata: { orgUnitId, userId },
     });
+    this.structureChanged();
   }
 
   // ==========================================================================
@@ -332,6 +435,7 @@ export class OrgUnitsService {
     if (!unit) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'org unit not found' });
     }
+    await this.assertUnitVisible(id);
     return unit;
   }
 
@@ -439,6 +543,7 @@ export class OrgUnitsService {
         toUnitId: toUnit.id,
       },
     });
+    this.structureChanged();
   }
 
   /**
@@ -458,6 +563,9 @@ export class OrgUnitsService {
         message: 'cannot merge an org unit into itself',
       });
     }
+    // The source's children are re-parented to the target — if the target sits
+    // inside the source's subtree that creates a cycle (BE-009).
+    await this.assertNotDescendant(sourceId, targetId, ctx.organizationId, 'targetId is a descendant of the source unit; merging would create a cycle');
 
     const activeMembers = await this.prisma.orgUnitMember.findMany({
       where: { orgUnitId: sourceId, organizationId: ctx.organizationId, leftAt: null },
@@ -498,6 +606,7 @@ export class OrgUnitsService {
         movedMemberCount: activeMembers.length,
       },
     });
+    this.structureChanged();
   }
 
   /**
@@ -569,6 +678,7 @@ export class OrgUnitsService {
         memberUserIds: dto.memberUserIds,
       },
     });
+    this.structureChanged();
 
     return created;
   }
@@ -602,10 +712,19 @@ export class OrgUnitsService {
   }
 
   /** Active OrgUnitMember rows for a user within the current tenant. */
-  listMembershipsByUser(userId: string) {
+  async listMembershipsByUser(userId: string) {
     const ctx = RequestContextStore.require();
+    if (!(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+    const units = await this.accessContext.visibleOrgUnitIds();
     return this.prisma.orgUnitMember.findMany({
-      where: { userId, organizationId: ctx.organizationId, leftAt: null },
+      where: {
+        userId,
+        organizationId: ctx.organizationId,
+        leftAt: null,
+        ...(units ? { orgUnitId: { in: units } } : {}),
+      },
       select: memberSelect,
       orderBy: { joinedAt: 'asc' },
     });

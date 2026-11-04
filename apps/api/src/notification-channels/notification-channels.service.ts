@@ -3,6 +3,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { assertOutboundUrl } from '../outbound/assert-outbound-url.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { NotificationAdaptersService } from '../notifications/notification-adapters.service.js';
 import { decryptConfig, encryptConfig } from './notification-crypto.js';
@@ -42,6 +43,7 @@ export class NotificationChannelsService {
     kind: string;
     config: Record<string, unknown>;
   }): Promise<PublicChannel> {
+    await assertChannelTargets(input.config);
     const ctx = RequestContextStore.require();
     const channel = await this.prisma.notificationChannel.create({
       data: {
@@ -66,6 +68,7 @@ export class NotificationChannelsService {
     patch: { name?: string; isActive?: boolean; config?: Record<string, unknown> },
   ): Promise<PublicChannel> {
     await this.requireInTenant(id);
+    if (patch.config !== undefined) await assertChannelTargets(patch.config);
     const channel = await this.prisma.notificationChannel.update({
       where: { id },
       data: {
@@ -117,4 +120,10 @@ function safeDecrypt(encrypted: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** WEBHOOK channels post to config.url; SLACK / TEAMS to config.webhookUrl. */
+async function assertChannelTargets(config: Record<string, unknown>): Promise<void> {
+  await assertOutboundUrl(config.url, 'config.url');
+  await assertOutboundUrl(config.webhookUrl, 'config.webhookUrl');
 }

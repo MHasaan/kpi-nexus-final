@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
@@ -9,6 +10,7 @@ import {
 import type { Prisma } from '@kpi-nexus/db';
 import type {
   DataLimitsConfig,
+  PermissionKey,
   DataTypeConfig,
   PageAccessConfig,
   ScopeConfig,
@@ -86,6 +88,33 @@ export class RolesService {
     @Optional() private readonly audit?: AuditService,
   ) {}
 
+  /**
+   * Privilege-escalation guard: a non-admin ROLES_MANAGE holder may only ADD
+   * permissions they hold themselves, and may not change isAdmin. Removing
+   * permissions they lack is fine. Mirrors the per-user override guard in
+   * UsersService.upsertAccessOverride. Runs before the approval gate so an
+   * escalating change can't even be queued.
+   */
+  private async assertCanGrant(change: {
+    added: readonly string[];
+    isAdminChanged: boolean;
+  }): Promise<void> {
+    if (change.added.length === 0 && !change.isAdminChanged) return;
+    const ctx = RequestContextStore.require();
+    const caller = await this.resolver.resolveForUser(ctx.organizationId, ctx.userId, ctx.roleId);
+    if (caller.isAdmin) return;
+    if (change.isAdminChanged) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Only administrators can change the admin flag' });
+    }
+    const missing = change.added.filter((p) => !caller.permissions.has(p as PermissionKey));
+    if (missing.length > 0) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: `Cannot grant permissions you do not hold: ${missing.join(', ')}`,
+      });
+    }
+  }
+
   /** Invalidate the per-request permission + access caches after a role change. */
   private invalidateCaches(): void {
     this.resolver.invalidateAll();
@@ -116,6 +145,7 @@ export class RolesService {
 
   async create(dto: CreateRoleDto): Promise<PublicRole> {
     const ctx = RequestContextStore.require();
+    await this.assertCanGrant({ added: dto.permissions, isAdminChanged: dto.isAdmin === true });
     try {
       const created = await this.prisma.roleDefinition.create({
         data: {
@@ -167,6 +197,15 @@ export class RolesService {
           message: 'dataTypeConfig.kpiCategoryIds contains unknown categories',
         });
       }
+    }
+
+    // An approved request (bypassApproval) was checked when it was queued; the
+    // approver applying it need not hold every permission it grants.
+    if (!opts.bypassApproval) {
+      await this.assertCanGrant({
+        added: (dto.permissions ?? []).filter((p) => !existing.permissions.includes(p)),
+        isAdminChanged: dto.isAdmin !== undefined && dto.isAdmin !== existing.isAdmin,
+      });
     }
 
     // Approval seam: gate only sensitive permission changes (permissions /
@@ -280,6 +319,21 @@ export class RolesService {
     const existing = await this.getById(roleId);
 
     const oldPermissions = existing.permissions;
+
+    await this.assertCanGrant({
+      added: preset.permissions.filter((p) => !oldPermissions.includes(p)),
+      isAdminChanged: preset.isAdmin !== existing.isAdmin,
+    });
+    // A preset is a permission change like any other: honour an active
+    // ROLE_PERMISSIONS approval workflow (it used to bypass it).
+    if (this.approvalGate) {
+      await this.approvalGate.requireApprovalIfActive(
+        'ROLE_PERMISSIONS',
+        roleId,
+        { permissions: [...preset.permissions], isAdmin: preset.isAdmin },
+        { currentPayload: existing },
+      );
+    }
 
     const updated = await this.prisma.roleDefinition.update({
       where: { id: roleId },

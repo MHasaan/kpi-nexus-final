@@ -28,6 +28,8 @@ import {
   retryNotificationDelivery,
   type NotificationDelivery,
 } from '../../../../lib/api-client';
+import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { RequirePermission } from '../../../../components/auth/require-permission';
 
 export default function DlqPage() {
   const router = useRouter();
@@ -42,7 +44,7 @@ export default function DlqPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load deliveries');
@@ -51,7 +53,7 @@ export default function DlqPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -71,6 +73,8 @@ export default function DlqPage() {
 
   return (
     <AppShell>
+      {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
+      <RequirePermission permission="ORG_SETTINGS">
       <PageHeader
         title="Failed deliveries (DLQ)"
         subtitle="Notifications that exhausted their retries. Inspect the error and re-queue them."
@@ -171,6 +175,7 @@ export default function DlqPage() {
           </Table>
         </Card>
       )}
+      </RequirePermission>
     </AppShell>
   );
 }

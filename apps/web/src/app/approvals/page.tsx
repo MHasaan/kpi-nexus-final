@@ -19,6 +19,7 @@ import {
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { PageHeader, Card, CardContent, Button, Badge, EmptyState, Skeleton, Select, Input } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const RESOLVED_STATUSES: ApprovalRequestStatus[] = ['APPROVED', 'REJECTED', 'CANCELLED'];
 
@@ -144,7 +145,7 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

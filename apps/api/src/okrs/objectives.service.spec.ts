@@ -5,13 +5,14 @@
  * syncFromLinkedKpis pulling the latest KPI value into the KR.
  */
 import { describe, expect, test, vi } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Scope } from '@kpi-nexus/contracts';
 
 import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
+import { CreateObjectiveDtoSchema, UpdateObjectiveDtoSchema } from './dto/okr.dto.js';
 import { ObjectivesService } from './objectives.service.js';
 
 interface FakeObjective {
@@ -310,5 +311,60 @@ describe('ObjectivesService OKRS scope (Phase 2.5)', () => {
       service.create({ name: 'Theirs', ownerUserId: 'other', periodStart: new Date('2026-01-01'), periodEnd: new Date('2026-12-31') }),
     );
     await expect(withCtx({ userId: 'me' }, () => service.getById(theirs.id))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ObjectivesService alignment + period integrity (BE-020)', () => {
+  test('an objective cannot be its own parent', async () => {
+    const { service } = makeService();
+    const a = await withCtx({}, () => service.create({ name: 'A obj', ownerUserId: 'owner', ...period }));
+    await expect(withCtx({}, () => service.update(a.id, { parentObjectiveId: a.id }))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  test('an objective cannot be parented under its own descendant', async () => {
+    const { service, prisma } = makeService();
+    const a = await withCtx({}, () => service.create({ name: 'A obj', ownerUserId: 'owner', ...period }));
+    const b = await withCtx({}, () =>
+      service.create({ name: 'B obj', ownerUserId: 'owner', parentObjectiveId: a.id, ...period }),
+    );
+    const c = await withCtx({}, () =>
+      service.create({ name: 'C obj', ownerUserId: 'owner', parentObjectiveId: b.id, ...period }),
+    );
+    await expect(withCtx({}, () => service.update(a.id, { parentObjectiveId: c.id }))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.objectives.find((o) => o.id === a.id)!.parentObjectiveId).toBeNull();
+  });
+
+  test('re-parenting to an unrelated objective still works', async () => {
+    const { service } = makeService();
+    const a = await withCtx({}, () => service.create({ name: 'A obj', ownerUserId: 'owner', ...period }));
+    const b = await withCtx({}, () => service.create({ name: 'B obj', ownerUserId: 'owner', ...period }));
+    const updated = await withCtx({}, () => service.update(b.id, { parentObjectiveId: a.id }));
+    expect(updated.parentObjectiveId).toBe(a.id);
+  });
+
+  test('an update cannot move periodEnd before the stored periodStart', async () => {
+    const { service } = makeService();
+    const a = await withCtx({}, () => service.create({ name: 'A obj', ownerUserId: 'owner', ...period }));
+    await expect(
+      withCtx({}, () => service.update(a.id, { periodEnd: new Date('2025-06-01') })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('objective DTO periods (BE-020)', () => {
+  test('create rejects periodEnd before periodStart; update rejects an inverted pair', () => {
+    const base = { name: 'Grow', ownerUserId: 'o' };
+    expect(
+      CreateObjectiveDtoSchema.safeParse({ ...base, periodStart: '2026-12-31', periodEnd: '2026-01-01' }).success,
+    ).toBe(false);
+    expect(CreateObjectiveDtoSchema.safeParse({ ...base, periodStart: '2026-01-01', periodEnd: '2026-12-31' }).success).toBe(
+      true,
+    );
+    expect(UpdateObjectiveDtoSchema.safeParse({ periodStart: '2026-12-31', periodEnd: '2026-01-01' }).success).toBe(false);
+    expect(UpdateObjectiveDtoSchema.safeParse({ parentObjectiveId: null }).success).toBe(true);
   });
 });

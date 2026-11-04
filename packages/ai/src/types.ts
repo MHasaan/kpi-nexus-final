@@ -39,7 +39,15 @@ export interface AiCompletionRequest {
   model?: string;
   systemPrompt?: string;
   messages: AiMessage[];
+  /** Budget for the visible ANSWER. Reasoning tokens get their own budget below. */
   maxTokens?: number;
+  /**
+   * Tokens a reasoning ("thinking") model may spend before answering, granted
+   * ON TOP of maxTokens. Without it, thinking models spend the answer's budget
+   * on reasoning and return truncated output. Providers without a reasoning
+   * mode ignore it.
+   */
+  reasoningBudgetTokens?: number;
   temperature?: number;
   tools?: NormalizedTool[];
   /** Hint to providers that support prompt caching (Claude/OpenAI). */
@@ -116,5 +124,18 @@ export class AiProviderError extends Error {
   ) {
     super(message);
     this.name = 'AiProviderError';
+  }
+}
+
+/**
+ * The provider has no credentials (no platform API key and no BYO key). Raised
+ * before any network call, so a routing fallback to an unconfigured provider is
+ * an instant, clearly-labelled skip instead of a doomed request that 401s
+ * (BE-026). Not retryable.
+ */
+export class AiProviderNotConfiguredError extends AiProviderError {
+  constructor(provider: AiProviderKey) {
+    super(`${provider} is not configured (no API key)`, provider, false);
+    this.name = 'AiProviderNotConfiguredError';
   }
 }

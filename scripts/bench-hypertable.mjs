@@ -39,7 +39,7 @@ const P95_BUDGET_MS = Number(
   args.p95budget ?? process.env.BENCH_P95_BUDGET_MS ?? 100,
 );
 
-const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://kpi_nexus:dev_password@localhost:5432/kpi_nexus';
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 
 function pct(sortedMs, p) {
   if (sortedMs.length === 0) return 0;

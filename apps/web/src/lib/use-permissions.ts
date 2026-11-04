@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { meRequest } from './api-client';
+import { ApiError, getAccessToken, meRequest } from './api-client';
 import {
   getCachedPermissions,
   hasAny,
@@ -14,6 +14,11 @@ export interface UsePermissionsResult {
   permissions: string[];
   /** True once we have resolved permissions (either from cache or from the API). */
   ready: boolean;
+  /**
+   * False when there is no session (no token, or the API answered 401). Guards
+   * must send such users to sign in, not to "/unauthorized" (FE-009).
+   */
+  authenticated: boolean;
   /** Check if the user has a specific permission key. */
   has: (key: string) => boolean;
   /** Check if the user has at least one of the given permission keys. */
@@ -33,14 +38,25 @@ export interface UsePermissionsResult {
 export function usePermissions(): UsePermissionsResult {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [ready, setReady] = useState<boolean>(false);
+  const [authenticated, setAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    // No session at all: resolved, unauthenticated (cached permissions from a
+    // previous session must not count).
+    if (!getAccessToken()) {
+      setReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // Hydrate from the synchronous cache first (no flash beyond the first paint).
     const cached = getCachedPermissions();
     if (cached.length > 0) {
       setPermissions(cached);
+      setAuthenticated(true);
       setReady(true);
       return () => {
         cancelled = true;
@@ -53,11 +69,14 @@ export function usePermissions(): UsePermissionsResult {
         const { user } = await meRequest();
         if (!cancelled) {
           setPermissions(user.permissions ?? []);
+          setAuthenticated(true);
           setReady(true);
         }
-      } catch {
-        // Unauthenticated or network error — mark ready with empty perms.
+      } catch (err) {
+        // 401 ⇒ the session is gone. Any other failure (network blip) keeps the
+        // token's benefit of the doubt: authenticated, but with no permissions.
         if (!cancelled) {
+          setAuthenticated(!(err instanceof ApiError && err.status === 401));
           setReady(true);
         }
       }
@@ -72,6 +91,7 @@ export function usePermissions(): UsePermissionsResult {
   return {
     permissions,
     ready,
+    authenticated,
     has: (key: string) => hasPermission(permissions, key),
     hasAny: (keys: string[]) => hasAny(permissions, keys),
   };

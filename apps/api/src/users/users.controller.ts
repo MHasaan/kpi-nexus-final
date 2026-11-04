@@ -103,8 +103,12 @@ export class UsersController {
   @Post(':id/offboard')
   @RequirePermissions(PermissionKey.USERS_MANAGE)
   @HttpCode(HttpStatus.OK)
-  offboard(@Param('id') id: string, @Body() body: unknown): Promise<OffboardSummary> {
-    return this.offboarding.offboard(id, parse(OffboardDtoSchema, body ?? {}));
+  async offboard(@Param('id') id: string, @Body() body: unknown): Promise<OffboardSummary> {
+    const dto = parse(OffboardDtoSchema, body ?? {});
+    // The target must be someone the caller can see (PEOPLE scope, BE-004); the
+    // offboarding internals themselves stay unscoped (they reassign org-wide).
+    await this.users.assertPersonVisible(id);
+    return this.offboarding.offboard(id, dto);
   }
 
   /** Suspend a user: block sign-in (reversible). Refuses self + archived/deleted/purged. */

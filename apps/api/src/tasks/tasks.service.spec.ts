@@ -67,6 +67,12 @@ class FakePrisma {
   private n = 1;
   tasks: FakeTask[] = [];
 
+  // Referenced rows (BE-021): any id starting with "foreign_" lives in another tenant.
+  private ref = vi.fn(async ({ where }: { where: { id: string } }) => (where.id.startsWith('foreign_') ? null : { id: where.id }));
+  kPI = { findFirst: this.ref };
+  alert = { findFirst: this.ref };
+  user = { findFirst: this.ref };
+
   task = {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
       this.tasks.filter((t) => matchWhere(t, where)),
@@ -314,5 +320,26 @@ describe('TasksService TASKS scope (Phase 2.5)', () => {
     await expect(
       withCtx({ userId: 'me' }, () => service.getById(strangerTask.id)),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('TasksService — referenced ids must belong to the tenant (BE-021)', () => {
+  test.each([
+    ['kpiId', { kpiId: 'foreign_kpi' }],
+    ['alertId', { alertId: 'foreign_alert' }],
+    ['assigneeUserId', { assigneeUserId: 'foreign_user' }],
+  ])('create rejects a foreign %s and stores nothing', async (field, ref) => {
+    const { service, prisma } = makeService();
+    await expect(withCtx({}, () => service.create({ title: 'x', ...ref }))).rejects.toMatchObject({
+      response: { code: 'VALIDATION_ERROR', message: `${field} is invalid or belongs to another tenant` },
+    });
+    expect(prisma.tasks).toHaveLength(0);
+  });
+
+  test('update rejects a foreign kpiId and leaves the task unchanged', async () => {
+    const { service, prisma } = makeService({ isAdmin: true });
+    const t = await withCtx({}, () => service.create({ title: 'x', kpiId: 'kpi_ok' }));
+    await expect(withCtx({}, () => service.update(t.id, { kpiId: 'foreign_kpi' }))).rejects.toMatchObject({ status: 400 });
+    expect(prisma.tasks[0]!.kpiId).toBe('kpi_ok');
   });
 });

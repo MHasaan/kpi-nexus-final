@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken, getHealthDetails, type HealthDetails } from '../../lib/api-client';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const REFRESH_INTERVAL_MS = 10_000;
 
@@ -49,7 +50,7 @@ export default function StatusPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

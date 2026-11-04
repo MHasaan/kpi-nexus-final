@@ -11,11 +11,11 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 
 /**
- * MinIO-backed object storage for report files.
+ * S3-compatible object storage for report files (SeaweedFS locally, S3 in prod).
  *
  * Download URLs: presigned GET URLs valid for 7 days (the bucket is private).
  * This is preferred over path-style URLs since the bucket is not public.
- * For local dev MinIO the presigned URL will point to localhost:9000.
+ * For local dev the presigned URL points to the SeaweedFS gateway on localhost:9000.
  */
 @Injectable()
 export class StorageService {
@@ -26,18 +26,18 @@ export class StorageService {
   private bucketEnsured = false;
 
   constructor() {
-    this.endpoint = process.env.S3_ENDPOINT ?? 'http://localhost:9000';
+    this.endpoint = process.env.S3_ENDPOINT ?? 'http://127.0.0.1:9000';
     this.bucket = process.env.S3_BUCKET ?? 'kpi-nexus-local';
 
     this.client = new S3Client({
       endpoint: this.endpoint,
       region: process.env.S3_REGION ?? 'us-east-1',
       credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY ?? 'minioadmin',
-        secretAccessKey: process.env.S3_SECRET_KEY ?? 'minioadmin',
+        accessKeyId: process.env.S3_ACCESS_KEY ?? 'kpinexus',
+        secretAccessKey: process.env.S3_SECRET_KEY ?? 'kpinexus-dev-secret',
       },
-      // REQUIRED for MinIO: without this, the SDK uses virtual-hosted-style
-      // which doesn't work with local MinIO endpoints.
+      // REQUIRED for local S3 gateways: without this, the SDK uses
+      // virtual-hosted-style URLs, which a localhost endpoint can't serve.
       forcePathStyle: true,
     });
   }
@@ -79,7 +79,7 @@ export class StorageService {
   }
 
   /**
-   * Upload a file to S3/MinIO.
+   * Upload a file to S3.
    * @returns The object key (relative path in the bucket).
    */
   async upload(key: string, body: Buffer, contentType: string): Promise<string> {
@@ -98,7 +98,7 @@ export class StorageService {
 
   /**
    * Get a presigned GET URL for the object, valid for 7 days.
-   * The URL points to the MinIO endpoint configured via S3_ENDPOINT.
+   * The URL points to the endpoint configured via S3_ENDPOINT.
    */
   async getDownloadUrl(key: string): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });

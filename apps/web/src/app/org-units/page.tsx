@@ -37,15 +37,14 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { treeOrder } from '../../lib/tree-order';
 
 export default function OrgUnitsPage() {
   return (
-    <TerminologyProvider>
-      <OrgUnitsPageInner />
-    </TerminologyProvider>
+    <OrgUnitsPageInner />
   );
 }
 
@@ -79,7 +78,7 @@ function OrgUnitsPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -94,7 +93,7 @@ function OrgUnitsPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load org units');
@@ -197,19 +196,9 @@ function OrgUnitsPageInner() {
     return map;
   }, [users]);
 
-  // Depth of each unit in the tree (for the indented tree view).
-  function depthOf(unit: OrgUnitSummary): number {
-    let depth = 0;
-    let current: OrgUnitSummary | undefined = unit;
-    const seen = new Set<string>();
-    while (current?.parentUnitId && !seen.has(current.id)) {
-      seen.add(current.id);
-      current = unitsById.get(current.parentUnitId);
-      if (!current) break;
-      depth += 1;
-    }
-    return depth;
-  }
+  // Tree order: each unit directly under its parent, with its depth for the
+  // indent (FE-010: API order scattered children away from their parents).
+  const orderedUnits = useMemo(() => treeOrder(units ?? [], (u) => u.parentUnitId), [units]);
 
   // Users who can be added to the currently expanded unit — exclude those
   // already in it (active membership: leftAt = null).
@@ -346,10 +335,9 @@ function OrgUnitsPageInner() {
             </Card>
           ) : units ? (
             <ul className="flex flex-col gap-3" data-testid="units-list">
-              {units.map((unit) => {
+              {orderedUnits.map(({ item: unit, depth }) => {
                 const parent = unit.parentUnitId ? unitsById.get(unit.parentUnitId) : null;
                 const isExpanded = expandedUnitId === unit.id;
-                const depth = depthOf(unit);
                 return (
                   <li key={unit.id} data-testid={`unit-row-${unit.name}`}>
                     <Card className="overflow-hidden">

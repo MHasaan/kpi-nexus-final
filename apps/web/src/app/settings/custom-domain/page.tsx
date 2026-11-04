@@ -15,6 +15,7 @@ import {
   verifyCustomDomain,
   type CustomDomain,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function CustomDomainSettingsPage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function CustomDomainSettingsPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void load();

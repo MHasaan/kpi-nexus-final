@@ -182,6 +182,26 @@ export function clampTake(take: number, maxRows: number | null | undefined): num
  * identical for admins and unit-managers; `directReportIds` may now include
  * indirect reports (the documented §6 intent the local builder under-delivered).
  */
+/**
+ * Which data points of an already-visible KPI the principal may read — the
+ * data-point counterpart of {@link buildKpiVisibilityWhere}, honouring the same
+ * KPIS scope (BE-003: the data/summary paths ignored it, so a SELF user saw
+ * unit data). Returns a Prisma `KPIDataPointWhereInput` fragment.
+ */
+export function kpiDataPointScopeWhere(
+  kpiScope: KpiScope,
+  ctx: KpiVisibilityContext,
+): { userId?: { in: string[] }; orgUnitId?: { in: string[] } } {
+  if (ctx.isAdmin || ctx.scope === 'ORG' || kpiScope === 'ORG_WIDE') return {};
+  if (kpiScope === 'PER_USER') {
+    return { userId: { in: ctx.scope === 'SELF' ? [ctx.userId] : uniq([ctx.userId, ...ctx.directReportIds]) } };
+  }
+  // PER_UNIT: only the UNITS scope reaches unit data (as in the list filter).
+  return {
+    orgUnitId: { in: ctx.scope === 'UNITS' ? uniq([...ctx.managedOrgUnitIds, ...ctx.memberOrgUnitIds]) : [] },
+  };
+}
+
 export function kpiContextFromProfile(
   organizationId: string,
   userId: string,

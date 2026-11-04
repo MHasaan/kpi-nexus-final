@@ -26,6 +26,8 @@ import {
   type KpiSummary,
   type NotificationChannel,
 } from '../../../lib/api-client';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { usePermissions } from '../../../lib/use-permissions';
 
 type Operator = '>' | '<' | '>=' | '<=' | '==';
 
@@ -33,6 +35,9 @@ export default function NewAlertRulePage() {
   const router = useRouter();
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
+  const { ready: permsReady, has } = usePermissions();
+  // Channels are an ORG_SETTINGS resource (FE-014): only load them for users who can.
+  const canManageChannels = permsReady && has('ORG_SETTINGS');
 
   const [name, setName] = useState('');
   const [kpiId, setKpiId] = useState('');
@@ -56,23 +61,29 @@ export default function NewAlertRulePage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void (async () => {
       try {
-        const [k, c] = await Promise.all([listKpis(), listNotificationChannels()]);
+        const k = await listKpis();
         setKpis(k);
-        setChannels(c);
         if (k.length > 0 && k[0]) setKpiId(k[0].id);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           clearTokens();
-          router.replace('/login');
+          router.replace(currentLoginRedirect());
         }
       }
     })();
   }, [router]);
+
+  useEffect(() => {
+    if (!canManageChannels) return;
+    listNotificationChannels()
+      .then(setChannels)
+      .catch(() => setChannels([]));
+  }, [canManageChannels]);
 
   function buildConfig(): Record<string, unknown> {
     switch (ruleType) {
@@ -134,7 +145,8 @@ export default function NewAlertRulePage() {
         config: buildConfig(),
         escalationLevels: levels.length > 0 ? levels : undefined,
       });
-      router.push('/alerts');
+      // Land on the rules list so the new rule is visible (FE-006).
+      router.push('/alerts/rules');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to create alert rule');
       setSubmitting(false);
@@ -327,7 +339,9 @@ export default function NewAlertRulePage() {
                       <span className="kn-eyebrow">Channels</span>
                       {channels.length === 0 && (
                         <p className="mt-1 text-xs text-content-muted">
-                          No channels yet — create one under Channels.
+                          {canManageChannels
+                            ? 'No channels yet — create one under Channels.'
+                            : 'Notification channels are managed by an administrator.'}
                         </p>
                       )}
                       <div className="mt-2 flex flex-wrap gap-3">

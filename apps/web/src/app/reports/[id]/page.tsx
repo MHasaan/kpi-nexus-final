@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui';
+import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
   if (status === 'SUCCEEDED') {
@@ -82,7 +83,7 @@ export default function ReportDetailPage() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -96,7 +97,7 @@ export default function ReportDetailPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load report');

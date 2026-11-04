@@ -56,10 +56,31 @@ export class KpiTemplatesService {
     return rankTemplates(rows, filters);
   }
 
-  /** Idempotently seed the builtin global catalog when no global templates exist. */
+  /** Set once every builtin is known to be present; avoids a count per gallery request. */
+  private builtinsSeeded = false;
+
+  /**
+   * Idempotently ensure every builtin global template exists. Counts BUILTINS,
+   * not any global: the demo seed adds its own global templates, and the old
+   * "any global exists → skip" check left the gallery with just those. Missing
+   * builtins (including newly added ones) are inserted; existing slugs are
+   * skipped.
+   */
   async seedGlobalIfEmpty(): Promise<void> {
-    const existing = await this.prisma.kPITemplate.count({ where: { organizationId: null, isGlobal: true } });
-    if (existing > 0) return;
+    if (this.builtinsSeeded) return;
+    // Builtins are global (organizationId NULL) — only kpi_system may write
+    // them under RLS, so seed on the system connection (OT-014).
+    await RequestContextStore.runWithBypass('kpi-templates-seed', () => this.seedBuiltins());
+  }
+
+  private async seedBuiltins(): Promise<void> {
+    const existing = await this.prisma.kPITemplate.count({
+      where: { organizationId: null, isGlobal: true, isBuiltin: true },
+    });
+    if (existing >= GLOBAL_TEMPLATES.length) {
+      this.builtinsSeeded = true;
+      return;
+    }
     await this.prisma.kPITemplate.createMany({
       data: GLOBAL_TEMPLATES.map((t) => ({
         organizationId: null,
@@ -108,10 +129,15 @@ export class KpiTemplatesService {
       tags: template.tags,
     });
 
-    await this.prisma.kPITemplate.update({
-      where: { id: template.id },
-      data: { popularity: { increment: 1 } },
-    });
+    // The template may be a global builtin, which tenants cannot write under
+    // RLS; requireTemplate already proved the caller can see it, so bump the
+    // shared counter on the system connection (OT-014).
+    await RequestContextStore.runWithBypass('kpi-template-popularity', () =>
+      this.prisma.kPITemplate.update({
+        where: { id: template.id },
+        data: { popularity: { increment: 1 } },
+      }),
+    );
     await this.audit.record({
       action: 'CREATE',
       entityType: 'KPI',

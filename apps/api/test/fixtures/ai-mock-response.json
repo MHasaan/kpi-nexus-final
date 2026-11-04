@@ -1,0 +1,60 @@
+{
+  "_comment": "Canned AI_MOCK_RESPONSE for the E2E suite (CI). One JSON object every AI parser accepts: KPI suggestions read `suggestions`, recommendations read summary/rootCauseHypotheses/suggestedActions, the onboarding generator reads the org keys, and free-text features (insights, NLQ) show it as text. Each parser ignores the keys it doesn't use.",
+  "suggestions": [
+    {
+      "name": "Net Revenue Retention",
+      "description": "Revenue kept from existing customers including expansion.",
+      "type": "PERCENTAGE",
+      "direction": "HIGHER_IS_BETTER",
+      "frequency": "MONTHLY",
+      "scorecardQuadrant": "FINANCIAL",
+      "unit": "%",
+      "suggestedTarget": 110,
+      "rationale": "Core health metric for recurring revenue."
+    },
+    {
+      "name": "Customer Acquisition Cost",
+      "description": "Sales and marketing spend per new customer.",
+      "type": "CURRENCY",
+      "direction": "LOWER_IS_BETTER",
+      "frequency": "MONTHLY",
+      "scorecardQuadrant": "CUSTOMER",
+      "unit": "USD"
+    },
+    {
+      "name": "Deployment Frequency",
+      "description": "Production deploys per week.",
+      "type": "COUNT",
+      "direction": "HIGHER_IS_BETTER",
+      "frequency": "WEEKLY",
+      "scorecardQuadrant": "INTERNAL_PROCESS"
+    }
+  ],
+  "summary": "The KPI moved outside its expected band; the most likely driver is a recent process change.",
+  "rootCauseHypotheses": ["A recent process change", "Seasonal demand shift"],
+  "suggestedActions": [
+    { "action": "Review last month's process changes", "rationale": "Timing matches the shift.", "priority": "P1" },
+    { "action": "Compare against the same period last year", "rationale": "Rules out seasonality.", "priority": "P2" }
+  ],
+  "organization": { "name": "Mock Co", "industry": "Software", "type": "B2B", "sizeTier": "SMALL" },
+  "roles": [
+    { "name": "Administrator", "isAdmin": true, "level": 1, "permissions": [] },
+    { "name": "Manager", "isAdmin": false, "level": 2, "permissions": ["KPI_VIEW", "KPI_EDIT", "DASHBOARD_VIEW"] },
+    { "name": "Contributor", "isAdmin": false, "level": 3, "permissions": ["KPI_VIEW", "KPI_DATA_ENTRY"] }
+  ],
+  "positions": [
+    { "name": "CEO", "track": "EXECUTIVE" },
+    { "name": "Engineer", "track": "INDIVIDUAL_CONTRIBUTOR" }
+  ],
+  "orgUnitTypes": [{ "name": "Department", "dimension": "Functional" }],
+  "orgUnits": [
+    { "name": "Engineering", "type": "Department" },
+    { "name": "Sales", "type": "Department" }
+  ],
+  "kpiCategories": [{ "name": "Financial" }, { "name": "Operations" }],
+  "kpis": [
+    { "name": "Monthly Recurring Revenue", "category": "Financial", "scope": "ORG_WIDE", "type": "CURRENCY", "direction": "HIGHER_IS_BETTER", "frequency": "MONTHLY", "unit": "USD", "scorecardQuadrant": "FINANCIAL" },
+    { "name": "Gross Margin", "category": "Financial", "scope": "ORG_WIDE", "type": "PERCENTAGE", "direction": "HIGHER_IS_BETTER", "frequency": "MONTHLY", "unit": "%", "scorecardQuadrant": "FINANCIAL" },
+    { "name": "Deployment Frequency", "category": "Operations", "scope": "PER_UNIT", "type": "COUNT", "direction": "HIGHER_IS_BETTER", "frequency": "WEEKLY", "scorecardQuadrant": "INTERNAL_PROCESS" }
+  ]
+}

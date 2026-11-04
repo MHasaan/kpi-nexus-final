@@ -1,4 +1,5 @@
-import { AiProviderError, type IAiProvider } from '@kpi-nexus/ai';
+import { Logger } from '@nestjs/common';
+import { AiProviderError, AiProviderNotConfiguredError, type IAiProvider } from '@kpi-nexus/ai';
 import type { AiProviderKey } from '@kpi-nexus/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -168,5 +169,72 @@ describe('AiRouterService fallback chain', () => {
     const router = new AiRouterService(deps);
     const vectors = await router.embed('EMBEDDINGS', { texts: ['x'], model: '' });
     expect(vectors).toEqual([[0.1]]);
+  });
+});
+
+// BE-026: provider errors were invisible (call log kept only a status code, no
+// log line), and fallbacks to a provider with no key made doomed 401 calls.
+describe('AiRouterService — failure diagnostics (BE-026)', () => {
+  it('logs each failed attempt with the provider message, and records NOT_CONFIGURED for a keyless fallback', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { deps, log } = makeDeps({
+      registry: {
+        getProvider: (k) => {
+          if (k === 'CLAUDE') throw new AiProviderNotConfiguredError('CLAUDE');
+          return stubProvider(k, {
+            complete: vi.fn(async () => {
+              throw new AiProviderError('GEMINI request failed (404): model no longer available', 'GEMINI', false, 404);
+            }),
+          });
+        },
+      },
+    });
+    const router = new AiRouterService(deps);
+    await expect(router.complete('INSIGHTS', { messages: [{ role: 'user', content: 'hi' }] })).rejects.toBeInstanceOf(
+      AiProviderUnavailableError,
+    );
+    expect(log.map((e) => (e as { errorCode?: string }).errorCode)).toEqual(['404', 'NOT_CONFIGURED']);
+    const lines = warn.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('INSIGHTS') && l.includes('gemini-2.5-flash') && l.includes('model no longer available'))).toBe(true);
+    expect(lines.some((l) => l.includes('CLAUDE') && l.includes('not configured'))).toBe(true);
+    warn.mockRestore();
+  });
+});
+
+describe('AiRouterService reasoning budget', () => {
+  it("passes the route's reasoning budget to the provider (primary and fallback)", async () => {
+    const seen: Array<{ model?: string; reasoningBudgetTokens?: number }> = [];
+    const failing = stubProvider('GEMINI', {
+      complete: vi.fn(async (req) => {
+        seen.push({ model: req.model, reasoningBudgetTokens: req.reasoningBudgetTokens });
+        if (req.model === 'gemini-3.5-flash') throw new AiProviderError('overloaded', 'GEMINI', true, 503);
+        return { content: 'ok', finishReason: 'stop' as const, usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 };
+      }),
+    });
+    const { deps } = makeDeps({
+      registry: { getProvider: () => failing },
+      resolveConfig: async () => ({
+        provider: 'GEMINI',
+        model: 'gemini-3.5-flash',
+        fallback: { provider: 'GEMINI', model: 'gemini-3.5-flash-lite' },
+        reasoningBudgetTokens: 2048,
+      }),
+    });
+    const r = await new AiRouterService(deps).complete('INSIGHTS', { messages: [{ role: 'user', content: 'why?' }], maxTokens: 400 });
+    expect(r.content).toBe('ok');
+    expect(seen).toEqual([
+      { model: 'gemini-3.5-flash', reasoningBudgetTokens: 2048 },
+      { model: 'gemini-3.5-flash-lite', reasoningBudgetTokens: 2048 },
+    ]);
+  });
+
+  it('a caller-supplied budget wins over the route default', async () => {
+    const p = stubProvider('GEMINI');
+    const { deps } = makeDeps({
+      registry: { getProvider: () => p },
+      resolveConfig: async () => ({ provider: 'GEMINI', model: 'gemini-3.5-flash', reasoningBudgetTokens: 2048 }),
+    });
+    await new AiRouterService(deps).complete('INSIGHTS', { messages: [{ role: 'user', content: 'x' }], reasoningBudgetTokens: 64 });
+    expect(vi.mocked(p.complete).mock.calls[0]![0].reasoningBudgetTokens).toBe(64);
   });
 });

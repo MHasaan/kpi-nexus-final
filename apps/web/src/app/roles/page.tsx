@@ -2,14 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Check, Plus, ShieldCheck } from 'lucide-react';
+import { Plus, ShieldCheck } from 'lucide-react';
 
-import type { Domain, Scope } from '@kpi-nexus/contracts';
+import { DOMAIN_DEFAULT_SCOPE, type Domain, type Scope } from '@kpi-nexus/contracts';
 
 import { AppShell } from '../../components/app-shell';
 import { PageAccessEditor } from '../../components/access/page-access-editor';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
+import { RolePermissionMatrix } from '../../components/roles/role-permission-matrix';
 import {
   Badge,
   Button,
@@ -43,59 +44,11 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
-
-// Grouped view of the 18 canonical permissions (mirrors the design's matrix).
-const PERM_GROUPS: Array<[string, Array<[string, string]>]> = [
-  [
-    'KPIs',
-    [
-      ['View', 'KPI_VIEW'],
-      ['Create', 'KPI_CREATE'],
-      ['Edit', 'KPI_EDIT'],
-      ['Delete', 'KPI_DELETE'],
-      ['Data entry', 'KPI_DATA_ENTRY'],
-    ],
-  ],
-  [
-    'Dashboards',
-    [
-      ['View', 'DASHBOARD_VIEW'],
-      ['Manage', 'DASHBOARD_MANAGE'],
-    ],
-  ],
-  [
-    'Users & RBAC',
-    [
-      ['Users view', 'USERS_VIEW'],
-      ['Users manage', 'USERS_MANAGE'],
-      ['Roles manage', 'ROLES_MANAGE'],
-    ],
-  ],
-  [
-    'Org',
-    [
-      ['Positions', 'POSITIONS_MANAGE'],
-      ['Groups view', 'GROUPS_VIEW'],
-      ['Groups manage', 'GROUPS_MANAGE'],
-    ],
-  ],
-  [
-    'Intelligence',
-    [
-      ['Alerts', 'ALERTS_VIEW'],
-      ['Insights', 'INSIGHTS_VIEW'],
-      ['Analytics', 'ANALYTICS_VIEW'],
-      ['Reports', 'REPORTS_VIEW'],
-    ],
-  ],
-  [
-    'Admin',
-    [['Org settings', 'ORG_SETTINGS']],
-  ],
-];
+import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { isApprovalPending } from '../../lib/role-permissions';
+import { usePermissions } from '../../lib/use-permissions';
 
 const ROLE_DOT = [
   'bg-chart-2',
@@ -129,9 +82,7 @@ const SCOPE_LABELS: Record<Scope, string> = {
 
 export default function RolesPage() {
   return (
-    <TerminologyProvider>
-      <RolesPageInner />
-    </TerminologyProvider>
+    <RolesPageInner />
   );
 }
 
@@ -156,6 +107,18 @@ function RolesPageInner() {
 
   // Presets
   const [presets, setPresets] = useState<RolePreset[]>([]);
+  const { ready: permsReady, has } = usePermissions();
+  // Presets are a ROLES_MANAGE resource (FE-014): only load them for users who can.
+  const canManageRoles = permsReady && has('ROLES_MANAGE');
+  useEffect(() => {
+    if (!canManageRoles) return;
+    listPermissionPresets()
+      .then(setPresets)
+      .catch(() => {
+        /* non-fatal — preset UI degrades gracefully */
+      });
+  }, [canManageRoles]);
+
   const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [applyFeedback, setApplyFeedback] = useState<
@@ -164,15 +127,10 @@ function RolesPageInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     refresh();
-    listPermissionPresets()
-      .then(setPresets)
-      .catch(() => {
-        /* non-fatal — preset UI degrades gracefully */
-      });
     listKpiCategories()
       .then(setCategories)
       .catch(() => {
@@ -195,7 +153,7 @@ function RolesPageInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load roles');
@@ -248,13 +206,18 @@ function RolesPageInner() {
       return next;
     });
     try {
-      await applyRolePreset(role.id, preset);
-      await refresh();
+      const res: unknown = await applyRolePreset(role.id, preset);
+      const label = presets.find((p) => p.key === preset)?.label ?? preset;
+      // 202: an active ROLE_PERMISSIONS workflow queued the change instead.
+      const pending = isApprovalPending(res);
+      if (!pending) await refresh();
       setApplyFeedback((prev) => ({
         ...prev,
         [role.id]: {
           ok: true,
-          msg: `Preset applied — ${presets.find((p) => p.key === preset)?.label ?? preset}`,
+          msg: pending
+            ? `Preset ${label} submitted for approval — it applies once approved.`
+            : `Preset applied — ${label}`,
         },
       }));
     } catch (err) {
@@ -282,7 +245,7 @@ function RolesPageInner() {
           <PageHeader
             title={pluralize(terminology.roleLabel)}
             titleTestId="roles-heading"
-            subtitle="18 canonical permissions · admin bypasses all checks · inherited shown derived"
+            subtitle="25 permissions · admin bypasses all checks · changes may need approval"
             actions={
               <PermissionGuard permission="ROLES_MANAGE">
                 <Button
@@ -524,42 +487,7 @@ function RolesPageInner() {
                     </p>
                   )}
 
-                  <div className="mt-5 flex flex-col gap-5">
-                    {PERM_GROUPS.map(([group, perms]) => (
-                      <div key={group}>
-                        <div className="kn-eyebrow mb-2.5">{group}</div>
-                        <div className="flex flex-wrap gap-x-6 gap-y-2.5">
-                          {perms.map(([label, key]) => {
-                            const on =
-                              selectedRole.isAdmin || selectedRole.permissions.includes(key);
-                            return (
-                              <span
-                                key={key}
-                                className="inline-flex w-40 items-center gap-2"
-                              >
-                                <span
-                                  aria-hidden
-                                  className={cn(
-                                    'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded',
-                                    on
-                                      ? 'bg-accent-primary text-white'
-                                      : 'border border-border-strong bg-surface-bg text-transparent',
-                                  )}
-                                  style={{ width: 18, height: 18 }}
-                                >
-                                  <Check className="h-3 w-3" strokeWidth={3} />
-                                </span>
-                                <span className="text-sm text-content-default">{label}</span>
-                                <span className="sr-only">
-                                  {on ? 'granted' : 'not granted'}
-                                </span>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <RolePermissionMatrix role={selectedRole} onSaved={handleRoleUpdated} />
 
                   {selectedRole.description && (
                     <p className="mt-5 border-t border-border-divider pt-4 text-sm text-content-muted">
@@ -721,7 +649,9 @@ function RoleAccessConfig({
                 onChange={(e) => setScopes((prev) => ({ ...prev, [d.key]: e.target.value }))}
                 className="w-44"
               >
-                <option value="">Default (inherit)</option>
+                {/* Show what the default actually is per domain (BE-004: PEOPLE / ORG /
+                    ANALYTICS default to the whole org). */}
+                <option value="">Default — {SCOPE_LABELS[DOMAIN_DEFAULT_SCOPE[d.key]]}</option>
                 <option value="SELF">{SCOPE_LABELS.SELF}</option>
                 <option value="DIRECT_REPORTS">{SCOPE_LABELS.DIRECT_REPORTS}</option>
                 <option value="UNITS">{SCOPE_LABELS.UNITS}</option>

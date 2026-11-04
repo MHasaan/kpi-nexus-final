@@ -52,7 +52,7 @@ test.describe('E5: contextual help drawer', () => {
     await page.getByLabel('Organization name').fill(orgName);
     await page.getByLabel('Your full name').fill('Help Admin');
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const registerResp = page.waitForResponse(
       (r) =>
@@ -107,7 +107,7 @@ test.describe('E5: contextual help drawer', () => {
     await page.getByLabel('Organization name').fill(orgName);
     await page.getByLabel('Your full name').fill('Pulse Admin');
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const registerResp = page.waitForResponse(
       (r) =>
@@ -151,7 +151,7 @@ test.describe('E5: contextual help drawer', () => {
     await page.getByLabel('Organization name').fill(orgName);
     await page.getByLabel('Your full name').fill('Esc Admin');
     await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password').fill(adminPassword);
+    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
 
     const registerResp = page.waitForResponse(
       (r) =>

@@ -34,7 +34,6 @@ import {
 } from '../../lib/api-client';
 import {
   pluralize,
-  TerminologyProvider,
   useTerminology,
 } from '../../lib/terminology-context';
 import {
@@ -48,6 +47,7 @@ import {
   Select,
   Skeleton,
 } from '../../components/ui';
+import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
 
@@ -120,9 +120,7 @@ function DashboardThumbnail({ widgets }: { widgets: Dashboard['widgets'] }) {
 
 export default function DashboardsListPage() {
   return (
-    <TerminologyProvider>
-      <DashboardsListInner />
-    </TerminologyProvider>
+    <DashboardsListInner />
   );
 }
 
@@ -139,7 +137,7 @@ function DashboardsListInner() {
 
   useEffect(() => {
     if (!getAccessToken()) {
-      router.replace('/login');
+      router.replace(currentLoginRedirect());
       return;
     }
     void refresh();
@@ -176,7 +174,7 @@ function DashboardsListInner() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
-        router.replace('/login');
+        router.replace(currentLoginRedirect());
         return;
       }
       setLoadError(

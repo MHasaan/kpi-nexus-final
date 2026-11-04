@@ -3,6 +3,7 @@ import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { type TenantRefModel, assertSameTenant } from '../tenancy/assert-same-tenant.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { dedupeMentionTargets } from './comment-mentions.js';
 import type {
@@ -10,6 +11,15 @@ import type {
   ListCommentsQuery,
   UpdateCommentDto,
 } from './dto/comment.dto.js';
+
+/** Prisma model behind each commentable entity type. */
+const ENTITY_MODEL: Record<CreateCommentDto['entityType'], TenantRefModel> = {
+  kpi: 'kPI',
+  dashboard: 'dashboard',
+  alert: 'alert',
+  task: 'task',
+  objective: 'objective',
+};
 
 const commentSelect = {
   id: true,
@@ -58,6 +68,11 @@ export class CommentsService {
    */
   async create(dto: CreateCommentDto): Promise<PublicComment> {
     const ctx = RequestContextStore.require();
+    // BE-021: the commented entity (and a reply's parent) must be in this tenant.
+    await assertSameTenant(this.prisma, ENTITY_MODEL[dto.entityType], dto.entityId, ctx.organizationId, 'entityId');
+    if (dto.parentCommentId) {
+      await assertSameTenant(this.prisma, 'comment', dto.parentCommentId, ctx.organizationId, 'parentCommentId');
+    }
     const targets = await this.resolveMentionTargets(dto.mentionedUserIds ?? [], ctx.userId, ctx.organizationId);
 
     const comment = await this.prisma.$transaction(async (tx) => {

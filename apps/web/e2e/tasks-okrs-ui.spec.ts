@@ -75,8 +75,14 @@ test('okrs: create an objective → add a KR → progress meter reflects current
   await seedSession(page);
 
   await page.goto('/okrs');
-  await page.getByTestId('objective-name').fill(`Grow ${suffix()}`);
-  await page.getByTestId('create-objective').click();
+  const objName = `Grow ${suffix()}`;
+  await page.getByTestId('okr-create-name').fill(objName);
+  await page.getByTestId('okr-create-submit').click();
+
+  // The new objective appears in the list; open its detail page.
+  const link = page.getByRole('link', { name: objName });
+  await expect(link).toBeVisible({ timeout: 15_000 });
+  await link.click();
 
   // Lands on the detail page.
   await expect(page).toHaveURL(/\/okrs\/[^/]+$/, { timeout: 15_000 });

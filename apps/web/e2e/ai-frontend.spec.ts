@@ -73,10 +73,10 @@ test('recommendations page lists a seeded recommendation and flips its status', 
   await page.goto('/recommendations');
   const row = page.getByTestId(`rec-row-${rec.id}`);
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId(`rec-status-${rec.id}`)).toHaveText('PENDING');
+  await expect(page.getByTestId(`rec-status-${rec.id}`)).toHaveText('Pending');
 
   await page.getByTestId(`rec-action-${rec.id}`).click();
-  await expect(page.getByTestId(`rec-status-${rec.id}`)).toHaveText('ACTIONED', { timeout: 10_000 });
+  await expect(page.getByTestId(`rec-status-${rec.id}`)).toHaveText('Actioned', { timeout: 10_000 });
 });
 
 test('insights page lists a seeded insight', async ({ page }) => {
@@ -114,7 +114,7 @@ test('ask page returns an answer from a question', async ({ page }) => {
   await page.goto('/ask');
   await expect(page.getByTestId('ask-empty')).toBeVisible();
   await page.getByTestId('ask-input').fill('What KPIs do we track?');
-  await page.getByTestId('ask-submit').click();
+  await page.getByTestId('ask-send').click();
   // Live model — allow generous time for the answer bubble to render.
   await expect(page.getByTestId('ask-answer')).toBeVisible({ timeout: 60_000 });
 });

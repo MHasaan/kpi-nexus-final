@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { AccessContextService } from '../../rbac/services/access-context.service.js';
 import { clampHistoryFrom } from '../../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
+import { EMBED_TOKEN_SPEC, resolveSecret } from '../../config/secrets.js';
 
 // 30 days in seconds.
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -55,7 +56,7 @@ function b64urlDecode(s: string): string {
 }
 
 function getSecret(): string {
-  return process.env['EMBED_TOKEN_SECRET'] ?? 'dev-embed-secret-change-me-in-prod';
+  return resolveSecret(EMBED_TOKEN_SPEC); // dev default refused in production (OT-008)
 }
 
 function hmacSign(payloadB64: string): string {

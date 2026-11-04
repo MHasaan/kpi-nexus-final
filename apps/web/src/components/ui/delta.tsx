@@ -5,11 +5,22 @@ export interface DeltaProps {
   value: number | null | undefined;
   /** Optional percentage; when provided it (not `value`) is the displayed magnitude, suffixed with `%`. */
   pct?: number;
+  /** Fixed number of decimals to show (e.g. 1 → "10.0%"). Default: up to 1 for %, up to 2 otherwise. */
+  decimals?: number;
   className?: string;
 }
 
+/**
+ * Magnitude as display text. Raw floats used to leak through — a +10% what-if
+ * rendered "10.000000000000016%" (FE-016).
+ */
+export function formatDeltaMagnitude(magnitude: number, isPct: boolean, decimals?: number): string {
+  if (decimals !== undefined) return magnitude.toFixed(decimals);
+  return magnitude.toLocaleString('en-US', { maximumFractionDigits: isPct ? 1 : 2 });
+}
+
 /** Directional change indicator: ▲ green for positive, ▼ red for negative, em dash for zero/no data. */
-export function Delta({ value, pct, className }: DeltaProps) {
+export function Delta({ value, pct, decimals, className }: DeltaProps) {
   if (value === 0 || value == null) {
     return (
       <span className={cn('text-content-muted tabular-nums font-semibold', className)} aria-label="No change">
@@ -18,8 +29,8 @@ export function Delta({ value, pct, className }: DeltaProps) {
     );
   }
   const up = value > 0;
-  const magnitude = Math.abs(pct ?? value);
   const suffix = pct != null ? '%' : '';
+  const magnitude = formatDeltaMagnitude(Math.abs(pct ?? value), pct != null, decimals);
   return (
     <span
       className={cn(

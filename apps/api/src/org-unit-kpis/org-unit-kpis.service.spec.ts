@@ -61,6 +61,9 @@ class FakeAudit {
 class FakeAccessContext {
   allowlist: readonly string[] | null = null;
   kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
+  /** ORG scope (BE-004): null ⇒ every unit visible. */
+  units: string[] | null = null;
+  isOrgUnitVisible = vi.fn(async (id: string) => this.units === null || this.units.includes(id));
 }
 
 function makeAssignment(over: Partial<FakeAssignment> & { id: string }): FakeAssignment {
@@ -150,5 +153,13 @@ describe('OrgUnitKpisService.list() category allowlist', () => {
     const rows = await withCtx(() => service.list(UNIT));
 
     expect(rows).toHaveLength(3);
+  });
+});
+
+describe('OrgUnitKpisService — ORG scope (BE-004)', () => {
+  test('a unit outside the caller ORG scope is a 404 for its KPI list', async () => {
+    const { service, accessContext } = makeService();
+    accessContext.units = ['some_other_unit'];
+    await expect(withCtx(() => service.list(UNIT))).rejects.toMatchObject({ status: 404 });
   });
 });

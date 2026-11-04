@@ -107,14 +107,18 @@ test.describe('/dashboard page — KPI summary cards', () => {
     });
     const k2Body = (await k2.json()) as { id: string };
 
-    // 3. Record values
+    // 3. Record values for the last full calendar month. Fixed dates (Jan 2026)
+    //    went stale once they fell outside the dashboard's 90-day window.
+    const now = new Date();
+    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
+    const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)).toISOString().slice(0, 10);
     await apiCtx.post(`/kpis/${k1Body.id}/data`, {
       headers: auth,
-      data: { value: 750, periodStart: '2026-01-01', periodEnd: '2026-01-31' },
+      data: { value: 750, periodStart, periodEnd },
     });
     await apiCtx.post(`/kpis/${k2Body.id}/data`, {
       headers: auth,
-      data: { value: 3.2, periodStart: '2026-01-01', periodEnd: '2026-01-31' },
+      data: { value: 3.2, periodStart, periodEnd },
     });
 
     // 4. Reload dashboard → cards appear
@@ -164,6 +168,6 @@ test.describe('/dashboard page — KPI summary cards', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
   });
 });

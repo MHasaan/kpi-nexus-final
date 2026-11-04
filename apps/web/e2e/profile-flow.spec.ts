@@ -173,6 +173,6 @@ test.describe('/profile page — account + MFA UI', () => {
       window.localStorage.removeItem('kpi-nexus.refresh-token');
     });
     await page.goto('/profile');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
   });
 });

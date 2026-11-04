@@ -1,5 +1,27 @@
 # Branch integration ledger — 2026-11-05
 
+
+## Reviewed outcome
+
+All 17 historical feature/phase/audit branches were already merged. No missing feature work was found. The original handoff's count of 18 did not match the actual remote inventory.
+
+Eight separate PRs were accepted: four CI/billing prerequisites, the checkout replacement, CodeQL v4, dotenv 1.2.2, and statsmodels 0.14.6. The latest code merge is `be6cde16a313339e2e8d791a6ed2a04f910a2cf8`; both [CI41904500906](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41904500906) and [Security41904501094](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41904501094) passed on that exact commit. Final cumulative verification and documentation closure tracking are recorded at the end of this ledger.
+
+| PR | Accepted change | Merge commit |
+|---|---|---|
+| #26 | Generate Prisma before CI Node checks | `a9de8a1a3331aa1b5322f074f87e90aba0a81dc7` |
+| #28 | Disposable report-storage service in CI | `68955cf20cb54a378e66980431e5a9a14231870b` |
+| #29 | Supported Ubuntu 24.04 browser runner | `018b896563c3c509ad626a4f2f1ef8df34df4896` |
+| #27 | Scoped system-context global billing initialization | `d69c04ee3ef4638dd12337cdd6ee1ab4b88085f8` |
+| #30 | Remaining checkout references to main's v7 convention | `f7b8336ab5af38e49e675b4c90391c8eb3055efa` |
+| #31 | CodeQL v4; exact historical dummy-fixture fingerprint | `6716540a419b71efb7619d797dc90c3fb969ef95` |
+| #32 | dotenv 1.2.2 | `3fa2e0b7d05cb4b335a55f197bb9b14e2a750e35` |
+| #33 | statsmodels 0.14.6 and SciPy import regression | `be6cde16a313339e2e8d791a6ed2a04f910a2cf8` |
+
+Rollback each row through a PR with `git revert -m 1 <merge-commit>`. Revert dependent updates in reverse order. A temporary clone successfully reversed all eight merges and restored the exact initial `50d3b7a` tree. Never reset or force-push shared main. Recreate the relevant environment from its captured Python versions and reverted pnpm lockfile, rebuild, and rerun affected checks; a Git revert does not itself change running services.
+
+The initial 21 dependency PRs are fully accounted for: #3/#10/#7 were integrated retaining their source commits; #5 was handled by replacement #30; #1/#2/#4/#23/#24 were superseded; #6/#8/#9/#12/#14/#15/#16/#17/#18/#19/#20 remain deferred major/toolchain migrations; #11 was deferred after compatibility testing. All 18 remaining original PRs were left open. No branch was manually deleted and repository automatic branch deletion is disabled.
+
 ## Baseline and recovery
 
 - Approved plan: carefully verify and integrate relevant branches, safe updates first, GitHub main via individual PRs.
@@ -24,8 +46,8 @@ All 17 feat/phase/audit tips below are ancestors of initial main: no missing pro
 | 5 | Partial: replace remaining checkout v4 with main's v7, never downgrade existing v7 |
 | 3 | Integrated by PR #31: CodeQL v4; exact source commit retained |
 | 10 | Integrated by PR #32: dotenv1.2.2; source commit retained |
-| 7 | Candidate: statsmodels 0.14.6 |
-| 11 | Candidate: FastAPI 0.136.3, only if compatible without major migration |
+| 7 | Integrated by PR #33: statsmodels 0.14.6, with import/calculation regression |
+| 11 | Deferred after trial: default Starlette major upgrade and changed accepted request behavior; PR remains open |
 | 6, 8, 9 | Deferred: Python/scientific-stack majors |
 | 12, 14, 15, 16, 17, 18, 19, 20 | Deferred: framework/client/compiler/lint/validation migrations or runtime mismatch |
 
@@ -146,3 +168,56 @@ Dotenv final local gates: all32uncached workspace tasks/1856TS-JS tests pass; or
 - Added import/OLS regression: RED against actual previous environment with SciPy1.17.1 because `_lazywhere` import is removed. Fit verifies coefficients and out-of-sample prediction, guarding library usability without enabling deferred product features. Fresh candidate resolves the same50packages except statsmodels. Remaining local/hosted gates pending.
 
 Statsmodels local gates complete: regression RED→GREEN;49ML tests on fresh host and original-Dockerfile image0f5e40f0672e; dependency consistency passes; all50canonical package versions match; host/container each pass36HTTP/HMAC probes. Workspace32uncached tasks/1856TS-JS tests,133integration/3documented skips,174browser/1opt-in crawler skip all pass. Independent review approved; hosted exact-head gates pending.
+
+## Statsmodels complete; FastAPI disposition
+
+- Statsmodels PR #33 exact head `63454dd73ce212382d45f8b0c116d716d0d4fe22` passed CI41903572955 and Security41903572977. Its merge and resulting-main checks are in the outcome table above. Post-merge 36 ML probes, seven API/browser cases, and the import/OLS regression pass; reviewed and merged trees are identical.
+- FastAPI source PR #11 was refreshed at `81ed1e1677e07f46c78a347afe3c84b00b650ffb` and trial-merged onto verified `be6cde1`. Accepted dotenv/statsmodels pins were preserved. The trial was never committed, pushed, or merged; it was aborted after review. PR #11 remains open.
+- Fresh Python 3.12 resolution selected FastAPI 0.136.3, Starlette 1.10.0 (previously 0.41.3), annotated-doc 0.0.5, and typing-inspection 0.4.5. Pydantic stayed 2.10.3. Dependency consistency and all 49 ML tests passed, with a new Starlette warning about its HTTPX test client.
+- Additional signed HTTP contract comparison: all five normal analytics responses, health, malformed JSON, three validation-error cases, and missing authentication matched exactly in status and full JSON body. One previously accepted request changed: correctly signed JSON without a Content-Type header returns 200 on the baseline and 422 on the trial. The normal API client explicitly sends application/json, so this does **not** demonstrate a current API-to-ML outage.
+- [Official metadata](https://pypi.org/pypi/fastapi/0.136.3/json) permits Starlette >=0.46 with no upper bound; Starlette 1.x is the resolver's selected result, not an unavoidable minimum. [FastAPI release notes](https://fastapi.tiangolo.com/release-notes/#01320) explain the strict content-type change. A pre-1.0 Starlette constraint and an explicit compatibility setting could be evaluated separately; neither alternative was implemented or validated here.
+- Ruling: defer the unmodified FastAPI candidate under the approved safe-update/no-API-change scope. The default major transitive upgrade and changed accepted request behavior warrant a coordinated framework review. Cost: retaining the existing FastAPI version until that review; this is a scope decision, not a claim that a compatible upgrade is impossible. Independent review agreed.
+- FastAPI acceptance gates intentionally not run after deferral: production container build/probes, workspace/browser suites, or hosted trial PR. Its successful 49 tests are limited compatibility evidence, not approval to merge. The accepted main stack remained in service for final verification.
+
+## Evidence and limits
+
+- Tracked Python snapshots: `python-baseline-2026-11-05.txt` captures initial exact versions; `python-verified-2026-11-05.txt` captures the accepted final environment. Only dotenv and statsmodels differ; Python 3.12 and the scientific stack stay unchanged. Host/container canonical package versions match.
+- Local logs and discarded trial evidence remain in this isolated worktree's ignored `.cache/`, including `fastapi-contract-{baseline,candidate}.json`, `ml-contract.py`, container tests/probes, and rollback proofs. These are local evidence, not portable CI artifacts.
+- Disposable project `kpi-review` uses separate database/Redis/storage/mail volumes and non-development ports. The original development database, environment, virtual environment, and installed dependencies were not upgraded. No schema or public endpoint changes were accepted.
+- Intentional coverage limits: three wall-clock alerting integration cases (escalation, retry backoff, digest collation) are skipped and covered by deterministic unit tests; the opt-in page audit crawler is skipped. Hosted browser CI additionally skips seven ML cases because it has no sidecar; all seven execute locally. Local browser uses installed Chrome; hosted CI uses pinned Playwright Chromium on Ubuntu 24.04.
+- Existing import-order lint warnings and the legacy Starlette/AnyIO deprecation warning remain. Passing these checks does not establish absence of every regression. Deployment, worker separation, and deferred forecasting features remain outside this effort.
+
+## Final cumulative verification
+
+Final accepted application tree is unchanged from verified main `be6cde1`; this closure changes documentation only.
+
+| Check | Result |
+|---|---|
+| Frozen Node install, Prisma generation, uncached lint/typechecks/unit tests/production builds | 32/32 tasks pass, 1,856 TS/JS tests; candidate payload identical to main |
+| Fresh Python 3.12 dependency consistency and ML tests | 49 passed, including import/calculation regression |
+| Original production Dockerfile | Build succeeds; 49 container tests and dependency check pass |
+| Signed live ML HTTP probes | 36/36 pass on host and container, covering all implemented analytics routes, validation, HMAC rejection and replay binding |
+| Final full live API integration suite | 133 passed; 3 documented timing-dependent skips |
+| Final full browser suite with live ML | 174 passed; only opt-in audit crawler skipped; zero retries |
+| Final accepted-stack ML rerun | 49 passed; 36/36 live probes |
+| Worker startup and running services | Review worker reports BullMQ ready; review API database/Redis health and accepted ML container health pass |
+| Database safety and schema | Development DB untouched; no schema/RLS-policy diff from initial commit |
+| Rollback rehearsal | All eight accepted merge reverts restore exact initial tree in a temporary clone |
+
+Integration/browser coverage includes login, KPI creation/recording/reads, dashboards, SSE live updates, alert/email flows, scheduled reports/S3, and tenant isolation. Fresh-database billing concurrency/privilege/isolation regression executes separately in hosted CI before integrations. Final cumulative logs are `.cache/final-{integration,browser,ml-tests,ml-probe}.log`.
+
+CodeQL results were inspected separately from workflow status: initial `50d3b7a` main and latest `be6cde1` main each have five JavaScript/TypeScript findings and zero Python findings. All five existing alert records predate this integration: [#1](https://github.com/MHasaan/kpi-nexus-final/security/code-scanning/1), [#2](https://github.com/MHasaan/kpi-nexus-final/security/code-scanning/2), [#3](https://github.com/MHasaan/kpi-nexus-final/security/code-scanning/3), [#4](https://github.com/MHasaan/kpi-nexus-final/security/code-scanning/4), [#5](https://github.com/MHasaan/kpi-nexus-final/security/code-scanning/5). Four point to test-fixture randomness; #3 flags SHA-256 storage of API keys generated from 24 cryptographically random bytes, rather than user passwords. These source paths are unchanged. No alerts were dismissed or rules suppressed.
+
+Ruling: retain and disclose these pre-existing CodeQL findings instead of expanding this integration into unrelated authentication/test-fixture changes. Cost: alert triage remains open; green Security means workflow success, not a security-clearance guarantee.
+
+Independent fresh-context whole-change review approved: no Critical, Important, or actionable Minor finding. The reviewer independently verified branch ancestry, candidate/merge tree equality, rollback index, local test logs, and Python version snapshots. Hosted status/CodeQL were freshly queried by the parent; the reviewer's connector/network could not independently query GitHub. No unsupported independent-hosted-verification claim is made.
+
+Review dispositions (each is an explicit scope ruling):
+
+- Ruling: compatible FastAPI alternatives remain deferred and unimplemented; the observed trial behavior justifies a separate framework review. Cost: upgrade benefits wait for that work.
+- Ruling: dependency majors and deferred forecasting features remain outside accepted scope. Cost: their upgrades/features are not delivered here.
+- Ruling: deployment setup and worker separation remain existing architecture work. Cost: deployment configuration and the worker split are still unresolved.
+- Ruling: pre-existing CodeQL remediation stays open, with unchanged findings disclosed above. Cost: alert triage remains outstanding.
+- Ruling: retain the documented wall-clock integration and opt-in crawler skips. Cost: this effort does not establish live timing-window or crawler coverage; deterministic timing unit tests and normal browser flows still run.
+
+The documentation closure PR must pass exact-head CI/Security and resulting-main checks. Its description extends this ledger with its own actual merge SHA, rollback command, and workflow results, avoiding a self-referential commit hash here. Locate it with `gh pr list --state all --head codex/branch-review-handoff`; no green hosted outcome is implied before that final verification note.

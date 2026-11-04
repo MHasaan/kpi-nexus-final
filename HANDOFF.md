@@ -2,7 +2,7 @@
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
-> **Branch:** everything is merged into `main`. `main` and `master` point at the same commit. Work on `main`. GitHub's default branch is still `master` until the user switches it (see §7).
+> **Branch:** `main` is the only branch you need and GitHub's default. `master` was deleted on 2026-11-04 after everything was merged into `main`. Work on `main`.
 
 ---
 
@@ -253,8 +253,8 @@ GitHub Actions bumps (checkout / setup-node / upload-artifact / codeql / pnpm-ac
 
 ## 7. Git state at hand-off
 
-- `main` == `master` == `origin/main` == `origin/master`. The latest commit adds this handoff.
-- Every local branch (`feat/*`, `phase/p1..p9`, `fix/full-audit`) is fully merged into `main` and pushed to origin. Nothing exists only on the old machine. These branches are historical; deleting them later is safe.
-- Only the Dependabot branches are unmerged (§5c).
-- **Pending user decision:** whether to make `main` GitHub's default branch and retire `master`. Until then, keep the two in sync: work on `main`, then `git push origin main:master`. Or switch the default with `gh repo edit MHasaan/kpi-nexus-final --default-branch main`, then delete `master`.
+- `main` is the default branch on GitHub and the only trunk. `master` was deleted on 2026-11-04, locally and on GitHub, after confirming it equalled `main`.
+- Every work branch (`feat/*`, `phase/p1..p9`, `fix/full-audit`) is fully merged into `main` and pushed to origin. Nothing exists only on the old machine. These branches are historical; deleting them later is safe.
+- The 21 open Dependabot PRs were retargeted from `master` to `main` before `master` was deleted. They are still unmerged on purpose (§5c).
+- To start on a new machine: `git clone https://github.com/MHasaan/kpi-nexus-final.git`. That checks out `main`.
 - Commit messages follow conventional commits with the finding ID, e.g. `fix(api): … (OT-007)`.

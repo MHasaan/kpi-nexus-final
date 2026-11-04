@@ -89,3 +89,7 @@ PR #27 proves billing fresh-DB initialization passes in hosted CI; its integrati
 Ruling: fix missing CI infrastructure in a separate prerequisite PR before finishing #27. No dependency candidate merges until main CI and Security are fully green. The independent Plan failure remains expected on the infrastructure-only branch. No application/schema/policy changes.
 
 CI storage validation: exact gateway command on separate port 29000 passed anonymous-403 readiness, authenticated upload, and presigned content download. Independent review approved. Separate billing branch also passes 174 local Chrome browser tests (zero retries), with only the opt-in audit crawler skipped; 133 live integration tests + 3 intentional skips; all workspace and 48 ML tests pass. PR #27 hosted fresh-DB regression succeeds; only report upload fails because CI had no S3 service.
+
+## Additional prerequisite: supported Playwright runner
+
+Combined billing/storage PR #27 head d5cf864 passes fresh-DB regression and all API integration tests in hosted run 41871015000. Browser installation then fails explicitly: Playwright 1.60.0 does not support ubuntu26.04-x64 (ubuntu-latest). Pin only web-e2e to ubuntu-24.04, supported by the existing pinned browser package. No Playwright/framework upgrade or application change. Existing integration-only Plan failure remains expected on this infrastructure-only branch until #27 is merged.

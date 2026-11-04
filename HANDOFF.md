@@ -2,7 +2,7 @@
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
-> **Branch:** `main` is the only branch you need and GitHub's default. `master` was deleted on 2026-11-04 after everything was merged into `main`. Work on `main`.
+> **Branch:** `main` is the only branch you need and GitHub's default. `master` was deleted on 2026-11-04 after everything was merged into `main`. Use `main` as the base; perform the approved integration review on isolated `codex/` branches.
 
 ---
 
@@ -168,7 +168,7 @@ The full table, with commit and regression test for every finding, is **`docs/au
 - **Tests, CI and lint:**
   - Lint is clean (OT-001).
   - Contracts drift (OT-002), silent integration passes (OT-006), and stale E2E specs (FE-011) are fixed.
-  - The CI workflow was rewritten (OT-007; still failing on GitHub, see §5).
+  - The CI workflow was rewritten; fresh-install gaps were subsequently fixed and verified on GitHub (OT-007, see §5).
 - **UX and docs:** FE-003/004/007/008/015/016/017, BE-005/006/012/020/022/023/024, and OT-004/005/012/015.
 - **Local suite counts at the last full run, with RLS enforced:**
   - API unit: 1634
@@ -185,35 +185,25 @@ The full table, with commit and regression test for every finding, is **`docs/au
 
 ## 5. What is left — exact current state
 
-### 5a. 🔴 CI fails on GitHub (top priority — OT-007 is not actually closed)
+### 5a. ✅ CI baseline repaired and verified on main (2026-11-05)
 
-The first GitHub run after the merge failed: run `41755807565` on `master`, 2026-11-04. `lint` and `ml-pytest` pass. `test`, `build` and `web-e2e` fail. Locally everything passes, because the local machine has a generated Prisma client and an already-populated `Plan` table. CI starts from nothing. There are two root causes:
+Main `d69c04e` passes hosted CI run [41874623263](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623263) and Security [41874623698](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623698).
 
-1. **`test` and `build` jobs: Prisma client never generated.** `packages/db/src/index.ts` fails with `TS2305: Module "@prisma/client" has no exported member 'ScheduledReport' / 'AlertRule' / …`. Those matrix jobs (`.github/workflows/ci.yml`, the `node` job running `pnpm turbo ${{ matrix.task }}`) run `pnpm install` then turbo, with no `prisma generate`. There is no `postinstall` hook either.
-   - **Fix options:**
-     - Add a `- run: pnpm db:generate` step after install in the `node` job.
-     - Or make turbo `test`/`build`/`typecheck` depend on `@kpi-nexus/db#db:generate` (there's a `db:generate` task in `turbo.json`).
-     - Or add `"postinstall": "prisma generate"` to `packages/db`.
-2. **`web-e2e` job → API integration tests: 21 failures, all from `POST /kpis` returning 500.** The Postgres log shows `new row violates row-level security policy for table "Plan"`.
-   - **Cause:** `BillingService.seedIfEmpty()` (`apps/api/src/billing/billing.service.ts:42`) lazily inserts the global plan catalog on first use. It runs inside a request as `kpi_app`, but `rls-policies.sql:219-221` only grants `plan_read FOR SELECT`. On a fresh DB the table is empty, so the insert is denied. Locally the catalog was seeded before RLS was enforced.
-   - **Fix options:**
-     - Run the plan seed under the system / bypass context (`kpi_system`; see how OT-014 handled other global writes in commit `47cc0e8`).
-     - Or seed `Plan` in `scripts/setup-db.mjs` / `seed.ts` as the owner and drop the lazy insert.
-   - **Regression test:** an integration test against an empty `Plan` table. To reproduce locally: `TRUNCATE "Plan"`, restart the API, then `POST /kpis`.
-   - **Also in the same CI log, check after fixing:**
-     - `new row violates row-level security policy` for `"User"`, `"KPIDataPoint"`, `"KPITemplate"`
-     - `permission denied for view kpi_data_daily`
+Separate reversible prerequisite PRs:
+- #26: generate Prisma client before Node matrix checks.
+- #28: start pinned S3 gateway for report integration tests.
+- #29: pin browser job to supported Ubuntu 24.04 (Playwright 1.60 rejects Ubuntu 26.04).
+- #27: initialize global Plan catalog under explicit system context, preserving request-role read-only RLS and tenant context. A dedicated fresh-DB regression runs before normal integrations.
 
-     These may be negative tests that expect a denial, or more fresh-DB-only gaps in `kpi_app` grants and policies on CAGG views. Compare against a local run on a **fresh** DB (`docker compose down -v` on a scratch copy, or a second database) before deciding.
-   - **How to verify:** push to `main`, then `gh run list --limit 3` and `gh run view <id> --log-failed`. Only mark OT-007 ✅ when a GitHub run is green.
+Hosted integrations: 133 pass / 3 intentional alerting skips; browser suite: 167 pass / 8 expected skips without ML sidecar. Separate isolated local run with ML: 174 browser tests pass / one opt-in audit-crawler skip, zero retries. Expected negative-test RLS errors in database logs are not failures and must not lead to weakening policies.
 
-Also failing, separately: the weekly **Security** workflow on `master` has failed every week since September. It has not been investigated yet. Run `gh run view <id> --log-failed` on the latest `Security` run.
+Continue the approved safe branch review from [the integration ledger](docs/audit/branch-review-2026-11-05.md). No major migrations, branch deletion, or PR closures are part of that plan. Each accepted update requires exact-head CI/Security, a merge commit, post-merge checks, and a recorded revert command.
 
 ### 5b. Open or partial findings
 
 | ID | State | What's left |
 |---|---|---|
-| OT-007 | ❌ reopened | §5a |
+| OT-007 | ✅ fixed | Green main CI/Security, §5a |
 | OT-011 | 🟡 partial | Images pinned, data volume fixed, SeaweedFS in place. **No deploy config:** `infra/fly/` and `infra/github/` are empty, but the README promises Fly.io / Vercel. Either write it or fix the README. |
 | OT-003 | open (Medium) | `apps/worker` is a stub; all 10 BullMQ processors run inside the api. Either move them, or document that the api is the worker. This is a product / architecture choice, so ask the user. |
 | OT-017 | open (Info) | `setupScripts/start.ps1` has never been cold-run end to end. Doing that on the new computer is a good real test. |
@@ -225,7 +215,7 @@ Also failing, separately: the weekly **Security** workflow on `master` has faile
 
 ### 5c. Dependabot
 
-There are 21 open Dependabot PRs (#1–#24). **None are merged on purpose.** Several are majors that need real migration work:
+The initial review set contains 21 Dependabot PRs (#1–#24). Live dispositions and merge evidence belong in the integration ledger. Several are majors that need separate migration work:
 
 - zod 3→4
 - eslint 9→10
@@ -235,16 +225,16 @@ There are 21 open Dependabot PRs (#1–#24). **None are merged on purpose.** Sev
 - numpy 1→2, pandas 2→3
 - python 3.12→3.14 (the ML venv is pinned `<3.13`)
 
-GitHub Actions bumps (checkout / setup-node / upload-artifact / codeql / pnpm-action) are mostly safe. The CI file already uses checkout@v7 / setup-node@v7 / pnpm action-setup@v6, so several of these PRs may be obsolete; close them. Do this **after** CI is green, so each bump gets a real CI signal.
+The approved review keeps superseded PRs open and merges only verified useful updates. Several Actions/NestJS/OpenTelemetry bumps are already superseded; the checkout branch is only partly relevant because main already uses v7. Evaluate CodeQL and compatible Python patches individually after the green baseline; defer majors.
 
 ---
 
 ## 6. Next steps (in order)
 
-1. Fix CI §5a.1: Prisma generate in the `node` job. Push, then confirm `test` and `build` go green.
-2. Fix CI §5a.2: Plan catalog seeding under RLS. Test first; reproduce on a fresh DB. Then triage the other fresh-DB RLS / grant errors from the same log. Push, confirm `web-e2e` is green, and mark OT-007 ✅ in the fix log with the green run id.
-3. Investigate the failing weekly `Security` workflow.
-4. Triage the Dependabot PRs: close the obsolete ones, merge the safe ones one at a time behind green CI, and plan the majors.
+1. Continue the approved integration ledger: finish the checkout v7 replacement, then CodeQL v4, python-dotenv, statsmodels, and FastAPI candidates individually behind green checks.
+2. Keep superseded and major-migration Dependabot PRs unmerged; record each disposition. Do not delete branches or close PRs.
+3. Preserve the development DB; test against disposable infrastructure only. Baseline recovery tag: `backup/pre-branch-review-2026-11-05`.
+4. Verify every merged main commit, update the audit fix log and ledger, and stop on unexplained failures.
 5. Cold-run `setupScripts/start.cmd` on the new computer (OT-017). Fix whatever breaks.
 6. Decisions to ask the user about: OT-011 deploy target (Fly.io? Vercel?), OT-003 worker split, OT-005 Prophet / ARIMA.
 7. Keep `docs/audit/README.md` fix log and this file up to date as items close.
@@ -255,6 +245,6 @@ GitHub Actions bumps (checkout / setup-node / upload-artifact / codeql / pnpm-ac
 
 - `main` is the default branch on GitHub and the only trunk. `master` was deleted on 2026-11-04, locally and on GitHub, after confirming it equalled `main`.
 - Every work branch (`feat/*`, `phase/p1..p9`, `fix/full-audit`) is fully merged into `main` and pushed to origin. Nothing exists only on the old machine. These branches are historical; deleting them later is safe.
-- The 21 open Dependabot PRs were retargeted from `master` to `main` before `master` was deleted. They are still unmerged on purpose (§5c).
+- The initial 21 Dependabot PRs were retargeted from `master` to `main` before `master` was deleted. Follow the approved integration ledger for current dispositions; superseded and major-migration PRs remain unmerged (§5c).
 - To start on a new machine: `git clone https://github.com/MHasaan/kpi-nexus-final.git`. That checks out `main`.
 - Commit messages follow conventional commits with the finding ID, e.g. `fix(api): … (OT-007)`.

@@ -164,7 +164,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | FE-007 terminology never reaches nav | ✅ fixed | `39759ab` | `nav-terminology.spec.ts` (4) |
 | FE-008 password accessible name (+ register helper text in label) | ✅ fixed | `0fb188f` | e2e `getByLabel('Password', { exact: true })` across 5 specs |
 | FE-011 positions track (stale spec) + stale E2E specs; KPI short-name error hidden; seed template vocabulary; OKR / my-kpis test ids | ✅ fixed | `182acc2`, `d5aad1e`, `4a07d58` | full CI-mode Playwright run (0 retries) |
-| OT-007 CI never passed | ❌ reopened — first GitHub run (`41755807565`) failed: Prisma client not generated in `test`/`build`; `Plan` seed denied by RLS in `web-e2e` (see HANDOFF.md §5a) | `0f405ae` | lint / typecheck / test / build + e2e run in CI mode; `ai-mock-fixture.spec.ts` (3) |
+| OT-007 CI fresh-install failures | ✅ fixed — main CI `41874623263` and Security `41874623698` green on `d69c04e` | PRs #26, #28, #29, #27 | clean install/generation, billing unit + fresh-DB regression, 133 integrations, hosted 167 E2E + 8 expected skips |
 | BE-012 threshold bands accept lower > upper | ✅ fixed | `e2edbc8` | `threshold-band.dto.spec.ts` (3), `kpi-threshold-bands.service.spec.ts` (+2) |
 | BE-020 objective self/descendant parenting, inverted periods | ✅ fixed | `551dbc0` | `objectives.service.spec.ts` (+5) |
 | FE-003 objectives in a parent cycle vanish from the OKR tree | ✅ fixed | `d50aefd` | `okr-tree.spec.ts` (4, mutation-checked) |

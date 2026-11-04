@@ -20,7 +20,7 @@ All 17 feat/phase/audit tips below are ancestors of initial main: no missing pro
 | PR | Disposition |
 |---|---|
 | 1, 2, 4 | Superseded: pnpm v6, artifact v7, setup-node v7 already on main |
-| 23, 24 | Superseded provisionally: verify every dependency/lockfile effect before final disposition |
+| 23, 24 | Superseded: every direct NestJS/OpenTelemetry target equals or trails main; diffs contain only manifests/generated lockfile changes. Preserve main’s newer versions and security overrides. |
 | 5 | Partial: replace remaining checkout v4 with main's v7, never downgrade existing v7 |
 | 3 | Candidate: CodeQL v4, after baseline green |
 | 10 | Candidate: dotenv 1.2.2 |
@@ -29,7 +29,7 @@ All 17 feat/phase/audit tips below are ancestors of initial main: no missing pro
 | 6, 8, 9 | Deferred: Python/scientific-stack majors |
 | 12, 14, 15, 16, 17, 18, 19, 20 | Deferred: framework/client/compiler/lint/validation migrations or runtime mismatch |
 
-No PR closures or branch deletions authorized by this plan.
+No manual closure of superseded/deferred PRs or branch deletions is authorized by this plan. Accepted candidates are integrated through normal PR merges.
 
 ## Exact initial remote tips
 
@@ -94,7 +94,7 @@ CI storage validation: exact gateway command on separate port 29000 passed anony
 
 Combined billing/storage PR #27 head d5cf864 passes fresh-DB regression and all API integration tests in hosted run 41871015000. Browser installation then fails explicitly: Playwright 1.60.0 does not support ubuntu26.04-x64 (ubuntu-latest). Pin only web-e2e to ubuntu-24.04, supported by the existing pinned browser package. No Playwright/framework upgrade or application change. Existing integration-only Plan failure remains expected on this infrastructure-only branch until #27 is merged.
 
-## Billing prerequisite — in progress
+## Billing prerequisite — completed (historical execution record)
 
 - Isolated Docker project `kpi-review`, separate ports 15432/16379 and its own volumes. No development DB access.
 - RED: empty Plan catalog count 0; registration 201; first KPI POST 500. Unit test also rejects catalog initialization under tenant context.
@@ -107,3 +107,13 @@ Storage prerequisite #28 merged as `68955cf20cb54a378e66980431e5a9a14231870b`; r
 Runner prerequisite #29 merged as `018b896563c3c509ad626a4f2f1ef8df34df4896`; rollback: `git revert -m 1 018b896563c3c509ad626a4f2f1ef8df34df4896`. Relevant Node/Security checks green; only known independent Plan failure remained. Billing PR refreshed against this main; documentation-only conflict resolved preserving both histories.
 
 Recovery proof: backup tag also pushed to GitHub. In a separate /tmp clone, reversing #28 then #26 via recorded merge-revert commands restores the exact original `50d3b7a` tree. No working checkout/database was modified by the exercise.
+
+## Verified green baseline and first dependency trial
+
+- Billing #27 merged as `d69c04ee3ef4638dd12337cdd6ee1ab4b88085f8`; rollback `git revert -m 1 d69c04ee3ef4638dd12337cdd6ee1ab4b88085f8`.
+- Exact resulting main CI [41874623263](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623263) and Security [41874623698](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623698) both SUCCESS. Dependency gate satisfied only now.
+- OT-007 closed with actual hosted evidence: Prisma generation, scoped global Plan initialization, S3 test storage, supported browser runner.
+- First candidate: replacement for PR #5 (head `158d9e2120669ae0660841055ddaca79ed667bea`). Main already uses checkout v7 in CI/audit; only two security v4 refs are upgraded to v7. Original v6 branch is not merged because it would downgrade existing v7 refs. No package or application changes.
+- Python baseline resolved versions captured separately for reproducible rollback. The existing optional statsmodels0.14.4/SciPy1.17 import incompatibility is recorded for candidate #7; currently implemented ML routes and tests pass.
+
+Checkout replacement local validation: frozen install + generation + all 32 uncached workspace tasks pass (1,856 TS/JS tests). Independent review approved; no application/DB/permission/dependency changes. Hosted candidate checks pending. Original ML Dockerfile baseline image built successfully as `kpi-review-ml:baseline`.

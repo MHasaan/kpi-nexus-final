@@ -1,6 +1,8 @@
 # Next Session — Start Here
 
-**KPI Nexus Final is built: all ten phases (P0–P9) are implemented and tagged `v1.0.0`.** Current work is fixing the findings of the October 2026 full audit on branch `fix/full-audit`.
+**KPI Nexus Final is built: all ten phases (P0–P9) are implemented and tagged `v1.0.0`.** The October 2026 full audit is fixed and merged; work continues on `main`.
+
+> **Resuming? Read [`HANDOFF.md`](./HANDOFF.md) first** — new-computer setup, exact state, what's left (CI is red on GitHub — top priority), and the ordered next steps.
 
 ## In 30 seconds
 

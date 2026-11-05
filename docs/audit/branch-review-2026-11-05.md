@@ -23,7 +23,7 @@ All 17 feat/phase/audit tips below are ancestors of initial main: no missing pro
 | 23, 24 | Superseded: every direct NestJS/OpenTelemetry target equals or trails main; diffs contain only manifests/generated lockfile changes. Preserve main’s newer versions and security overrides. |
 | 5 | Partial: replace remaining checkout v4 with main's v7, never downgrade existing v7 |
 | 3 | Integrated by PR #31: CodeQL v4; exact source commit retained |
-| 10 | Candidate: dotenv 1.2.2 |
+| 10 | Integrated by PR #32: dotenv1.2.2; source commit retained |
 | 7 | Candidate: statsmodels 0.14.6 |
 | 11 | Candidate: FastAPI 0.136.3, only if compatible without major migration |
 | 6, 8, 9 | Deferred: Python/scientific-stack majors |
@@ -137,3 +137,12 @@ CodeQL trial security finding: merging the old source branch widened Gitleaks’
 - Fresh Python3.12 trial resolves exactly the baseline50packages except dotenv. Dependency consistency and all48ML tests pass. Uvicorn env-file loading, existing-env precedence, quoted values, variable expansion, explicit override pass. Container and workspace checks pending. Initial merge stopped before changes because local committer identity was absent; repeated with command-local identity and used another fresh environment for the actual candidate.
 
 Dotenv final local gates: all32uncached workspace tasks/1856TS-JS tests pass; original Dockerfile builds image1604696e19a6. Fresh host and container each pass dependency consistency and48MLtests; all50canonical dependency versions match. Host/container each pass36/36health/endpoint/edge/HMAC probes. All7live API-to-ML/browser cases pass. Initial host probe used default HMAC instead of disposable env; rerun with actual test env passes. Independent review found no actionable issue. Exact-head hosted gates pending.
+
+## Dotenv complete; statsmodels trial
+
+- Dotenv PR #32 merged as `3fa2e0b7d05cb4b335a55f197bb9b14e2a750e35`; rollback: `git revert -m 1 3fa2e0b7d05cb4b335a55f197bb9b14e2a750e35`. Exact candidate CI41898865814/Security41898865646 and resulting main CI41900002324/Security41900003573 all SUCCESS. Hosted browser installation was slow but completed without a repair.
+- Candidate full regression:133integration passed/3documented skips,174browser passed/1opt-in audit crawler skip. Post-merge36ML probes +7API/browser cases pass; reviewed and merged trees identical. Seven reverse-order merge reverts restore exact50d3b7a initial tree.
+- Statsmodels source PR #7 refreshed at `686cd5dc52239ab2b20a075e402f5905345d72b6`, trial based on verified3fa2e0b. Preserve dotenv1.2.2; change only statsmodels0.14.4→0.14.6. [Official0.14.5 notes](https://github.com/statsmodels/statsmodels/releases/tag/v0.14.5) fix imports with SciPy1.16+; [0.14.6 notes](https://github.com/statsmodels/statsmodels/releases/tag/v0.14.6) further improve pandas/NumPy compatibility. No Python/NumPy/pandas/SciPy major migration, API, or schema change.
+- Added import/OLS regression: RED against actual previous environment with SciPy1.17.1 because `_lazywhere` import is removed. Fit verifies coefficients and out-of-sample prediction, guarding library usability without enabling deferred product features. Fresh candidate resolves the same50packages except statsmodels. Remaining local/hosted gates pending.
+
+Statsmodels local gates complete: regression RED→GREEN;49ML tests on fresh host and original-Dockerfile image0f5e40f0672e; dependency consistency passes; all50canonical package versions match; host/container each pass36HTTP/HMAC probes. Workspace32uncached tasks/1856TS-JS tests,133integration/3documented skips,174browser/1opt-in crawler skip all pass. Independent review approved; hosted exact-head gates pending.

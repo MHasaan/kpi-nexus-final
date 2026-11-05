@@ -22,7 +22,7 @@ All 17 feat/phase/audit tips below are ancestors of initial main: no missing pro
 | 1, 2, 4 | Superseded: pnpm v6, artifact v7, setup-node v7 already on main |
 | 23, 24 | Superseded: every direct NestJS/OpenTelemetry target equals or trails main; diffs contain only manifests/generated lockfile changes. Preserve main’s newer versions and security overrides. |
 | 5 | Partial: replace remaining checkout v4 with main's v7, never downgrade existing v7 |
-| 3 | Candidate: CodeQL v4, after baseline green |
+| 3 | Integrated by PR #31: CodeQL v4; exact source commit retained |
 | 10 | Candidate: dotenv 1.2.2 |
 | 7 | Candidate: statsmodels 0.14.6 |
 | 11 | Candidate: FastAPI 0.136.3, only if compatible without major migration |
@@ -128,3 +128,12 @@ Checkout replacement local validation: frozen install + generation + all 32 unca
 - CodeQL local validation: frozen install/generation + all32uncached workspace tasks pass (1856TS/JS tests); independent review approved. Exact-head hosted validation pending. Repository automatic branch deletion confirmed disabled; superseded/deferred branches remain untouched.
 
 CodeQL trial security finding: merging the old source branch widened Gitleaks’ first-parent range to 244 historical commits. It flagged a dummy password used only to provision synthetic .test.local users in commit6c4284d (already an ancestor of main). Checksum-verified CI scanner8.24.3 reproduced exactly one fingerprint. Added only `6c4284d5e20012a6b0cbda73898a7c62ef124064:apps/web/e2e/permission-nav.spec.ts:generic-api-key:147` to .gitleaksignore, with no rule/path-wide exemptions or history rewrite. Exact-range scan passes; a fresh unprefixed synthetic generic-api-key in a different file remains detected (exit2, one finding). The first explicitly test-labelled positive-control fixture was not detected by default heuristics and was replaced; no success claim relies on it. Independent security review independently reproduced all three outcomes. Updated-head hosted CI and Security remain required before merge.
+
+## CodeQL complete; dotenv trial
+
+- CodeQL PR #31 merged as `6716540a419b71efb7619d797dc90c3fb969ef95`; rollback: `git revert -m 1 6716540a419b71efb7619d797dc90c3fb969ef95`. Exact reviewed head68d01f0 CI41895663658/Security41895663423 and resulting main CI41896668463/Security41896668609 all SUCCESS. Both CodeQL v4 language jobs executed successfully.
+- Post-merge local scan: 244 historical commits, zero findings. All six merges reversed in a temporary clone restore exact initial50d3b7a tree. Local integration133passed/3intentional skips. Browser167passed/8skipped initially because ignored runner env omitted ML port; reran all7ML cases with correct sidecar port, all7passed. Only opt-in audit crawler remains uncovered.
+- Dotenv source PR #10 refreshed at `b89e20757490da2990acf8edebb90e8cb07787b2`; trial from verified6716540. Only requirements pin1.0.1→1.2.2. [Official changelog](https://github.com/theskumar/python-dotenv/blob/v1.2.2/CHANGELOG.md): removed oldPython support and changed symlink editing behavior; project runsPython3.12 and has no file-mutating dotenv calls. Optional consumer is uvicorn env-file loading. No schema/API changes.
+- Fresh Python3.12 trial resolves exactly the baseline50packages except dotenv. Dependency consistency and all48ML tests pass. Uvicorn env-file loading, existing-env precedence, quoted values, variable expansion, explicit override pass. Container and workspace checks pending. Initial merge stopped before changes because local committer identity was absent; repeated with command-local identity and used another fresh environment for the actual candidate.
+
+Dotenv final local gates: all32uncached workspace tasks/1856TS-JS tests pass; original Dockerfile builds image1604696e19a6. Fresh host and container each pass dependency consistency and48MLtests; all50canonical dependency versions match. Host/container each pass36/36health/endpoint/edge/HMAC probes. All7live API-to-ML/browser cases pass. Initial host probe used default HMAC instead of disposable env; rerun with actual test env passes. Independent review found no actionable issue. Exact-head hosted gates pending.

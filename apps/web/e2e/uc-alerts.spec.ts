@@ -119,6 +119,13 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
       await expect(page.getByTestId('alert-rules-heading')).toBeVisible();
       await expect(page.getByTestId('alert-rules-table')).toContainText(`High value ${stamp}`);
 
+      const desktopViewport = page.viewportSize()!;
+      await page.setViewportSize({ width: 375, height: 812 });
+      await expect.poll(() => page.evaluate(() =>
+        document.documentElement.scrollWidth - window.innerWidth,
+      )).toBe(0);
+      await page.setViewportSize(desktopViewport);
+
       // Breach the threshold via the API.
       const dpRes = await apiCtx.post(`/kpis/${kpi.id}/data`, {
         data: {

@@ -717,9 +717,9 @@ const scenarios = {
       const dom = await step('register custom domain', 'POST', '/custom-domains', { token: T, body: { domain: `metrics-${RUN}.audit.test` } });
       if (hasFixture(idOf(dom), 'custom domain verification and deletion')) {
         await step('verify domain (no TXT → not verified)', 'POST', `/custom-domains/${idOf(dom)}/verify`, { token: T, body: {}, expect: [200, 201, 400, 409, 422] });
+        await step('other org cannot register an existing domain', 'POST', '/custom-domains', { token: B.token, body: { domain: `metrics-${RUN}.audit.test` }, expect: [409] });
         await step('delete domain', 'DELETE', `/custom-domains/${idOf(dom)}`, { token: T });
       }
-      await step('register domain already used by helios → 409', 'POST', '/custom-domains', { token: T, body: { domain: 'metrics.helios.io' }, expect: [400, 409] });
       const integ = await step('create integration', 'POST', '/integrations', { token: T, body: { provider: 'slack', displayName: 'Audit Slack', tokens: { access_token: 'xoxb-audit' } } });
       if (hasFixture(idOf(integ), 'integration detail and deletion')) {
         const got = await step('get integration', 'GET', `/integrations/${idOf(integ)}`, { token: T });

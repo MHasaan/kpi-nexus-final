@@ -206,3 +206,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | `api-crud.json` | 301 write-side / cross-tenant steps in two disposable orgs |
 | `ml-probe.json` | ML sidecar edge cases + HMAC negatives |
 | `frontend-crawl.md` / `.json` | 80 routes × 4 passes |
+
+## Audit closure follow-up
+
+See the [current reconciliation and evidence](closure-2026-11-06.md) for AC-001 (email rendering, `81ec98c`) and AC-002 (audit tooling, `54620c4`). Set `AUDIT_OUTPUT_DIR` to a new scratch directory for fresh runs to preserve the October artifacts.

@@ -254,4 +254,4 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 - To start on a new machine: `git clone https://github.com/MHasaan/kpi-nexus-final.git`. That checks out `main`.
 - Commit messages follow conventional commits with the finding ID, e.g. `fix(api): … (OT-007)`.
 
-The current audit closure branch tracks the October finding dispositions and fresh verification in [the audit closure ledger](docs/audit/closure-2026-11-06.md). Email and audit tooling repairs have separate commits. Full browser crawl and hosted gates are tracked there.
+The current audit closure branch tracks the October finding dispositions and fresh verification in [the audit closure ledger](docs/audit/closure-2026-11-06.md). Email and audit tooling repairs have separate commits. The Chrome crawl covered 83 routes across four personas and led to separate frontend repairs. The draft PR tracks hosted gates for the final revision.

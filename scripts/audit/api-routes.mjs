@@ -9,13 +9,15 @@
  *   node scripts/audit/api-routes.mjs
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { auditOutputDir, failAudit, redactAuditText, writeAuditJson } from './common.mjs';
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const API_SRC = join(REPO_ROOT, 'apps', 'api', 'src');
-const OUT = join(REPO_ROOT, 'docs', 'audit', 'api-routes.json');
+const OUT = join(auditOutputDir(REPO_ROOT), 'api-routes.json');
 
 const HTTP = new Set(['Get', 'Post', 'Put', 'Patch', 'Delete']);
 
@@ -159,19 +161,23 @@ function parseController(src, file) {
   }
 }
 
-const routes = [];
-for await (const file of walk(API_SRC)) {
-  routes.push(...parseController(await readFile(file, 'utf-8'), file));
+async function main() {
+  const routes = [];
+  for await (const file of walk(API_SRC)) {
+    routes.push(...parseController(await readFile(file, 'utf-8'), file));
+  }
+  routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+
+  await writeAuditJson(OUT, routes);
+
+  const byMethod = Object.groupBy(routes, (r) => r.method);
+  console.log(`${routes.length} routes → ${redactAuditText(relative(REPO_ROOT, OUT))}`);
+  console.log(Object.entries(byMethod).map(([m, rs]) => `${m} ${rs.length}`).join(' · '));
+  const gated = (r) => r.permissions.length || r.anyPermissions.length || r.guards.length;
+  console.log(
+    `public ${routes.filter((r) => r.public).length} · gated (permission/any-permission/guard) ${routes.filter(gated).length} · ` +
+      `authenticated-only ${routes.filter((r) => !r.public && !gated(r)).length}`,
+  );
 }
-routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
 
-await writeFile(OUT, `${JSON.stringify(routes, null, 2)}\n`);
-
-const byMethod = Object.groupBy(routes, (r) => r.method);
-console.log(`${routes.length} routes → ${relative(REPO_ROOT, OUT)}`);
-console.log(Object.entries(byMethod).map(([m, rs]) => `${m} ${rs.length}`).join(' · '));
-const gated = (r) => r.permissions.length || r.anyPermissions.length || r.guards.length;
-console.log(
-  `public ${routes.filter((r) => r.public).length} · gated (permission/any-permission/guard) ${routes.filter(gated).length} · ` +
-    `authenticated-only ${routes.filter((r) => !r.public && !gated(r)).length}`,
-);
+await main().catch(failAudit);

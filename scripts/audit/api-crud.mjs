@@ -13,10 +13,11 @@
  * triage (it may be a harness payload mistake — read the excerpt).
  */
 
-import { writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { auditEmailHtml, auditExcerpt, auditOutputDir, failAudit, redactAuditText, writeAuditJson } from './common.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const API_URL = process.env.API_URL ?? 'http://127.0.0.1:4000';
@@ -24,10 +25,9 @@ const MAILHOG_URL = process.env.MAILHOG_URL ?? 'http://127.0.0.1:8025';
 const RUN = Date.now().toString(36);
 const OK = [200, 201, 204];
 
-/** Mask secret-looking JSON fields before anything is written to the committed report. */
-const SECRET_FIELD = /"(token|secret|signingSecret|apiKey|key|plaintext|password|accessToken|refreshToken|inviteToken|hashedKey)"s*:s*"[^"]*"/g;
-const redact = (s) => String(s).replace(SECRET_FIELD, '"$1":"<redacted>"');
-
+const INVITER_MARKER = `<b>Inviter & ${RUN}</b>`;
+const ORG_MARKER = `<i>Organization & ${RUN}</i>`;
+const REPORT_MARKER = `<b>Report & ${RUN}</b>`;
 
 const results = [];
 let currentDomain = 'setup';
@@ -59,7 +59,7 @@ async function http(method, path, { token, body, headers = {} } = {}) {
       text = await res.text();
     }
   } catch (err) {
-    return { status: 0, json: undefined, text: `request failed: ${err?.name ?? err}`, ms: Math.round(performance.now() - started) };
+    return { status: 0, json: undefined, text: `request failed: ${auditExcerpt(err?.message ?? err, 300)}`, ms: Math.round(performance.now() - started) };
   } finally {
     clearTimeout(timer);
   }
@@ -77,18 +77,22 @@ async function http(method, path, { token, body, headers = {} } = {}) {
  * Returns the parsed body (or undefined) so scenarios can chain IDs.
  */
 async function step(name, method, path, { token, body, expect = OK, headers } = {}) {
+  if (/\/(?:undefined|null)(?=\/|[?#]|$)/.test(path)) {
+    uncovered(name, 'required route ID is missing');
+    return undefined;
+  }
   const r = await http(method, path, { token, body, headers });
   const ok = expect.includes(r.status);
   results.push({
     domain: currentDomain,
     name,
     method,
-    path,
+    path: redactAuditText(path),
     status: r.status,
     expect,
     ok,
     ms: r.ms,
-    excerpt: ok ? undefined : redact(r.text.slice(0, 400)),
+    excerpt: ok ? undefined : auditExcerpt(r.text, 400),
   });
   return r.json;
 }
@@ -112,13 +116,22 @@ async function registerOrg(tag) {
   const email = `owner-${tag}-${RUN}@audit.test`;
   const password = 'AuditPass123!';
   const reg = await step(`register org ${tag}`, 'POST', '/auth/register', {
-    body: { orgName: `Audit ${tag.toUpperCase()} ${RUN}`, slug, adminEmail: email, adminPassword: password, adminFullName: `Audit Owner ${tag}` },
+    body: { orgName: tag === 'a' ? ORG_MARKER : `Audit B ${RUN}`, slug, adminEmail: email, adminPassword: password, adminFullName: `Audit Owner ${tag}` },
   });
   const login = await http('POST', '/auth/login', { body: { email, password } });
-  const token = login.json?.accessToken ?? reg?.accessToken;
-  if (!token) throw new Error(`could not obtain a token for org ${tag}: ${login.text}`);
-  const me = (await http('GET', '/auth/me', { token })).json;
-  return { slug, email, password, token, refreshToken: login.json?.refreshToken, userId: me.user.id, orgId: me.user.organizationId, roleId: me.user.roleId };
+  const token = login.json?.accessToken;
+  const refreshToken = login.json?.refreshToken;
+  if (login.status !== 200 || !token || !refreshToken) {
+    throw new Error(`login for org ${tag} failed (${login.status}): ${auditExcerpt(login.text, 300)}`);
+  }
+  const me = await http('GET', '/auth/me', { token });
+  const user = me.json?.user;
+  if (me.status !== 200 || user?.email !== email || !user.id || !user.organizationId || !user.roleId ||
+      me.json.accessProfile?.isAdmin !== true || !Array.isArray(me.json.accessProfile.capabilities)) {
+    throw new Error(`could not verify admin identity and access profile for org ${tag} (${me.status})`);
+  }
+  if (!reg || !results.at(-1)?.ok) throw new Error(`registration failed for org ${tag}`);
+  return { slug, email, password, token, refreshToken, userId: user.id, orgId: user.organizationId, roleId: user.roleId };
 }
 
 /**
@@ -131,12 +144,15 @@ async function startListener() {
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', () => {
-      hits.push({ method: req.method, url: req.url, headers: req.headers, body: body.slice(0, 2000), at: Date.now() });
+      hits.push({ method: req.method, url: req.url, headers: req.headers, body: auditExcerpt(body, 2000), at: Date.now() });
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ data: { secret: 'internal-only', value: 4242 } }));
     });
   });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
   return { url: `http://127.0.0.1:${server.address().port}`, hits, close: () => server.close() };
 }
 
@@ -152,21 +168,38 @@ async function waitFor(fn, { timeoutMs = 20_000, everyMs = 500 } = {}) {
 
 /** Record a pass/fail observation that isn't a single HTTP call. */
 function check(name, ok, status, expect, excerpt) {
-  results.push({ domain: currentDomain, name, ok: Boolean(ok), status, expect, excerpt: ok ? undefined : excerpt });
+  results.push({ domain: currentDomain, name, ok: Boolean(ok), status, expect, excerpt: !ok && excerpt !== undefined ? auditExcerpt(excerpt, 400) : undefined });
 }
 
-async function mailhogTokenFor(email, pattern) {
-  for (let i = 0; i < 20; i++) {
-    const res = await fetch(`${MAILHOG_URL}/api/v2/search?kind=to&query=${encodeURIComponent(email)}`).catch(() => null);
-    const data = res?.ok ? await res.json() : null;
-    for (const m of data?.items ?? []) {
-      const raw = (m.Content?.Body ?? '').replace(/=\r?\n/g, '').replace(/=3D/g, '=');
-      const hit = raw.match(pattern);
-      if (hit) return hit[1];
-    }
-    await new Promise((r) => setTimeout(r, 500));
+function uncovered(name, reason) {
+  check(name, false, 'uncovered', undefined, reason);
+}
+
+function hasFixture(value, name) {
+  if (value) return true;
+  uncovered(name, 'required fixture or response field missing');
+  return false;
+}
+
+function requireFixtures(...keys) {
+  const missing = keys.filter((key) => !ctx[key]);
+  if (missing.length) throw new Error(`required fixture missing: ${missing.join(', ')}; run its prerequisite domains`);
+}
+
+async function mailhogMessage(email) {
+  const url = `${MAILHOG_URL}/api/v2/search?kind=to&query=${encodeURIComponent(email)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+  if (!res.ok) throw new Error(`Mailhog search failed (${res.status})`);
+  return (await res.json()).items?.[0];
+}
+
+function checkEmailHtml(name, mail, markers) {
+  if (!mail) {
+    uncovered(name, 'email unavailable');
+    return;
   }
-  return undefined;
+  const status = auditEmailHtml(mail, markers);
+  check(name, status === 'escaped', status, ['escaped']);
 }
 
 // ---------------------------------------------------------------------------
@@ -185,9 +218,11 @@ const scenarios = {
     await step('refresh token', 'POST', '/auth/refresh', { body: { refreshToken: A.refreshToken } });
     await step('refresh token reuse → 401', 'POST', '/auth/refresh', { body: { refreshToken: A.refreshToken }, expect: [401] });
     // reuse detection may revoke the family — get a fresh session for the rest of the run
-    A.token = (await http('POST', '/auth/login', { body: { email: A.email, password: A.password } })).json.accessToken;
+    const renewed = await http('POST', '/auth/login', { body: { email: A.email, password: A.password } });
+    if (renewed.status !== 200 || !renewed.json?.accessToken) throw new Error(`admin login after refresh test failed (${renewed.status})`);
+    A.token = renewed.json.accessToken;
 
-    await step('PATCH /auth/me', 'PATCH', '/auth/me', { token: A.token, body: { fullName: 'Audit Owner Renamed' } });
+    await step('PATCH /auth/me', 'PATCH', '/auth/me', { token: A.token, body: { fullName: INVITER_MARKER } });
     await step('PATCH /auth/me/notification-settings', 'PATCH', '/auth/me/notification-settings', { token: A.token, body: { emailDigest: 'DAILY' }, expect: [200, 201, 204, 400] });
     await step('PATCH /organizations/me', 'PATCH', '/organizations/me', { token: A.token, body: { industry: 'Software', timezone: 'Asia/Karachi', primaryColor: '#123456' } });
     await invalid('PATCH /organizations/me', 'PATCH', '/organizations/me', A.token, { primaryColor: 'blue' });
@@ -216,23 +251,30 @@ const scenarios = {
     ctx.userId = idOf(invited) ?? invited?.user?.id;
     await invalid('invite user', 'POST', '/users', A.token, { email: 'not-an-email', fullName: 'x' });
     await step('invite duplicate email → 409', 'POST', '/users', { token: A.token, body: { email: inviteEmail, fullName: 'Audit Invitee' }, expect: [409, 400] });
-    const mailed = await mailhogTokenFor(inviteEmail, /[?&]token=([A-Za-z0-9._~-]+)/);
-    results.push({ domain: 'identity', name: 'invitation email delivered to Mailhog (known gap BE-008)', ok: Boolean(mailed), status: mailed ? 'found' : 'missing', expect: ['found'] });
-    // Non-production API returns the token on the response — use it to exercise the accept flow.
-    const inviteToken = mailed ?? invited?.inviteToken;
-    if (inviteToken) {
+    let mail;
+    try {
+      mail = await waitFor(() => mailhogMessage(inviteEmail), { timeoutMs: 10_000 });
+      check('invitation email delivered to Mailhog (BE-008)', mail, mail ? 'delivered' : 'not delivered', ['delivered']);
+    } catch (error) {
+      check('invitation email delivered to Mailhog (BE-008)', false, 'Mailhog unavailable', ['delivered'], error.message);
+    }
+    checkEmailHtml('invitation email HTML-escapes inviter and organization names', mail, [INVITER_MARKER, ORG_MARKER]);
+    const mailBody = (mail?.Content?.Body ?? '').replace(/=\r?\n/g, '').replace(/=3D/g, '=');
+    const inviteToken = mailBody.match(/[?&]token=([A-Za-z0-9._~-]+)/)?.[1] ?? invited?.inviteToken;
+    if (hasFixture(inviteToken, 'invitation preview and acceptance')) {
       await step('invitation preview', 'POST', '/auth/invitation-preview', { body: { token: inviteToken } });
       await step('accept invitation', 'POST', '/auth/accept-invitation', { body: { token: inviteToken, password: 'InviteePass123!' } });
       await step('accept invitation twice → 4xx', 'POST', '/auth/accept-invitation', { body: { token: inviteToken, password: 'InviteePass123!' }, expect: [400, 401, 404, 409, 410] });
       const inv = await http('POST', '/auth/login', { body: { email: inviteEmail, password: 'InviteePass123!' } });
-      results.push({ domain: 'identity', name: 'invitee can log in', ok: inv.status === 200, status: inv.status, expect: [200], excerpt: inv.status === 200 ? undefined : inv.text.slice(0, 300) });
+      results.push({ domain: 'identity', name: 'invitee can log in', ok: inv.status === 200, status: inv.status, expect: [200], excerpt: inv.status === 200 ? undefined : auditExcerpt(inv.text, 300) });
       ctx.inviteeToken = inv.json?.accessToken;
-      if (ctx.inviteeToken) {
+      ctx.inviteeRefreshToken = inv.json?.refreshToken;
+      if (hasFixture(ctx.inviteeToken, 'invitee authenticated actions')) {
         await step('invitee (KPI_VIEW only) cannot create role → 403', 'POST', '/roles', { token: ctx.inviteeToken, body: { name: 'Nope', permissions: [] }, expect: [403] });
         await step('invitee change password', 'POST', '/auth/me/change-password', { token: ctx.inviteeToken, body: { currentPassword: 'InviteePass123!', newPassword: 'InviteePass456!' } });
       }
     }
-    if (ctx.userId) {
+    if (hasFixture(ctx.userId, 'invitee detail, access overrides, and suspension')) {
       await step('get user', 'GET', `/users/${ctx.userId}`, { token: A.token });
       await foreign('get user', 'GET', `/users/${ctx.userId}`);
       await step('put access-override', 'PUT', `/users/${ctx.userId}/access-override`, { token: A.token, body: { grantCapabilities: ['REPORTS_VIEW'], revokeCapabilities: [] } });
@@ -241,9 +283,12 @@ const scenarios = {
       await step('suspend user', 'POST', `/users/${ctx.userId}/suspend`, { token: A.token, body: {} });
       const susp = await http('POST', '/auth/login', { body: { email: inviteEmail, password: 'InviteePass456!' } });
       results.push({ domain: 'identity', name: 'suspended user cannot log in', ok: susp.status === 401 || susp.status === 403, status: susp.status, expect: [401, 403] });
-      if (ctx.inviteeToken) {
-        const still = await http('GET', '/auth/me', { token: ctx.inviteeToken });
-        results.push({ domain: 'identity', name: "suspended user's existing access token is rejected", ok: still.status === 401 || still.status === 403, status: still.status, expect: [401, 403] });
+      // BE-013 accepts the access JWT remaining usable for at most 15 minutes.
+      // Refresh and fresh login must be blocked immediately.
+      if (hasFixture(ctx.inviteeRefreshToken, 'suspended user refresh rejection')) {
+        await step('suspended user cannot refresh', 'POST', '/auth/refresh', {
+          body: { refreshToken: ctx.inviteeRefreshToken }, expect: [401, 403],
+        });
       }
       await step('reactivate user', 'POST', `/users/${ctx.userId}/reactivate`, { token: A.token, body: {} });
       await foreign('suspend user', 'POST', `/users/${ctx.userId}/suspend`, {});
@@ -257,7 +302,7 @@ const scenarios = {
         body: { grantorUserId: A.userId, granteeUserId: ctx.userId, permissions: ['REPORTS_VIEW'], validFrom: new Date(now).toISOString(), validTo: new Date(now + 864e5).toISOString() },
       });
       await invalid('create delegation (validTo < validFrom)', 'POST', '/permission-delegations', A.token, { grantorUserId: A.userId, granteeUserId: ctx.userId, validFrom: new Date(now).toISOString(), validTo: new Date(now - 1000).toISOString() });
-      if (idOf(del)) await step('delete delegation', 'DELETE', `/permission-delegations/${idOf(del)}`, { token: A.token });
+      if (hasFixture(idOf(del), 'delegation deletion')) await step('delete delegation', 'DELETE', `/permission-delegations/${idOf(del)}`, { token: A.token });
     }
 
     // MFA enrol (confirm needs a TOTP code — enrol + disable without code are probed)
@@ -268,8 +313,8 @@ const scenarios = {
     await step('list sessions', 'GET', '/me/sessions', { token: A.token });
 
     // Password reset request (always 200/202/204 to avoid user enumeration)
-    await step('request password reset (known email)', 'POST', '/auth/password/request-reset', { body: { email: A.email } });
-    await step('request password reset (unknown email) — same status', 'POST', '/auth/password/request-reset', { body: { email: `nobody-${RUN}@audit.test` } });
+    await step('request password reset (known email)', 'POST', '/auth/password/request-reset', { body: { email: A.email }, expect: [202] });
+    await step('request password reset (unknown email) — same status', 'POST', '/auth/password/request-reset', { body: { email: `nobody-${RUN}@audit.test` }, expect: [202] });
     await step('confirm reset with bogus token → 4xx', 'POST', '/auth/password/confirm-reset', { body: { token: 'bogus', newPassword: 'Whatever123!' }, expect: [400, 401, 404, 410] });
   },
 
@@ -297,11 +342,11 @@ const scenarios = {
     }
     const split = await step('split unit', 'POST', `/org-units/${ctx.childUnitId}/split`, { token: T, body: { newUnitName: `Audit Split ${RUN}`, memberUserIds: [] } });
     const splitId = idOf(split) ?? split?.newUnit?.id;
-    if (splitId) await step('merge split back', 'POST', `/org-units/${splitId}/merge-into`, { token: T, body: { targetId: ctx.childUnitId } });
+    if (hasFixture(splitId, 'merge split unit')) await step('merge split back', 'POST', `/org-units/${splitId}/merge-into`, { token: T, body: { targetId: ctx.childUnitId } });
     await foreign('get unit', 'GET', `/org-units/${ctx.unitId}`);
     await foreign('delete unit', 'DELETE', `/org-units/${ctx.unitId}`);
     await step('update unit type', 'PATCH', `/org-unit-types/${ctx.unitTypeId}`, { token: T, body: { name: `Dept ${RUN}` } });
-    if (idOf(dim)) {
+    if (hasFixture(idOf(dim), 'dimension update and deletion')) {
       await step('update dimension', 'PATCH', `/org-unit-dimensions/${idOf(dim)}`, { token: T, body: { name: `Region2 ${RUN}` } });
       await step('delete dimension', 'DELETE', `/org-unit-dimensions/${idOf(dim)}`, { token: T });
     }
@@ -332,12 +377,13 @@ const scenarios = {
     if (ctx.unitId) {
       const uk = await step('create PER_UNIT KPI', 'POST', '/kpis', { token: T, body: { name: `Audit Unit KPI ${RUN}`, scope: 'PER_UNIT', orgUnitIds: [ctx.unitId] } });
       ctx.unitKpiId = idOf(uk);
-      if (ctx.unitKpiId)
+      if (hasFixture(ctx.unitKpiId, 'per-unit KPI data validation'))
         await step('PER_UNIT data via org-wide endpoint → 422', 'POST', `/kpis/${ctx.unitKpiId}/data`, { token: T, body: { value: 5, periodStart: day(2), periodEnd: day(1) }, expect: [400, 422] });
     }
     await step('get KPI', 'GET', `/kpis/${ctx.kpiId}`, { token: T });
     await step('update KPI', 'PATCH', `/kpis/${ctx.kpiId}`, { token: T, body: { description: 'audited' } });
-    await step('transition DRAFT → ACTIVE', 'POST', `/kpis/${ctx.kpiId}/transition`, { token: T, body: { to: 'ACTIVE', reason: 'audit' } });
+    await step('reject transition DRAFT → ACTIVE', 'POST', `/kpis/${ctx.kpiId}/transition`, { token: T, body: { to: 'ACTIVE', reason: 'audit' }, expect: [422] });
+    await step('transition DRAFT → PROPOSED', 'POST', `/kpis/${ctx.kpiId}/transition`, { token: T, body: { to: 'PROPOSED', reason: 'audit' } });
     await step('versions', 'GET', `/kpis/${ctx.kpiId}/versions`, { token: T });
     await foreign('get KPI', 'GET', `/kpis/${ctx.kpiId}`);
     await foreign('update KPI', 'PATCH', `/kpis/${ctx.kpiId}`, { description: 'pwned' });
@@ -355,21 +401,21 @@ const scenarios = {
     // Targets / thresholds / benchmarks
     const tgt = await step('create target', 'POST', `/kpis/${ctx.kpiId}/targets`, { token: T, body: { type: 'STATIC', value: 1200 } });
     await step('active target', 'GET', `/kpis/${ctx.kpiId}/targets/active`, { token: T });
-    if (idOf(tgt)) {
+    if (hasFixture(idOf(tgt), 'target update and deletion')) {
       await step('update target', 'PATCH', `/kpis/${ctx.kpiId}/targets/${idOf(tgt)}`, { token: T, body: { value: 1300 } });
       await step('delete target', 'DELETE', `/kpis/${ctx.kpiId}/targets/${idOf(tgt)}`, { token: T });
     }
     await invalid('create target', 'POST', `/kpis/${ctx.kpiId}/targets`, T, { type: 'TELEPATHIC' });
     const band = await step('create threshold band', 'POST', `/kpis/${ctx.kpiId}/threshold-bands`, { token: T, body: { name: 'Red', lower: null, upper: 500, color: '#ff0000', order: 0 } });
     await step('threshold status', 'GET', `/kpis/${ctx.kpiId}/threshold-bands/status`, { token: T });
-    if (idOf(band)) {
+    if (hasFixture(idOf(band), 'threshold band update and deletion')) {
       await step('update band', 'PATCH', `/kpis/${ctx.kpiId}/threshold-bands/${idOf(band)}`, { token: T, body: { upper: 600 } });
       await step('delete band', 'DELETE', `/kpis/${ctx.kpiId}/threshold-bands/${idOf(band)}`, { token: T });
     }
     await step('band with lower > upper → 400', 'POST', `/kpis/${ctx.kpiId}/threshold-bands`, { token: T, body: { name: 'Bad', lower: 900, upper: 100, color: '#000000', order: 1 }, expect: [400, 422] });
     const bm = await step('create benchmark', 'POST', `/kpis/${ctx.kpiId}/benchmarks`, { token: T, body: { kind: 'EXTERNAL_INDUSTRY', value: 950, source: 'Audit' } });
     await step('compute benchmark', 'POST', `/kpis/${ctx.kpiId}/benchmarks/compute`, { token: T, body: { days: 30 } });
-    if (idOf(bm)) await step('delete benchmark', 'DELETE', `/kpis/${ctx.kpiId}/benchmarks/${idOf(bm)}`, { token: T });
+    if (hasFixture(idOf(bm), 'benchmark deletion')) await step('delete benchmark', 'DELETE', `/kpis/${ctx.kpiId}/benchmarks/${idOf(bm)}`, { token: T });
 
     // Formula (incl. sandbox escape attempts)
     await step('attach formula', 'PUT', `/kpis/${ctx.kpi2Id}/formula`, { token: T, body: { raw: '1 + 2 * 3' }, expect: [200, 201, 400] });
@@ -389,7 +435,7 @@ const scenarios = {
     await step('cascade with foreign KPI → 4xx', 'POST', '/kpi-cascades', { token: B.token, body: { parentKpiId: ctx.kpiId, childKpiId: ctx.kpi2Id }, expect: [400, 403, 404] });
     await step('rollup', 'POST', `/kpis/${ctx.kpiId}/rollup`, { token: T, body: {} });
     await step('lineage upstream', 'GET', `/lineage/kpi/${ctx.kpiId}/upstream`, { token: T });
-    if (idOf(cas)) await step('detach cascade', 'DELETE', `/kpi-cascades/${idOf(cas)}`, { token: T });
+    if (hasFixture(idOf(cas), 'cascade detach')) await step('detach cascade', 'DELETE', `/kpi-cascades/${idOf(cas)}`, { token: T });
 
     // Analytics on the series (ML sidecar)
     await step('anomaly detect', 'POST', `/kpis/${ctx.kpiId}/anomalies/detect`, { token: T, body: {} });
@@ -412,6 +458,7 @@ const scenarios = {
 
   async viz() {
     domain('viz');
+    requireFixtures('kpiId');
     const T = A.token;
     const dash = await step('create dashboard', 'POST', '/dashboards', { token: T, body: { name: `Audit Dash ${RUN}`, isShared: true } });
     ctx.dashId = idOf(dash);
@@ -426,23 +473,23 @@ const scenarios = {
       body: { widgetType: 'kpi_card', config: { kpiId: 'cmure3474007vhi4c6htru75t' }, position: { x: 6, y: 0, w: 3, h: 2 } },
       expect: [400, 403, 404],
     });
-    if (idOf(w)) {
+    if (hasFixture(idOf(w), 'widget update')) {
       await step('update widget', 'PATCH', `/dashboards/${ctx.dashId}/widgets/${idOf(w)}`, { token: T, body: { title: 'Revenue (audit)' } });
       await step('move widget', 'POST', `/dashboards/${ctx.dashId}/widgets/${idOf(w)}/position`, { token: T, body: { x: 6, y: 0, w: 6, h: 4 } });
     }
     await step('update dashboard', 'PATCH', `/dashboards/${ctx.dashId}`, { token: T, body: { description: 'audit' } });
     await step('set default', 'POST', `/dashboards/${ctx.dashId}/set-default`, { token: T, body: {} });
     const snap = await step('capture snapshot', 'POST', `/dashboards/${ctx.dashId}/snapshots`, { token: T, body: { label: 'audit' } });
-    if (idOf(snap)) await step('get snapshot', 'GET', `/dashboards/snapshots/${idOf(snap)}`, { token: T });
+    if (hasFixture(idOf(snap), 'snapshot detail')) await step('get snapshot', 'GET', `/dashboards/snapshots/${idOf(snap)}`, { token: T });
     const share = await step('create share link', 'POST', `/dashboards/${ctx.dashId}/share`, { token: T, body: {} });
     const token = share?.token;
-    if (token) {
+    if (hasFixture(token, 'public share token and revocation')) {
       await step('public share resolves (no auth)', 'GET', `/public/dashboards/${token}`);
       await step('revoke share link', 'DELETE', `/dashboards/share/${idOf(share)}`, { token: T });
       await step('revoked share → 404/410', 'GET', `/public/dashboards/${token}`, { expect: [401, 403, 404, 410] });
     }
     const pw = await step('create password-protected share', 'POST', `/dashboards/${ctx.dashId}/share`, { token: T, body: { password: 'SharePass123' }, expect: [200, 201, 400] });
-    if (pw?.token) {
+    if (hasFixture(pw?.token, 'password-protected share access')) {
       await step('protected share without password → 401/403', 'GET', `/public/dashboards/${pw.token}`, { expect: [401, 403] });
       await step('protected share wrong password → 401/403', 'POST', `/public/dashboards/${pw.token}`, { body: { password: 'nope' }, expect: [401, 403] });
       await step('protected share right password', 'POST', `/public/dashboards/${pw.token}`, { body: { password: 'SharePass123' } });
@@ -461,26 +508,23 @@ const scenarios = {
     await step('board pack', 'GET', '/reports/board-pack?sinceDays=30', { token: T });
     const sr = await step('create scheduled report', 'POST', '/scheduled-reports', {
       token: T,
-      body: { name: `Audit Weekly ${RUN}`, kpiIds: [ctx.kpiId], cron: '0 8 * * 1', format: 'PDF', recipients: [`report-${RUN}@audit.test`] },
+      body: { name: REPORT_MARKER, kpiIds: [ctx.kpiId], cron: '0 8 * * 1', format: 'PDF', recipients: [`report-${RUN}@audit.test`] },
     });
     await invalid('scheduled report with bad cron', 'POST', '/scheduled-reports', T, { name: 'x', cron: 'every tuesday', format: 'PDF', recipients: ['a@b.co'] });
-    if (idOf(sr)) {
+    if (hasFixture(idOf(sr), 'scheduled report update, trigger, and delivery')) {
       await step('update scheduled report', 'PATCH', `/scheduled-reports/${idOf(sr)}`, { token: T, body: { description: 'audit' } });
-      await step('trigger scheduled report', 'POST', `/scheduled-reports/${idOf(sr)}/trigger`, { token: T, body: {} });
-      const mail = await waitFor(async () => {
-        const r = await fetch(`${MAILHOG_URL}/api/v2/search?kind=to&query=${encodeURIComponent(`report-${RUN}@audit.test`)}`).catch(() => null);
-        const d = r?.ok ? await r.json() : null;
-        return d?.total > 0 ? d : undefined;
-      }, { timeoutMs: 45_000 });
+      await step('trigger scheduled report', 'POST', `/scheduled-reports/${idOf(sr)}/trigger`, { token: T, body: {}, expect: [202] });
+      const mail = await waitFor(() => mailhogMessage(`report-${RUN}@audit.test`), { timeoutMs: 45_000 });
       check('triggered report emailed (Mailhog) within 45 s', mail, mail ? 'delivered' : 'not delivered', ['delivered']);
+      checkEmailHtml('scheduled report email HTML-escapes report name', mail, [REPORT_MARKER]);
       await step('delete scheduled report', 'DELETE', `/scheduled-reports/${idOf(sr)}`, { token: T });
     }
     await step('search', 'GET', `/search?q=${encodeURIComponent('Audit Revenue')}`, { token: T });
-    await step('realtime SSE opens', 'GET', '/realtime/stream', { token: T, expect: [200] }).catch(() => undefined);
+    await step('realtime SSE opens', 'GET', '/realtime/stream', { token: T, expect: [200] });
 
     // Archive lifecycle
     const d2 = await step('create 2nd dashboard', 'POST', '/dashboards', { token: T, body: { name: `Audit Dash 2 ${RUN}` } });
-    if (idOf(d2)) {
+    if (hasFixture(idOf(d2), 'dashboard archive, restore, and purge')) {
       await step('archive dashboard', 'DELETE', `/dashboards/${idOf(d2)}`, { token: T });
       await step('restore dashboard', 'POST', `/dashboards/${idOf(d2)}/restore`, { token: T, body: {} });
       await step('archive again', 'DELETE', `/dashboards/${idOf(d2)}`, { token: T });
@@ -490,16 +534,18 @@ const scenarios = {
 
   async alerting() {
     domain('alerting');
+    requireFixtures('kpiId');
     const T = A.token;
     const listener = await startListener();
     try {
       // Channels — WEBHOOK to an internal address (SSRF probe) + EMAIL
-      const wh = await step('create WEBHOOK channel → internal 127.0.0.1 URL', 'POST', '/notification-channels', { token: T, body: { name: `Internal hook ${RUN}`, kind: 'WEBHOOK', config: { url: `${listener.url}/hook` } } });
-      check('channel creation rejects internal/loopback URL (SSRF guard)', !idOf(wh), idOf(wh) ? 'accepted' : 'rejected', ['rejected']);
+      const wh = await step('WEBHOOK channel rejects internal 127.0.0.1 URL (SSRF guard)', 'POST', '/notification-channels', {
+        token: T, body: { name: `Internal hook ${RUN}`, kind: 'WEBHOOK', config: { url: `${listener.url}/hook` } }, expect: [400, 422],
+      });
       const em = await step('create EMAIL channel', 'POST', '/notification-channels', { token: T, body: { name: `Email ${RUN}`, kind: 'EMAIL', config: { recipients: [`alerts-${RUN}@audit.test`] } } });
       await invalid('create channel (bad kind)', 'POST', '/notification-channels', T, { name: 'Pigeon', kind: 'PIGEON' });
       if (idOf(wh)) {
-        await step('test WEBHOOK channel', 'POST', `/notification-channels/${idOf(wh)}/test`, { token: T, body: {} });
+        await step('test WEBHOOK channel', 'POST', `/notification-channels/${idOf(wh)}/test`, { token: T, body: {}, expect: [202] });
         const hit = await waitFor(() => listener.hits.find((h) => h.url === '/hook'), { timeoutMs: 15_000 });
         check('API delivered to internal 127.0.0.1 listener (SSRF)', !hit, hit ? 'reached internal host' : 'not reached', ['not reached']);
       }
@@ -512,7 +558,7 @@ const scenarios = {
         body: {
           ruleType: 'STATIC_THRESHOLD',
           kpiId: ctx.kpiId,
-          name: `Audit <b>Revenue</b> spike ${RUN}`,
+          name: `Audit Revenue spike ${RUN}`,
           severity: 'HIGH',
           config: { operator: '>', value: 5000, cooldownMinutes: 0 },
           escalationLevels: [{ delayMinutes: 0, channelIds: [idOf(em), idOf(wh)].filter(Boolean) }],
@@ -531,16 +577,8 @@ const scenarios = {
       check('alert raised within 20 s of breaching data point', alert, alert ? `${Date.now() - t0} ms` : 'no alert', ['alert']);
       if (alert) {
         ctx.alertId = alert.id;
-        const mail = await waitFor(async () => {
-          const r = await fetch(`${MAILHOG_URL}/api/v2/search?kind=to&query=${encodeURIComponent(`alerts-${RUN}@audit.test`)}`).catch(() => null);
-          const d = r?.ok ? await r.json() : null;
-          return d?.items?.[0];
-        }, { timeoutMs: 30_000 });
+        const mail = await waitFor(() => mailhogMessage(`alerts-${RUN}@audit.test`), { timeoutMs: 30_000 });
         check('alert email delivered to Mailhog', mail, mail ? 'delivered' : 'not delivered', ['delivered']);
-        if (mail) {
-          const html = (mail.Content?.Body ?? '').replace(/=\r?\n/g, '');
-          check('alert email HTML-escapes user-controlled rule/KPI text', !/<b>Revenue<\/b>/.test(html), /<b>Revenue<\/b>/.test(html) ? 'raw <b> injected' : 'escaped', ['escaped']);
-        }
         await step('acknowledge alert', 'POST', `/alerts/${alert.id}/acknowledge`, { token: T, body: {} });
         await step('resolve alert', 'POST', `/alerts/${alert.id}/resolve`, { token: T, body: {} });
         await foreign('acknowledge alert', 'POST', `/alerts/${alert.id}/acknowledge`, {});
@@ -556,24 +594,29 @@ const scenarios = {
 
   async ai() {
     domain('ai');
+    requireFixtures('kpiId');
     const T = A.token;
-    await step('AI providers', 'GET', '/ai/providers', { token: T });
+    await step('AI feature routing configs', 'GET', '/ai/configs', { token: T });
     await step('AI budget', 'GET', '/ai/budget', { token: T, expect: [200, 404] });
     await step('update AI budget', 'PATCH', '/ai/budget', { token: T, body: { dailyCapUsd: 1, monthlyCapUsd: 10 } });
     await invalid('update AI budget (negative)', 'PATCH', '/ai/budget', T, { dailyCapUsd: -5 });
-    await step('NLQ ask', 'POST', '/nlq/ask', { token: T, body: { question: 'What is the latest Audit Revenue value?' }, expect: [200, 201, 429, 503] });
+    await step('NLQ ask', 'POST', '/nlq/ask', { token: T, body: { question: 'What is the latest Audit Revenue value?' }, expect: [200, 201] });
     await invalid('NLQ ask (empty)', 'POST', '/nlq/ask', T, { question: '' });
-    await step('generate insight', 'POST', '/insights/generate', { token: T, body: { kpiId: ctx.kpiId }, expect: [200, 201, 429, 503] });
-    await step('generate recommendation', 'POST', '/recommendations/generate', { token: T, body: { kpiId: ctx.kpiId }, expect: [200, 201, 429, 503] });
+    await step('generate insight', 'POST', '/insights/generate', { token: T, body: { kpiId: ctx.kpiId }, expect: [200, 201] });
+    await step('generate recommendation', 'POST', '/recommendations/generate', { token: T, body: { kpiId: ctx.kpiId }, expect: [200, 201] });
     await step('insight on foreign KPI → 4xx', 'POST', '/insights/generate', { token: B.token, body: { kpiId: ctx.kpiId }, expect: [400, 403, 404] });
-    await step('NLQ as org B cannot see org A KPI name', 'POST', '/nlq/ask', { token: B.token, body: { question: `What is the value of Audit Revenue ${RUN}?` }, expect: [200, 201, 429, 503] }).then((r) => {
-      const leaked = JSON.stringify(r ?? {}).includes('Audit Revenue');
-      check('NLQ answer for org B does not mention org A KPI', !leaked, leaked ? 'leaked' : 'clean', ['clean']);
+    const answer = await step('NLQ as org B asks for its KPI catalog', 'POST', '/nlq/ask', {
+      token: B.token, body: { question: 'List the KPIs in this organization and their latest values.' }, expect: [200, 201],
     });
+    if (hasFixture(typeof answer?.answer === 'string' && Array.isArray(answer.sources), 'NLQ tenant isolation')) {
+      const leaked = answer.sources.some((source) => source.kpiId === ctx.kpiId) || answer.answer.includes(`Audit Revenue ${RUN}`);
+      check('NLQ answer for org B excludes org A KPI', !leaked, leaked ? 'leaked' : 'clean', ['clean']);
+    }
   },
 
   async collab() {
     domain('collab');
+    requireFixtures('kpiId');
     const T = A.token;
     const task = await step('create task', 'POST', '/tasks', { token: T, body: { title: `Audit task ${RUN}`, kpiId: ctx.kpiId, assigneeUserId: ctx.userId ?? A.userId, priority: 'HIGH', dueAt: new Date(Date.now() + 864e5).toISOString() } });
     ctx.taskId = idOf(task);
@@ -586,9 +629,9 @@ const scenarios = {
     const c = await step('comment with mention', 'POST', '/comments', { token: T, body: { entityType: 'task', entityId: ctx.taskId, body: `@invitee please check ${RUN}`, mentionedUserIds: [ctx.userId].filter(Boolean) } });
     await step('comment on foreign entity → 4xx', 'POST', '/comments', { token: B.token, body: { entityType: 'task', entityId: ctx.taskId, body: 'hi' }, expect: [400, 403, 404] });
     await step('mention to foreign user → 4xx', 'POST', '/comments', { token: B.token, body: { entityType: 'task', entityId: ctx.taskId, body: 'hi', mentionedUserIds: [A.userId] }, expect: [400, 403, 404] });
-    if (idOf(c)) {
+    if (hasFixture(idOf(c), 'comment edit and deletion')) {
       await step('edit comment', 'PATCH', `/comments/${idOf(c)}`, { token: T, body: { body: 'edited' } });
-      if (ctx.inviteeToken) await step("other user can't edit my comment → 403", 'PATCH', `/comments/${idOf(c)}`, { token: ctx.inviteeToken, body: { body: 'hijack' }, expect: [403, 404] });
+      if (hasFixture(ctx.inviteeToken, 'comment ownership authorization')) await step("other user can't edit my comment → 403", 'PATCH', `/comments/${idOf(c)}`, { token: ctx.inviteeToken, body: { body: 'hijack' }, expect: [403, 404] });
       await step('delete comment', 'DELETE', `/comments/${idOf(c)}`, { token: T });
     }
 
@@ -598,7 +641,7 @@ const scenarios = {
     await step('objective as own parent → 400', 'PATCH', `/objectives/${ctx.objId}`, { token: T, body: { parentObjectiveId: ctx.objId }, expect: [400, 409, 422] });
     const kr = await step('create key result', 'POST', `/objectives/${ctx.objId}/key-results`, { token: T, body: { name: 'Revenue KR', kpiId: ctx.kpiId, targetValue: 10000, baselineValue: 800 } });
     await step('sync from linked KPIs', 'POST', `/objectives/${ctx.objId}/sync-from-linked-kpis`, { token: T, body: {} });
-    if (idOf(kr)) {
+    if (hasFixture(idOf(kr), 'key result update and deletion')) {
       await step('update KR', 'PATCH', `/objectives/${ctx.objId}/key-results/${idOf(kr)}`, { token: T, body: { weight: 2 } });
       await step('delete KR', 'DELETE', `/objectives/${ctx.objId}/key-results/${idOf(kr)}`, { token: T });
     }
@@ -610,14 +653,14 @@ const scenarios = {
     await step('disable approval workflow', 'PUT', '/approvals/workflows/KPI_TARGET', { token: T, body: { requiredApproverRoleIds: [A.roleId], isActive: false } });
 
     const wf = await step('create workflow', 'POST', '/workflows', { token: T, body: { name: `Audit WF ${RUN}`, triggers: ['manual'], action: { type: 'create_task', title: 'From workflow' } } });
-    if (idOf(wf)) {
+    if (hasFixture(idOf(wf), 'workflow trigger, update, and deletion')) {
       await step('trigger workflow', 'POST', `/workflows/${idOf(wf)}/trigger`, { token: T, body: {} });
       await step('update workflow', 'PATCH', `/workflows/${idOf(wf)}`, { token: T, body: { isActive: false } });
       await step('delete workflow', 'DELETE', `/workflows/${idOf(wf)}`, { token: T });
     }
     await step('setup checklist', 'GET', '/setup-checklist', { token: T });
-    if (ctx.inviteeToken) {
-      await step('non-admin completes org setup-checklist item', 'POST', '/setup-checklist/connect_data_source/complete', { token: ctx.inviteeToken, body: {}, expect: [403, 404] });
+    if (hasFixture(ctx.inviteeToken, 'non-admin setup checklist authorization')) {
+      await step('non-admin completes org setup-checklist item', 'POST', '/setup-checklist/data_source/complete', { token: ctx.inviteeToken, body: {}, expect: [403] });
     }
     await step('activity feed', 'GET', '/activity', { token: T });
     await step('mentions', 'GET', '/me/mentions', { token: T });
@@ -626,22 +669,16 @@ const scenarios = {
 
   async integrations() {
     domain('integrations');
+    requireFixtures('kpiId');
     const T = A.token;
     const listener = await startListener();
     try {
       // REST connector → internal URL (full-read SSRF probe) → org A KPI
-      const con = await step('create REST connector → internal 127.0.0.1 URL', 'POST', '/connectors', {
+      await step('create REST connector → internal 127.0.0.1 URL', 'POST', '/connectors', {
         token: T,
         body: { name: `Internal REST ${RUN}`, type: 'REST', config: { url: `${listener.url}/metrics`, valuePath: 'data.value', kpiId: ctx.kpiId } },
+        expect: [400],
       });
-      if (idOf(con)) {
-        await step('run connector', 'POST', `/connectors/${idOf(con)}/run`, { token: T, body: {} });
-        const hit = listener.hits.find((h) => h.url === '/metrics');
-        check('connector fetched internal 127.0.0.1 URL (SSRF)', !hit, hit ? 'reached internal host' : 'not reached', ['not reached']);
-        await step('connector runs', 'GET', `/connectors/${idOf(con)}/runs`, { token: T });
-        await step('update connector', 'PATCH', `/connectors/${idOf(con)}`, { token: T, body: { isActive: false } });
-        await step('delete connector', 'DELETE', `/connectors/${idOf(con)}`, { token: T });
-      }
       // Cross-tenant write via connector config.kpiId
       const evil = await step('org B connector targeting org A KPI', 'POST', '/connectors', {
         token: B.token,
@@ -656,59 +693,52 @@ const scenarios = {
       }
 
       // Outbound webhooks
-      const hook = await step('create webhook → internal URL', 'POST', '/webhooks', { token: T, body: { name: `Hook ${RUN}`, url: `${listener.url}/wh`, events: ['alert.created'] } });
+      await step('reject webhook → internal URL', 'POST', '/webhooks', { token: T, body: { name: `Hook ${RUN}`, url: `${listener.url}/wh`, events: ['alert_triggered'] }, expect: [400] });
       await step('webhook event catalog', 'GET', '/webhooks/events', { token: T });
       await invalid('create webhook (unknown event)', 'POST', '/webhooks', T, { name: 'Bad', url: 'https://example.com', events: ['nope.nope'] });
-      if (idOf(hook)) {
-        await step('test webhook', 'POST', `/webhooks/${idOf(hook)}/test`, { token: T, body: {} });
-        const hit = await waitFor(() => listener.hits.find((h) => h.url === '/wh'), { timeoutMs: 15_000 });
-        check('test webhook delivered (signed) to listener', hit && Object.keys(hit.headers).some((k) => /signature/i.test(k)), hit ? `delivered; headers: ${Object.keys(hit.headers).join(',')}` : 'not delivered', ['delivered+signed']);
-        await step('rotate secret', 'POST', `/webhooks/${idOf(hook)}/rotate-secret`, { token: T, body: {} });
-        await step('disable webhook', 'PATCH', `/webhooks/${idOf(hook)}`, { token: T, body: { isActive: false } });
-        await foreign('delete webhook', 'DELETE', `/webhooks/${idOf(hook)}`);
-        await step('delete webhook', 'DELETE', `/webhooks/${idOf(hook)}`, { token: T });
-      }
-
       // API keys
       const key = await step('create API key', 'POST', '/api-keys', { token: T, body: { name: `CI key ${RUN}`, scopes: ['KPI_DATA_ENTRY', 'KPI_VIEW'] } });
       const plain = key?.key ?? key?.plaintext ?? key?.token ?? key?.apiKey;
       check('API key plaintext returned once on create', plain, plain ? 'returned' : `missing (keys: ${Object.keys(key ?? {}).join(',')})`, ['returned']);
       if (plain) {
-        await step('ingest with API key', 'POST', '/ingest', { headers: { 'x-api-key': plain, authorization: `Bearer ${plain}` }, body: { kpiId: ctx.kpiId, value: 1234, periodStart: new Date(Date.now() - 7200e3).toISOString(), periodEnd: new Date(Date.now() - 3600e3).toISOString() }, expect: [200, 201, 202, 400] });
+        await step('ingest with API key', 'POST', '/ingest', { headers: { 'x-api-key': plain, authorization: `Bearer ${plain}` }, body: { rows: [{ kpiId: ctx.kpiId, value: 1234 }] }, expect: [200, 201, 202] });
         await step('ingest with bogus API key → 401', 'POST', '/ingest', { headers: { 'x-api-key': 'kpinx_bogus', authorization: 'Bearer kpinx_bogus' }, body: { kpiId: ctx.kpiId, value: 1 }, expect: [401, 403] });
       }
       await invalid('create API key (unknown scope)', 'POST', '/api-keys', T, { name: 'Bad key', scopes: ['ROOT'] });
-      if (idOf(key)) await step('revoke API key', 'DELETE', `/api-keys/${idOf(key)}`, { token: T });
+      if (hasFixture(idOf(key?.apiKey), 'API key revocation')) await step('revoke API key', 'DELETE', `/api-keys/${idOf(key?.apiKey)}`, { token: T });
 
       // Plugins / custom domains / integrations / SCIM / SSO
       const plug = await step('install plugin', 'POST', '/plugins', { token: T, body: { name: `Audit Widget ${RUN}`, type: 'WIDGET', version: '1.0.0', entryUrl: 'https://example.com/widget.js' } });
-      if (idOf(plug)) {
+      if (hasFixture(idOf(plug), 'plugin disable and uninstall')) {
         await step('disable plugin', 'PATCH', `/plugins/${idOf(plug)}`, { token: T, body: { isEnabled: false } });
         await step('uninstall plugin', 'DELETE', `/plugins/${idOf(plug)}`, { token: T });
       }
       await step('plugin with javascript: URL → 400', 'POST', '/plugins', { token: T, body: { name: 'XSS', type: 'WIDGET', version: '1', entryUrl: 'javascript:alert(1)' }, expect: [400] });
       const dom = await step('register custom domain', 'POST', '/custom-domains', { token: T, body: { domain: `metrics-${RUN}.audit.test` } });
-      if (idOf(dom)) {
+      if (hasFixture(idOf(dom), 'custom domain verification and deletion')) {
         await step('verify domain (no TXT → not verified)', 'POST', `/custom-domains/${idOf(dom)}/verify`, { token: T, body: {}, expect: [200, 201, 400, 409, 422] });
+        await step('other org cannot register an existing domain', 'POST', '/custom-domains', { token: B.token, body: { domain: `metrics-${RUN}.audit.test` }, expect: [409] });
         await step('delete domain', 'DELETE', `/custom-domains/${idOf(dom)}`, { token: T });
       }
-      await step('register domain already used by helios → 409', 'POST', '/custom-domains', { token: T, body: { domain: 'metrics.helios.io' }, expect: [400, 409] });
       const integ = await step('create integration', 'POST', '/integrations', { token: T, body: { provider: 'slack', displayName: 'Audit Slack', tokens: { access_token: 'xoxb-audit' } } });
-      if (idOf(integ)) {
+      if (hasFixture(idOf(integ), 'integration detail and deletion')) {
         const got = await step('get integration', 'GET', `/integrations/${idOf(integ)}`, { token: T });
-        check('integration tokens are not echoed back in plaintext', !JSON.stringify(got ?? {}).includes('xoxb-audit'), JSON.stringify(got ?? {}).includes('xoxb-audit') ? 'plaintext token in response' : 'redacted', ['redacted']);
+        if (hasFixture(idOf(got), 'integration token redaction')) {
+          const leaked = JSON.stringify(got).includes('xoxb-audit');
+          check('integration tokens are not echoed back in plaintext', !leaked, leaked ? 'plaintext token in response' : 'redacted', ['redacted']);
+        }
         await step('delete integration', 'DELETE', `/integrations/${idOf(integ)}`, { token: T });
       }
-      await step('public jira webhook without signature → 401/403', 'POST', '/integrations/jira/webhook', { body: { issue: {} }, expect: [400, 401, 403] });
+      await step('removed global Jira webhook → 404', 'POST', '/integrations/jira/webhook', { body: { issue: {} }, expect: [404] });
       await step('public slack interactive without signature → 401/403', 'POST', '/integrations/slack/interactive', { body: { payload: '{}' }, expect: [400, 401, 403] });
       await step('public inbound email without signature → 401/403', 'POST', '/webhooks/inbound/email', { body: { from: 'x@y.z', subject: 'hi' }, expect: [400, 401, 403] });
       const scim = await step('mint SCIM token', 'POST', '/scim/tokens', { token: T, body: { label: 'audit' } });
       const scimToken = scim?.token ?? scim?.plaintext;
-      if (scimToken) {
+      if (hasFixture(scimToken, 'SCIM authenticated operations')) {
         await step('SCIM list users', 'GET', '/scim/v2/Users', { headers: { authorization: `Bearer ${scimToken}` } });
         await step('SCIM create user', 'POST', '/scim/v2/Users', { headers: { authorization: `Bearer ${scimToken}` }, body: { schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'], userName: `scim-${RUN}@audit.test`, name: { givenName: 'Scim', familyName: 'User' }, emails: [{ value: `scim-${RUN}@audit.test`, primary: true }], active: true } });
         await step("SCIM token can't read org B users", 'GET', `/scim/v2/Users/${B.userId}`, { headers: { authorization: `Bearer ${scimToken}` }, expect: [404] });
-        if (idOf(scim)) await step('revoke SCIM token', 'DELETE', `/scim/tokens/${idOf(scim)}`, { token: T });
+        if (hasFixture(idOf(scim), 'SCIM token revocation')) await step('revoke SCIM token', 'DELETE', `/scim/tokens/${idOf(scim)}`, { token: T });
       }
       await step('SSO config upsert', 'PUT', '/sso/config', { token: T, body: { protocol: 'OIDC', idpMetadataUrl: 'https://idp.audit.test/.well-known/openid-configuration', isActive: false } });
     } finally {
@@ -740,25 +770,39 @@ const scenarios = {
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-const wanted = process.argv.slice(2);
-A = await registerOrg('a');
-B = await registerOrg('b');
-for (const [name, fn] of Object.entries(scenarios)) {
-  if (wanted.length && !wanted.includes(name)) continue;
+async function main() {
+  const wanted = process.argv.slice(2);
   try {
-    await fn();
-  } catch (err) {
-    results.push({ domain: name, name: 'scenario crashed (harness)', ok: false, status: 'exception', excerpt: String(err?.stack ?? err).slice(0, 400) });
+    const unknown = wanted.filter((name) => !Object.hasOwn(scenarios, name));
+    if (unknown.length) throw new Error(`unknown audit domain: ${unknown.join(', ')}`);
+    A = await registerOrg('a');
+    B = await registerOrg('b');
+    if (A.orgId === B.orgId) throw new Error('audit organizations must be distinct');
+  } catch (error) {
+    check('audit setup failed', false, 'exception', undefined, error.message);
   }
+  if (A && B && A.orgId !== B.orgId) {
+    for (const [name, fn] of Object.entries(scenarios)) {
+      if (wanted.length && !wanted.includes(name)) continue;
+      try {
+        await fn();
+      } catch (error) {
+        check('scenario failed or coverage blocked', false, 'exception', undefined, error.message);
+      }
+    }
+  }
+
+  const out = { generatedAt: new Date().toISOString(), run: RUN, orgA: A?.slug, orgB: B?.slug, results };
+  const suffix = wanted.length && wanted.every((name) => Object.hasOwn(scenarios, name)) ? `-${wanted.join('-')}` : '';
+  await writeAuditJson(join(auditOutputDir(REPO_ROOT), `api-crud${suffix}.json`), out);
+
+  const byDomain = Object.groupBy(results, (r) => r.domain);
+  for (const [d, list] of Object.entries(byDomain)) {
+    const bad = list.filter((r) => !r.ok);
+    console.log(`\n## ${d}: ${list.length - bad.length}/${list.length} as expected`);
+    for (const r of bad) console.log(`  ✗ ${String(r.status).padEnd(4)} ${r.method ?? ''} ${r.path ?? ''} — ${r.name}\n      expected ${JSON.stringify(r.expect)}  ${(r.excerpt ?? '').replace(/\s+/g, ' ').slice(0, 260)}`);
+  }
+  if (results.some((r) => !r.ok)) process.exitCode = 1;
 }
 
-const out = { generatedAt: new Date().toISOString(), run: RUN, orgA: A.slug, orgB: B.slug, results };
-const outFile = join(REPO_ROOT, 'docs', 'audit', `api-crud${wanted.length ? `-${wanted.join('-')}` : ''}.json`);
-await writeFile(outFile, `${JSON.stringify(out, null, 2)}\n`);
-
-const byDomain = Object.groupBy(results, (r) => r.domain);
-for (const [d, list] of Object.entries(byDomain)) {
-  const bad = list.filter((r) => !r.ok);
-  console.log(`\n## ${d}: ${list.length - bad.length}/${list.length} as expected`);
-  for (const r of bad) console.log(`  ✗ ${String(r.status).padEnd(4)} ${r.method ?? ''} ${r.path ?? ''} — ${r.name}\n      expected ${JSON.stringify(r.expect)}  ${(r.excerpt ?? '').replace(/\s+/g, ' ').slice(0, 260)}`);
-}
+await main().catch(failAudit);

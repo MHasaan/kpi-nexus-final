@@ -185,6 +185,11 @@ The full table, with commit and regression test for every finding, is **`docs/au
 
 ## 5. What is left — exact current state
 
+
+Linux startup was verified on Ubuntu 26.04 using application commit `9684888`, Node 22.23.4, pnpm 9.15.0, and Python 3.12.15. A disposable Compose project provided fresh volumes and separate ports. The API booted with RLS enabled, and the web, worker, and ML services started. The fresh database regression, two scheduled report tests, worker echo job, 49 ML tests, and eight browser tests passed. AI calls used the mock fixture.
+
+Playwright's bundled Chromium installer rejected Ubuntu 26.04. The browser checks used installed Google Chrome through an ignored local Playwright config. Logs are in `.cache/linux-startup/` on this machine. OT-017 still needs a Windows launcher run.
+
 ### 5a. ✅ CI baseline repaired and verified on main (2026-11-05)
 
 Main `d69c04e` passes hosted CI run [41874623263](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623263) and Security [41874623698](https://github.com/MHasaan/kpi-nexus-final/actions/runs/41874623698).
@@ -248,3 +253,5 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 - The initial 21 Dependabot PRs were retargeted from `master` to `main` before `master` was deleted. Follow the approved integration ledger for current dispositions; superseded and major-migration PRs remain unmerged (§5c).
 - To start on a new machine: `git clone https://github.com/MHasaan/kpi-nexus-final.git`. That checks out `main`.
 - Commit messages follow conventional commits with the finding ID, e.g. `fix(api): … (OT-007)`.
+
+The current audit closure branch tracks the October finding dispositions and fresh verification in [the audit closure ledger](docs/audit/closure-2026-11-06.md). Email and audit tooling repairs have separate commits. The Chrome crawl covered 83 routes across four personas and led to separate frontend repairs. The draft PR tracks hosted gates for the final revision.

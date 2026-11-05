@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { RefreshTokenService } from '../auth/services/refresh-token.service.js';
 import { EmailService } from '../email/email.service.js';
+import { escapeHtml } from '../email/escape-html.js';
 import { webAppUrl } from '../email/web-app-url.js';
 import {
   checkPasswordPolicy,
@@ -162,7 +163,7 @@ export class PasswordResetService {
         subject: 'Reset your KPI Nexus password',
         html:
           `<p>We received a request to reset the password for your KPI Nexus account.</p>` +
-          `<p><a href="${link}">Choose a new password</a></p>` +
+          `<p><a href="${escapeHtml(link)}">Choose a new password</a></p>` +
           `<p>This link expires in ${minutes} minutes and can be used once. ` +
           `If you didn't ask for this, you can ignore this email — your password won't change.</p>`,
         text: `Reset your KPI Nexus password: ${link}\n\nThis link expires in ${minutes} minutes and can be used once. If you didn't ask for this, ignore this email.`,

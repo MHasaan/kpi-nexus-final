@@ -23,6 +23,7 @@ import type {
 
 import { AuditService } from '../audit/audit.service.js';
 import { EmailService } from '../email/email.service.js';
+import { escapeHtml } from '../email/escape-html.js';
 import { webAppUrl } from '../email/web-app-url.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
@@ -528,8 +529,8 @@ export class UsersService {
         to,
         subject: `You're invited to ${orgName} on KPI Nexus`,
         html:
-          `<p>${who} invited you to join <strong>${orgName}</strong> on KPI Nexus.</p>` +
-          `<p><a href="${link}">Accept the invitation</a></p>` +
+          `<p>${escapeHtml(who)} invited you to join <strong>${escapeHtml(orgName)}</strong> on KPI Nexus.</p>` +
+          `<p><a href="${escapeHtml(link)}">Accept the invitation</a></p>` +
           `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
         text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expiresAt.toUTCString()}`,
       });

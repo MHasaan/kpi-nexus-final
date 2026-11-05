@@ -117,3 +117,12 @@ Recovery proof: backup tag also pushed to GitHub. In a separate /tmp clone, reve
 - Python baseline resolved versions captured separately for reproducible rollback. The existing optional statsmodels0.14.4/SciPy1.17 import incompatibility is recorded for candidate #7; currently implemented ML routes and tests pass.
 
 Checkout replacement local validation: frozen install + generation + all 32 uncached workspace tasks pass (1,856 TS/JS tests). Independent review approved; no application/DB/permission/dependency changes. Hosted candidate checks pending. Original ML Dockerfile baseline image built successfully as `kpi-review-ml:baseline`.
+
+## Checkout replacement complete; CodeQL trial
+
+- Replacement PR #30 merged as `f7b8336ab5af38e49e675b4c90391c8eb3055efa`; rollback: `git revert -m 1 f7b8336ab5af38e49e675b4c90391c8eb3055efa`.
+- Exact candidate CI41891515703/Security41891515726 and resulting main CI41892608202/Security41892608384 all SUCCESS. Verified all five merged changes can be reversed in a temporary clone to restore exact initial50d3b7a tree.
+- CodeQL source PR #3 refreshed at `12c975224d71fb0e547696aab84addedcb27376e`: only init/analyze v3→v4. Trial based on verified main. Adjacent-line conflict resolved by preserving all main checkout v7 references and applying only the two CodeQL updates.
+- Official compatibility: [CodeQL v4 release notice](https://github.blog/changelog/2025-10-28-upcoming-deprecation-of-codeql-action-v3/) uses Node24, already supported by this repository’s working checkout/setup actions and hosted runners. No application/package/schema/permission changes.
+- Baseline ML container: original Dockerfile build succeeds; 48 container tests and 36 real HTTP/HMAC/edge probes pass, with identical resolved application dependency versions to the recorded Python baseline.
+- CodeQL local validation: frozen install/generation + all32uncached workspace tasks pass (1856TS/JS tests); independent review approved. Exact-head hosted validation pending. Repository automatic branch deletion confirmed disabled; superseded/deferred branches remain untouched.

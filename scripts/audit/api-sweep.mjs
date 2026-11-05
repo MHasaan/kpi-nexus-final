@@ -15,21 +15,19 @@
  * Side effects: mints one KPI embed token (to exercise /public/embed/kpi/:token).
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
+
+import { auditExcerpt, auditOutputDir, failAudit, redactAuditText, writeAuditJson } from './common.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const API_URL = process.env.API_URL ?? 'http://127.0.0.1:4000';
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 const PASSWORD = process.env.SEED_PASSWORD ?? 'Password123!';
 const SLOW_MS = 1000;
-
-/** Mask secret-looking JSON fields before anything is written to the committed report. */
-const SECRET_FIELD = /"(token|secret|signingSecret|apiKey|key|plaintext|password|accessToken|refreshToken|inviteToken|hashedKey)"s*:s*"[^"]*"/g;
-const redact = (s) => String(s).replace(SECRET_FIELD, '"$1":"<redacted>"');
 
 const TIMEOUT_MS = 15_000;
 
@@ -53,7 +51,7 @@ const QUERY = {
 // Real IDs from the helios org
 // ---------------------------------------------------------------------------
 async function loadIds() {
-  const db = new pg.Client({ connectionString: DATABASE_URL });
+  const db = new pg.Client({ connectionString: DATABASE_URL, connectionTimeoutMillis: TIMEOUT_MS, query_timeout: TIMEOUT_MS });
   await db.connect();
   const one = async (sql, params = []) => (await db.query(sql, params)).rows[0] ?? {};
   try {
@@ -148,11 +146,11 @@ async function call(method, url, token, body) {
       excerpt = '[event-stream]';
     } else {
       const text = await res.text();
-      excerpt = redact(text.slice(0, 300));
+      excerpt = auditExcerpt(text, 300);
     }
-    return { status: res.status, ms, type: type.split(';')[0], excerpt };
+    return { status: res.status, ms, type: auditExcerpt(type.split(';')[0], 120), excerpt };
   } catch (err) {
-    return { status: 0, ms: Math.round(performance.now() - started), excerpt: String(err?.cause?.code ?? err?.name ?? err) };
+    return { status: 0, ms: Math.round(performance.now() - started), excerpt: auditExcerpt(err?.cause?.code ?? err?.message ?? err, 300) };
   } finally {
     clearTimeout(timer);
   }
@@ -163,128 +161,167 @@ async function login(email) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password: PASSWORD }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`login ${email} → ${res.status} ${await res.text()}`);
-  return (await res.json()).accessToken;
+  if (!res.ok) throw new Error(`login ${email} → ${res.status} ${auditExcerpt(await res.text(), 300)}`);
+  const { accessToken } = await res.json();
+  if (typeof accessToken !== 'string' || !accessToken) throw new Error(`login ${email} did not return an access token`);
+  return accessToken;
 }
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-const routes = JSON.parse(await readFile(join(REPO_ROOT, 'docs', 'audit', 'api-routes.json'), 'utf-8'));
-const gets = routes.filter((r) => r.method === 'GET');
-const ctx = await loadIds();
+const outputDir = auditOutputDir(REPO_ROOT);
 
-const tokens = {};
-for (const p of PERSONAS) tokens[p.key] = await login(p.email);
-const meByPersona = {};
-const profiles = {};
-for (const p of PERSONAS) {
-  const me = await fetch(`${API_URL}/auth/me`, { headers: { authorization: `Bearer ${tokens[p.key]}` } });
-  meByPersona[p.key] = me.status;
-  // Effective capabilities as the resolver computes them (role + inheritance + overrides + delegations).
-  const { accessProfile } = await me.json();
-  if (!accessProfile?.capabilities) throw new Error(`no accessProfile for ${p.email} — permission checks would be skipped`);
-  profiles[p.key] = accessProfile;
-}
+async function main() {
+  const routes = JSON.parse(await readFile(join(outputDir, 'api-routes.json'), 'utf-8'));
+  const gets = routes.filter((r) => r.method === 'GET');
+  if (!gets.length) throw new Error('route inventory contains no GET routes');
+  const ctx = await loadIds();
 
-// Embed token for /public/embed/kpi/:token (admin-minted).
-const embed = await fetch(`${API_URL}/reports/kpis/${ctx.ids.kpis}/embed-token`, {
-  method: 'POST',
-  headers: { authorization: `Bearer ${tokens.admin}`, 'content-type': 'application/json' },
-  body: '{}',
-});
-ctx.embedToken = embed.ok ? (await embed.json()).token : undefined;
+  const tokens = {};
+  for (const p of PERSONAS) tokens[p.key] = await login(p.email);
+  const meByPersona = {};
+  const profiles = {};
+  for (const p of PERSONAS) {
+    const me = await fetch(`${API_URL}/auth/me`, {
+      headers: { authorization: `Bearer ${tokens[p.key]}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!me.ok) throw new Error(`could not verify persona ${p.key} (GET /auth/me: ${me.status})`);
+    meByPersona[p.key] = me.status;
+    const { user, accessProfile } = await me.json();
+    if (user?.email !== p.email || user.organizationId !== ctx.org ||
+        !Array.isArray(accessProfile?.capabilities) || accessProfile.isAdmin !== (p.key === 'admin')) {
+      throw new Error(`wrong identity, tenant, or access profile for ${p.email}`);
+    }
+    profiles[p.key] = accessProfile;
+  }
 
-const results = [];
-for (const route of gets) {
-  const filled = fill(route.path, ctx);
-  const entry = { method: route.method, path: route.path, url: filled, public: route.public,
-    permissions: route.permissions, anyPermissions: route.anyPermissions, guards: route.guards, by: {} };
-  if (!filled) {
-    entry.skipped = 'no id available';
+  // Embed token for /public/embed/kpi/:token (admin-minted).
+  let embedFailure = 'missing KPI ID for embed token';
+  if (ctx.ids.kpis) {
+    try {
+      const embed = await fetch(`${API_URL}/reports/kpis/${ctx.ids.kpis}/embed-token`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${tokens.admin}`, 'content-type': 'application/json' },
+        body: '{}',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      ctx.embedToken = embed.ok ? (await embed.json()).token : undefined;
+      embedFailure = `embed token mint did not return a token (HTTP ${embed.status})`;
+    } catch (error) {
+      embedFailure = `embed token mint failed: ${auditExcerpt(error.message, 200)}`;
+    }
+  }
+
+  const results = [];
+  for (const route of gets) {
+    const filled = fill(route.path, ctx);
+    const entry = { method: route.method, path: route.path, public: route.public,
+      permissions: route.permissions, anyPermissions: route.anyPermissions, guards: route.guards, by: {} };
+    const query = QUERY[route.path];
+    const queryIds = [...(query ?? '').matchAll(/:(\w[\w-]*)/g)].map((match) => match[1]);
+    const missingQueryIds = queryIds.filter((key) => !ctx.ids[key]);
+    if (!filled || missingQueryIds.length) {
+      entry.skipped = route.path.includes('/embed/') ? embedFailure
+        : missingQueryIds.length ? `missing query fixture: ${missingQueryIds.join(', ')}`
+          : 'required path fixture unavailable';
+      results.push(entry);
+      continue;
+    }
+    const qs = query?.replace(/:(\w[\w-]*)/g, (_, key) => encodeURIComponent(ctx.ids[key]));
+    const path = `${filled}${qs ? `?${qs}` : ''}`;
+    const url = `${API_URL}${path}`;
+    entry.url = redactAuditText(path);
+    for (const p of [...PERSONAS.map((x) => x.key), 'anon']) {
+      entry.by[p] = await call('GET', url, p === 'anon' ? null : tokens[p]);
+    }
     results.push(entry);
-    continue;
   }
-  const qs = QUERY[route.path]?.replace(/:(\w[\w-]*)/g, (_, k) => ctx.ids[k] ?? '');
-  const url = `${API_URL}${filled}${qs ? `?${qs}` : ''}`;
-  // Never persist bearer-style secrets (share/embed tokens) in the committed report.
-  entry.url = url.replace(API_URL, '').replace(/(\/public\/(?:dashboards|embed\/kpi)\/)[^/?]+/, '$1<token>');
-  for (const p of [...PERSONAS.map((x) => x.key), 'anon']) {
-    entry.by[p] = await call('GET', url, p === 'anon' ? null : tokens[p]);
-  }
-  results.push(entry);
-}
 
-// ---------------------------------------------------------------------------
-// Anomalies
-// ---------------------------------------------------------------------------
-const flags = [];
-for (const r of results) {
-  if (r.skipped) {
-    flags.push({ path: r.path, kind: 'skipped', note: r.skipped });
-    continue;
-  }
-  const gated = r.permissions.length || r.anyPermissions.length || r.guards.length;
-  for (const [who, res] of Object.entries(r.by)) {
-    if (res.status >= 500 || res.status === 0) flags.push({ path: r.url, who, kind: 'server-error', status: res.status, note: res.excerpt });
-    if (res.ms > SLOW_MS) flags.push({ path: r.url, who, kind: 'slow', status: res.status, note: `${res.ms} ms` });
-  }
-  const anon = r.by.anon;
-  if (!r.public && anon.status !== 401) flags.push({ path: r.url, who: 'anon', kind: 'auth-not-enforced', status: anon.status, note: anon.excerpt });
-  // SCIM is @Public (no JWT) but authenticates with its own SCIM bearer token.
-  if (r.public && anon.status === 401 && !r.path.startsWith('/scim/v2/')) flags.push({ path: r.url, who: 'anon', kind: 'public-route-requires-auth', status: 401 });
-  const admin = r.by.admin;
-  if (admin.status >= 400 && admin.status < 500 && !r.public)
-    flags.push({ path: r.url, who: 'admin', kind: 'admin-4xx', status: admin.status, note: admin.excerpt });
-  // Permission enforcement vs the persona's effective capabilities.
-  const route = gets.find((g) => g.path === r.path);
-  const bypassable = route.decorators.some((d) => d === 'OwnerOverride' || d === 'RequireResourceAccess');
-  if ((r.permissions.length || r.anyPermissions.length) && !r.guards.length) {
-    for (const who of ['exec', 'manager', 'contrib']) {
-      const prof = profiles[who];
-      if (!prof) continue;
-      const caps = new Set(prof.capabilities);
-      const allowed =
-        prof.isAdmin ||
-        (r.permissions.every((k) => caps.has(k)) && (!r.anyPermissions.length || r.anyPermissions.some((k) => caps.has(k))));
-      const status = r.by[who].status;
-      if (!allowed && status >= 200 && status < 300 && !bypassable)
-        flags.push({ path: r.url, who, kind: 'permission-not-enforced', status, note: `needs ${[...r.permissions, ...r.anyPermissions.map((k) => `any:${k}`)].join(',')}` });
-      if (allowed && status === 403)
-        flags.push({ path: r.url, who, kind: 'unexpected-403', status, note: r.by[who].excerpt });
+  // ---------------------------------------------------------------------------
+  // Anomalies
+  // ---------------------------------------------------------------------------
+  const flags = [];
+  for (const r of results) {
+    if (r.skipped) {
+      flags.push({ path: r.path, kind: 'skipped', note: r.skipped });
+      continue;
+    }
+    const gated = r.permissions.length || r.anyPermissions.length || r.guards.length;
+    for (const [who, res] of Object.entries(r.by)) {
+      if (!r.public && who !== 'anon' && res.status === 401) flags.push({ path: r.url, who, kind: 'session-rejected', status: 401 });
+      if (res.status >= 500 || res.status === 0) flags.push({ path: r.url, who, kind: 'server-error', status: res.status, note: res.excerpt });
+      if (res.ms > SLOW_MS) flags.push({ path: r.url, who, kind: 'slow', status: res.status, note: `${res.ms} ms` });
+    }
+    const anon = r.by.anon;
+    if (!r.public && anon.status !== 401) flags.push({ path: r.url, who: 'anon', kind: 'auth-not-enforced', status: anon.status, note: anon.excerpt });
+    // SCIM is @Public (no JWT) but authenticates with its own SCIM bearer token.
+    if (r.public && anon.status === 401 && !r.path.startsWith('/scim/v2/')) flags.push({ path: r.url, who: 'anon', kind: 'public-route-requires-auth', status: 401 });
+    const admin = r.by.admin;
+    if (admin.status >= 400 && admin.status < 500 && !r.public)
+      flags.push({ path: r.url, who: 'admin', kind: 'admin-4xx', status: admin.status, note: admin.excerpt });
+    // Permission enforcement vs the persona's effective capabilities.
+    const route = gets.find((g) => g.path === r.path);
+    const bypassable = route.decorators.some((d) => d === 'OwnerOverride' || d === 'RequireResourceAccess');
+    if ((r.permissions.length || r.anyPermissions.length) && !r.guards.length) {
+      for (const who of ['exec', 'manager', 'contrib']) {
+        const prof = profiles[who];
+        const caps = new Set(prof.capabilities);
+        const allowed =
+          prof.isAdmin ||
+          (r.permissions.every((k) => caps.has(k)) && (!r.anyPermissions.length || r.anyPermissions.some((k) => caps.has(k))));
+        const status = r.by[who].status;
+        if (!allowed && status >= 200 && status < 300 && !bypassable)
+          flags.push({ path: r.url, who, kind: 'permission-not-enforced', status, note: `needs ${[...r.permissions, ...r.anyPermissions.map((k) => `any:${k}`)].join(',')}` });
+        if (allowed && status === 403)
+          flags.push({ path: r.url, who, kind: 'unexpected-403', status, note: r.by[who].excerpt });
+      }
+    }
+    if (!gated && !r.public) {
+      for (const who of ['exec', 'manager', 'contrib']) {
+        if (r.by[who].status === 403) flags.push({ path: r.url, who, kind: 'ungated-route-403', status: 403 });
+      }
     }
   }
-  if (!gated && !r.public) {
-    for (const who of ['exec', 'manager', 'contrib']) {
-      if (r.by[who].status === 403) flags.push({ path: r.url, who, kind: 'ungated-route-403', status: 403 });
-    }
+
+  const out = {
+    generatedAt: new Date().toISOString(),
+    apiUrl: redactAuditText(API_URL),
+    personas: PERSONAS.map((p) => ({
+      ...p,
+      meStatus: meByPersona[p.key],
+      isAdmin: profiles[p.key]?.isAdmin,
+      capabilities: profiles[p.key]?.capabilities,
+    })),
+    embedTokenMinted: Boolean(ctx.embedToken),
+    totals: {
+      routes: gets.length,
+      swept: results.filter((r) => !r.skipped).length,
+      requests: results.reduce((n, r) => n + Object.keys(r.by).length, 0),
+    },
+    flags,
+    results,
+  };
+  await writeAuditJson(join(outputDir, 'api-sweep.json'), out);
+
+  console.log(`swept ${out.totals.swept}/${out.totals.routes} GET routes · ${out.totals.requests} requests · embed token ${out.embedTokenMinted ? 'ok' : 'NOT minted'}`);
+  const byKind = Object.groupBy(flags, (f) => f.kind);
+  for (const [kind, list] of Object.entries(byKind)) {
+    console.log(`\n## ${kind} (${list.length})`);
+    for (const f of list) console.log(`  ${String(f.status ?? '').padEnd(4)} ${(f.who ?? '').padEnd(8)} ${f.path}  ${(f.note ?? '').replace(/\s+/g, ' ').slice(0, 140)}`);
   }
+  if (flags.some((flag) => flag.kind !== 'slow')) process.exitCode = 1;
 }
 
-const out = {
-  generatedAt: new Date().toISOString(),
-  apiUrl: API_URL,
-  personas: PERSONAS.map((p) => ({
-    ...p,
-    meStatus: meByPersona[p.key],
-    isAdmin: profiles[p.key]?.isAdmin,
-    capabilities: profiles[p.key]?.capabilities,
-  })),
-  embedTokenMinted: Boolean(ctx.embedToken),
-  totals: {
-    routes: gets.length,
-    swept: results.filter((r) => !r.skipped).length,
-    requests: results.reduce((n, r) => n + Object.keys(r.by).length, 0),
-  },
-  flags,
-  results,
-};
-await writeFile(join(REPO_ROOT, 'docs', 'audit', 'api-sweep.json'), `${JSON.stringify(out, null, 2)}\n`);
-
-console.log(`swept ${out.totals.swept}/${out.totals.routes} GET routes · ${out.totals.requests} requests · embed token ${out.embedTokenMinted ? 'ok' : 'NOT minted'}`);
-const byKind = Object.groupBy(flags, (f) => f.kind);
-for (const [kind, list] of Object.entries(byKind)) {
-  console.log(`\n## ${kind} (${list.length})`);
-  for (const f of list) console.log(`  ${String(f.status ?? '').padEnd(4)} ${(f.who ?? '').padEnd(8)} ${f.path}  ${(f.note ?? '').replace(/\s+/g, ' ').slice(0, 140)}`);
-}
+await main().catch(async (error) => {
+  failAudit(error);
+  await writeAuditJson(join(outputDir, 'api-sweep.json'), {
+    generatedAt: new Date().toISOString(),
+    apiUrl: API_URL,
+    flags: [{ kind: 'setup-failed', note: auditExcerpt(error.message, 400) }],
+    results: [],
+  }).catch(failAudit);
+});

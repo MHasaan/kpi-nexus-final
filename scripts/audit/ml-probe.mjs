@@ -10,9 +10,10 @@
  */
 
 import { createHash, createHmac } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { auditExcerpt, auditOutputDir, failAudit, writeAuditJson } from './common.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ML_URL = process.env.ML_SIDECAR_URL ?? 'http://127.0.0.1:8000';
@@ -44,9 +45,16 @@ async function call(path, body, signer = (p, b) => sign(p, b)) {
       body: bodyText,
     });
     const text = await res.text();
-    return { status: res.status, ms: Math.round(performance.now() - started), text: text.slice(0, 300) };
+    let json = false;
+    try {
+      JSON.parse(text);
+      json = true;
+    } catch {
+      // A matching status alone does not establish a working sidecar.
+    }
+    return { status: res.status, ms: Math.round(performance.now() - started), text: auditExcerpt(text, 300), json };
   } catch (err) {
-    return { status: 0, ms: Math.round(performance.now() - started), text: String(err?.name ?? err) };
+    return { status: 0, ms: Math.round(performance.now() - started), text: auditExcerpt(err?.name ?? err, 300) };
   } finally {
     clearTimeout(timer);
   }
@@ -87,30 +95,35 @@ const cases = [
   ['malformed JSON body', '/forecast', '{"values": [1,2,', [400, 422]],
 ];
 
-const results = [];
-for (const [name, path, body, expect] of cases) {
-  const r = await call(path, body);
-  results.push({ name, path, status: r.status, ms: r.ms, ok: expect.includes(r.status), expect, excerpt: r.text });
+async function main() {
+  const results = [];
+  for (const [name, path, body, expect] of cases) {
+    const r = await call(path, body);
+    results.push({ name, path, status: r.status, ms: r.ms, ok: r.json && expect.includes(r.status), expect, excerpt: r.text });
+  }
+
+  // Auth negatives
+  const auth = [
+    ['no signature headers', () => ({}), [401]],
+    ['wrong secret', (p, b) => sign(p, b, { secret: 'not-the-secret' }), [401]],
+    ['stale timestamp (10 min old)', (p, b) => sign(p, b, { ts: Date.now() - 10 * 60_000 }), [401]],
+    ['future timestamp (10 min ahead)', (p, b) => sign(p, b, { ts: Date.now() + 10 * 60_000 }), [401]],
+    ['non-numeric timestamp', (p, b) => ({ ...sign(p, b), 'X-Signature-Timestamp': 'abc' }), [401]],
+    ['signature replayed with a different body', (p) => sign(p, JSON.stringify({ values: [1], horizon: 1 })), [401]],
+    ['signature replayed against another path', (_p, b) => sign('/whatif', b), [401]],
+  ];
+  for (const [name, signer, expect] of auth) {
+    const r = await call('/forecast', { values: series, horizon: 3 }, signer);
+    results.push({ name: `auth: ${name}`, path: '/forecast', status: r.status, ms: r.ms, ok: r.json && expect.includes(r.status), expect, excerpt: r.text });
+  }
+
+  await writeAuditJson(join(auditOutputDir(REPO_ROOT), 'ml-probe.json'), { generatedAt: new Date().toISOString(), mlUrl: ML_URL, results });
+  const bad = results.filter((r) => !r.ok);
+  console.log(`${results.length - bad.length}/${results.length} as expected`);
+  for (const r of results) {
+    console.log(`${r.ok ? '  ✓' : '  ✗'} ${String(r.status).padEnd(3)} ${String(r.ms).padStart(5)}ms  ${r.name}${r.ok ? '' : `  — expected ${JSON.stringify(r.expect)}: ${r.excerpt.replace(/\s+/g, ' ').slice(0, 160)}`}`);
+  }
+  if (bad.length) process.exitCode = 1;
 }
 
-// Auth negatives
-const auth = [
-  ['no signature headers', () => ({}), [401]],
-  ['wrong secret', (p, b) => sign(p, b, { secret: 'not-the-secret' }), [401]],
-  ['stale timestamp (10 min old)', (p, b) => sign(p, b, { ts: Date.now() - 10 * 60_000 }), [401]],
-  ['future timestamp (10 min ahead)', (p, b) => sign(p, b, { ts: Date.now() + 10 * 60_000 }), [401]],
-  ['non-numeric timestamp', (p, b) => ({ ...sign(p, b), 'X-Signature-Timestamp': 'abc' }), [401]],
-  ['signature replayed with a different body', (p) => sign(p, JSON.stringify({ values: [1], horizon: 1 })), [401]],
-  ['signature replayed against another path', (_p, b) => sign('/whatif', b), [401]],
-];
-for (const [name, signer, expect] of auth) {
-  const r = await call('/forecast', { values: series, horizon: 3 }, signer);
-  results.push({ name: `auth: ${name}`, path: '/forecast', status: r.status, ms: r.ms, ok: expect.includes(r.status), expect, excerpt: r.text });
-}
-
-await writeFile(join(REPO_ROOT, 'docs', 'audit', 'ml-probe.json'), `${JSON.stringify({ generatedAt: new Date().toISOString(), mlUrl: ML_URL, results }, null, 2)}\n`);
-const bad = results.filter((r) => !r.ok);
-console.log(`${results.length - bad.length}/${results.length} as expected`);
-for (const r of results) {
-  console.log(`${r.ok ? '  ✓' : '  ✗'} ${String(r.status).padEnd(3)} ${String(r.ms).padStart(5)}ms  ${r.name}${r.ok ? '' : `  — expected ${JSON.stringify(r.expect)}: ${r.excerpt.replace(/\s+/g, ' ').slice(0, 160)}`}`);
-}
+await main().catch(failAudit);

@@ -87,7 +87,13 @@ function OrgUnitsPageInner() {
   async function refresh() {
     setLoadError(null);
     try {
-      const [unitsData, usersData] = await Promise.all([listOrgUnits(), listUsers()]);
+      const [unitsData, usersData] = await Promise.all([
+        listOrgUnits(),
+        listUsers().catch((err: unknown) => {
+          if (err instanceof ApiError && err.status === 403) return [];
+          throw err;
+        }),
+      ]);
       setUnits(unitsData);
       setUsers(usersData);
     } catch (err) {

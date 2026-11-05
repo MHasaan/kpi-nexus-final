@@ -1,4 +1,4 @@
-# Session handoff — resume here (written 2026-11-04)
+# Session handoff — resume here (updated 2026-11-05)
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
@@ -197,7 +197,7 @@ Separate reversible prerequisite PRs:
 
 Hosted integrations: 133 pass / 3 intentional alerting skips; browser suite: 167 pass / 8 expected skips without ML sidecar. Separate isolated local run with ML: 174 browser tests pass / one opt-in audit-crawler skip, zero retries. Expected negative-test RLS errors in database logs are not failures and must not lead to weakening policies.
 
-Continue the approved safe branch review from [the integration ledger](docs/audit/branch-review-2026-11-05.md). No major migrations, branch deletion, or PR closures are part of that plan. Each accepted update requires exact-head CI/Security, a merge commit, post-merge checks, and a recorded revert command.
+Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The safe branch review integrated checkout v7 (#30), CodeQL v4 (#31), dotenv 1.2.2 (#32), and statsmodels 0.14.6 (#33) after the prerequisites. See [the integration ledger](docs/audit/branch-review-2026-11-05.md) for exact commits, checks, all branch dispositions, rollback commands, and final verification. No major migration or database-schema change was accepted.
 
 ### 5b. Open or partial findings
 
@@ -225,16 +225,16 @@ The initial review set contains 21 Dependabot PRs (#1–#24). Live dispositions 
 - numpy 1→2, pandas 2→3
 - python 3.12→3.14 (the ML venv is pinned `<3.13`)
 
-The approved review keeps superseded PRs open and merges only verified useful updates. Several Actions/NestJS/OpenTelemetry bumps are already superseded; the checkout branch is only partly relevant because main already uses v7. Evaluate CodeQL and compatible Python patches individually after the green baseline; defer majors.
+The review integrated original #3/#10/#7 and handled checkout #5 with replacement #30. Superseded and deferred PRs remain open. FastAPI #11 was trialled but deferred: fresh resolution selects Starlette 1.10, and a previously accepted signed JSON request without Content-Type changes from 200 to 422. All 49 ML tests passed, and the normal API client supplies Content-Type, so this is a conservative framework/contract scope decision rather than a proven outage. A constrained compatibility alternative still needs a separate review.
 
 ---
 
 ## 6. Next steps (in order)
 
-1. Continue the approved integration ledger: finish the checkout v7 replacement, then CodeQL v4, python-dotenv, statsmodels, and FastAPI candidates individually behind green checks.
+1. Read the completed safe-update dispositions and final verification in the integration ledger before starting new work. All historical feature/phase/audit branches were already merged; no missing feature progress was imported.
 2. Keep superseded and major-migration Dependabot PRs unmerged; record each disposition. Do not delete branches or close PRs.
 3. Preserve the development DB; test against disposable infrastructure only. Baseline recovery tag: `backup/pre-branch-review-2026-11-05`.
-4. Verify every merged main commit, update the audit fix log and ledger, and stop on unexplained failures.
+4. For any future update, use an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks, and a recorded rollback. Stop on unexplained failures.
 5. Cold-run `setupScripts/start.cmd` on the new computer (OT-017). Fix whatever breaks.
 6. Decisions to ask the user about: OT-011 deploy target (Fly.io? Vercel?), OT-003 worker split, OT-005 Prophet / ARIMA.
 7. Keep `docs/audit/README.md` fix log and this file up to date as items close.

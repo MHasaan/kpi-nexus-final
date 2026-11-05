@@ -76,6 +76,8 @@ test('redacts nested values and escaped strings before taking an excerpt', async
     assert.doesNotMatch(output, /sensitive/);
     assert.match(output, /"keep":\s*true/);
   }
+  const mixed = 'Request failed: ' + JSON.stringify({ safe: true, secret: [{ raw: 'sensitive-nested' }] });
+  assert.doesNotMatch(auditExcerpt(mixed, 1000), /sensitive-nested/);
   assert.equal(auditExcerpt('Oops {"password" : "sensitive\\"quote' + 'z'.repeat(500) + '"}', 120), 'Oops {"password" : "<redacted>"}');
 });
 

@@ -20,6 +20,15 @@ function redactString(text) {
     }
   }
 
+  // A diagnostic may embed incomplete JSON. If a sensitive value is a
+  // container, discard the remainder rather than risk exposing its contents.
+  for (const match of text.matchAll(/("(?:[^"\\]|\\.)*")(\s*:\s*)[\[{]/g)) {
+    if (sensitiveKey(match[1].slice(1, -1))) {
+      text = `${text.slice(0, match.index)}${match[1]}${match[2]}"${REDACTED}"`;
+      break;
+    }
+  }
+
   return text
     .replace(/("(?:[^"\\]|\\.)*")(\s*:\s*)"(?:[^"\\]|\\.)*"/g, (match, key, separator) =>
       sensitiveKey(key.slice(1, -1)) ? `${key}${separator}"${REDACTED}"` : match)

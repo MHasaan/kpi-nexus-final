@@ -291,7 +291,8 @@ async function main() {
     generatedAt: new Date().toISOString(),
     apiUrl: redactAuditText(API_URL),
     personas: PERSONAS.map((p) => ({
-      ...p,
+      persona: p.key,
+      email: p.email,
       meStatus: meByPersona[p.key],
       isAdmin: profiles[p.key]?.isAdmin,
       capabilities: profiles[p.key]?.capabilities,

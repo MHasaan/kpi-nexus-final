@@ -6,6 +6,7 @@ import type { ScheduledReport } from '@kpi-nexus/db';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { EmailService } from '../email/email.service.js';
+import { escapeHtml } from '../email/escape-html.js';
 import { ReportsService } from './reports.service.js';
 import { StorageService } from './services/storage.service.js';
 import type { ScheduledReportJobData } from './scheduled-report.service.js';
@@ -145,8 +146,8 @@ export class ScheduledReportProcessor extends WorkerHost {
 
       // Email recipients.
       if (scheduledReport.recipients.length > 0) {
-        const downloadHtml = `<p>Your scheduled report "<strong>${scheduledReport.name}</strong>" is ready.</p>
-<p><a href="${fileUrl}">Download report</a> (link valid for 7 days)</p>`;
+        const downloadHtml = `<p>Your scheduled report "<strong>${escapeHtml(scheduledReport.name)}</strong>" is ready.</p>
+<p><a href="${escapeHtml(fileUrl)}">Download report</a> (link valid for 7 days)</p>`;
         await this.email.send({
           to: scheduledReport.recipients,
           subject: `Your scheduled report: ${scheduledReport.name}`,

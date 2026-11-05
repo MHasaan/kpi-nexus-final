@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { EmailService } from '../email/email.service.js';
+import { escapeHtml } from '../email/escape-html.js';
 import { OutboundUrlBlockedError, outboundFetch } from '../outbound/outbound-fetch.js';
 
 export interface NotificationPayload {
@@ -78,7 +79,7 @@ export class NotificationAdaptersService {
     await this.email.send({
       to: recipients,
       subject: `${SEVERITY_EMOJI[payload.severity] ?? ''} ${payload.title ?? 'KPI Alert'}`,
-      html: `<p><strong>${payload.title ?? 'KPI Alert'}</strong></p><p>${payload.message}</p>`,
+      html: `<p><strong>${escapeHtml(payload.title ?? 'KPI Alert')}</strong></p><p>${escapeHtml(payload.message)}</p>`,
       text: payload.message,
     });
   }

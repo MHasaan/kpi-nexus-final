@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -17,18 +18,12 @@ async function outputDir(t) {
 
 // Keep the CLI entry points and filesystem real while supplying HTTP responses
 // without a live service or a listening socket.
-async function fetchFixture(dir, status, body) {
-  const preload = join(dir, 'fetch-fixture.mjs');
-  await writeFile(preload, `globalThis.fetch = async () => new Response(${JSON.stringify(body)}, {
-    status: ${status}, headers: { 'content-type': 'application/json' },
-  });`);
-  return preload;
-}
+const preload = fileURLToPath(new URL('./fixtures/fetch-response.mjs', import.meta.url));
 
-const script = (name, path, preload) =>
-  run(process.execPath, [...(preload ? ['--import', preload] : []), `scripts/audit/${name}.mjs`], {
+const script = (name, path, response) =>
+  run(process.execPath, [...(response ? ['--import', preload] : []), `scripts/audit/${name}.mjs`], {
     cwd: root,
-    env: { ...process.env, AUDIT_OUTPUT_DIR: path },
+    env: { ...process.env, AUDIT_OUTPUT_DIR: path, AUDIT_TEST_RESPONSE: JSON.stringify(response ?? null) },
   });
 
 test('route inventory creates its report under AUDIT_OUTPUT_DIR', async (t) => {
@@ -41,8 +36,8 @@ test('route inventory creates its report under AUDIT_OUTPUT_DIR', async (t) => {
 test('CRUD setup fails with a sanitized report even when login echoes credentials', async (t) => {
   const path = await outputDir(t);
   const privateValue = 'fixture-secret-"quoted"-' + 'a'.repeat(500);
-  const preload = await fetchFixture(path, 503, JSON.stringify({ data: { password: privateValue }, url: '/share/fixture-share-token' }, null, 2));
-  await assert.rejects(script('api-crud', path, preload), (err) => {
+  const response = { status: 503, body: JSON.stringify({ data: { password: privateValue }, url: '/share/fixture-share-token' }, null, 2) };
+  await assert.rejects(script('api-crud', path, response), (err) => {
     assert.equal(err.code, 1);
     assert.doesNotMatch(err.stdout + err.stderr, /fixture-secret|fixture-share-token/);
     return true;
@@ -54,8 +49,8 @@ test('CRUD setup fails with a sanitized report even when login echoes credential
 
 test('ML authentication failure is visible in the exit code and redacted output', async (t) => {
   const path = await outputDir(t);
-  const preload = await fetchFixture(path, 401, JSON.stringify({ detail: 'Bad signature', config: { signingSecret: 'fixture-signing-secret' } }, null, 2));
-  await assert.rejects(script('ml-probe', path, preload), (err) => {
+  const response = { status: 401, body: JSON.stringify({ detail: 'Bad signature', config: { signingSecret: 'fixture-signing-secret' } }, null, 2) };
+  await assert.rejects(script('ml-probe', path, response), (err) => {
     assert.equal(err.code, 1);
     assert.doesNotMatch(err.stdout + err.stderr, /fixture-signing-secret/);
     return true;

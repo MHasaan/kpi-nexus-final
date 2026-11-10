@@ -18,6 +18,7 @@ import {
 } from './notification-digest.service.js';
 import { NotificationDigestProcessor } from './notification-digest.processor.js';
 import { NotificationsController } from './notifications.controller.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 @Module({
   imports: [
@@ -33,9 +34,9 @@ import { NotificationsController } from './notifications.controller.js';
     NotificationAdaptersService,
     NotificationDispatcherService,
     NotificationDeliveriesService,
-    NotificationRetryProcessor,
+    ...queueProcessors([NotificationRetryProcessor]),
     NotificationDigestService,
-    NotificationDigestProcessor,
+    ...queueProcessors([NotificationDigestProcessor]),
   ],
   exports: [
     NotificationAdaptersService,

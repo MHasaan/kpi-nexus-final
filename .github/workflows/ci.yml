@@ -153,6 +153,7 @@ jobs:
         working-directory: apps/api
         run: |
           nohup node dist/main.js > "$GITHUB_WORKSPACE/api.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/api.pid"
           for i in $(seq 1 60); do
             curl -sf http://localhost:4000/health && exit 0
             sleep 2
@@ -170,6 +171,27 @@ jobs:
         run: pnpm --filter @kpi-nexus/web exec playwright install --with-deps chromium
       # playwright.config.ts serves the production build (`next start`) under CI.
       - run: pnpm --filter @kpi-nexus/web test:e2e
+      # OT-003: rerun the queue-dependent specs with the processors moved out of
+      # the API into the worker process — the production layout.
+      - name: Queue integration tests (API + separate worker)
+        working-directory: apps/api
+        run: |
+          kill "$(cat "$GITHUB_WORKSPACE/api.pid")"
+          while curl -sf http://localhost:4000/health >/dev/null; do sleep 1; done
+          RUN_QUEUE_WORKERS=false nohup node dist/main.js > "$GITHUB_WORKSPACE/api-split.log" 2>&1 &
+          nohup node dist/worker.js > "$GITHUB_WORKSPACE/worker.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4000/health >/dev/null && grep -q 'kpi-nexus-worker started' "$GITHUB_WORKSPACE/worker.log" && break
+            sleep 2
+          done
+          grep -q 'Queue processors OFF' "$GITHUB_WORKSPACE/api-split.log"
+          grep -q 'kpi-nexus-worker started' "$GITHUB_WORKSPACE/worker.log"
+          pnpm exec vitest run --config vitest.int.config.ts \
+            test/integration/alerting.spec.ts \
+            test/integration/scheduled-report.spec.ts \
+            test/integration/invitation-email.spec.ts \
+            test/integration/password-reset.spec.ts \
+            test/integration/jira-webhook.spec.ts
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
@@ -178,4 +200,6 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
             api.log
+            api-split.log
+            worker.log
           retention-days: 7

@@ -8,6 +8,11 @@ another endpoint or with a different payload (BE-024); the ±5-minute skew windo
 still bounds plain replays. The sidecar recomputes and compares in constant
 time. All routes except `/health` are protected. The placeholder dev secret is
 refused when ENV=production.
+
+Both the `/health` exemption and the signed path use the ASGI scope path, the
+one the router dispatches on. `request.url` is rebuilt from the client-supplied
+Host header, so a Host such as `x/health?` could make any route look exempt or
+match a signature captured for another route.
 """
 
 from __future__ import annotations
@@ -65,7 +70,8 @@ class HmacAuthMiddleware(BaseHTTPMiddleware):
     """Reject unsigned/invalid requests to any path other than /health."""
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
-        if request.url.path == "/health" or request.url.path.startswith("/health/"):
+        path = request.scope["path"]
+        if path == "/health" or path.startswith("/health/"):
             return await call_next(request)
 
         secret = _resolve_secret()
@@ -83,7 +89,7 @@ class HmacAuthMiddleware(BaseHTTPMiddleware):
             sig,
             now_ms=int(time.time() * 1000),
             method=request.method,
-            path=request.url.path,
+            path=path,
             body=body,
         ):
             return JSONResponse({"detail": "Invalid signature"}, status_code=401)

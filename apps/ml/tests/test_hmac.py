@@ -4,6 +4,7 @@ import json
 import os
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.middleware.hmac_auth import compute_signature, verify
@@ -86,7 +87,9 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
-def _signed_post(client: TestClient, path: str, payload: dict, signed_body: bytes | None = None):
+def _signed_post(
+    client: TestClient, path: str, payload: dict, signed_body: bytes | None = None, host: str | None = None
+):
     body = json.dumps(payload).encode()
     ts = int(time.time() * 1000)
     sig = compute_signature(SECRET, ORG, ts, "POST", path, signed_body if signed_body is not None else body)
@@ -97,6 +100,7 @@ def _signed_post(client: TestClient, path: str, payload: dict, signed_body: byte
             "X-Signature-Timestamp": str(ts),
             "X-Signature": sig,
             "content-type": "application/json",
+            **({"Host": host} if host else {}),
         },
         content=body,
     )
@@ -125,3 +129,49 @@ def test_protected_route_rejects_a_replayed_signature_with_a_different_body() ->
     original = json.dumps({"values": [1, 2, 3], "horizon": 7}).encode()
     res = _signed_post(_client(), "/forecast", {"values": [1, 2, 3], "horizon": 365}, signed_body=original)
     assert res.status_code == 401
+
+
+# The health exemption and the signed path must come from the path the router
+# dispatches on, not from request.url, which Starlette rebuilds from the
+# untrusted Host header by appending the real path to it. A Host of "x/health"
+# made every route look exempt; a trailing "?" turns the real path into a
+# query string, so request.url.path can be set to any value.
+ANALYTICS_CASES = [
+    ("/forecast", {"values": [1, 2, 3, 4], "horizon": 2}),
+    ("/anomaly/detect", {"values": [1, 1, 1, 10], "method": "zscore"}),
+    ("/whatif", {"baseline": {"values": [1, 2, 3]}, "scenarios": [{"name": "up", "type": "percent", "value": 10}]}),
+    ("/correlation", {"series": {"a": [1, 2, 3, 4], "b": [2, 4, 6, 8]}}),
+    ("/seasonality", {"series": [1, 2] * 8, "period": 2}),
+]
+
+
+@pytest.mark.parametrize("host", ["testserver/health", "testserver/health?"])
+@pytest.mark.parametrize(("path", "payload"), ANALYTICS_CASES)
+def test_forged_host_cannot_make_a_protected_route_look_like_health(path: str, payload: dict, host: str) -> None:
+    res = _client().post(path, json=payload, headers={"Host": host})
+    assert res.status_code == 401
+
+
+def test_forged_host_cannot_replay_a_signature_on_another_route() -> None:
+    # Signed for /forecast, sent to /anomaly/detect with a Host that makes
+    # request.url.path read /forecast (BE-024 path binding).
+    payload = {"values": [1, 1, 1, 10], "method": "zscore"}
+    body = json.dumps(payload).encode()
+    ts = int(time.time() * 1000)
+    res = _client().post(
+        "/anomaly/detect",
+        headers={
+            "Host": "testserver/forecast?",
+            "X-Tenant-Id": ORG,
+            "X-Signature-Timestamp": str(ts),
+            "X-Signature": compute_signature(SECRET, ORG, ts, "POST", "/forecast", body),
+            "content-type": "application/json",
+        },
+        content=body,
+    )
+    assert res.status_code == 401
+
+
+def test_valid_signature_still_verifies_when_host_is_unusual() -> None:
+    res = _signed_post(_client(), "/forecast", {"values": [1, 2, 3, 4], "horizon": 2}, host="testserver/health")
+    assert res.status_code == 200

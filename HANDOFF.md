@@ -62,6 +62,7 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - **Real secrets the user must bring over by hand:**
      - `GEMINI_API_KEYS`: comma-separated free-tier keys.
      - `BYO_ENCRYPTION_KEY`, `JWT_SECRET`, `ML_SIDECAR_HMAC_SECRET`. The last must be **identical** in `apps/api/.env` and `apps/ml/.env`.
+     - For production also `INTEGRATION_CRYPTO_KEY` (64 hex chars, `openssl rand -hex 32`): the API refuses to boot without it. Locally it may stay empty.
      - Optional `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
      - Development fallbacks are fine locally. Production refuses them (OT-008).
    - **RLS (OT-014):**

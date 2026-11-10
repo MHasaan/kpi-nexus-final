@@ -1,4 +1,4 @@
-# Session handoff — resume here (updated 2026-11-05)
+# Session handoff — resume here (updated 2026-11-11)
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
@@ -218,6 +218,7 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 | OT-005 | labelled | Prophet / ARIMA show as "coming soon"; only naive forecasting exists. Implementing them is a product choice. |
 | OT-013 residue | unfixable | `deepmerge-ts` (via Prisma) and `braces` (via tailwind) audit items have no upstream fix yet. Re-check with `pnpm audit --prod`. |
 | OT-010 | ✅ | Git history is clean of secrets. Verified; no action needed. |
+| MV-001..MV-004 | ✅ fixed (2026-11-11) | ML HMAC Host bypass (#45), BullMQ Redis URL (#46), env templates + app icon (#47); plus in-major security patches (#48). See [the closure follow-up](docs/audit/closure-2026-11-06.md#follow-up--2026-11-11-main-verification-findings-closed). |
 
 ### 5c. Dependabot
 
@@ -237,13 +238,17 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 ## 6. Next steps (in order)
 
-1. Read the completed safe-update dispositions and final verification in the integration ledger before starting new work. All historical feature/phase/audit branches were already merged; no missing feature progress was imported.
-2. Keep superseded and major-migration Dependabot PRs unmerged; record each disposition. Do not delete branches or close PRs.
-3. Preserve the development DB; test against disposable infrastructure only. Baseline recovery tag: `backup/pre-branch-review-2026-11-05`.
-4. For any future update, use an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks, and a recorded rollback. Stop on unexplained failures.
-5. Cold-run `setupScripts/start.cmd` on the new computer (OT-017). Fix whatever breaks.
-6. Decisions to ask the user about: OT-011 deploy target (Fly.io? Vercel?), OT-003 worker split, OT-005 Prophet / ARIMA.
-7. Keep `docs/audit/README.md` fix log and this file up to date as items close.
+Main `217cc8e` has the audit closure (#35) and the 2026-11-11 fixes (#45–#48). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
+
+1. **Worker separation (OT-003).** Move the BullMQ processors out of the API into `apps/worker`, or record that the API is the worker.
+2. **Deployment config (OT-011).** Fly.io for api/worker/ml/postgres plus Vercel for web, as the locked spec says; `infra/fly/` is still empty.
+3. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
+4. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
+5. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
+6. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
+7. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
+
+Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 
 ---
 

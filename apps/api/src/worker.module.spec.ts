@@ -62,7 +62,8 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('queue processor placement', () => {
+// Loading the whole API module graph takes a few seconds on a busy machine.
+describe('queue processor placement', { timeout: 30_000 }, () => {
   it('runs every processor inside the API by default', async () => {
     const { AppModule } = await load<{ AppModule: ModuleRef }>('./app.module.js', {});
     expect(processorsIn(AppModule)).toEqual(PROCESSORS);

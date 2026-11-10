@@ -9,6 +9,7 @@ import { NlqController } from './nlq.controller.js';
 import { NlqReembedQueueModule } from './nlq-reembed-queue.module.js';
 import { NlqService } from './nlq.service.js';
 import { ReembedProcessor } from './reembed.processor.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 /**
  * NlqModule — natural-language Q&A over a tenant's KPIs (retrieval-augmented,
@@ -23,7 +24,7 @@ import { ReembedProcessor } from './reembed.processor.js';
 @Module({
   imports: [PrismaModule, RbacModule, AiModule, KpisModule, NlqReembedQueueModule],
   controllers: [NlqController],
-  providers: [NlqService, KpiCatalogEmbeddingService, ReembedProcessor],
+  providers: [NlqService, KpiCatalogEmbeddingService, ...queueProcessors([ReembedProcessor])],
   exports: [NlqService, KpiCatalogEmbeddingService],
 })
 export class NlqModule {}

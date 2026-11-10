@@ -7,6 +7,7 @@ import { RbacModule } from '../rbac/rbac.module.js';
 import { OutboundWebhookProcessor } from './outbound-webhook.processor.js';
 import { WebhooksController } from './webhooks.controller.js';
 import { WebhooksService, OUTBOUND_WEBHOOK_QUEUE } from './webhooks.service.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { WebhooksService, OUTBOUND_WEBHOOK_QUEUE } from './webhooks.service.js';
     BullModule.registerQueue({ name: OUTBOUND_WEBHOOK_QUEUE }),
   ],
   controllers: [WebhooksController],
-  providers: [WebhooksService, OutboundWebhookProcessor],
+  providers: [WebhooksService, ...queueProcessors([OutboundWebhookProcessor])],
   exports: [WebhooksService],
 })
 export class WebhooksModule {}

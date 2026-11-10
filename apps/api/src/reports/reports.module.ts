@@ -14,6 +14,7 @@ import { ScheduledReportsController } from './scheduled-reports.controller.js';
 import { BoardPackService } from './services/board-pack.service.js';
 import { EmbedTokenService } from './services/embed-token.service.js';
 import { StorageService } from './services/storage.service.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 /**
  * P3.6/3.7 Reports module.
@@ -23,7 +24,7 @@ import { StorageService } from './services/storage.service.js';
  *   - EmbedTokenService        — stateless HMAC embed tokens (exported for re-use)
  *   - StorageService           — S3 upload + presigned URL
  *   - ScheduledReportService   — BullMQ repeatable job management
- *   - ScheduledReportProcessor — BullMQ worker (runs in API process)
+ *   - ScheduledReportProcessor — BullMQ worker (API or worker process, see config/queue-workers.ts)
  *
  * Imports KpisModule to access KpiDataService (dashboardSummary + listForKpi).
  * PrismaModule is global but listed explicitly for clarity.
@@ -44,7 +45,7 @@ import { StorageService } from './services/storage.service.js';
     EmbedTokenService,
     StorageService,
     ScheduledReportService,
-    ScheduledReportProcessor,
+    ...queueProcessors([ScheduledReportProcessor]),
   ],
   exports: [EmbedTokenService],
 })

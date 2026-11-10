@@ -8,6 +8,7 @@ import { EscalationsModule } from '../escalations/escalations.module.js';
 import { AlertEngineProcessor } from './alert-engine.processor.js';
 import { ALERT_EVAL_QUEUE, AlertEngineProducer } from './alert-engine.producer.js';
 import { AlertEngineService } from './alert-engine.service.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 /**
  * AlertEngineModule — evaluates KPIs after data-point inserts (STATIC_THRESHOLD)
@@ -24,7 +25,7 @@ import { AlertEngineService } from './alert-engine.service.js';
     RecommendationsModule,
     BullModule.registerQueue({ name: ALERT_EVAL_QUEUE }),
   ],
-  providers: [AlertEngineService, AlertEngineProducer, AlertEngineProcessor],
+  providers: [AlertEngineService, AlertEngineProducer, ...queueProcessors([AlertEngineProcessor])],
   exports: [AlertEngineProducer, AlertEngineService],
 })
 export class AlertEngineModule {}

@@ -11,6 +11,7 @@ import {
 } from './onboarding-cleanup.producer.js';
 import { OnboardingController } from './onboarding.controller.js';
 import { OnboardingService } from './onboarding.service.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 /**
  * OnboardingModule — the wizard backend: resumable drafts + atomic org
@@ -32,7 +33,7 @@ import { OnboardingService } from './onboarding.service.js';
   providers: [
     OnboardingService,
     OnboardingCleanupProducer,
-    OnboardingCleanupProcessor,
+    ...queueProcessors([OnboardingCleanupProcessor]),
   ],
   exports: [OnboardingService],
 })

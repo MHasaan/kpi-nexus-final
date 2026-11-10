@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import * as Sentry from '@sentry/node';
 
-const SERVICE_NAME = 'kpi-nexus-api';
+const SERVICE_NAME = process.env.KPI_PROCESS_ROLE === 'worker' ? 'kpi-nexus-worker' : 'kpi-nexus-api';
 
 // This module is main.ts's FIRST import, so it runs before @nestjs/config loads
 // .env — OTEL_EXPORTER_OTLP_ENDPOINT / SENTRY_DSN set only in .env were unset

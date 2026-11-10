@@ -9,6 +9,7 @@ import { Logger } from 'nestjs-pino';
 
 import { ensureProviderKeysLoaded } from './ai/provider-key-loader.js';
 import { AppModule } from './app.module.js';
+import { queueWorkersEnabled } from './config/queue-workers.js';
 import { assertProductionSecrets } from './config/secrets.js';
 import { fastifyTrustProxy } from './config/trust-proxy.js';
 
@@ -70,6 +71,12 @@ async function bootstrap(): Promise<void> {
 
   const logger = app.get(Logger);
   logger.log(`kpi-nexus-api listening on http://0.0.0.0:${port}`, 'Bootstrap');
+  logger.log(
+    queueWorkersEnabled()
+      ? 'Queue processors running in this process (RUN_QUEUE_WORKERS unset or true)'
+      : 'Queue processors OFF (RUN_QUEUE_WORKERS=false) — run the worker: node dist/worker.js',
+    'Bootstrap',
+  );
 }
 
 void bootstrap();

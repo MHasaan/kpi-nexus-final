@@ -8,6 +8,7 @@ import { InsightsController } from './insights.controller.js';
 import { InsightsProcessor } from './insights.processor.js';
 import { INSIGHTS_QUEUE, InsightsProducer } from './insights.producer.js';
 import { InsightsService } from './insights.service.js';
+import { queueProcessors } from '../config/queue-workers.js';
 
 /**
  * InsightsModule — AI trend narratives per KPI + a daily org-wide batch cron.
@@ -16,7 +17,7 @@ import { InsightsService } from './insights.service.js';
 @Module({
   imports: [PrismaModule, RbacModule, AiModule, BullModule.registerQueue({ name: INSIGHTS_QUEUE })],
   controllers: [InsightsController],
-  providers: [InsightsService, InsightsProducer, InsightsProcessor],
+  providers: [InsightsService, InsightsProducer, ...queueProcessors([InsightsProcessor])],
   exports: [InsightsService],
 })
 export class InsightsModule {}

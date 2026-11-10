@@ -191,6 +191,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | AI defaults on retired / zero-quota models; thinking models truncated answers | ✅ fixed — tiered free Gemini models + reasoning budget | `25a445e` | gemini (+3), router (+2), default-config (+3), live 4-feature run |
 | OT-011 MinIO image no longer pullable | ✅ fixed — SeaweedFS S3 gateway | `ee2c133` | SDK probe, scheduled-report integration (2), CSV download |
 | OT-014 RLS not in effect — option A (hardened RLS): stage A policies + explicit contexts; stage B roles `kpi_app`/`kpi_system`, GUC bypass removed, every table covered, `KPIDataPoint` compression off + policy, API runs as `kpi_app` with transaction-local org (`RLS_ENFORCED`); stage C FORCE RLS, enforcement on in `.env.example` + CI | ✅ fixed | `ecc6d1f` `48b2281` `6cae9f4` `6df4028` `47cc0e8` `99ebe9b` `ad405fb` | `rls-enforcement.spec.ts` (11), `tenant-prisma.spec.ts` (11), `prisma.module.spec.ts` (2); unit 1634, integration 133, web e2e 167 — all with enforcement on |
+| MV-001 ML HMAC bypass: a forged Host header made analytics routes look like `/health`, or verified a signature captured for another route | ✅ fixed | `7ce0d43` | `apps/ml/tests/test_hmac.py` (+11: five routes × two forged Hosts, cross-route replay, unusual-Host valid signature); live: 60 unsigned forged/plain-Host requests → 401 on native, container and `ENV=production` container; 36/36 signed probes; 7 API→ML browser cases |
 
 ## Cleanup performed
 
@@ -209,4 +210,4 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 
 ## Audit closure follow-up
 
-See the [current reconciliation and evidence](closure-2026-11-06.md) for AC-001 (email rendering, `81ec98c`) and AC-002 (audit tooling, `54620c4`). Set `AUDIT_OUTPUT_DIR` to a new scratch directory for fresh runs to preserve the October artifacts.
+See the [current reconciliation and evidence](closure-2026-11-06.md) for AC-001 (email rendering, `81ec98c`) and AC-002 (audit tooling, `54620c4`). Findings from the 2026-11-05 main verification are logged above as MV-00x. Set `AUDIT_OUTPUT_DIR` to a new scratch directory for fresh runs to preserve the October artifacts.

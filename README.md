@@ -32,9 +32,8 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 kpi-nexus-final/
 ├── apps/
 │   ├── web/         Next.js 15 — UI only, no DB
-│   ├── api/         NestJS 11 — HTTP + business logic
-│   ├── worker/      NestJS scaffold (echo processor only) — the BullMQ
-│   │                processors currently run inside api (audit OT-003)
+│   ├── api/         NestJS 11 — HTTP + business logic; also builds the queue
+│   │                worker (dist/worker.js: BullMQ processors, no HTTP)
 │   └── ml/          Python FastAPI — stateless math service
 ├── packages/
 │   ├── contracts/   Zod schemas + TS types shared web ↔ api
@@ -80,7 +79,6 @@ pnpm install
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-cp apps/worker/.env.example apps/worker/.env
 cp apps/ml/.env.example apps/ml/.env
 
 # 3. Bring up local infra (Postgres + TimescaleDB + Redis + SeaweedFS S3 + Mailhog + Jaeger)
@@ -89,7 +87,9 @@ pnpm docker:up
 # 4. Provision database (probes Postgres, runs prisma push, verifies extensions)
 pnpm db:setup
 
-# 5. Boot the JS/TS stack (web :3000, api :4000, worker)
+# 5. Boot the JS/TS stack (web :3000, api :4000 — the api runs the queue
+#    processors too; RUN_QUEUE_WORKERS=false + `pnpm --filter @kpi-nexus/api dev:worker`
+#    splits them into their own process, as production does)
 pnpm dev
 
 # 6. Boot the Python ML sidecar (one-time install + start; separate terminal)

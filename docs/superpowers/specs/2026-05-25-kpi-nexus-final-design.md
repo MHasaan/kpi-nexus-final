@@ -161,7 +161,7 @@ kpi-nexus-final/
 
 **Boundary rules**:
 - `apps/web` never imports from `apps/api`; uses only `packages/contracts` for shared types
-- `apps/api` and `apps/worker` import the same modules; worker mounts a Nest app context without HTTP
+- `apps/api` and `apps/worker` import the same modules; worker mounts a Nest app context without HTTP *(Amended 2026-11-11, OT-003: the worker is built from `apps/api` as `dist/worker.js` — same modules, Nest app context without HTTP; `RUN_QUEUE_WORKERS=false` takes the processors out of the API. The `apps/worker` package was removed.)*
 
 ### 2.3 Code organization within NestJS
 
@@ -839,7 +839,7 @@ Single endpoint `GET /realtime/stream` (authenticated). Server-Sent Events with 
 
 ### 8.2 BullMQ queue inventory (~18 queues)
 
-All processors live in `apps/worker/`.
+All processors live in `apps/worker/`. *(Amended 2026-11-11, OT-003: the worker is built from `apps/api` as `dist/worker.js` — same modules, Nest app context without HTTP; `RUN_QUEUE_WORKERS=false` takes the processors out of the API. The `apps/worker` package was removed.)*
 
 | Queue | Producer | Purpose |
 |---|---|---|
@@ -952,7 +952,7 @@ Env via `.env` files per app; `packages/config/env.ts` exports typed env getters
 |---|---|---|
 | `apps/web` | Vercel (free tier) | Next.js native; instant deploys; automatic preview URLs per PR |
 | `apps/api` | Fly.io | 256 MB instance + autoscale to 2 on load |
-| `apps/worker` | Fly.io | Separate process; same image as api with `WORKER=true` env |
+| `apps/worker` | Fly.io | Separate process; same image as api with `WORKER=true` env. *Amended 2026-11-11 (OT-003): start command `node dist/worker.js`, and `RUN_QUEUE_WORKERS=false` on the api.* |
 | `apps/ml` | Fly.io | Python image; 512 MB instance |
 | Postgres + TimescaleDB | Fly.io with persistent volume | Self-hosted; 3 GB volume free tier |
 | Redis | Upstash | Managed; 10k commands/day free tier |

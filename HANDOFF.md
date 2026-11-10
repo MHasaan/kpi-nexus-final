@@ -34,7 +34,7 @@ This file lets a new Claude Code session, on any computer, carry on exactly wher
 | Monorepo | pnpm 9.15 + Turborepo |
 | `apps/web` | Next.js 15.5.27 (App Router) |
 | `apps/api` | NestJS 11 on Fastify 5, Prisma 6 |
-| `apps/worker` | BullMQ. It is a stub; the processors really run inside the api (OT-003). |
+| Queue worker | Built from `apps/api` as `dist/worker.js`: the 10 BullMQ processors, no HTTP. The API runs them itself unless `RUN_QUEUE_WORKERS=false`; production runs the worker as its own process (OT-003). |
 | `apps/ml` | FastAPI on Python 3.12, venv via `uv` |
 | packages | `ai`, `contracts`, `db` (Prisma schema, seed, SQL), `formula` (empty stub), `ui`, `config` |
 | Infra (`infra/docker/docker-compose.yml`) | Postgres 16 + TimescaleDB (`timescaledb-ha`), Redis 7, MailHog, Jaeger, SeaweedFS (S3 on :9000; replaced MinIO) |
@@ -53,7 +53,6 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - `.env` ← `.env.example`
    - `apps/api/.env` ← `apps/api/.env.example`
    - `apps/web/.env` ← `apps/web/.env.example`
-   - `apps/worker/.env` ← `apps/worker/.env.example`
    - `apps/ml/.env` ← `apps/ml/.env.example`
    - `packages/db/.env` has no template. A copy of `DATABASE_URL` from `.env` is enough.
 
@@ -99,7 +98,7 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - Or run each part separately:
      - API: `pnpm --filter @kpi-nexus/api dev` (:4000)
      - Web: `pnpm --filter @kpi-nexus/web dev` (:3000)
-     - Worker: `pnpm --filter @kpi-nexus/worker dev`
+     - Worker (optional): the API runs the queue processors by default. To split them out as production does, set `RUN_QUEUE_WORKERS=false` for the API and run `pnpm --filter @kpi-nexus/api dev:worker`.
      - ML: `apps/ml/.venv/Scripts/python.exe -m uvicorn app.main:app --app-dir apps/ml --env-file apps/ml/.env --host 127.0.0.1 --port 8000`
 7. **Log in:** go to http://127.0.0.1:3000 and sign in as `admin@helios.io` / `Password123!`. Other seeded personas are listed in `packages/db/prisma/seed.ts`.
 8. **Health checks:**
@@ -211,7 +210,7 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 |---|---|---|
 | OT-007 | ✅ fixed | Green main CI/Security, §5a |
 | OT-011 | 🟡 partial | Images pinned, data volume fixed, SeaweedFS in place. **No deploy config:** `infra/fly/` and `infra/github/` are empty, but the README promises Fly.io / Vercel. Either write it or fix the README. |
-| OT-003 | open (Medium) | `apps/worker` is a stub; all 10 BullMQ processors run inside the api. Either move them, or document that the api is the worker. This is a product / architecture choice, so ask the user. |
+| OT-003 | ✅ fixed | Queue processors run in a separate worker process (`dist/worker.js`, same build as the API); `RUN_QUEUE_WORKERS=false` takes them out of the API. The `apps/worker` stub is removed. |
 | OT-017 | open (Info) | `setupScripts/start.ps1` has never been cold-run end to end. Doing that on the new computer is a good real test. |
 | BE-004 | ✅ | The insights part was fixed earlier; the PEOPLE / ORG / ANALYTICS part followed in `05ce2f3..5da1954`. The 🟡 on the insights row is historical. |
 | BE-013 | ✔ accepted | A suspended user keeps a ≤15-minute access token. The user decided to accept this. |
@@ -240,13 +239,12 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 Main `217cc8e` has the audit closure (#35) and the 2026-11-11 fixes (#45–#48). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
-1. **Worker separation (OT-003).** Move the BullMQ processors out of the API into `apps/worker`, or record that the API is the worker.
-2. **Deployment config (OT-011).** Fly.io for api/worker/ml/postgres plus Vercel for web, as the locked spec says; `infra/fly/` is still empty.
-3. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
-4. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
-5. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
-6. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
-7. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
+1. **Deployment config (OT-011).** Fly.io for api/worker/ml/postgres plus Vercel for web, as the locked spec says; `infra/fly/` is still empty. The worker is a second process group on the API image (`node dist/worker.js`), with `RUN_QUEUE_WORKERS=false` on the API group.
+2. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
+3. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
+4. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
+5. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
+6. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
 
 Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 

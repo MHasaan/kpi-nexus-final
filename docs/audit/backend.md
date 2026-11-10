@@ -1,5 +1,7 @@
 # Audit — backend (apps/api, apps/worker, apps/ml)
 
+> `apps/worker` was removed for OT-003; the queue worker is now built from `apps/api`.
+
 _Part 1 of the audit. Report-only: nothing here has been fixed yet._
 
 ## Coverage
@@ -29,7 +31,7 @@ _Part 1 of the audit. Report-only: nothing here has been fixed yet._
 | Collaboration | tasks, comments, mentions, okrs, approvals, workflows, activity, setup-checklist | ⚠️ BE-020, BE-021, BE-022. Verified OK: CRUD, comment-ownership checks, mentions to foreign users dropped, approval workflow upsert, workflow trigger |
 | Integrations | integrations (Slack/Jira), connectors, webhooks, api-keys, plugins, custom-domains, inbound-email | ❌ BE-014 (critical), BE-015, BE-016, BE-023. Verified OK: connector cross-tenant write blocked, webhook signing, secret rotation, integration tokens not echoed, duplicate domain rejected, inbound email rejects unsigned |
 | Governance | audit, retention, billing, rate-limit, demo-data, health | ⚠️ BE-017, BE-018. Verified OK: audit log records changes, retention tiers, billing plan validation |
-| Worker | apps/worker | See OT-003 (stub) |
+| Worker | apps/api (`dist/worker.js`) | OT-003 fixed: separate queue worker process |
 
 Personas (seeded `helios`, password `Password123!`): `admin@helios.io` (Administrator) · `greg.sullivan@` (Executive) · `devon.reyes@` (Department Manager) · `tom.becker@` (Contributor, `KPIS: SELF`) · `aaron.cole@` (Contributor, 90-day data limit).
 

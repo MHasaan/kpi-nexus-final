@@ -18,7 +18,8 @@ _Part 3 of the audit. Pre-loaded with findings from the baseline; the full pass 
 - **Expected:** fixture updated alongside the schema.
 - **Location:** `packages/contracts/src/access.spec.ts:14-21`, schema `packages/contracts/src/access.ts`.
 
-### OT-003 · Medium · Worker app is a stub
+### OT-003 · Medium · Worker app is a stub — ✅ FIXED
+- **Fix (`79c4a93`; stub removed in `1b39aef`):** `apps/api/src/worker.ts` (`dist/worker.js`) runs the 10 processors in their own process with no HTTP server; `RUN_QUEUE_WORKERS=false` (default `true`) leaves them out of the API, which keeps its producers. Same build and image; production runs the worker beside an API with the flag off. CI reruns the queue specs in that layout.
 - **Actual:** `apps/worker/src` contains only `main.ts`, `app.module.ts` and an `echo` module. README describes the worker as "NestJS + BullMQ processors, same modules as api"; queue processors (alert engine, webhooks, …) actually live in the API process.
 - **Verified:** all 10 BullMQ processors (`alert-engine`, `calculation-engine`, `escalation`, `insights`, `reembed`, `notification-digest`, `notification-retry`, `onboarding-cleanup`, `scheduled-report`, `outbound-webhook`) are registered in `apps/api`. The worker registers only an `echo` processor. Background work therefore runs in the API process — it works (alerts, emails and reports were delivered in Part 1), but there's no isolation or independent scaling, and the worker deployable is dead weight.
 

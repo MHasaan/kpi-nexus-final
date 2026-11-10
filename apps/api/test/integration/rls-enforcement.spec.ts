@@ -244,6 +244,16 @@ describe('RLS — kpi_system and the catalog', () => {
           WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity`,
       );
       expect(noRls.rows.map((r) => r.relname)).toEqual([]);
+      // Migrated databases (production) also hold Prisma's history; the
+      // runtime roles must not touch it (OT-011).
+      const history = await owner.query(`SELECT to_regclass('public._prisma_migrations') AS t`);
+      if (history.rows[0].t) {
+        const grants = await owner.query(
+          `SELECT grantee FROM information_schema.role_table_grants
+            WHERE table_name = '_prisma_migrations' AND grantee IN ('kpi_app', 'kpi_system')`,
+        );
+        expect(grants.rowCount).toBe(0);
+      }
       const bypass = await owner.query(`SELECT 1 FROM pg_policies WHERE policyname = 'service_role_bypass'`);
       expect(bypass.rowCount).toBe(0);
       const tenant = await owner.query<{ n: number }>(
@@ -251,10 +261,12 @@ describe('RLS — kpi_system and the catalog', () => {
       );
       expect(tenant.rows[0]!.n).toBeGreaterThanOrEqual(75);
       // FORCE binds the owner too — every RLS table except KPIDataPoint, whose
-      // continuous aggregates are refreshed as the owner (stage C).
+      // continuous aggregates are refreshed as the owner (stage C), and
+      // Prisma's migration history, which the owner's `migrate deploy` writes.
       const notForced = await owner.query<{ relname: string }>(
         `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity AND NOT c.relforcerowsecurity`,
+          WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity AND NOT c.relforcerowsecurity
+            AND c.relname <> '_prisma_migrations'`,
       );
       expect(notForced.rows.map((r) => r.relname)).toEqual(['KPIDataPoint']);
     } finally {

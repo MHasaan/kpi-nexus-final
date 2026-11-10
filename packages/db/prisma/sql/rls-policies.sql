@@ -242,10 +242,27 @@ BEGIN
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity
-      AND c.relname <> 'KPIDataPoint'
+      AND c.relname NOT IN ('KPIDataPoint', '_prisma_migrations')
   LOOP
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
   END LOOP;
 END
 $$;
 ALTER TABLE "KPIDataPoint" NO FORCE ROW LEVEL SECURITY;
+
+-- ---------------------------------------------------------------------------
+-- Prisma's migration history (OT-011). Only databases built with
+-- `migrate deploy` (production, release-db.mjs) have it. It is not tenant data,
+-- but the blanket grants above would let the runtime roles read or rewrite
+-- it. Revoke them and enable RLS with no policy; it is not FORCEd, so the
+-- owner running `migrate deploy` still sees it.
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
+    REVOKE ALL ON TABLE public._prisma_migrations FROM kpi_app, kpi_system;
+    ALTER TABLE public._prisma_migrations ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public._prisma_migrations NO FORCE ROW LEVEL SECURITY;
+  END IF;
+END
+$$;

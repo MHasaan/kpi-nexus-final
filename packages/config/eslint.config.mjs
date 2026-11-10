@@ -32,4 +32,18 @@ export default tseslint.config(
       'sort-imports': ['warn', { ignoreDeclarationSort: true }],
     },
   },
+  {
+    // Plain Node scripts have no TypeScript lib to declare Node's globals.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        URL: 'readonly',
+        clearTimeout: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
+  },
 );

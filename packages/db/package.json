@@ -13,7 +13,12 @@
     "./sql/extensions": "./prisma/sql/extensions.sql",
     "./sql/rls-policies": "./prisma/sql/rls-policies.sql"
   },
-  "files": ["dist", "src", "prisma"],
+  "files": [
+    "dist",
+    "src",
+    "prisma",
+    "scripts"
+  ],
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
@@ -24,16 +29,19 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push --skip-generate",
     "prisma:studio": "prisma studio",
-    "prisma:reset": "prisma migrate reset --force"
+    "prisma:reset": "prisma migrate reset --force",
+    "check-migrations": "node scripts/check-migrations.mjs",
+    "release": "node scripts/release-db.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "pg": "^8.13.0",
+    "prisma": "^6.1.0"
   },
   "devDependencies": {
     "@kpi-nexus/config": "workspace:*",
     "@kpi-nexus/contracts": "workspace:*",
     "@types/node": "^20.12.0",
-    "prisma": "^6.1.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
     "vitest": "^1.6.0"

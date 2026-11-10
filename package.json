@@ -15,6 +15,8 @@
     "test:int": "turbo test:int",
     "test:e2e": "turbo test:e2e",
     "db:setup": "node --env-file=.env scripts/setup-db.mjs",
+    "db:release": "pnpm --filter @kpi-nexus/db release",
+    "db:check-migrations": "pnpm --filter @kpi-nexus/db check-migrations",
     "db:migrate": "pnpm --filter @kpi-nexus/db exec prisma migrate dev",
     "db:generate": "pnpm --filter @kpi-nexus/db exec prisma generate",
     "db:studio": "pnpm --filter @kpi-nexus/db exec prisma studio",

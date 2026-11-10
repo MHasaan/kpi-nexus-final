@@ -227,6 +227,11 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     // 5. Settings is likewise guarded.
     await page.goto('/settings/organization');
     await expect(page).toHaveURL(/\/unauthorized$/);
+
+    for (const route of ['/reports', '/reports/board-pack', '/reports/missing-report', '/org-units']) {
+      await page.goto(route);
+      await expect(page).toHaveURL(/\/unauthorized$/);
+    }
   });
 
   // -----------------------------------------------------------------------

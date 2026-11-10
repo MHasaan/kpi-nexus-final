@@ -6,14 +6,14 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 
 - **6 capability domains**: Tenancy/Identity, Org Modeling, KPI Engine, Visualization/Reporting, Intelligence (AI), Collaboration/Workflow
 - **Scale target**: multiple tenants, 1M+ data points per tenant, sub-100ms dashboard queries via TimescaleDB
-- **Status**: P0 (Foundation) merged to master 2026-05-25. P1 (Identity + RBAC) is next. See [ROADMAP](./ROADMAP.md).
+- **Status**: P0–P9 are implemented on `main`. See [ROADMAP](./ROADMAP.md) for the phases and [HANDOFF](./HANDOFF.md) for verification and remaining work.
 
 ## Stack (locked)
 
 - **Monorepo**: pnpm + Turborepo
-- **Frontend**: Next.js 15 (App Router, RSC) — deploys to Vercel
-- **Backend API**: NestJS 11 on Fastify — deploys to Fly.io
-- **Background workers**: NestJS + BullMQ — separate process on Fly.io
+- **Frontend**: Next.js 15 (App Router, RSC). Vercel configuration is deferred.
+- **Backend API**: NestJS 11 on Fastify. Fly.io configuration is deferred.
+- **Background workers**: NestJS + BullMQ. Product queues run in the API. The separate worker is an echo scaffold.
 - **ML sidecar**: Python FastAPI (Prophet, ARIMA, IsolationForest, what-if) — Fly.io
 - **Database**: PostgreSQL 16 + TimescaleDB + pgvector, self-hosted on Fly.io with persistent volume
 - **Cache & queue**: Redis 7 — Upstash (managed)
@@ -113,7 +113,7 @@ pnpm --filter @kpi-nexus/web exec playwright install chromium  # one-time
 pnpm --filter @kpi-nexus/web test:e2e
 
 # Database
-pnpm db:migrate     # apply migrations (after P1 lands models)
+pnpm db:migrate     # create or apply local Prisma migrations
 pnpm db:studio      # Prisma Studio at :5555
 pnpm db:reset       # nuke + reseed (destructive)
 

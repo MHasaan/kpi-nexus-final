@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 
 import { EchoModule } from './echo/echo.module.js';
+import { bullConnectionFromUrl } from './redis-connection.js';
 
 @Module({
   imports: [
@@ -25,18 +26,9 @@ import { EchoModule } from './echo/echo.module.js';
       },
     }),
     BullModule.forRootAsync({
-      useFactory: () => {
-        const url = new URL(
-          process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
-        );
-        return {
-          connection: {
-            host: url.hostname,
-            port: Number(url.port || 6379),
-            password: url.password || undefined,
-          },
-        };
-      },
+      useFactory: () => ({
+        connection: bullConnectionFromUrl(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'),
+      }),
     }),
     EchoModule,
   ],

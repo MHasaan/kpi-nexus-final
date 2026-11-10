@@ -83,3 +83,17 @@ GitHub code-scanning API queried freshly: five open alerts. None was dismissed o
 - Sentry initializes only when configured. Its transitive OpenTelemetry packages include affected baggage and database instrumentation. Review the configured propagation and telemetry exposure before upgrading Sentry and OpenTelemetry together.
 - Prisma configuration, build-time CSS/source maps and test tooling have no demonstrated public input path in this project. ExcelJS calls UUID v4, outside the advisory's v3/v5/v6 calls with caller buffers. The configured tracing exporter is OTLP over HTTP and has no user-controlled protobuf schema.
 - This recheck records version remedies. Dependency pins were not changed in the email or audit tooling commits. The existing GitHub advisory job is nonblocking, so a green Security workflow does not clear these advisory results.
+
+## Update — 2026-11-11: in-major patches applied
+
+Raised floors so the affected releases can no longer resolve: next 15.5.29 (covers the image-optimization RCE and Server Actions DoS advisories), undici 7.30.2, nodemailer 10.5.0, fastify 5.12.8 (dependency and root override) and fast-uri 3.1.9 (override). No major version moved; the lockfile otherwise only re-keyed ESLint's optional `jiti` peer and dropped `toad-cache`, which fastify 5.12.8 no longer uses.
+
+`pnpm audit --prod` now reports **40 advisories (3 critical, 12 high, 22 moderate, 3 low)**, down from 58. None of the five patched packages is flagged. What remains, per the classification above:
+
+| Package | Advisories | Status |
+|---|---|---|
+| vitest, tinypool, vite, esbuild | 3 critical, 1 high, 7 moderate, 2 low | Test/build tooling in the shared config package; needs the Vitest 4 migration (deferred PR #18) |
+| brace-expansion, js-yaml, minimatch, postcss-selector-parser, source-map-js | 9 high, 4 moderate, 1 low | Build/lint/config tooling; no runtime entry point demonstrated |
+| zod | 1 high | Request validation; fix requires the deferred Zod 4 migration (PR #20) |
+| deepmerge-ts, fast-copy, uuid, protobufjs | 1 high, 4 moderate | Transitive runtime paths reviewed above; no reachable input demonstrated |
+| @opentelemetry/core and six instrumentation packages | 7 moderate | Sentry/OpenTelemetry upgrade to be reviewed together (Dependabot #43) |

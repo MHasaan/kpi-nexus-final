@@ -8,6 +8,7 @@ import { AlertRulesModule } from './alert-rules/alert-rules.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { bullConnectionFromUrl } from './config/redis-connection.js';
 import { EscalationsModule } from './escalations/escalations.module.js';
 import { NotificationChannelsModule } from './notification-channels/notification-channels.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -97,16 +98,9 @@ import { RetentionModule } from './retention/retention.module.js';
       },
     }),
     BullModule.forRootAsync({
-      useFactory: () => {
-        const url = new URL(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
-        return {
-          connection: {
-            host: url.hostname,
-            port: Number(url.port || 6379),
-            password: url.password || undefined,
-          },
-        };
-      },
+      useFactory: () => ({
+        connection: bullConnectionFromUrl(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'),
+      }),
     }),
     PrismaModule,
     TenancyModule,

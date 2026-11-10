@@ -8,7 +8,7 @@
     3. Brings up local infra (Postgres/TimescaleDB, Redis, SeaweedFS S3, Mailhog, Jaeger).
     4. Provisions the database (prisma push + extensions).
     5. Starts the Python ML sidecar (:8000) in its own window.
-    6. Boots web (:3000) + api (:4000) + worker via `pnpm dev` (stays in foreground).
+    6. Boots web (:3000) + api (:4000, which also runs the queue processors) via `pnpm dev` (stays in foreground).
 
   Run:  right-click -> Run with PowerShell, or double-click start.cmd
 #>
@@ -125,5 +125,5 @@ Write-Step "Booting the stack (pnpm dev)"
 Write-Host "  Web -> http://localhost:3000" -ForegroundColor Green
 Write-Host "  API -> http://localhost:4000/health" -ForegroundColor Green
 Write-Host "  ML  -> http://localhost:8000/health (separate window)" -ForegroundColor Green
-Write-Host "  Press Ctrl+C to stop the web/api/worker stack.`n" -ForegroundColor DarkGray
+Write-Host "  Press Ctrl+C to stop the web/api stack.`n" -ForegroundColor DarkGray
 pnpm dev

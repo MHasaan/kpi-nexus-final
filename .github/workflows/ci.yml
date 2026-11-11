@@ -202,12 +202,20 @@ jobs:
           while curl -sf http://localhost:4000/health >/dev/null; do sleep 1; done
           RUN_QUEUE_WORKERS=false nohup node dist/main.js > "$GITHUB_WORKSPACE/api-split.log" 2>&1 &
           nohup node dist/worker.js > "$GITHUB_WORKSPACE/worker.log" 2>&1 &
+          # Logs go through an async transport, so a line can land after /health
+          # answers: wait for all three signals, and show the logs if they never come.
+          ready=
           for i in $(seq 1 60); do
-            curl -sf http://localhost:4000/health >/dev/null && grep -q 'kpi-nexus-worker started' "$GITHUB_WORKSPACE/worker.log" && break
+            if curl -sf http://localhost:4000/health >/dev/null \
+              && grep -q 'Queue processors OFF' "$GITHUB_WORKSPACE/api-split.log" \
+              && grep -q 'kpi-nexus-worker started' "$GITHUB_WORKSPACE/worker.log"; then
+              ready=1; break
+            fi
             sleep 2
           done
-          grep -q 'Queue processors OFF' "$GITHUB_WORKSPACE/api-split.log"
-          grep -q 'kpi-nexus-worker started' "$GITHUB_WORKSPACE/worker.log"
+          if [ -z "$ready" ]; then
+            echo "Split mode did not start"; tail -n 40 "$GITHUB_WORKSPACE/api-split.log" "$GITHUB_WORKSPACE/worker.log"; exit 1
+          fi
           pnpm exec vitest run --config vitest.int.config.ts \
             test/integration/alerting.spec.ts \
             test/integration/scheduled-report.spec.ts \

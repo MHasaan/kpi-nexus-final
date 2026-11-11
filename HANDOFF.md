@@ -241,13 +241,14 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 Main `2bb0e7e` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51) and the deploy config (#52, #53). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
+0. **Free-tier hosting ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md)), in progress.** Production moves to Vercel Hobby plus one Oracle Cloud Always Free VM with Docker Compose and an automatic deploy on merge; the Fly.io config is removed once that works. Planned as PRs: ADR → arm64 images → `infra/prod` compose → `deploy.yml` → VM bootstrap and runbook → remove Fly → closure.
 1. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
 2. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
 3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
 4. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
 5. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
 
-When going live (needs accounts, so it is the user's step): pick a Redis plan first (idle BullMQ polling is about 1.3 M commands a day, beyond the Upstash free tier), follow `infra/fly/README.md` in order, and after the first successful deploy add a `push` trigger to `.github/workflows/release.yml`. Set up database backups before real tenants arrive.
+Until item 0 lands, `infra/fly/README.md` still describes the superseded Fly.io path; don't deploy with it.
 
 Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 

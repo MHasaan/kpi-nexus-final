@@ -948,6 +948,8 @@ Env via `.env` files per app; `packages/config/env.ts` exports typed env getters
 
 ### 10.2 Deployment
 
+*Amended 2026-11-11 by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md). The table below is the original target. Production now runs the web app on Vercel Hobby and everything else on one Oracle Cloud Always Free ARM VM with Docker Compose (`infra/prod/`); files and backups go to Oracle Object Storage, email through Brevo, images to GHCR. Fly.io had no free tier, and BullMQ's idle polling (about 1.3 M Redis commands a day) exceeds Upstash's free tier.*
+
 | Service | Host | Notes |
 |---|---|---|
 | `apps/web` | Vercel (free tier) | Next.js native; instant deploys; automatic preview URLs per PR |
@@ -968,7 +970,7 @@ GitHub Actions (`.github/workflows/`):
 - `cross-tenant-fuzz.yml` — parameterized harness, every PR
 - `security.yml` — gitleaks + CodeQL + npm audit
 - `lighthouse.yml` — lighthouse-ci against preview deploy
-- `release.yml` — on push to main, deploy web to Vercel + api/worker/ml to Fly.io
+- `release.yml` — on push to main, deploy web to Vercel + api/worker/ml to Fly.io. *Amended 2026-11-11 by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md): `deploy.yml` runs after CI and Security pass on main, builds arm64 images to GHCR, releases the database and starts them on the VM over SSH, checks `/health` for the new SHA and rolls back if it fails. Vercel's Git integration deploys the web app.*
 
 Migrations: `prisma migrate deploy` on every deploy (never on app boot). Backward-compatible discipline (add nullable → backfill → make NOT NULL in next migration; rename via dual-write across 3 releases).
 
@@ -1192,7 +1194,7 @@ Future "Claude Design" session produces:
 1. **Plan basis**: fresh start; ignores the existing `another/todo.md` blueprint and partial implementation
 2. **Success target**: production-quality multi-tenant SaaS
 3. **AI provider**: Gemini default (free tier with key rotation) + multi-provider abstraction (Claude/OpenAI/Ollama pluggable) from day one
-4. **Deployment**: Docker locally for dev + Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod
+4. **Deployment**: Docker locally for dev + Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod. *Amended 2026-11-11 by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md): Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM running api, worker, ml, Postgres, Redis and Caddy with Docker Compose; Oracle Object Storage, Brevo SMTP, DuckDNS, GHCR.*
 5. **Stack**: NestJS 11 (Fastify) API + Next.js 15 (App Router) web + Python FastAPI ML sidecar + Postgres 16 + TimescaleDB (self-hosted) + pgvector + Redis + Prisma 6 + Zod + Pino + OTel + Sentry
 6. **Scope**: maximum — all current-app features + high-value additions + enterprise features (~30 module surfaces)
 7. **Permissions**: 18 canonical (locked)

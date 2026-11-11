@@ -47,7 +47,7 @@ These are locked in `docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md
 4. 18 canonical permissions (locked enum)
 5. KPI scope is first-class: ORG_WIDE / PER_UNIT / PER_USER
 6. Default AI budget: $1/day, $30/month per org
-7. Deployment: Vercel (web) + Fly.io (api/worker/ml/postgres) + Upstash (redis)
+7. Deployment: Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM (api/worker/ml/postgres/redis via Docker Compose). Replaced Fly.io + Upstash by [ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md)
 8. Local dev: docker-compose with all dependencies
 9. Testing: Vitest + Playwright + Testcontainers; cross-tenant fuzz on every PR
 10. Observability: Pino + OpenTelemetry + Sentry

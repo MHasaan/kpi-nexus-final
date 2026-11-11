@@ -15,7 +15,14 @@
 #   4. Web, built against this API like Vercel would:
 #        NEXT_PUBLIC_API_URL=http://127.0.0.1:4400 pnpm turbo build --filter=@kpi-nexus/web...
 #        pnpm --filter @kpi-nexus/web exec next start -p 3400
-#   5. $R --profile release down -v   (drops the rehearsal volumes)
+#   5. deploy.sh, as the workflow runs it on the VM: push images tagged with a
+#      40-character tag to a throwaway registry (registry:2 on 127.0.0.1:35000),
+#      ln -s rehearsal.env .env, then
+#        COMPOSE_PROJECT_NAME=kpi-prod-rehearsal COMPOSE_FILE=docker-compose.yml:rehearsal.override.yml \
+#        REGISTRY=localhost:35000 HEALTH_URL=https://api.kpi-nexus.localhost:38443/health \
+#        HEALTH_CURL_ARGS="-k --resolve api.kpi-nexus.localhost:38443:127.0.0.1" ./deploy.sh <tag> rehearsal
+#      (the same variables let backup.sh and restore.sh drill find this stack)
+#   6. $R --profile release down -v   (drops the rehearsal volumes)
 #
 # The rehearsal publishes the database, Redis and the API on 127.0.0.1 so the
 # integration and browser suites can reach them; production publishes nothing

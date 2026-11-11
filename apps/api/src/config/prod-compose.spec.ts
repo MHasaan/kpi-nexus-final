@@ -182,7 +182,13 @@ describe('infra/prod env templates', () => {
 
   test('settings files are git-ignored, templates are not', () => {
     const ignore = read('.gitignore');
-    for (const f of ['infra/prod/.env', 'infra/prod/app.env', 'infra/prod/rehearsal.env', 'infra/prod/rehearsal.app.env']) {
+    for (const f of [
+      'infra/prod/.env',
+      'infra/prod/app.env',
+      'infra/prod/rehearsal.env',
+      'infra/prod/rehearsal.app.env',
+      'infra/prod/current-tag',
+    ]) {
       expect(ignore.split('\n')).toContain(f);
     }
   });
@@ -210,6 +216,62 @@ describe('infra/prod backups', () => {
     for (const script of [backup, restore]) {
       expect(script).not.toMatch(/^\s*(source|\.)\s+\.?\/?\.env/m);
       expect(script).toContain('done < .env');
+    }
+  });
+});
+
+describe('.github/workflows/deploy.yml', () => {
+  const text = read('.github/workflows/deploy.yml');
+  const wf = parseYaml(text) as {
+    on: Record<string, { workflows?: string[]; branches?: string[]; inputs?: Record<string, unknown> } | null>;
+    jobs: Record<string, { if?: string; 'runs-on'?: string; needs?: string[] | string }>;
+  };
+
+  test('deploys only after CI succeeded on a push to main in this repository', () => {
+    expect(wf.on.workflow_run?.workflows).toEqual(['CI']);
+    expect(wf.on.workflow_run?.branches).toEqual(['main']);
+    const gate = wf.jobs.gate?.if ?? '';
+    expect(gate).toContain("github.event.workflow_run.conclusion == 'success'");
+    expect(gate).toContain("github.event.workflow_run.event == 'push'");
+    expect(gate).toContain('github.event.workflow_run.head_repository.full_name == github.repository');
+    expect(text).toContain('git merge-base --is-ancestor "$sha" origin/main');
+    expect(text).toContain('--workflow Security');
+  });
+
+  test('can redeploy any earlier commit by hand (rollback)', () => {
+    expect(wf.on.workflow_dispatch?.inputs).toHaveProperty('sha');
+  });
+
+  test('nothing is pushed or deployed until all four deploy secrets exist', () => {
+    for (const s of ['DEPLOY_HOST', 'DEPLOY_USER', 'DEPLOY_SSH_KEY', 'DEPLOY_KNOWN_HOSTS']) {
+      expect(text).toContain(`secrets.${s} != ''`);
+    }
+    expect(text).toMatch(/if \[ "\$HAS_SECRETS" != true \]; then[\s\S]*?echo "deploy=false"/);
+    expect(text).toContain("if: env.PUSH == 'true'");
+  });
+
+  test('pull requests build without pushing or deploying', () => {
+    expect(text).toMatch(/pull_request\) echo "sha=\$PR_SHA" >> "\$GITHUB_OUTPUT"; echo "deploy=false"/);
+    expect(wf.jobs.deploy?.if).toBe("needs.gate.outputs.deploy == 'true'");
+    expect(text).toContain('if [ "$PUSH" = true ]; then docker push "$ref"; fi');
+  });
+
+  test('builds on native arm64 the same images the compose file runs', () => {
+    expect(wf.jobs.images?.['runs-on']).toBe('ubuntu-24.04-arm');
+    for (const image of ['kpi-nexus-api', 'kpi-nexus-ml', 'kpi-nexus-db']) {
+      expect(text).toContain(`build ${image} `);
+      expect(composeText).toContain(`/${image}:`);
+    }
+    expect(text).toContain('--build-arg APP_VERSION="$SHA"');
+    expect(text).toContain('git rev-parse HEAD:infra/fly/postgres');
+  });
+
+  test('SSH pins the host key and runs deploy.sh with the commit and database tags', () => {
+    expect(text).toContain('StrictHostKeyChecking=yes');
+    expect(text).not.toContain('StrictHostKeyChecking=no');
+    expect(text).toContain(`/srv/kpi-nexus/deploy.sh '$SHA' '$DB_TAG'`);
+    for (const file of ['docker-compose.yml', 'Caddyfile', 'deploy.sh', 'backup.sh', 'restore.sh']) {
+      expect(text).toContain(`infra/prod/${file}`);
     }
   });
 });

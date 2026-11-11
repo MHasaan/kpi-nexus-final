@@ -1,0 +1,185 @@
+name: Deploy
+
+# Production deploy (ADR-001): arm64 images to GHCR, then infra/prod/deploy.sh
+# on the Oracle Always Free VM over SSH. Vercel deploys the web app itself
+# through its Git integration.
+#
+#   - after CI passes on main (and Security passed on the same commit): deploy it
+#   - Run workflow with a commit SHA from main: deploy that one (rollback)
+#   - on pull requests that touch the images: build only, nothing is pushed
+#
+# Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
+# (docs/deploy.md). Until they are set, nothing is pushed or deployed: the
+# images are only built, and the run ends with a notice.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full commit SHA on main to deploy (e.g. a previous one, to roll back)
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - apps/api/**
+      - apps/ml/**
+      - packages/**
+      - infra/prod/**
+      - infra/fly/postgres/**
+      - pnpm-lock.yaml
+      - .github/workflows/deploy.yml
+
+# One deploy at a time, never cancelled half-way; pull request builds apart.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('deploy-pr-{0}', github.event.pull_request.number) || 'deploy-production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/mhasaan
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    # A CI run triggered by a pull request whose branch is called main, or from
+    # a fork, must never deploy.
+    if: >-
+      github.event_name != 'workflow_run' || (
+        github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push'
+        && github.event.workflow_run.head_repository.full_name == github.repository)
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      deploy: ${{ steps.pick.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          HAS_SECRETS: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' && secrets.DEPLOY_KNOWN_HOSTS != '' }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.sha }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          case "$EVENT" in
+            pull_request) echo "sha=$PR_SHA" >> "$GITHUB_OUTPUT"; echo "deploy=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            workflow_run) sha="$RUN_SHA" ;;
+            workflow_dispatch) sha="$INPUT_SHA" ;;
+          esac
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::not a full commit SHA: $sha"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not on main"; exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_SECRETS" != true ]; then
+            echo "::notice::Deploy secrets are not set; building only, nothing pushed or deployed (docs/deploy.md)"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+      # CI is what triggered this run; Security runs beside it on the same
+      # commit and must have passed too.
+      - name: Security passed on this commit
+        if: steps.pick.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: |
+          for _ in $(seq 1 60); do
+            result="$(gh run list --workflow Security --commit "$SHA" --event push --limit 1 \
+              --json status,conclusion -q '.[0] | "\(.status) \(.conclusion)"')"
+            case "$result" in
+              "completed success") echo "Security passed"; exit 0 ;;
+              completed*) echo "::error::Security did not pass on $SHA ($result)"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::Security never finished on $SHA"; exit 1
+
+  images:
+    needs: gate
+    # Native arm64: the VM is Ampere A1.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      db_tag: ${{ steps.tags.outputs.db_tag }}
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}
+      PUSH: ${{ needs.gate.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      # The database image is tagged by its folder's content, so a deploy that
+      # didn't change it doesn't restart Postgres.
+      - id: tags
+        run: echo "db_tag=$(git rev-parse HEAD:infra/fly/postgres)" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        if: env.PUSH == 'true'
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Build and push (existing tags are reused, so a rollback rebuilds nothing)
+        env:
+          DB_TAG: ${{ steps.tags.outputs.db_tag }}
+        run: |
+          build() { # image tag context [docker build args...]
+            local ref="$REGISTRY/$1:$2"
+            if [ "$PUSH" = true ] && docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "$ref already exists"; return
+            fi
+            docker build -t "$ref" --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$SHA" "${@:4}" "$3"
+            if [ "$PUSH" = true ]; then docker push "$ref"; fi
+          }
+          build kpi-nexus-api "$SHA" . -f apps/api/Dockerfile --build-arg APP_VERSION="$SHA"
+          build kpi-nexus-ml "$SHA" apps/ml
+          build kpi-nexus-db "$DB_TAG" infra/fly/postgres
+
+  deploy:
+    needs: [gate, images]
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-24.04
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}
+      DB_TAG: ${{ needs.images.outputs.db_tag }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: SSH key and pinned host key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      # The host key is pinned (DEPLOY_KNOWN_HOSTS); an unknown key fails.
+      - name: Copy the stack files and deploy
+        run: |
+          ssh_opts=(-i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o BatchMode=yes)
+          scp "${ssh_opts[@]}" infra/prod/docker-compose.yml infra/prod/Caddyfile \
+            infra/prod/deploy.sh infra/prod/backup.sh infra/prod/restore.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:/srv/kpi-nexus/"
+          # SHA and DB_TAG expand here on purpose; both are validated hex/tree ids.
+          # shellcheck disable=SC2029
+          ssh "${ssh_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 755 /srv/kpi-nexus/*.sh && /srv/kpi-nexus/deploy.sh '$SHA' '$DB_TAG'"
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

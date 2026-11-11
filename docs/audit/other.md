@@ -129,11 +129,13 @@ Decision record: [tenant-isolation plan](../superpowers/specs/2026-10-09-tenant-
 - `LoginAttempt.ipAddress` is empty for attempts (checked after a failed login) → the security audit trail has no IPs.
 - **Expected:** set `trustProxy` to the real proxy hop count / CIDR via env; record `req.ip` on login attempts.
 
-### OT-011 · Low · Deployment config promised by the README doesn't exist; local images are unpinned — 🟡 PARTIAL
+### OT-011 · Low · Deployment config promised by the README doesn't exist; local images are unpinned — ✅ FIXED (config written and rehearsed; not deployed live)
 - **Fix (`44676f2`):** images pinned (tag@digest / v1.0.1).
 - **Found while fixing — data loss:** Postgres was mounted at `/var/lib/postgresql/data`, but timescaledb-ha uses `/home/postgres/pgdata/data`, so the DB lived in the container layer and vanished on any recreate. The pin triggered exactly that and wiped the local dev DB (rebuilt from the Helios seed; backup `C:workFYPkhanackupskpi_nexus-2026-10-08-helios-reseed.dump`). Now a named volume at `/home/postgres/pgdata`; force-recreate verified to keep data.
 - **MinIO replaced (SeaweedFS 4.48, Apache-2.0):** MinIO stopped publishing pullable community images, so a fresh machine could not start the stack. The `s3` service runs `weed mini` with an S3 gateway on :9000 (auth via `infra/docker/seaweedfs-s3.json`), data in the named volume at the image's `/data`. No code change (plain S3 SDK). Verified: authenticated put + 7-day presigned get, unsigned/wrong-key rejected, scheduled-report integration (2/2) and the report CSV downloads.
-- **Open:** deploy config (`infra/fly`) still not written.
+- **Deploy config (`b3aa0fb`, `36e48bc`, `356518a`; merged in #52 and #53):** `apps/api/Dockerfile` (API + worker image with the production database release, `prisma migrate deploy` + the SQL files); `infra/fly/` (`api.toml` with `app` and `worker` process groups and a `release_command`, `ml.toml`, `postgres.toml` plus a wrapper image with a non-superuser schema owner); `apps/web/vercel.json`; `.github/workflows/release.yml` (manual only until the first live deploy). Rehearsed in production-mode containers (`infra/docker/prod-rehearsal.compose.yml`). Fixed on the way: DR-001..DR-006 (fix log).
+- **Not verified:** nothing has been deployed to Fly.io or Vercel, and Upstash, R2 and Resend were stood in for by local services. Idle BullMQ polling needs about 1.3 M Redis commands a day, beyond the Upstash free tier; choose a plan before going live (`infra/fly/README.md`).
+- **Original finding (historical):**
 - `infra/fly/` and `infra/github/` are empty directories; the README describes "fly.toml per service" and the stack as deploying to Fly.io / Vercel. There is no deploy config in the repo.
 - `infra/docker/docker-compose.yml` uses moving tags: `minio/minio:latest`, `mailhog/mailhog:latest` (unmaintained since 2020), `jaegertracing/all-in-one:latest`, `timescale/timescaledb-ha:pg16`. The Postgres log already warns `timescaledb extension is not up-to-date (2.26.4 vs 2.30.2)`.
 

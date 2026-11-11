@@ -1,0 +1,8 @@
+# HTTPS front for the API (ADR-001). Caddy gets and renews the certificate for
+# API_DOMAIN (the DuckDNS name) by itself; ports 80 and 443 must be open.
+# The local rehearsal sets CADDY_TLS="tls internal" to use Caddy's own CA.
+{$API_DOMAIN} {
+	{$CADDY_TLS}
+	encode zstd gzip
+	reverse_proxy api:4000
+}

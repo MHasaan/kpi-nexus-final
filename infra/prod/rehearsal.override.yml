@@ -1,0 +1,69 @@
+# Local production rehearsal (ADR-001), never for day-to-day dev. Runs the
+# production compose with images built here and local stand-ins: SeaweedFS for
+# Object Storage, MailHog for Brevo, and Caddy's own CA instead of Let's
+# Encrypt. Uses its own project name, ports (+30000) and volumes.
+#
+#   1. cp rehearsal.env.example rehearsal.env; cp rehearsal.app.env.example rehearsal.app.env
+#      and fill both (generator commands inside; both files are git-ignored)
+#   2. R="docker compose -p kpi-prod-rehearsal --env-file rehearsal.env -f docker-compose.yml -f rehearsal.override.yml"
+#      $R build
+#      $R up -d postgres redis ml s3 mailhog
+#      $R --profile release run --rm release      (twice: a deploy re-runs it)
+#      $R up -d
+#   3. https://api.kpi-nexus.localhost:38443/health  (curl -k, or trust Caddy's root CA)
+#      API direct for the test suites: http://127.0.0.1:4400
+#   4. Web, built against this API like Vercel would:
+#        NEXT_PUBLIC_API_URL=http://127.0.0.1:4400 pnpm turbo build --filter=@kpi-nexus/web...
+#        pnpm --filter @kpi-nexus/web exec next start -p 3400
+#   5. $R --profile release down -v   (drops the rehearsal volumes)
+#
+# The rehearsal publishes the database, Redis and the API on 127.0.0.1 so the
+# integration and browser suites can reach them; production publishes nothing
+# but Caddy. Object Storage is published on the docker0 address (172.17.0.1),
+# which both the containers and this machine can reach, so presigned download
+# links work from the browser.
+
+services:
+  postgres:
+    build: ../fly/postgres
+    ports: ["127.0.0.1:35432:5432"]
+
+  redis:
+    ports: ["127.0.0.1:36379:6379"]
+
+  ml:
+    build: ../../apps/ml
+
+  release:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      args: { APP_VERSION: "${IMAGE_TAG:?}" }
+    env_file: !override [rehearsal.app.env]
+
+  api:
+    env_file: !override [rehearsal.app.env]
+    ports: ["127.0.0.1:4400:4000"]
+
+  worker:
+    env_file: !override [rehearsal.app.env]
+
+  caddy:
+    ports: !override ["127.0.0.1:38080:80", "127.0.0.1:38443:443"]
+
+  s3:
+    image: chrislusf/seaweedfs:latest@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d # 4.48
+    command: [mini, -dir=/data, -s3.port=9000, -s3.config=/etc/seaweedfs/s3.json, -bucket=kpi-nexus-local, -master.telemetry=false]
+    ports: ["172.17.0.1:39000:9000", "127.0.0.1:39000:9000"]
+    volumes:
+      - s3data:/data
+      - ../docker/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    networks: [internal]
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ["127.0.0.1:31025:1025", "127.0.0.1:38025:8025"]
+    networks: [internal]
+
+volumes:
+  s3data:

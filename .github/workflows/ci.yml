@@ -21,6 +21,19 @@ env:
 # runtime (no deprecation annotations).
 
 jobs:
+  # OT-011: the API/worker image Fly deploys. Build only; no registry push.
+  api-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build apps/api/Dockerfile
+        run: docker build -f apps/api/Dockerfile -t kpi-nexus-api:ci .
+      - name: Image runs as non-root and carries the release script
+        run: |
+          test "$(docker run --rm kpi-nexus-api:ci id -un)" = node
+          docker run --rm kpi-nexus-api:ci test -f node_modules/@kpi-nexus/db/scripts/release-db.mjs
+          docker run --rm kpi-nexus-api:ci test -f dist/worker.js
+
   node:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest
@@ -108,7 +121,7 @@ jobs:
       RATE_LIMIT_ONBOARDING_START_PER_HOUR: '1000'
       RATE_LIMIT_ONBOARDING_AI_PER_HOUR: '1000'
       # Row-level security enforced (OT-014): requests run as kpi_app, system
-      # work as kpi_system. db:setup creates both roles with these passwords.
+      # work as kpi_system. The database release creates both roles with these passwords.
       RLS_ENFORCED: 'true'
       KPI_APP_DB_PASSWORD: ci_only_app_password
       KPI_SYSTEM_DB_PASSWORD: ci_only_system_password
@@ -140,8 +153,17 @@ jobs:
           done
           docker logs kpi-ci-s3
           exit 1
-      - name: Database schema, RLS policies, hypertables
-        run: pnpm db:setup
+      - name: Prisma client
+        run: pnpm db:generate
+      # The production path (OT-011): append-only migrations plus the shared SQL
+      # (RLS, hypertables, aggregates). Run twice — every deploy re-runs it.
+      - name: Database release (migrate deploy, RLS, hypertables), twice
+        run: |
+          pnpm db:release
+          pnpm db:release
+      # Local dev builds the schema with `db push`; the two must not drift.
+      - name: Migrations reproduce schema.prisma
+        run: pnpm db:check-migrations
       - name: Build API + web (and their workspace deps)
         run: pnpm turbo build --filter=@kpi-nexus/api... --filter=@kpi-nexus/web...
       # One canned JSON every AI parser accepts (guarded by

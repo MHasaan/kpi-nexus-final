@@ -1,0 +1,24 @@
+# Build context is the repo root (apps/api/Dockerfile). Keep it small and
+# never send local secrets or build output into an image.
+.git
+**/node_modules
+**/.turbo
+**/.next
+**/dist
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+**/coverage
+**/playwright-report
+**/test-results
+**/*.log
+.cache
+.remember
+memory
+docs
+setupScripts
+apps/ml
+apps/worker
+**/__pycache__
+**/.venv

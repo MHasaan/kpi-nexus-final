@@ -239,9 +239,9 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 ## 6. Next steps (in order)
 
-Main `2bb0e7e` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51) and the deploy config (#52, #53). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
+Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51), the deploy config (#52, #53) and free-tier hosting (#55–#60, ADR-001). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
-0. **Free-tier hosting ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md)), in progress.** Production moves to Vercel Hobby plus one Oracle Cloud Always Free VM with Docker Compose and an automatic deploy on merge; the Fly.io config is removed once that works. Planned as PRs: ADR → arm64 images → `infra/prod` compose → `deploy.yml` → VM bootstrap and runbook → remove Fly → closure.
+0. **Go live (the owner's step; needs accounts).** Follow [docs/deploy.md](docs/deploy.md): Oracle Free Tier VM (never upgraded), DuckDNS, Brevo, Object Storage, the four GitHub secrets, first deploy (make the three GHCR packages public), Vercel, then its *Check it* list including a backup restore drill. The config is done and rehearsed ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md), #55–#60); nothing has run on a real VM yet.
 1. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
 2. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
 3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.

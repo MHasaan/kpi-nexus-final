@@ -97,7 +97,8 @@ describe('infra/prod/deploy.sh', () => {
     expect(release).toBeGreaterThan(pull);
     expect(up).toBeGreaterThan(release);
     expect(run.calls[up]).toContain('DB_IMAGE_TAG=db-new');
-    expect(run.calls.some((c) => c.startsWith('curl ') && c.includes('https://api.example.test/health'))).toBe(true);
+    const healthUrls = run.calls.filter((c) => c.startsWith('curl ')).map((c) => c.split(' ').at(-1));
+    expect(healthUrls).toContain('https://api.example.test/health');
     expect(run.state).toBe(`${NEW} db-new`);
   });
 

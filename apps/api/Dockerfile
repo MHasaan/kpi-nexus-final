@@ -32,6 +32,9 @@ RUN apt-get update \
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
+# The deploy passes the commit SHA; GET /health reports it so a deploy can confirm what is live.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 USER node
 EXPOSE 4000
 CMD ["node", "--import", "./dist/instrumentation.js", "dist/main.js"]

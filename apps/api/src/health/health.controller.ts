@@ -23,6 +23,8 @@ function bounded(ping: () => Promise<boolean>): Promise<boolean> {
 export interface HealthResponse {
   db: 'ok' | 'down';
   redis: 'ok' | 'down';
+  /** Build identifier (the commit SHA in deployed images), so a deploy can confirm what is live. */
+  version: string;
 }
 
 export interface ComponentStatus {
@@ -52,6 +54,7 @@ export class HealthController {
     return {
       db: db ? 'ok' : 'down',
       redis: redis ? 'ok' : 'down',
+      version: process.env.APP_VERSION || 'dev',
     };
   }
 

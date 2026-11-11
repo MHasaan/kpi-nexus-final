@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { DbHealthService } from './db-health.service.js';
 import { HealthController } from './health.controller.js';
@@ -20,17 +20,19 @@ function makeController(
 describe('HealthController', () => {
   test('reports ok for both services when both ping succeed', async () => {
     const controller = makeController(true, true);
-    expect(await controller.check()).toEqual({ db: 'ok', redis: 'ok' });
+    expect(await controller.check()).toEqual({ db: 'ok', redis: 'ok', version: 'dev' });
   });
 
   test('reports down for the failing service only', async () => {
     expect(await makeController(false, true).check()).toEqual({
       db: 'down',
       redis: 'ok',
+      version: 'dev',
     });
     expect(await makeController(true, false).check()).toEqual({
       db: 'ok',
       redis: 'down',
+      version: 'dev',
     });
   });
 
@@ -38,7 +40,28 @@ describe('HealthController', () => {
     expect(await makeController(false, false).check()).toEqual({
       db: 'down',
       redis: 'down',
+      version: 'dev',
     });
+  });
+});
+
+describe('HealthController version', () => {
+  const original = process.env.APP_VERSION;
+  afterEach(() => {
+    if (original === undefined) delete process.env.APP_VERSION;
+    else process.env.APP_VERSION = original;
+  });
+
+  test('reports APP_VERSION so a deploy can confirm which build is live', async () => {
+    process.env.APP_VERSION = '4fbe79fe94bf7397c1a3a3b170cc044182504b80';
+    expect((await makeController(true, true).check()).version).toBe('4fbe79fe94bf7397c1a3a3b170cc044182504b80');
+  });
+
+  test('reports dev when APP_VERSION is unset or empty', async () => {
+    delete process.env.APP_VERSION;
+    expect((await makeController(true, true).check()).version).toBe('dev');
+    process.env.APP_VERSION = '';
+    expect((await makeController(true, true).check()).version).toBe('dev');
   });
 });
 
@@ -115,7 +138,7 @@ describe('HealthController — a hung dependency reports "down" fast (BE-018)', 
       const redis = { ping: vi.fn(hang) } as unknown as RedisHealthService;
       const result = new HealthController(db, redis).check();
       await vi.advanceTimersByTimeAsync(2_000);
-      await expect(result).resolves.toEqual({ db: 'ok', redis: 'down' });
+      await expect(result).resolves.toEqual({ db: 'ok', redis: 'down', version: 'dev' });
     } finally {
       vi.useRealTimers();
     }

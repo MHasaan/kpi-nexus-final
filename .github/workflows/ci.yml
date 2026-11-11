@@ -22,19 +22,34 @@ env:
 
 jobs:
   # OT-011: the images Fly deploys. Build only; no registry push.
+  # Production runs on an ARM VM (ADR-001), so every image is built and checked
+  # on a native arm64 runner as well as amd64.
   api-image:
-    runs-on: ubuntu-latest
+    name: api-image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v7
       - name: Build apps/api/Dockerfile
-        run: docker build -f apps/api/Dockerfile -t kpi-nexus-api:ci .
+        run: docker build -f apps/api/Dockerfile --build-arg APP_VERSION="$GITHUB_SHA" -t kpi-nexus-api:ci .
       - name: Image runs as non-root and carries the release script
         run: |
           test "$(docker run --rm kpi-nexus-api:ci id -un)" = node
           docker run --rm kpi-nexus-api:ci test -f node_modules/@kpi-nexus/db/scripts/release-db.mjs
           docker run --rm kpi-nexus-api:ci test -f dist/worker.js
-      - name: Build the ML sidecar image (infra/fly/ml.toml)
-        run: docker build -t kpi-nexus-ml:ci apps/ml
+          test "$(docker run --rm kpi-nexus-api:ci uname -m)" = "$(uname -m)"
+          test "$(docker run --rm kpi-nexus-api:ci printenv APP_VERSION)" = "$GITHUB_SHA"
+      - name: ML sidecar image builds and answers /health
+        run: |
+          docker build -t kpi-nexus-ml:ci apps/ml
+          docker run -d --name ml -p 8000:8000 kpi-nexus-ml:ci
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && exit 0; sleep 2; done
+          docker logs ml; exit 1
       # A new Fly volume is root-owned; the image must still initialise there,
       # and the schema owner it creates must not be a superuser (OT-011).
       - name: Fly Postgres image boots on a root-owned volume
@@ -52,6 +67,16 @@ jobs:
             "SELECT rolsuper FROM pg_roles WHERE rolname = 'kpi_nexus'")" = f
           test "$(docker exec flydb psql -U postgres -d kpi_nexus -tAc \
             "SELECT count(*) FROM pg_extension WHERE extname IN ('timescaledb', 'vector')")" = 2
+      # The production database release, from the API image, on that database:
+      # once on an empty schema, then again (every deploy re-runs it).
+      - name: Database release from the image, twice
+        run: |
+          for run in 1 2; do
+            docker run --rm --network container:flydb \
+              -e DATABASE_URL=postgresql://kpi_nexus:ci-owner@127.0.0.1:5432/kpi_nexus \
+              -e KPI_APP_DB_PASSWORD=ci-app -e KPI_SYSTEM_DB_PASSWORD=ci-system \
+              kpi-nexus-api:ci node node_modules/@kpi-nexus/db/scripts/release-db.mjs
+          done
 
   node:
     name: ${{ matrix.task }}

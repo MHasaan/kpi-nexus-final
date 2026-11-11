@@ -11,12 +11,12 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 ## Stack (locked)
 
 - **Monorepo**: pnpm + Turborepo
-- **Frontend**: Next.js 15 (App Router, RSC). Vercel configuration is deferred.
-- **Backend API**: NestJS 11 on Fastify. Fly.io configuration is deferred.
+- **Frontend**: Next.js 15 (App Router, RSC) — Vercel Hobby
+- **Backend API**: NestJS 11 on Fastify — Oracle Cloud Always Free VM ([ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md))
 - **Background workers**: NestJS + BullMQ. Product queues run in the API. The separate worker is an echo scaffold.
-- **ML sidecar**: Python FastAPI (Prophet, ARIMA, IsolationForest, what-if) — Fly.io
-- **Database**: PostgreSQL 16 + TimescaleDB + pgvector, self-hosted on Fly.io with persistent volume
-- **Cache & queue**: Redis 7 — Upstash (managed)
+- **ML sidecar**: Python FastAPI (Prophet, ARIMA, IsolationForest, what-if) — same VM
+- **Database**: PostgreSQL 16 + TimescaleDB + pgvector, self-hosted on the VM with a persistent volume
+- **Cache & queue**: Redis 7 — on the VM
 - **ORM**: Prisma 6
 - **Validation**: Zod (shared between web and api via `packages/contracts`)
 - **Auth**: JWT + refresh-token rotation, MFA TOTP, SSO (SAML/OIDC) via WorkOS

@@ -99,6 +99,8 @@ describe('infra/prod/deploy.sh', () => {
     expect(run.calls[up]).toContain('DB_IMAGE_TAG=db-new');
     const healthUrls = run.calls.filter((c) => c.startsWith('curl ')).map((c) => c.split(' ').at(-1));
     expect(healthUrls).toContain('https://api.example.test/health');
+    // Through the local Caddy, not out to the public address and back.
+    expect(run.calls.find((c) => c.startsWith('curl '))).toContain('--resolve api.example.test:443:127.0.0.1');
     expect(run.state).toBe(`${NEW} db-new`);
   });
 

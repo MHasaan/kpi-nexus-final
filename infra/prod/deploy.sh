@@ -31,8 +31,10 @@ attempts="${HEALTH_ATTEMPTS:-30}"
 interval="${HEALTH_INTERVAL:-5}"
 api_domain="$(grep -E '^API_DOMAIN=' .env | head -n 1 | cut -d= -f2-)"
 health_url="${HEALTH_URL:-https://$api_domain/health}"
-# Extra curl arguments, only for the local rehearsal (e.g. its own CA).
-read -r -a health_args <<< "${HEALTH_CURL_ARGS:-}"
+# The check goes through Caddy and its real certificate, but to this machine
+# (127.0.0.1) rather than out to the public address and back. The rehearsal
+# replaces these arguments (its own CA and port).
+read -r -a health_args <<< "${HEALTH_CURL_ARGS:---resolve $api_domain:443:127.0.0.1}"
 
 previous=""
 previous_db=""

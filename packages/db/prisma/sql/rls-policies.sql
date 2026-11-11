@@ -43,7 +43,7 @@ $$;
 -- Pin the attributes every run, so a role that drifted is corrected. Only
 -- when they differ: changing SUPERUSER / BYPASSRLS needs a superuser, and in
 -- production the release runs as the non-superuser owner (OT-011), where the
--- roles were created correctly at first boot (infra/fly/postgres/initdb).
+-- roles were created correctly at first boot (infra/prod/postgres/initdb).
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'kpi_app'

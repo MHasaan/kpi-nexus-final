@@ -44,7 +44,7 @@ x-app: &app
 
 services:
   postgres:
-    # infra/fly/postgres: hands the volume to postgres, creates the
+    # infra/prod/postgres: hands the volume to postgres, creates the
     # non-superuser kpi_nexus owner, the database and the runtime roles on
     # first boot. Tagged by its own content, so a deploy that didn't change it
     # doesn't restart the database.

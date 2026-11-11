@@ -13,7 +13,7 @@ export interface SendEmailOptions {
  * Thin wrapper around nodemailer.
  * In dev, connects to Mailhog (SMTP_HOST/SMTP_PORT, no auth).
  * In production, configure SMTP_USER/SMTP_PASS for auth and SMTP_SECURE for
- * implicit TLS (see infra/fly/README.md).
+ * implicit TLS (port 465, as docs/deploy.md sets up for Brevo).
  */
 @Injectable()
 export class EmailService {

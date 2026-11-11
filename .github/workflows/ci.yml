@@ -21,7 +21,7 @@ env:
 # runtime (no deprecation annotations).
 
 jobs:
-  # OT-011: the images Fly deploys. Build only; no registry push.
+  # OT-011 / ADR-001: the production images. Build only; no registry push.
   # Production runs on an ARM VM (ADR-001), so every image is built and checked
   # on a native arm64 runner as well as amd64.
   api-image:
@@ -50,29 +50,29 @@ jobs:
           docker run -d --name ml -p 8000:8000 kpi-nexus-ml:ci
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && exit 0; sleep 2; done
           docker logs ml; exit 1
-      # A new Fly volume is root-owned; the image must still initialise there,
+      # A new volume can be root-owned; the image must still initialise there,
       # and the schema owner it creates must not be a superuser (OT-011).
-      - name: Fly Postgres image boots on a root-owned volume
+      - name: Postgres image boots on a root-owned volume
         run: |
-          docker build -t kpi-nexus-db:ci infra/fly/postgres
-          mkdir -p "$RUNNER_TEMP/flyvol" && sudo chown root:root "$RUNNER_TEMP/flyvol"
-          docker run -d --name flydb -v "$RUNNER_TEMP/flyvol:/home/postgres/pgdata" \
+          docker build -t kpi-nexus-db:ci infra/prod/postgres
+          mkdir -p "$RUNNER_TEMP/pgvol" && sudo chown root:root "$RUNNER_TEMP/pgvol"
+          docker run -d --name proddb -v "$RUNNER_TEMP/pgvol:/home/postgres/pgdata" \
             -e POSTGRES_PASSWORD=ci-superuser -e KPI_OWNER_DB_PASSWORD=ci-owner kpi-nexus-db:ci
           for i in $(seq 1 60); do
-            docker exec flydb pg_isready -U postgres -d kpi_nexus >/dev/null 2>&1 && break
+            docker exec proddb pg_isready -U postgres -d kpi_nexus >/dev/null 2>&1 && break
             sleep 2
           done
-          docker logs flydb 2>&1 | tail -n 5
-          test "$(docker exec flydb psql -U postgres -d kpi_nexus -tAc \
+          docker logs proddb 2>&1 | tail -n 5
+          test "$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
             "SELECT rolsuper FROM pg_roles WHERE rolname = 'kpi_nexus'")" = f
-          test "$(docker exec flydb psql -U postgres -d kpi_nexus -tAc \
+          test "$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
             "SELECT count(*) FROM pg_extension WHERE extname IN ('timescaledb', 'vector')")" = 2
       # The production database release, from the API image, on that database:
       # once on an empty schema, then again (every deploy re-runs it).
       - name: Database release from the image, twice
         run: |
           for run in 1 2; do
-            docker run --rm --network container:flydb \
+            docker run --rm --network container:proddb \
               -e DATABASE_URL=postgresql://kpi_nexus:ci-owner@127.0.0.1:5432/kpi_nexus \
               -e KPI_APP_DB_PASSWORD=ci-app -e KPI_SYSTEM_DB_PASSWORD=ci-system \
               kpi-nexus-api:ci node node_modules/@kpi-nexus/db/scripts/release-db.mjs
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - run: shellcheck --version && shellcheck infra/prod/*.sh infra/fly/postgres/*.sh infra/fly/postgres/initdb/*.sh
+      - run: shellcheck --version && shellcheck infra/prod/*.sh infra/prod/postgres/*.sh infra/prod/postgres/initdb/*.sh
 
   node:
     name: ${{ matrix.task }}

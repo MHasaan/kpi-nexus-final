@@ -211,7 +211,7 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 | ID | State | What's left |
 |---|---|---|
 | OT-007 | ✅ fixed | Green main CI/Security, §5a |
-| OT-011 | ✅ config (not deployed) | Fly.io + Vercel config, API/worker image, production database release and a manual `release.yml` (#52, #53), rehearsed in production-mode containers. Never deployed live; see `infra/fly/README.md`. |
+| OT-011 | ✅ config (not deployed) | API/worker image and production database release (#52); the Fly.io config (#53) was replaced by free hosting on an Oracle Always Free VM ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md), #55–#59). Never deployed live; see [docs/deploy.md](docs/deploy.md). |
 | OT-003 | ✅ fixed | Queue processors run in a separate worker process (`dist/worker.js`, same build as the API); `RUN_QUEUE_WORKERS=false` takes them out of the API. The `apps/worker` stub is removed. |
 | OT-017 | open (Info) | `setupScripts/start.ps1` has never been cold-run end to end. Doing that on the new computer is a good real test. |
 | BE-004 | ✅ | The insights part was fixed earlier; the PEOPLE / ORG / ANALYTICS part followed in `05ce2f3..5da1954`. The 🟡 on the insights row is historical. |
@@ -247,8 +247,6 @@ Main `2bb0e7e` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), th
 3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
 4. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
 5. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
-
-Until item 0 lands, `infra/fly/README.md` still describes the superseded Fly.io path; don't deploy with it.
 
 Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 

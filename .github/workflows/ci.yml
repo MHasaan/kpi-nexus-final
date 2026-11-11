@@ -78,6 +78,15 @@ jobs:
               kpi-nexus-api:ci node node_modules/@kpi-nexus/db/scripts/release-db.mjs
           done
 
+  # The scripts that run on the production VM and in the database image
+  # (ADR-001). shellcheck is preinstalled on GitHub's Ubuntu runners.
+  shell:
+    name: shellcheck
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck --version && shellcheck infra/prod/*.sh infra/fly/postgres/*.sh infra/fly/postgres/initdb/*.sh
+
   node:
     name: ${{ matrix.task }}
     runs-on: ubuntu-latest

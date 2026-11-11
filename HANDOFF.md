@@ -106,7 +106,7 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - `GET :8000/health`.
    - Jaeger UI is on :16686 and MailHog on :8025.
 
-**Production rehearsal and deploy:** `infra/docker/prod-rehearsal.compose.yml` runs the production images and process split locally (steps at the top of the file); `infra/fly/README.md` has the first live deploy, in order, with every secret.
+**Production deploy and rehearsal:** [docs/deploy.md](docs/deploy.md) is the free-hosting runbook (ADR-001): one-time setup, first deploy, rollback and recovery. `infra/prod/rehearsal.override.yml` runs the production stack locally (steps at the top of the file).
 
 **Not portable:** `setupScripts/hmm.txt` is a personal note, and `.remember/` is plugin memory. Neither matters for the code. The DB backups in `C:\work\FYP\khan\backups\` exist only on the old machine.
 

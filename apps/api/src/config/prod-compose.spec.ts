@@ -275,3 +275,35 @@ describe('.github/workflows/deploy.yml', () => {
     }
   });
 });
+
+describe('VM bootstrap and runbook', () => {
+  const bootstrap = read('infra/prod/bootstrap.sh');
+  const runbook = read('docs/deploy.md');
+
+  test('the deploy user gets the deploy key only, and SSH passwords are off', () => {
+    expect(bootstrap).toContain(`printf 'restrict %s\\n' "$DEPLOY_PUBKEY"`);
+    expect(bootstrap).toContain('PasswordAuthentication no');
+    expect(bootstrap).toContain('PermitRootLogin no');
+  });
+
+  test('the nightly backup runs the script the deploy copies to the stack directory', () => {
+    expect(bootstrap).toMatch(/^30 3 \* \* \* \$DEPLOY_USER cd \$STACK_DIR && \[ -x \.\/backup\.sh \] && \.\/backup\.sh/m);
+    expect(bootstrap).toContain('STACK_DIR=/srv/kpi-nexus');
+  });
+
+  test('the DuckDNS token stays out of process lists and cron', () => {
+    expect(bootstrap).toContain('-K /etc/kpi-nexus/duckdns.curl');
+    const cronFile = bootstrap.split('cat > /etc/cron.d/kpi-nexus <<EOF')[1]?.split('\nEOF')[0] ?? '';
+    expect(cronFile).toContain('kpi-nexus-duckdns');
+    expect(cronFile).not.toContain('TOKEN');
+  });
+
+  test('the runbook names every deploy secret and the never-charged rules', () => {
+    for (const s of ['DEPLOY_HOST', 'DEPLOY_USER', 'DEPLOY_SSH_KEY', 'DEPLOY_KNOWN_HOSTS']) {
+      expect(runbook).toContain(`\`${s}\``);
+    }
+    expect(runbook).toContain('Never click "Upgrade"');
+    expect(runbook).toContain('**2 OCPU and 12 GB**');
+    expect(runbook).toContain('./restore.sh drill');
+  });
+});

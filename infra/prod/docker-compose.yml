@@ -1,0 +1,168 @@
+name: kpi-nexus
+
+# Production stack for the Oracle Cloud Always Free VM (ADR-001). Lives in
+# /srv/kpi-nexus on the VM next to two git-ignored files:
+#   .env      compose variables: image tags, domain, database/Redis/ML secrets
+#             (template: .env.example)
+#   app.env   API + worker settings: app secrets, S3, SMTP, AI keys
+#             (template: app.env.example)
+# The deploy (.github/workflows/deploy.yml → deploy.sh) pulls the images for a
+# commit, runs `--profile release run --rm release`, then `up -d`.
+#
+# Only Caddy publishes ports. The 2 OCPU / 12 GB VM is shared, so every
+# long-running service has a memory limit (about 7 GB in total).
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-app-env: &app-env
+  NODE_ENV: production
+  PORT: "4000"
+  LOG_LEVEL: info
+  RLS_ENFORCED: "true"
+  TRUST_PROXY: "1"
+  # Owner: migrations and the API's database health check. Requests run as
+  # kpi_app, system work as kpi_system (rls-policies.sql).
+  DATABASE_URL: postgresql://kpi_nexus:${KPI_OWNER_DB_PASSWORD:?}@postgres:5432/kpi_nexus
+  DATABASE_URL_APP: postgresql://kpi_app:${KPI_APP_DB_PASSWORD:?}@postgres:5432/kpi_nexus
+  DATABASE_URL_SYSTEM: postgresql://kpi_system:${KPI_SYSTEM_DB_PASSWORD:?}@postgres:5432/kpi_nexus
+  KPI_APP_DB_PASSWORD: ${KPI_APP_DB_PASSWORD:?}
+  KPI_SYSTEM_DB_PASSWORD: ${KPI_SYSTEM_DB_PASSWORD:?}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+  ML_SIDECAR_URL: http://ml:8000
+  ML_SIDECAR_HMAC_SECRET: ${ML_SIDECAR_HMAC_SECRET:?}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+
+x-app: &app
+  image: ${REGISTRY:-ghcr.io/mhasaan}/kpi-nexus-api:${IMAGE_TAG:?}
+  env_file: app.env
+  environment: *app-env
+  restart: unless-stopped
+  logging: *logging
+  networks: [internal]
+
+services:
+  postgres:
+    # infra/fly/postgres: hands the volume to postgres, creates the
+    # non-superuser kpi_nexus owner, the database and the runtime roles on
+    # first boot. Tagged by its own content, so a deploy that didn't change it
+    # doesn't restart the database.
+    image: ${REGISTRY:-ghcr.io/mhasaan}/kpi-nexus-db:${DB_IMAGE_TAG:?}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      KPI_OWNER_DB_PASSWORD: ${KPI_OWNER_DB_PASSWORD:?}
+    volumes: [pgdata:/home/postgres/pgdata]
+    shm_size: 256m
+    mem_limit: 3g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kpi_nexus"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine@sha256:286bd4264adb303147270bb2d735352497e950f7b73b2ca42364d63d7daf61ee
+    # BullMQ requires noeviction: an evicted job key is a lost job.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?}
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - noeviction
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes: [redisdata:/data]
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  ml:
+    image: ${REGISTRY:-ghcr.io/mhasaan}/kpi-nexus-ml:${IMAGE_TAG:?}
+    environment:
+      ENV: production
+      ML_SIDECAR_HMAC_SECRET: ${ML_SIDECAR_HMAC_SECRET:?}
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  # The database release (`prisma migrate deploy` + the SQL files), run once
+  # per deploy before the new API and worker start: `--profile release run --rm release`.
+  release:
+    <<: *app
+    profiles: [release]
+    restart: "no"
+    command: [node, node_modules/@kpi-nexus/db/scripts/release-db.mjs]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *app
+    environment:
+      <<: *app-env
+      RUN_QUEUE_WORKERS: "false"
+    command: [node, --import, ./dist/instrumentation.js, dist/main.js]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  # The 10 BullMQ processors (OT-003); no HTTP server.
+  worker:
+    <<: *app
+    command: [node, dist/worker.js]
+    mem_limit: 1g
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?}
+      CADDY_TLS: ${CADDY_TLS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 256m
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+    depends_on: [api]
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

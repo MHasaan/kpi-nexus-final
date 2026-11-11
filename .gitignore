@@ -56,3 +56,8 @@ venv/
 
 # Production rehearsal secrets (infra/docker/prod-rehearsal.env.example)
 infra/docker/prod-rehearsal.env
+# Production and rehearsal settings for infra/prod (templates: *.example)
+infra/prod/.env
+infra/prod/app.env
+infra/prod/rehearsal.env
+infra/prod/rehearsal.app.env

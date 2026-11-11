@@ -61,3 +61,5 @@ infra/prod/.env
 infra/prod/app.env
 infra/prod/rehearsal.env
 infra/prod/rehearsal.app.env
+# deploy.sh's record of the live tags (on the VM; also written by the rehearsal)
+infra/prod/current-tag

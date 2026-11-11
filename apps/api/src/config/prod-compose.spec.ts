@@ -102,6 +102,18 @@ describe('infra/prod/docker-compose.yml: the free VM', () => {
     expect(svc('caddy').ports).toEqual(['80:80', '443:443', '443:443/udp']);
   });
 
+  test('the database image wraps the dev stack\'s pinned TimescaleDB with the volume fix and the owner script', () => {
+    const dockerfile = read('infra/prod/postgres/Dockerfile');
+    const pinned = /timescale\/timescaledb-ha:pg16@sha256:[0-9a-f]{64}/.exec(read('infra/docker/docker-compose.yml'))?.[0];
+    expect(pinned).toBeDefined();
+    expect(dockerfile).toContain(`FROM ${pinned}`);
+    expect(dockerfile).toContain('COPY entrypoint.sh /usr/local/bin/kpi-entrypoint.sh');
+    expect(dockerfile).toContain('/docker-entrypoint-initdb.d/100_kpi_nexus_roles.sh');
+    expect(read('infra/prod/postgres/entrypoint.sh')).toContain('chown postgres:postgres /home/postgres/pgdata');
+    // The schema owner must not be a superuser: superusers bypass RLS (DR-005).
+    expect(read('infra/prod/postgres/initdb/100_kpi_nexus_roles.sh')).toMatch(/CREATE ROLE kpi_nexus LOGIN NOSUPERUSER NOBYPASSRLS/);
+  });
+
   test('Postgres keeps its data on the volume at the TimescaleDB data dir', () => {
     expect(svc('postgres').volumes).toEqual(['pgdata:/home/postgres/pgdata']);
     expect(svc('postgres').image).toMatch(/\/kpi-nexus-db:\$\{DB_IMAGE_TAG:\?\}$/);
@@ -263,7 +275,7 @@ describe('.github/workflows/deploy.yml', () => {
       expect(composeText).toContain(`/${image}:`);
     }
     expect(text).toContain('--build-arg APP_VERSION="$SHA"');
-    expect(text).toContain('git rev-parse HEAD:infra/fly/postgres');
+    expect(text).toContain('git rev-parse HEAD:infra/prod/postgres');
   });
 
   test('SSH pins the host key and runs deploy.sh with the commit and database tags', () => {

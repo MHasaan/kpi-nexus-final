@@ -29,7 +29,7 @@ on:
       - apps/ml/**
       - packages/**
       - infra/prod/**
-      - infra/fly/postgres/**
+      - infra/prod/postgres/**
       - pnpm-lock.yaml
       - .github/workflows/deploy.yml
 
@@ -125,7 +125,7 @@ jobs:
       # The database image is tagged by its folder's content, so a deploy that
       # didn't change it doesn't restart Postgres.
       - id: tags
-        run: echo "db_tag=$(git rev-parse HEAD:infra/fly/postgres)" >> "$GITHUB_OUTPUT"
+        run: echo "db_tag=$(git rev-parse HEAD:infra/prod/postgres)" >> "$GITHUB_OUTPUT"
       - name: Log in to GHCR
         if: env.PUSH == 'true'
         env:
@@ -146,7 +146,7 @@ jobs:
           }
           build kpi-nexus-api "$SHA" . -f apps/api/Dockerfile --build-arg APP_VERSION="$SHA"
           build kpi-nexus-ml "$SHA" apps/ml
-          build kpi-nexus-db "$DB_TAG" infra/fly/postgres
+          build kpi-nexus-db "$DB_TAG" infra/prod/postgres
 
   deploy:
     needs: [gate, images]

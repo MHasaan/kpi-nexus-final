@@ -23,7 +23,7 @@ Spec + framework docs + all 10 phase plans were committed on the same day during
 1. **Fresh design** — does NOT inherit from the prior `another/todo.md` or partial rebuild blueprint at `~/.claude/plans/first-understand-the-current-greedy-dongarra.md`. Those exist but are explicitly NOT the basis.
 2. **Production-quality multi-tenant SaaS** — not just FYP demo polish
 3. **Stack**: pnpm + Turborepo · Next.js 15 App Router · NestJS 11 (Fastify) · Prisma 6 · Postgres 16 + TimescaleDB + pgvector · Redis 7 · BullMQ · Python FastAPI ML sidecar · Zod · Pino + OTel + Sentry
-4. **Deployment**: Docker locally for dev; Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod
+4. **Deployment**: Docker locally for dev; Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod. *Replaced 2026-11-11 by ADR-001 (`docs/adrs/ADR-001-free-tier-hosting.md`): Vercel Hobby + one Oracle Cloud Always Free ARM VM with Docker Compose; must never be able to charge (student FYP).*
 5. **AI**: Gemini default (free tier with key rotation, ports current app's 8-key pattern) + multi-provider abstraction (Claude/OpenAI/Ollama pluggable per-org-per-feature) from day one. Default budget caps: $1/day, $30/month per org. Circuit breaker FAIL_CLOSED or FALLBACK.
 6. **Scope**: maximum — ~77 NestJS modules across 10 domains, ~70 Prisma models, 18 canonical permissions, ~18 BullMQ queues, 5 ML endpoints, 11 AI features
 7. **Multi-tenancy**: 3-layer defense — AsyncLocalStorage context + Prisma filter + Postgres RLS

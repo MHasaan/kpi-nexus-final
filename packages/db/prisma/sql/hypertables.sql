@@ -27,16 +27,17 @@ SELECT create_hypertable(
 -- older than 90 days; at this data volume the disk cost is negligible.
 -- Idempotent, and it undoes the old setup on existing databases: drop the
 -- policy, decompress any compressed chunk, then switch compression off.
--- The switch-off runs only while compression is still on: once RLS is enabled
--- TimescaleDB rejects even `compress = false`, which broke every re-run.
-SELECT remove_compression_policy('"KPIDataPoint"', if_exists => TRUE);
-SELECT decompress_chunk(c, if_compressed => TRUE) FROM show_chunks('"KPIDataPoint"') c;
+-- All of it runs only while compression is still on: once it is off,
+-- decompress_chunk errors on any existing chunk, and once RLS is enabled
+-- TimescaleDB rejects even `compress = false`, so re-runs used to fail.
 DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM timescaledb_information.hypertables
     WHERE hypertable_name = 'KPIDataPoint' AND compression_enabled
   ) THEN
+    PERFORM remove_compression_policy('"KPIDataPoint"', if_exists => TRUE);
+    PERFORM decompress_chunk(c, if_compressed => TRUE) FROM show_chunks('"KPIDataPoint"') c;
     ALTER TABLE "KPIDataPoint" SET (timescaledb.compress = false);
   END IF;
 END $$;

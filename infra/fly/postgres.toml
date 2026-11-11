@@ -1,0 +1,43 @@
+# KPI Nexus Postgres 16 + TimescaleDB + pgvector on Fly.io (OT-011), with a
+# persistent volume. Private network only: the API reaches it at
+# kpi-nexus-db.flycast:5432. Deploy with infra/fly/postgres as the context:
+#   fly deploy infra/fly/postgres --config infra/fly/postgres.toml
+# Single machine, single volume: no replica or automatic backup (README).
+
+app = "kpi-nexus-db"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# The superuser is only for first boot and break-glass access; the database
+# and schema belong to the non-superuser kpi_nexus (initdb/100_kpi_nexus_roles.sh).
+[env]
+  POSTGRES_USER = "postgres"
+
+# timescaledb-ha keeps its cluster in /home/postgres/pgdata/data — mount the
+# volume there, never at /var/lib/postgresql/data (the OT-011 data-loss bug).
+[mounts]
+  source = "pgdata"
+  destination = "/home/postgres/pgdata"
+  initial_size = "3gb"
+
+[[services]]
+  internal_port = 5432
+  protocol = "tcp"
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 5432
+
+  [[services.tcp_checks]]
+    grace_period = "60s"
+    interval = "15s"
+    timeout = "5s"
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

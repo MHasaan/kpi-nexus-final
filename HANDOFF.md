@@ -106,6 +106,8 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - `GET :8000/health`.
    - Jaeger UI is on :16686 and MailHog on :8025.
 
+**Production rehearsal and deploy:** `infra/docker/prod-rehearsal.compose.yml` runs the production images and process split locally (steps at the top of the file); `infra/fly/README.md` has the first live deploy, in order, with every secret.
+
 **Not portable:** `setupScripts/hmm.txt` is a personal note, and `.remember/` is plugin memory. Neither matters for the code. The DB backups in `C:\work\FYP\khan\backups\` exist only on the old machine.
 
 ---
@@ -209,7 +211,7 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 | ID | State | What's left |
 |---|---|---|
 | OT-007 | ✅ fixed | Green main CI/Security, §5a |
-| OT-011 | 🟡 partial | Images pinned, data volume fixed, SeaweedFS in place. **No deploy config:** `infra/fly/` and `infra/github/` are empty, but the README promises Fly.io / Vercel. Either write it or fix the README. |
+| OT-011 | ✅ config (not deployed) | Fly.io + Vercel config, API/worker image, production database release and a manual `release.yml` (#52, #53), rehearsed in production-mode containers. Never deployed live; see `infra/fly/README.md`. |
 | OT-003 | ✅ fixed | Queue processors run in a separate worker process (`dist/worker.js`, same build as the API); `RUN_QUEUE_WORKERS=false` takes them out of the API. The `apps/worker` stub is removed. |
 | OT-017 | open (Info) | `setupScripts/start.ps1` has never been cold-run end to end. Doing that on the new computer is a good real test. |
 | BE-004 | ✅ | The insights part was fixed earlier; the PEOPLE / ORG / ANALYTICS part followed in `05ce2f3..5da1954`. The 🟡 on the insights row is historical. |
@@ -237,14 +239,15 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 ## 6. Next steps (in order)
 
-Main `217cc8e` has the audit closure (#35) and the 2026-11-11 fixes (#45–#48). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
+Main `2bb0e7e` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51) and the deploy config (#52, #53). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
-1. **Deployment config (OT-011).** Fly.io for api/worker/ml/postgres plus Vercel for web, as the locked spec says; `infra/fly/` is still empty. The worker is a second process group on the API image (`node dist/worker.js`), with `RUN_QUEUE_WORKERS=false` on the API group.
-2. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
-3. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
-4. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
-5. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
-6. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
+1. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
+2. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
+3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
+4. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
+5. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
+
+When going live (needs accounts, so it is the user's step): pick a Redis plan first (idle BullMQ polling is about 1.3 M commands a day, beyond the Upstash free tier), follow `infra/fly/README.md` in order, and after the first successful deploy add a `push` trigger to `.github/workflows/release.yml`. Set up database backups before real tenants arrive.
 
 Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 

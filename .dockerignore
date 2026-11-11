@@ -18,6 +18,7 @@
 memory
 docs
 setupScripts
+infra
 apps/ml
 apps/worker
 **/__pycache__

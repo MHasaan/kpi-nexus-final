@@ -53,3 +53,6 @@ venv/
 
 # Playwright MCP audit scratch (screenshots, snapshots, console logs)
 .playwright-mcp/
+
+# Production rehearsal secrets (infra/docker/prod-rehearsal.env.example)
+infra/docker/prod-rehearsal.env

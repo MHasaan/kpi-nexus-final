@@ -12,7 +12,8 @@ export interface SendEmailOptions {
 /**
  * Thin wrapper around nodemailer.
  * In dev, connects to Mailhog (SMTP_HOST/SMTP_PORT, no auth).
- * In production, configure SMTP_USER/SMTP_PASS for auth.
+ * In production, configure SMTP_USER/SMTP_PASS for auth and SMTP_SECURE for
+ * implicit TLS (see infra/fly/README.md).
  */
 @Injectable()
 export class EmailService {
@@ -25,8 +26,10 @@ export class EmailService {
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST ?? '127.0.0.1',
       port: Number(process.env.SMTP_PORT ?? 1025),
-      // No auth in dev (Mailhog). Production should set SMTP_SECURE + SMTP_USER/SMTP_PASS.
-      secure: false,
+      // No auth or TLS in dev (Mailhog). SMTP_SECURE=true opens the connection
+      // with TLS (port 465); otherwise nodemailer upgrades with STARTTLS when the
+      // server offers it (port 587). Production also sets SMTP_USER/SMTP_PASS.
+      secure: process.env.SMTP_SECURE === 'true',
       auth:
         process.env.SMTP_USER && process.env.SMTP_PASS
           ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }

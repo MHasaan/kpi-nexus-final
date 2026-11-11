@@ -10,7 +10,13 @@ import pg from 'pg';
 import { describe, expect, test } from 'vitest';
 
 const API_URL = process.env.API_URL ?? 'http://127.0.0.1:4000';
-const DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
+// Read back as kpi_system, the role allowed to see every org's rows. The owner
+// is bound by FORCE RLS; where it is not a superuser (production, OT-011) it
+// sees nothing without an org set.
+const DATABASE_URL =
+  process.env.DATABASE_URL_SYSTEM ??
+  process.env.DATABASE_URL ??
+  'postgresql://kpi_nexus:dev_password@127.0.0.1:5432/kpi_nexus';
 
 async function up() {
   try {

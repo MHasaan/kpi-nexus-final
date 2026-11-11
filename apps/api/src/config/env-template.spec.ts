@@ -31,3 +31,23 @@ describe.each(Object.entries(TEMPLATES))('%s', (_name, path) => {
     expect(documentedKeys(path).has(key)).toBe(true);
   });
 });
+
+/**
+ * The reverse direction for mail and object storage: every SMTP_ / S3_ key the
+ * root template documents must be one the API actually reads. The template
+ * once said SMTP_PASSWORD while the code read SMTP_PASS, so a deploy copied
+ * from it sent mail without authentication (OT-011).
+ */
+describe('.env.example mail and storage keys', () => {
+  const sources = [
+    new URL('../email/email.service.ts', import.meta.url),
+    new URL('../reports/services/storage.service.ts', import.meta.url),
+  ]
+    .map((path) => readFileSync(path, 'utf8'))
+    .join('\n');
+  const keys = [...documentedKeys(TEMPLATES['.env.example'])].filter((key) => /^(SMTP|S3)_/.test(key));
+
+  test.each(keys)('%s is read by the API', (key) => {
+    expect(sources).toContain(`process.env.${key}`);
+  });
+});

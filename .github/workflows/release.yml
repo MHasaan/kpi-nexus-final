@@ -1,0 +1,103 @@
+name: Release
+
+# Production deploy (OT-011): Fly.io for the database, ML sidecar and API +
+# worker; Vercel for the web app. Manual until the first live deploy has
+# worked; then add `push: { branches: [main] }` (spec §10.3).
+# First-time setup and secrets: infra/fly/README.md. Without the secrets each
+# job skips with a notice instead of failing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      database:
+        description: Deploy the Postgres app (only when infra/fly/postgres changed)
+        type: boolean
+        default: false
+      ml:
+        description: Deploy the ML sidecar
+        type: boolean
+        default: true
+      api:
+        description: Deploy the API + worker (runs the database release first)
+        type: boolean
+        default: true
+      web:
+        description: Deploy the web app to Vercel
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      fly: ${{ steps.check.outputs.fly }}
+      vercel: ${{ steps.check.outputs.vercel }}
+    steps:
+      - id: check
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$FLY_API_TOKEN" ]; then
+            echo "fly=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::FLY_API_TOKEN is not set; skipping the Fly deploys (infra/fly/README.md)"
+          fi
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "vercel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Vercel secrets are not set; skipping the web deploy (infra/fly/README.md)"
+          fi
+
+  fly:
+    needs: secrets
+    if: needs.secrets.outputs.fly == 'true'
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+      # Order matters: the API's release_command migrates the database, and the
+      # API calls the ML sidecar.
+      - name: Database
+        if: inputs.database
+        run: flyctl deploy infra/fly/postgres --config infra/fly/postgres.toml --remote-only --no-public-ips --flycast --ha=false
+      - name: ML sidecar
+        if: inputs.ml
+        run: flyctl deploy apps/ml --config infra/fly/ml.toml --remote-only --no-public-ips --flycast --ha=false
+      - name: API + worker (release_command migrates first)
+        if: inputs.api
+        run: flyctl deploy . --config infra/fly/api.toml --remote-only
+
+  web:
+    needs: [secrets, fly]
+    # After the API, so a new web build never talks to an old API; still runs
+    # when the Fly job was skipped (no Fly secret).
+    if: >-
+      always() && inputs.web && needs.secrets.outputs.vercel == 'true'
+      && (needs.fly.result == 'success' || needs.fly.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm dlx vercel@65.4.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: pnpm dlx vercel@65.4.0 build --prod --token="$VERCEL_TOKEN"
+      - run: pnpm dlx vercel@65.4.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN"

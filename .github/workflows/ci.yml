@@ -21,7 +21,7 @@ env:
 # runtime (no deprecation annotations).
 
 jobs:
-  # OT-011: the API/worker image Fly deploys. Build only; no registry push.
+  # OT-011: the images Fly deploys. Build only; no registry push.
   api-image:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +33,25 @@ jobs:
           test "$(docker run --rm kpi-nexus-api:ci id -un)" = node
           docker run --rm kpi-nexus-api:ci test -f node_modules/@kpi-nexus/db/scripts/release-db.mjs
           docker run --rm kpi-nexus-api:ci test -f dist/worker.js
+      - name: Build the ML sidecar image (infra/fly/ml.toml)
+        run: docker build -t kpi-nexus-ml:ci apps/ml
+      # A new Fly volume is root-owned; the image must still initialise there,
+      # and the schema owner it creates must not be a superuser (OT-011).
+      - name: Fly Postgres image boots on a root-owned volume
+        run: |
+          docker build -t kpi-nexus-db:ci infra/fly/postgres
+          mkdir -p "$RUNNER_TEMP/flyvol" && sudo chown root:root "$RUNNER_TEMP/flyvol"
+          docker run -d --name flydb -v "$RUNNER_TEMP/flyvol:/home/postgres/pgdata" \
+            -e POSTGRES_PASSWORD=ci-superuser -e KPI_OWNER_DB_PASSWORD=ci-owner kpi-nexus-db:ci
+          for i in $(seq 1 60); do
+            docker exec flydb pg_isready -U postgres -d kpi_nexus >/dev/null 2>&1 && break
+            sleep 2
+          done
+          docker logs flydb 2>&1 | tail -n 5
+          test "$(docker exec flydb psql -U postgres -d kpi_nexus -tAc \
+            "SELECT rolsuper FROM pg_roles WHERE rolname = 'kpi_nexus'")" = f
+          test "$(docker exec flydb psql -U postgres -d kpi_nexus -tAc \
+            "SELECT count(*) FROM pg_extension WHERE extname IN ('timescaledb', 'vector')")" = 2
 
   node:
     name: ${{ matrix.task }}

@@ -27,7 +27,7 @@ Have these ready. Each value goes in one of the secret commands below.
 
 - **Fly.io:** `flyctl` installed and logged in (`fly auth login`).
 - **Upstash Redis:** the `rediss://default:<token>@<host>.upstash.io:6379` URL.
-  - The BullMQ worker polls Redis even when idle. The command volume measured in the local rehearsal is under *Redis usage* below, so you can choose an Upstash plan that covers it.
+  - The BullMQ worker polls Redis even when idle: about 1.3 million commands a day in the rehearsal. Read *Redis usage* below before choosing a plan; the free tier does not cover it.
 - **Cloudflare R2:**
   - a bucket;
   - an S3 API token: access key and secret;
@@ -153,7 +153,16 @@ Use `.github/workflows/release.yml` (Actions → Release → Run workflow), or t
 
 ## Redis usage
 
-Measured in the local rehearsal, with the worker running and idle (no jobs): see the OT-011 entry in `docs/audit/closure-2026-11-06.md`.
+**Measurement.** In the local rehearsal, with the API and worker running and idle (no users, no jobs), Redis served:
+- 9,118 commands in 10 minutes;
+- about 1.3 million commands a day, or about 39 million a month.
+
+Nearly all of them come from the 10 BullMQ queue workers polling for work (`bzpopmin`, `evalsha`, `rpoplpush`, …), so real traffic only adds to this.
+
+**Free tier.** That is far beyond the spec's assumption of the Upstash free tier (10k commands a day). Before going live, pick one:
+- **Paid plan.** A fixed-price or pay-as-you-go Upstash plan sized for this rate.
+- **Poll less.** Raise BullMQ's `drainDelay` (idle polling interval) on the workers. This trades idle cost for pickup latency of the first job after a quiet period, and needs its own change and test.
+- **Another Redis.** Run Redis elsewhere, for example Fly's Upstash integration or a Redis machine. That would change the spec's choice, so it needs your sign-off.
 
 ## Local rehearsal
 

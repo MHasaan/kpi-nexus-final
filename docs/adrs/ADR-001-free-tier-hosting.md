@@ -1,6 +1,6 @@
 # ADR-001: Free-tier production hosting
 
-- **Status:** Proposed (2026-11-11). Becomes Accepted when the project owner signs off.
+- **Status:** Accepted (2026-11-11), signed off by the project owner.
 - **Supersedes:** spec Appendix A #4 (CLAUDE.md locked decision #7), §10.2 and the `release.yml` line in §10.3.
 - **Related:** OT-011 (deploy config, #52 and #53).
 

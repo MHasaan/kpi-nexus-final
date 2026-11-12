@@ -57,7 +57,9 @@ beforeEach(() => {
     maxExportRows: null,
   });
   mockKpis.getById.mockResolvedValue({ id: 'kpi_1' });
-  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([{ value: 1, recordedAt: new Date('2026-01-01') }]);
+  mockPrisma.kPIDataPoint.findMany.mockResolvedValue([
+    { value: 1, periodStart: new Date('2026-01-01'), recordedAt: new Date('2026-01-01') },
+  ]);
   mockPrisma.forecast.create.mockResolvedValue({ id: 'fc_1' });
   mockMl.post.mockResolvedValue({ predictions: [], fitMetrics: {}, model: 'naive' });
   vi.spyOn(RequestContextStore, 'require').mockReturnValue({
@@ -122,6 +124,41 @@ describe('ForecastsService.forecast', () => {
     expect(call.where.organizationId).toBe(ORG);
     expect(call.where.kpiId).toBe('kpi_1');
     expect(call.where.recordedAt).toBeUndefined();
+  });
+});
+
+describe('ForecastsService.forecast model selection (OT-005)', () => {
+  it.each([
+    ['prophet', 'PROPHET'],
+    ['arima', 'ARIMA'],
+  ])('forwards %s with each period start as its timestamp and saves the model the sidecar ran', async (requested, saved) => {
+    // Values entered seconds apart for different months: the dates the model
+    // sees must be the periods, not the entry times.
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([
+      { value: 3, periodStart: new Date('2026-03-01T00:00:00Z'), recordedAt: new Date('2026-11-12T10:00:01Z') },
+      { value: 2, periodStart: new Date('2026-02-01T00:00:00Z'), recordedAt: new Date('2026-11-12T10:00:00Z') },
+    ]);
+    mockMl.post.mockResolvedValue({ predictions: [], fitMetrics: {}, model: requested });
+
+    await makeSvc().forecast('kpi_1', { horizon: 7, model: requested });
+
+    expect(mockMl.post).toHaveBeenCalledWith('/forecast', {
+      values: [2, 3],
+      timestamps: ['2026-02-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z'],
+      horizon: 7,
+      model: requested,
+    });
+    expect(mockPrisma.forecast.create.mock.calls[0]![0].data.model).toBe(saved);
+    const query = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { orderBy: unknown };
+    expect(query.orderBy).toEqual([{ periodStart: 'desc' }, { recordedAt: 'desc' }]);
+  });
+
+  it('saves NAIVE when the sidecar fell back, whatever was requested', async () => {
+    mockMl.post.mockResolvedValue({ predictions: [], fitMetrics: {}, model: 'naive' });
+
+    await makeSvc().forecast('kpi_1', { horizon: 7, model: 'prophet' });
+
+    expect(mockPrisma.forecast.create.mock.calls[0]![0].data.model).toBe('NAIVE');
   });
 });
 

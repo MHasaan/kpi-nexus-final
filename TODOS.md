@@ -380,7 +380,7 @@ load (pass in isolation).
 
 ### ML sidecar
 - [ ] `POST /anomaly/detect`: IsolationForest + Z-score + EWMA ensemble; configurable per-detector knobs
-- [ ] `POST /forecast`: Prophet → ARIMA fallback → naive last-resort; yhat + 80%/95% bands + rmse/mape/aic fit metrics
+- [x] `POST /forecast`: Prophet / ARIMA / naive; yhat + 80%/95% bands + rmse/mape fit metrics (OT-005). The requested model runs, with naive as the reported fallback; no AIC in the response
 - [ ] `POST /whatif`: parameterized scenario simulator (additive/multiplicative + floor/ceiling clamps)
 - [ ] `POST /correlation`: pairwise + matrix via scipy.stats
 - [ ] `POST /seasonality`: statsmodels.tsa.seasonal_decompose

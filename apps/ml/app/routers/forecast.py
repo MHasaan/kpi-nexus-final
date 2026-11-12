@@ -1,4 +1,4 @@
-"""POST /forecast — naive linear forecast with confidence bands."""
+"""POST /forecast — naive, Prophet or ARIMA forecast with confidence bands."""
 
 from __future__ import annotations
 
@@ -18,9 +18,10 @@ class ForecastRequest(BaseModel):
     timestamps: Optional[Timestamps] = None
     # Same bound as the API (analytics.controller.ts); 1e6 took 18 s of CPU (BE-024).
     horizon: int = Field(default=30, ge=1, le=365)
-    model: ModelName = "naive"  # prophet/arima deferred → naive fallback
+    # naive | prophet | arima; anything else, or too little history, runs naive.
+    model: ModelName = "naive"
 
 
 @router.post("/forecast")
 def forecast_endpoint(req: ForecastRequest) -> dict[str, Any]:
-    return forecast(req.values, horizon=req.horizon, model=req.model)
+    return forecast(req.values, horizon=req.horizon, model=req.model, timestamps=req.timestamps)

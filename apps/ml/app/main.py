@@ -2,7 +2,7 @@
 
 Stateless analytics endpoints called by the API over HMAC-authenticated HTTP:
   - /anomaly/detect   outlier detection (zscore/ewma/isolation_forest/ensemble)
-  - /forecast         naive linear forecast + confidence bands (prophet/arima deferred)
+  - /forecast         naive / Prophet / ARIMA forecast + confidence bands
   - /whatif           scenario simulation
   - /correlation      pairwise Pearson/Spearman
   - /seasonality      seasonal decomposition (trend/seasonal/resid via statsmodels)

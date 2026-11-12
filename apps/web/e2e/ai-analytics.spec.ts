@@ -90,7 +90,7 @@ test('forecast: returns predictions with confidence bands via the sidecar', asyn
   expect(res.status()).toBe(201);
   const fc = (await res.json()) as { horizon: number; model: string; predictions: Array<Record<string, number>> };
   expect(fc.horizon).toBe(3);
-  expect(fc.model).toBe('NAIVE'); // prophet/arima deferred → naive
+  expect(fc.model).toBe('NAIVE'); // the default model
   expect(fc.predictions).toHaveLength(3);
   const p = fc.predictions[0]!;
   expect(p.yhat_lower_95).toBeLessThanOrEqual(p.yhat_upper_95 as number);
@@ -98,6 +98,30 @@ test('forecast: returns predictions with confidence bands via the sidecar', asyn
   const list = (await (await api.get(`/kpis/${kpiId}/forecasts`)).json()) as unknown[];
   expect(list.length).toBeGreaterThanOrEqual(1);
 });
+
+for (const [requested, saved] of [
+  ['prophet', 'PROPHET'],
+  ['arima', 'ARIMA'],
+] as const) {
+  test(`forecast: ${requested} runs in the sidecar and is saved as ${saved} (OT-005)`, async () => {
+    test.skip(!ready, 'api/ML not reachable');
+    test.setTimeout(60_000);
+    const api = await adminApi();
+    const kpiId = await makeKpiWithSpike(api);
+
+    const res = await api.post(`/kpis/${kpiId}/forecasts`, { data: { horizon: 3, model: requested } });
+    expect(res.status()).toBe(201);
+    const fc = (await res.json()) as { model: string; predictions: Array<Record<string, number | string>> };
+    expect(fc.model).toBe(saved);
+    expect(fc.predictions).toHaveLength(3);
+    const p = fc.predictions[0]!;
+    expect(p.yhat_lower_95 as number).toBeLessThanOrEqual(p.yhat as number);
+    expect(p.yhat as number).toBeLessThanOrEqual(p.yhat_upper_95 as number);
+
+    const listed = (await (await api.get(`/kpis/${kpiId}/forecasts?model=${requested}`)).json()) as Array<{ model: string }>;
+    expect(listed.map((f) => f.model)).toEqual([saved]);
+  });
+}
 
 test('whatif: simulates a multiplicative scenario via the sidecar', async () => {
   test.skip(!ready, 'api/ML not reachable');

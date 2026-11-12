@@ -82,7 +82,13 @@ export class OnboardingAiService {
     for (const c of candidates) {
       try {
         const provider = await this.registry.getProvider(c.provider);
-        const result = await provider.complete({ ...request, model: c.model });
+        // Thinking models count reasoning against maxTokens; without the route's
+        // budget they spent the answer on thinking and returned cut-off JSON.
+        const result = await provider.complete({
+          ...request,
+          model: c.model,
+          ...(route.reasoningBudgetTokens ? { reasoningBudgetTokens: route.reasoningBudgetTokens } : {}),
+        });
         return { content: result.content, usage: result.usage, actualCost: result.actualCost, provider: c.provider, model: c.model };
       } catch (err) {
         lastError = err;

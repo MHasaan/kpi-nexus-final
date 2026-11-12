@@ -79,3 +79,21 @@ describe('malformed / legacy payloads (BE-001)', () => {
     expect(normalizeTemplatePayload(base)).toEqual(base);
   });
 });
+
+describe('validateTemplatePayload — role permissions', () => {
+  it('rejects a role carrying a permission outside the canonical set', () => {
+    const p: TemplatePayload = {
+      ...base,
+      roles: [...base.roles, { name: 'Quality Officer', isAdmin: false, level: 3, permissions: ['KPI_VIEW', 'kpi:write'] }],
+    };
+    expect(validateTemplatePayload(p)).toContain('role "Quality Officer" has unknown permission "kpi:write"');
+  });
+
+  it('accepts canonical permissions', () => {
+    const p: TemplatePayload = {
+      ...base,
+      roles: [...base.roles, { name: 'Viewer', isAdmin: false, level: 1, permissions: ['KPI_VIEW', 'DASHBOARD_VIEW'] }],
+    };
+    expect(validateTemplatePayload(p)).toEqual([]);
+  });
+});

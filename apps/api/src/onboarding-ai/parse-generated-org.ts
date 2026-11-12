@@ -1,3 +1,5 @@
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+
 import type { TemplatePayload } from '../org-templates/template-payload.js';
 
 /**
@@ -28,6 +30,16 @@ function stripFences(raw: string): string {
 
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
+const PERMISSION_KEYS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
+
+/** The model invents permission names ("all", "kpi:read"); keep only real keys. */
+function withCanonicalPermissions(roles: TemplatePayload['roles']): TemplatePayload['roles'] {
+  return roles.map((r) => ({
+    ...r,
+    permissions: arr<unknown>(r?.permissions).filter((k): k is string => typeof k === 'string' && PERMISSION_KEYS.has(k)),
+  }));
+}
+
 export function parseGeneratedOrg(raw: string): PartialTemplatePayload {
   let parsed: Record<string, unknown> = {};
   try {
@@ -39,7 +51,7 @@ export function parseGeneratedOrg(raw: string): PartialTemplatePayload {
   const org = parsed.organization as TemplatePayload['organization'] | undefined;
   return {
     ...(org && typeof org === 'object' && org.name ? { organization: org } : {}),
-    roles: arr(parsed.roles),
+    roles: withCanonicalPermissions(arr(parsed.roles)),
     positions: arr(parsed.positions),
     orgUnitTypes: arr(parsed.orgUnitTypes),
     orgUnits: arr(parsed.orgUnits),

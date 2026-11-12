@@ -235,7 +235,7 @@ export class EmbedTokenService {
         : null;
       const windowFrom = clampHistoryFrom(undefined, minterWindow);
 
-      // Fetch sparkline — last 30 points descending (within the window if clamped).
+      // Fetch sparkline — the 30 newest periods, descending (within the window if clamped).
       const points = await this.prisma.kPIDataPoint.findMany({
         where: {
           organizationId: payload.orgId,
@@ -243,7 +243,7 @@ export class EmbedTokenService {
           ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
         },
         select: { recordedAt: true, value: true },
-        orderBy: { recordedAt: 'desc' },
+        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         take: 30,
       });
 

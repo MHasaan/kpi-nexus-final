@@ -333,6 +333,8 @@ describe('SnapshotService.capture', () => {
     expect(Object.keys(payload.kpiValues)).toHaveLength(2);
     expect(payload.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
     expect(payload.kpiValues['kpi_2']).toMatchObject({ latestValue: 99 });
+    // Latest = newest period, not newest entry (AN-002).
+    expect(prisma.kPIDataPoint.findFirst.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
     // Widget without kpiId must not appear.
     expect(payload.kpiValues['undefined']).toBeUndefined();
     expect(payload.widgets).toHaveLength(3);

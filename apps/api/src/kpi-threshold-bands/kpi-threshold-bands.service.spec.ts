@@ -94,3 +94,28 @@ describe('KpiThresholdBandsService.update bounds (BE-012)', () => {
     expect(prisma.kPIThresholdBand.update).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('KpiThresholdBandsService.resolveStatus (AN-002)', () => {
+  it('reads the newest periods, not the newest entries', async () => {
+    const prisma = {
+      kPI: { findFirst: vi.fn(async () => ({ id: KPI_ID, categoryId: null })) },
+      kPIThresholdBand: {
+        findMany: vi.fn(async () => [
+          { name: 'Green', lower: 0, upper: null, color: '#0f0', order: 0, consecutivePointsRequired: 2 },
+        ]),
+      },
+      kPIDataPoint: { findMany: vi.fn(async (_args: unknown) => [{ value: 5 }, { value: 6 }]) },
+    };
+    const service = new KpiThresholdBandsService(
+      prisma as unknown as PrismaService,
+      new FakeAudit() as unknown as AuditService,
+      new FakeAccessContext(null) as unknown as AccessContextService,
+    );
+    await withCtx(() => service.resolveStatus(KPI_ID));
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({
+      where: { kpiId: KPI_ID, organizationId: ORG },
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
+      take: 2,
+    });
+  });
+});

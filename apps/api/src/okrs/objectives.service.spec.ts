@@ -264,6 +264,8 @@ describe('ObjectivesService.syncFromLinkedKpis', () => {
     await withCtx({}, () => service.syncFromLinkedKpis(o.id));
     const updated = prisma.krs.find((k) => k.id === kr.id)!;
     expect(updated.currentValue).toBe(70);
+    // Latest = newest period, not newest entry (AN-002).
+    expect(prisma.kPIDataPoint.findFirst.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
     expect(updated.progress).toBeCloseTo(0.7);
     expect(prisma.objectives.find((x) => x.id === o.id)!.progress).toBeCloseTo(0.7);
   });

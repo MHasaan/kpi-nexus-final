@@ -4,7 +4,7 @@ Convenience scripts for running KPI Nexus Final on Windows.
 
 | Script | What it does |
 |---|---|
-| **start.cmd** / `start.ps1` | Starts Docker Desktop (waits until ready), `pnpm install`, brings up infra (`docker:up`), provisions the DB (`db:setup`), starts the Python ML sidecar (:8000) in its own window, then runs `pnpm dev` (web :3000 + api :4000 + worker). |
+| **start.cmd** / `start.ps1` | Creates any missing `.env` from its `.env.example` (never overwrites), starts Docker Desktop (waits until ready), `pnpm install`, brings up infra (`docker:up`), provisions the DB (`db:setup`), starts the Python ML sidecar (:8000) in its own window, then runs `pnpm dev` (web :3000 + api :4000 + worker). |
 | **update.cmd** / `update.ps1` | Re-applies your local edits: `pnpm install`, `db:generate`, `db:setup` (non-destructive `prisma db push`), and rebuilds shared packages. Run after changing deps, the Prisma schema, or contracts. |
 
 ## How to run

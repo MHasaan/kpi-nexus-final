@@ -3,6 +3,7 @@
   start.ps1 - One-shot launcher for KPI Nexus Final.
 
   Does, in order:
+    0. Creates any missing .env file from its .env.example (never overwrites).
     1. Starts Docker Desktop (if not already running) and waits until the engine is ready.
     2. Installs JS dependencies (pnpm install).
     3. Brings up local infra (Postgres/TimescaleDB, Redis, SeaweedFS S3, Mailhog, Jaeger).
@@ -22,6 +23,19 @@ Set-Location $ProjectRoot
 
 function Write-Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "  $msg" -ForegroundColor Green }
+
+# --- 0. Env files -----------------------------------------------------------
+# A fresh clone has only the .env.example templates; db:setup (node --env-file)
+# and the ML sidecar (uvicorn --env-file) stop dead without the real files.
+Write-Step "Checking .env files"
+foreach ($file in @('.env', 'apps\api\.env', 'apps\web\.env', 'apps\ml\.env')) {
+    $target   = Join-Path $ProjectRoot $file
+    $template = "$target.example"
+    if (-not (Test-Path $target)) {
+        Copy-Item $template $target
+        Write-Ok "Created $file from $file.example (dev defaults - edit to add keys)."
+    }
+}
 
 # --- 1. Docker Desktop -----------------------------------------------------
 Write-Step "Checking Docker"

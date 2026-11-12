@@ -246,7 +246,7 @@ Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), th
 2. **FastAPI/Starlette upgrade (DEP-001) — done.** FastAPI 0.162.0 / Starlette 1.10.0 clears the Starlette advisories. JSON sent to the ML sidecar must carry `content-type: application/json` (422 otherwise); the API's ML client always sends it.
 3. **FE-014 verification — done.** All 12 pages send users without access to /unauthorized without calling the api; optional sections skip lookups the user can't make (`e2e/gated-page-loads.spec.ts`).
 4. **Real-provider AI check — done.** Insights, recommendations, NLQ, KPI suggestions and onboarding generate work on real Gemini; the assistant's cut-off replies are fixed (AI-001). AI-generated roles now use only the canonical permission keys (AI-002). Not covered: a request timeout on the Gemini client (one call took 152 s).
-5. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
+5. **Windows launcher (OT-017).** `start.ps1` now creates missing `.env` files from the templates (OT-017 part 1). Still needs a cold run of `setupScripts/start.cmd` on Windows; watch whether `db:setup`'s 10 s Postgres probe is long enough on a first start.
 
 Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
 

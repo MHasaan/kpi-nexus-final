@@ -101,7 +101,8 @@ export class RecommendationsService {
 
     const points = await this.prisma.kPIDataPoint.findMany({
       where: { organizationId: ctx.organizationId, kpiId },
-      orderBy: { recordedAt: 'desc' },
+      // Newest periods first ("latest" = newest period; entry time breaks ties).
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: 30,
       select: { value: true },
     });

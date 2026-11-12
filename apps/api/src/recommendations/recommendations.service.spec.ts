@@ -153,6 +153,8 @@ describe('RecommendationsService.generate enriched grounding', () => {
     expect(msg).toContain('critical 60');
     // (30 - 50) / 50 * 100 = -40%
     expect(msg).toContain('-40%');
+    // Recent values = newest periods, not newest entries (AN-002).
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
   });
 
   test('marks the latest value on target when it meets a LOWER_IS_BETTER target', async () => {

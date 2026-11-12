@@ -227,7 +227,8 @@ export class NlqService {
             kpiId: id,
             ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
           },
-          orderBy: { recordedAt: 'desc' },
+          // Newest periods first ("latest" = newest period; entry time breaks ties).
+          orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
           take: RECENT_POINTS,
           select: { value: true },
         });

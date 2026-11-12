@@ -279,7 +279,7 @@ describe('NlqService.ask — catalog grounding', () => {
     const kpis = [kpi({ id: 'a', name: 'Alpha', unit: 'x', targetValue: 100 })];
     const latest = { a: { latestValue: 20, latestRecordedAt: new Date('2026-01-01') } };
     const series = { a: [10, 12, 15, 20] }; // oldest→newest; +100%
-    const { service, completeCalls } = buildService({ kpis, latest, series });
+    const { service, completeCalls, prisma } = buildService({ kpis, latest, series });
 
     await run(() => service.ask('trend?'));
     const content = completeCalls[0]!.messages.map((m) => m.content).join('\n');
@@ -288,6 +288,8 @@ describe('NlqService.ask — catalog grounding', () => {
     expect(line).toContain('20');
     // change % over [10..20] = 100
     expect(line).toContain('100');
+    // Recent values = newest periods, not newest entries (AN-002).
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
   });
 
   it('resolves categoryId → category name in the line', async () => {

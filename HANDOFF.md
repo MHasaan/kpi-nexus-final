@@ -244,7 +244,7 @@ Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), th
 0. **Go live (the owner's step; needs accounts).** Follow [docs/deploy.md](docs/deploy.md): Oracle Free Tier VM (never upgraded), DuckDNS, Brevo, Object Storage, the four GitHub secrets, first deploy (make the three GHCR packages public), Vercel, then its *Check it* list including a backup restore drill. The config is done and rehearsed ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md), #55–#60); nothing has run on a real VM yet.
 1. **"Latest value" = newest period (AN-002) — done.** Every read of a KPI's latest or recent values orders by `periodStart`, entry time breaking ties (OT-005, AN-001, AN-002 parts 1–4). The NO_DATA alert stays on entry time on purpose: it measures how recently data was reported. History-window limits still filter on `recordedAt` (an access rule).
 2. **FastAPI/Starlette upgrade (DEP-001) — done.** FastAPI 0.162.0 / Starlette 1.10.0 clears the Starlette advisories. JSON sent to the ML sidecar must carry `content-type: application/json` (422 otherwise); the API's ML client always sends it.
-3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
+3. **FE-014 verification — done.** All 12 pages send users without access to /unauthorized without calling the api; optional sections skip lookups the user can't make (`e2e/gated-page-loads.spec.ts`).
 4. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).
 5. **Windows launcher (OT-017).** Cold-run `setupScripts/start.cmd` on Windows.
 

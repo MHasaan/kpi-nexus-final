@@ -14,6 +14,7 @@ import {
 } from '../../../lib/integrations-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RequireAnyPermission } from '../../../components/auth/require-permission';
+import { usePermissions } from '../../../lib/use-permissions';
 
 interface Run {
   id: string;
@@ -45,13 +46,18 @@ export default function ConnectorDetailPage() {
     }
   }, [id]);
 
+  // FE-014: load only once the page gate passes, so users without access
+  // are redirected without first drawing a 403 from the api.
+  const { ready, hasAny } = usePermissions();
+  const allowed = ready && hasAny(['INTEGRATIONS_MANAGE', 'ORG_SETTINGS']);
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   const run = async () => {
     setBusy(true);

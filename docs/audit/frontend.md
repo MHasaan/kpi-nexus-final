@@ -73,6 +73,7 @@ Net: about a third of the E2E failures are real product bugs (all listed below);
   - Pages are gated on the permission their API enforces (ORG_SETTINGS / INTEGRATIONS_MANAGE).
   - Sections load only with permission: `/alerts/new` channels, `/alerts/[id]` deliveries, `/roles` presets. The `/alerts/new` channels 403 used to blank the whole form.
   - Browser: tom → `/connectors` and `/settings/sso` → `/unauthorized`; `/alerts/new` loads its KPIs.
+  - Verification: 9 page loaders still fired a 403 before the redirect; they now wait for the gate's permission (`e2e/gated-page-loads.spec.ts`).
 - **Repro (crawl, contributor `tom.becker@helios.io`):** these pages render, but their API calls return **403**, leaving broken or empty screens instead of the unauthorized page or hidden actions:
 
 | Page | Failing call(s) |

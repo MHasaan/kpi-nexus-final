@@ -43,8 +43,8 @@ const ORG = 'org_test_123';
 
 // Two points so detect() proceeds past the `< 2` short-circuit and calls the sidecar.
 const TWO_POINTS = [
-  { id: 'dp_2', value: 12, recordedAt: new Date('2024-02-01') },
-  { id: 'dp_1', value: 10, recordedAt: new Date('2024-01-01') },
+  { id: 'dp_2', value: 12, periodStart: new Date('2024-02-01'), recordedAt: new Date('2024-03-05T10:00:00Z') },
+  { id: 'dp_1', value: 10, periodStart: new Date('2024-01-01'), recordedAt: new Date('2024-03-05T10:00:01Z') },
 ]; // desc order, as the DB returns
 
 function makeSvc(): AnomalyService {
@@ -130,5 +130,20 @@ describe('AnomalyService.detect', () => {
     expect(call.where.organizationId).toBe(ORG);
     expect(call.where.kpiId).toBe('kpi_1');
     expect(call.where.recordedAt).toBeUndefined();
+  });
+});
+
+describe('AnomalyService.detect — period order', () => {
+  it('reads the newest periods, not the newest entries (backfills entered out of order)', async () => {
+    await makeSvc().detect('kpi_1');
+    const query = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { orderBy: unknown };
+    expect(query.orderBy).toEqual([{ periodStart: 'desc' }, { recordedAt: 'desc' }]);
+  });
+
+  it('sends each period start as the timestamp', async () => {
+    await makeSvc().detect('kpi_1');
+    const payload = mockMl.post.mock.calls[0]![1] as { values: number[]; timestamps: string[] };
+    expect(payload.values).toEqual([10, 12]);
+    expect(payload.timestamps).toEqual(['2024-01-01T00:00:00.000Z', '2024-02-01T00:00:00.000Z']);
   });
 });

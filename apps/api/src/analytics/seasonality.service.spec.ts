@@ -193,3 +193,11 @@ describe('SeasonalityService.decompose', () => {
     expect(call.where.recordedAt).toBeUndefined();
   });
 });
+
+describe('SeasonalityService.decompose — period order', () => {
+  it('reads the newest periods, not the newest entries (backfills entered out of order)', async () => {
+    await makeSvc().decompose('kpi_1', {});
+    const query = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { orderBy: unknown };
+    expect(query.orderBy).toEqual([{ periodStart: 'desc' }, { recordedAt: 'desc' }]);
+  });
+});

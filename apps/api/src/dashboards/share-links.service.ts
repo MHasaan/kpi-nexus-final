@@ -369,7 +369,8 @@ export class ShareLinksService {
 
           const point = await this.prisma.kPIDataPoint.findFirst({
             where,
-            orderBy: { recordedAt: 'desc' },
+            // Newest period first ("latest" = newest period; entry time breaks ties).
+            orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
             select: { value: true, recordedAt: true },
           });
           kpiValues[kpiId] = {

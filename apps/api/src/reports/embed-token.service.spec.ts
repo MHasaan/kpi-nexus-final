@@ -205,6 +205,8 @@ describe('EmbedTokenService', () => {
     expect(snapshot.kpiName).toBe('Revenue');
     expect(snapshot.latestValue).toBe(750);
     expect(snapshot.sparkline).toHaveLength(1);
+    // Latest and sparkline = newest periods, not newest entries (AN-002).
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
   });
 
   test("Phase 4: resolve clamps the public sparkline to the minter's historyWindowDays", async () => {

@@ -970,6 +970,8 @@ describe('ShareLinksService.resolve', () => {
     const result = await service.resolve('valid_token');
 
     expect(result.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
+    // Latest = newest period, not newest entry (AN-002).
+    expect(prisma.kPIDataPoint.findFirst.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
   });
 
   test("window set ⇒ a point within the creator's window is still present", async () => {

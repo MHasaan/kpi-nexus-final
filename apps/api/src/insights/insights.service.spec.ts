@@ -272,6 +272,8 @@ describe('InsightsService.generate confidence', () => {
     expect(insight).not.toBeNull();
     expect(insight!.confidence).toBeGreaterThanOrEqual(0);
     expect(insight!.confidence).toBeLessThanOrEqual(1);
+    // Recent values = newest periods, not newest entries (AN-002).
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
   });
 
   test('rises with more data points (higher volume → higher confidence)', async () => {

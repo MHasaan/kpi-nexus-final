@@ -1,6 +1,7 @@
 import { Logger, NotFoundException } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { AiCompletionRequest } from '@kpi-nexus/ai';
 import type { AiProviderRegistry } from '../ai/ai-provider-registry.js';
 import type { OnboardingService } from '../onboarding/onboarding.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -13,7 +14,7 @@ import { OnboardingAiService } from './onboarding-ai.service.js';
  * LLM calls, never for requests with a bad draft token.
  */
 function setup(opts: { tokenValid?: boolean; denyKey?: (key: string) => boolean } = {}) {
-  const complete = vi.fn(async () => ({
+  const complete = vi.fn(async (_req: AiCompletionRequest) => ({
     content: 'An explanation.',
     usage: { inputTokens: 10, outputTokens: 20 },
     actualCost: 0.0001,
@@ -94,5 +95,24 @@ describe('OnboardingAiService — provider failures (BE-026)', () => {
     expect(JSON.stringify(err.getResponse())).not.toContain('x-api-key');
     expect(warn.mock.calls.some((c) => String(c[0]).includes('invalid x-api-key'))).toBe(true);
     warn.mockRestore();
+  });
+});
+
+// Real Gemini: the assistant's 800-token answer budget was spent on thinking
+// (764 of 800 tokens), so the JSON patch came back cut off and was dropped.
+// The co-pilot calls providers directly, so it must pass the route's reasoning
+// budget itself, as the org-scoped AiRouter does.
+describe('OnboardingAiService — reasoning budget', () => {
+  it('passes the route reasoning budget on top of the answer budget', async () => {
+    const { service, complete } = setup();
+    complete.mockResolvedValue({ content: '[]', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.assistant('s1', 'tok', 'Add a Quality Officer role');
+    expect(complete.mock.calls[0]![0]).toMatchObject({ model: 'gemini-3.5-flash', maxTokens: 800, reasoningBudgetTokens: 2048 });
+  });
+
+  it('gives the generator its larger reasoning budget', async () => {
+    const { service, complete } = setup();
+    await service.generate('s1', 'tok', 'B2B SaaS').catch(() => undefined);
+    expect(complete.mock.calls[0]![0]).toMatchObject({ maxTokens: 8000, reasoningBudgetTokens: 4096 });
   });
 });

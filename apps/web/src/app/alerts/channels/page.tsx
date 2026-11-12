@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { usePermissions } from '../../../lib/use-permissions';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import {
   Badge,
@@ -72,13 +73,18 @@ export default function ChannelsPage() {
     }
   }, [router]);
 
+  // FE-014: load only once the page gate passes, so users without access
+  // are redirected without first drawing a 403 from the api.
+  const { ready, has } = usePermissions();
+  const allowed = ready && has('ORG_SETTINGS');
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void refresh();
-  }, [router, refresh]);
+  }, [router, refresh, allowed]);
 
   function buildConfig(): Record<string, unknown> {
     switch (kind) {

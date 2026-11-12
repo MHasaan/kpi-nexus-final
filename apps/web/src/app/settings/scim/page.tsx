@@ -8,6 +8,7 @@ import { ApiError, getAccessToken } from '../../../lib/api-client';
 import { type ScimTokenRow, listScimTokens, mintScimToken, revokeScimToken } from '../../../lib/polish-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RequirePermission } from '../../../components/auth/require-permission';
+import { usePermissions } from '../../../lib/use-permissions';
 
 export default function ScimSettingsPage() {
   const router = useRouter();
@@ -24,13 +25,18 @@ export default function ScimSettingsPage() {
     }
   }, []);
 
+  // FE-014: load only once the page gate passes, so users without access
+  // are redirected without first drawing a 403 from the api.
+  const { ready, has } = usePermissions();
+  const allowed = ready && has('ORG_SETTINGS');
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   const mint = async () => {
     if (!label.trim()) return;

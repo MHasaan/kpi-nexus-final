@@ -88,7 +88,12 @@ def _client() -> TestClient:
 
 
 def _signed_post(
-    client: TestClient, path: str, payload: dict, signed_body: bytes | None = None, host: str | None = None
+    client: TestClient,
+    path: str,
+    payload: dict,
+    signed_body: bytes | None = None,
+    host: str | None = None,
+    content_type: str | None = "application/json",
 ):
     body = json.dumps(payload).encode()
     ts = int(time.time() * 1000)
@@ -99,7 +104,7 @@ def _signed_post(
             "X-Tenant-Id": ORG,
             "X-Signature-Timestamp": str(ts),
             "X-Signature": sig,
-            "content-type": "application/json",
+            **({"content-type": content_type} if content_type else {}),
             **({"Host": host} if host else {}),
         },
         content=body,
@@ -174,4 +179,17 @@ def test_forged_host_cannot_replay_a_signature_on_another_route() -> None:
 
 def test_valid_signature_still_verifies_when_host_is_unusual() -> None:
     res = _signed_post(_client(), "/forecast", {"values": [1, 2, 3, 4], "horizon": 2}, host="testserver/health")
+    assert res.status_code == 200
+
+
+# Starlette 1.x (FastAPI >= 0.136) only parses a JSON body that is labelled as
+# JSON. The API's ML client always sends content-type: application/json; a
+# signed request without it is now rejected before any analytics run.
+def test_signed_json_without_content_type_is_rejected() -> None:
+    res = _signed_post(_client(), "/forecast", {"values": [1, 2, 3, 4], "horizon": 2}, content_type=None)
+    assert res.status_code == 422
+
+
+def test_signed_json_labelled_as_json_is_accepted() -> None:
+    res = _signed_post(_client(), "/forecast", {"values": [1, 2, 3, 4], "horizon": 2})
     assert res.status_code == 200

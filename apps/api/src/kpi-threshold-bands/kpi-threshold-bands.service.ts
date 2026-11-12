@@ -117,7 +117,8 @@ export class KpiThresholdBandsService {
     const points = await this.prisma.kPIDataPoint.findMany({
       where: { kpiId, organizationId: ctx.organizationId },
       select: { value: true },
-      orderBy: { recordedAt: 'desc' },
+      // Newest period first ("latest" = newest period; entry time breaks ties).
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: window,
     });
     const bandsForResolver: ThresholdBand[] = bands.map((b) => ({

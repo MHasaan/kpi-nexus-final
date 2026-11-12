@@ -62,7 +62,8 @@ export class CalculationEngineService {
       const latest = await this.prisma.kPIDataPoint.findFirst({
         where: { kpiId: d.sourceKpiId, organizationId: ctx.organizationId },
         select: { value: true },
-        orderBy: { recordedAt: 'desc' },
+        // Newest period first ("latest" = newest period; entry time breaks ties).
+        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       });
       if (!latest) {
         this.logger.warn(`recompute ${kpiId}: source ${ref} has no data; skipping`);

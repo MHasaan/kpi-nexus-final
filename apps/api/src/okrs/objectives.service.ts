@@ -250,7 +250,8 @@ export class ObjectivesService {
       if (!kr.kpiId) continue;
       const latest = await this.prisma.kPIDataPoint.findFirst({
         where: { organizationId: ctx.organizationId, kpiId: kr.kpiId },
-        orderBy: { recordedAt: 'desc' },
+        // Newest period first ("latest" = newest period; entry time breaks ties).
+        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         select: { value: true },
       });
       if (latest) {

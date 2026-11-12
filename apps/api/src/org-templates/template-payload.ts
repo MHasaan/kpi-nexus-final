@@ -4,6 +4,10 @@
  * structure validation; no Prisma/Nest.
  */
 
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+
+const PERMISSION_KEYS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
+
 export interface TemplateRole {
   name: string;
   isAdmin: boolean;
@@ -129,6 +133,12 @@ export function validateTemplatePayload(p: TemplatePayload): string[] {
   if (!p.organization?.name) problems.push('organization.name is required');
   if (!roles.some((r) => r.isAdmin)) problems.push('at least one admin role is required');
 
+  // Unknown keys grant nothing, so a role built from them is silently powerless.
+  for (const r of roles) {
+    for (const perm of r.permissions ?? []) {
+      if (!PERMISSION_KEYS.has(perm)) problems.push(`role "${r.name}" has unknown permission "${perm}"`);
+    }
+  }
   for (const k of kpis) {
     if (!catNames.has(k.category)) problems.push(`KPI "${k.name}" references unknown category "${k.category}"`);
   }

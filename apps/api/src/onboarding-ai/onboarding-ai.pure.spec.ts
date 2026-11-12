@@ -58,3 +58,21 @@ describe('parseGeneratedOrg', () => {
     expect(out.positions).toEqual([]);
   });
 });
+
+// Real Gemini invented role permissions ("all", "view_clinical", "kpi:read"),
+// which were stored as-is, so non-admin roles in an AI-built org got no real
+// access. Only the canonical keys survive parsing.
+describe('parseGeneratedOrg — role permissions', () => {
+  it('keeps canonical permission keys and drops invented ones', () => {
+    const out = parseGeneratedOrg(
+      JSON.stringify({
+        roles: [
+          { name: 'Admin', isAdmin: true, level: 5, permissions: ['all'] },
+          { name: 'CMO', isAdmin: false, level: 4, permissions: ['KPI_VIEW', 'view_clinical', 'DASHBOARD_VIEW', 'kpi:read'] },
+          { name: 'Odd', isAdmin: false, level: 1 },
+        ],
+      }),
+    );
+    expect(out.roles.map((r) => r.permissions)).toEqual([[], ['KPI_VIEW', 'DASHBOARD_VIEW'], []]);
+  });
+});

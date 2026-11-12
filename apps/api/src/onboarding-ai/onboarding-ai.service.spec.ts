@@ -116,3 +116,17 @@ describe('OnboardingAiService — reasoning budget', () => {
     expect(complete.mock.calls[0]![0]).toMatchObject({ maxTokens: 8000, reasoningBudgetTokens: 4096 });
   });
 });
+
+// The model can only use real permission keys if the prompts name them.
+describe('OnboardingAiService — permission keys in prompts', () => {
+  it('the generator and assistant prompts list the canonical permission keys', async () => {
+    const { service, complete } = setup();
+    complete.mockResolvedValue({ content: '[]', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.generate('s1', 'tok', 'B2B SaaS').catch(() => undefined);
+    await service.assistant('s1', 'tok', 'Add a role');
+    for (const call of complete.mock.calls) {
+      expect(call[0].systemPrompt).toContain('KPI_VIEW');
+      expect(call[0].systemPrompt).toContain('BILLING_MANAGE');
+    }
+  });
+});

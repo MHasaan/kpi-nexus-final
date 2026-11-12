@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { AiCompletionRequest } from '@kpi-nexus/ai';
-import type { AiFeature } from '@kpi-nexus/contracts';
+import { ALL_PERMISSIONS, type AiFeature } from '@kpi-nexus/contracts';
 import type { OnboardingAiMode } from '@kpi-nexus/db';
 
 import { AiProviderRegistry } from '../ai/ai-provider-registry.js';
@@ -20,6 +20,9 @@ const FEATURE: Record<OnboardingAiMode, AiFeature> = {
   explain: 'ONBOARDING_EXPLAIN',
 };
 
+// Roles may only hold these keys; anything else grants nothing.
+const PERMISSIONS_RULE = `Role permissions ⊆ ${ALL_PERMISSIONS.join('|')}. The admin role gets all of them.`;
+
 const GEN_SYSTEM = [
   'You are an onboarding assistant. Generate a complete organization setup as JSON ONLY (no prose, no fences):',
   '{"organization":{"name","industry","type","sizeTier"},"roles":[{"name","isAdmin","level","permissions":[]}],',
@@ -29,6 +32,7 @@ const GEN_SYSTEM = [
   'type ∈ NUMBER|PERCENTAGE|CURRENCY|DURATION|COUNT|RATING|BOOLEAN. direction ∈ HIGHER_IS_BETTER|LOWER_IS_BETTER|TARGET_IS_BEST|NEUTRAL.',
   'frequency ∈ DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY. scorecardQuadrant ∈ FINANCIAL|CUSTOMER|INTERNAL_PROCESS|LEARNING_GROWTH.',
   'Every orgUnit.type must match an orgUnitTypes.name; every kpi.category must match a kpiCategories.name. Exactly one role with isAdmin=true.',
+  PERMISSIONS_RULE,
 ].join('\n');
 
 /**
@@ -156,7 +160,8 @@ export class OnboardingAiService {
   async assistant(sessionId: string, token: string, instruction: string) {
     const draft = await this.onboarding.getDraft(sessionId, token);
     const sys =
-      'You are an onboarding assistant. Given the current draft and an instruction, respond with ONLY a JSON array of RFC 6902 operations (e.g. [{"op":"add","path":"/roles/-","value":{...}}]). No prose.';
+      'You are an onboarding assistant. Given the current draft and an instruction, respond with ONLY a JSON array of RFC 6902 operations (e.g. [{"op":"add","path":"/roles/-","value":{...}}]). No prose.' +
+      ` ${PERMISSIONS_RULE}`;
     const { interactionId, content } = await this.run(
       sessionId,
       token,

@@ -38,7 +38,7 @@ The crawl doesn't assert; re-run it with `AUDIT_CRAWL=1 pnpm --filter @kpi-nexus
 |---|---|---|
 | Public / auth | `/`, `/login`, `/register`, `/signup`, `/signup/wizard`, `/accept-invitation`, `/unauthorized`, `/share/[token]`, `/embed/kpi/[token]` | ❌ template gallery empty (FE-005) · ⚠️ FE-008, FE-009 |
 | Dashboard | `/dashboard` | ⚠️ FE-001 (status ignores direction), FE-013 |
-| KPIs | `/kpis`, `/kpis/new`, `/kpis/[id]` (+ edit / anomalies / forecast / whatif / embed), `/kpis/archive`, `/kpis/categories`, `/kpis/import`, `/kpis/scorecard`, `/kpis/templates`, `/kpis/tree`, `/my-kpis` | ⚠️ FE-015, FE-016; forecast models — OT-005 |
+| KPIs | `/kpis`, `/kpis/new`, `/kpis/[id]` (+ edit / anomalies / forecast / whatif / embed), `/kpis/archive`, `/kpis/categories`, `/kpis/import`, `/kpis/scorecard`, `/kpis/templates`, `/kpis/tree`, `/my-kpis` | ⚠️ FE-015, FE-016 |
 | Dashboards | `/dashboards`, `/dashboards/new`, `/dashboards/archive`, `/dashboards/[id]` (+ share / snapshots / widgets/[wid]) | ⚠️ FE-013 (no live updates), FE-017 |
 | Reports | `/reports`, `/reports/new`, `/reports/[id]`, `/reports/board-pack` | ❌ board pack crashes (FE-012) |
 | Alerts | `/alerts`, `/alerts/new`, `/alerts/[id]`, `/alerts/channels` | ⚠️ FE-006 (rules not manageable), FE-014 |

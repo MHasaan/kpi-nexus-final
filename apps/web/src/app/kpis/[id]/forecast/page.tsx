@@ -167,19 +167,15 @@ export default function ForecastPage() {
             <div className="space-y-1.5">
               <Label htmlFor="fc-model">Model</Label>
               <Select id="fc-model" data-testid="fc-model" value={model} onChange={(e) => setModel(e.target.value)}>
-                {/* Only the naive model is implemented; the sidecar ran Prophet/ARIMA
-                    requests as naive while the UI implied otherwise (OT-005). */}
+                {/* With too little history the sidecar runs naive instead; the
+                    result's Model card shows what actually ran (OT-005). */}
                 <option value="naive">Naive (trend)</option>
-                <option value="prophet" disabled>
-                  Prophet — coming soon
-                </option>
-                <option value="arima" disabled>
-                  ARIMA — coming soon
-                </option>
+                <option value="prophet">Prophet (trend + seasonality)</option>
+                <option value="arima">ARIMA (autoregressive)</option>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fc-horizon">Horizon (days)</Label>
+              <Label htmlFor="fc-horizon">Horizon (periods)</Label>
               <Input
                 id="fc-horizon"
                 data-testid="fc-horizon"

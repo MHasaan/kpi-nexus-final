@@ -62,6 +62,8 @@ async function call(path, body, signer = (p, b) => sign(p, b)) {
 
 const series = Array.from({ length: 36 }, (_, i) => 100 + i * 2 + 10 * Math.sin((i * Math.PI) / 6) + (i === 20 ? 60 : 0));
 
+const monthly = series.map((_, i) => new Date(Date.UTC(2024, i, 1)).toISOString());
+
 const cases = [
   // [name, path, body, expected statuses]
   ['anomaly ensemble', '/anomaly/detect', { values: series }, [200]],
@@ -74,7 +76,10 @@ const cases = [
   ['anomaly constant series', '/anomaly/detect', { values: Array(20).fill(7) }, [200]],
   ['anomaly timestamps length mismatch', '/anomaly/detect', { values: series, timestamps: ['2026-01-01'] }, [200, 400, 422]],
   ['forecast naive', '/forecast', { values: series, horizon: 6 }, [200]],
-  ['forecast prophet (deferred)', '/forecast', { values: series, horizon: 6, model: 'prophet' }, [200]],
+  ['forecast prophet', '/forecast', { values: series, timestamps: monthly, horizon: 6, model: 'prophet' }, [200]],
+  ['forecast prophet without timestamps (naive)', '/forecast', { values: series, horizon: 6, model: 'prophet' }, [200]],
+  ['forecast arima', '/forecast', { values: series, horizon: 6, model: 'arima' }, [200]],
+  ['forecast prophet unparseable timestamps', '/forecast', { values: series, timestamps: series.map(() => 'soon'), horizon: 3, model: 'prophet' }, [200]],
   ['forecast horizon 0', '/forecast', { values: series, horizon: 0 }, [200, 400, 422]],
   ['forecast negative horizon', '/forecast', { values: series, horizon: -5 }, [400, 422]],
   ['forecast huge horizon (1e6)', '/forecast', { values: series, horizon: 1_000_000 }, [400, 422]],

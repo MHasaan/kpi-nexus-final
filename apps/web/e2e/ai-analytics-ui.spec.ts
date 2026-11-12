@@ -94,6 +94,18 @@ test('forecast page: generate renders chart + fit metrics', async ({ page }) => 
   await expect(page.getByTestId('fc-metrics')).toBeVisible();
 });
 
+test('forecast page: picking ARIMA runs ARIMA (OT-005)', async ({ page }) => {
+  test.skip(!ready, 'api/ML not reachable');
+  test.setTimeout(60_000);
+  const { kpiId } = await setup(page);
+
+  await page.goto(`/kpis/${kpiId}/forecast`);
+  await page.getByTestId('fc-model').selectOption('arima');
+  await page.getByTestId('fc-horizon').fill('4');
+  await page.getByTestId('fc-run').click();
+  await expect(page.getByTestId('fc-metrics')).toContainText('ARIMA', { timeout: 20_000 });
+});
+
 test('whatif page: simulate renders ~10% lift', async ({ page }) => {
   test.skip(!ready, 'api/ML not reachable');
   test.setTimeout(60_000);

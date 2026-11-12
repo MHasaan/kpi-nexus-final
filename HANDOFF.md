@@ -216,7 +216,7 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 | OT-017 | open (Info) | `setupScripts/start.ps1` has never been cold-run end to end. Doing that on the new computer is a good real test. |
 | BE-004 | ✅ | The insights part was fixed earlier; the PEOPLE / ORG / ANALYTICS part followed in `05ce2f3..5da1954`. The 🟡 on the insights row is historical. |
 | BE-013 | ✔ accepted | A suspended user keeps a ≤15-minute access token. The user decided to accept this. |
-| OT-005 | labelled | Prophet / ARIMA show as "coming soon"; only naive forecasting exists. Implementing them is a product choice. |
+| OT-005 | ✅ fixed (2026-11-12) | Prophet and ARIMA forecasts are implemented and selectable (prophet 1.5.0, #62, and the forecast PR). Short, flat or undated series run naive and say so. |
 | OT-013 residue | unfixable | `deepmerge-ts` (via Prisma) and `braces` (via tailwind) audit items have no upstream fix yet. Re-check with `pnpm audit --prod`. |
 | OT-010 | ✅ | Git history is clean of secrets. Verified; no action needed. |
 | MV-001..MV-004 | ✅ fixed (2026-11-11) | ML HMAC Host bypass (#45), BullMQ Redis URL (#46), env templates + app icon (#47); plus in-major security patches (#48). See [the closure follow-up](docs/audit/closure-2026-11-06.md#follow-up--2026-11-11-main-verification-findings-closed). |
@@ -242,7 +242,7 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51), the deploy config (#52, #53) and free-tier hosting (#55–#60, ADR-001). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
 0. **Go live (the owner's step; needs accounts).** Follow [docs/deploy.md](docs/deploy.md): Oracle Free Tier VM (never upgraded), DuckDNS, Brevo, Object Storage, the four GitHub secrets, first deploy (make the three GHCR packages public), Vercel, then its *Check it* list including a backup restore drill. The config is done and rehearsed ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md), #55–#60); nothing has run on a real VM yet.
-1. **Prophet/ARIMA forecasting (OT-005).** Replace the "coming soon" models; review Dependabot #37 (prophet 1.5) alongside.
+1. **Analytics ordering by period.** Anomaly detection, seasonality and what-if read the newest values by entry time (`recordedAt`), so backfilled data entered out of order is analysed out of order. The forecast now orders by `periodStart` (OT-005); do the same for the other three, test first.
 2. **FastAPI/Starlette framework review (#11, #39).** The earlier trial changed headerless-JSON behavior and pulled Starlette 1.x; it also clears the remaining Starlette advisories.
 3. **FE-014 verification.** Confirm the remaining pages make only optional, 403-tolerant lookups for users without access.
 4. **Real-provider AI check.** Run the AI features once against real Gemini keys (deterministic fixtures cover the rest).

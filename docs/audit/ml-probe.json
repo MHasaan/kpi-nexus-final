@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-03T00:50:51.812Z",
+  "generatedAt": "2026-11-12T04:55:26.490Z",
   "mlUrl": "http://127.0.0.1:8000",
   "results": [
     {
       "name": "anomaly ensemble",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 417,
+      "ms": 127,
       "ok": true,
       "expect": [
         200
@@ -17,18 +17,18 @@
       "name": "anomaly isolation_forest",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 313,
+      "ms": 91,
       "ok": true,
       "expect": [
         200
       ],
-      "excerpt": "{\"anomalies\":[{\"index\":0,\"score\":0.7036494508279392,\"methodHits\":{\"zscore\":1.6529820017857846,\"ewma\":0.0,\"isolation_forest\":0.7036494508279392}},{\"index\":20,\"score\":0.7943008348492254,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+      "excerpt": "{\"anomalies\":[{\"index\":0,\"score\":0.7036494508279392,\"methodHits\":{\"zscore\":1.6529820017857846,\"ewma\":0,\"isolation_forest\":0.7036494508279392}},{\"index\":20,\"score\":0.7943008348492254,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
     },
     {
       "name": "anomaly zscore",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 340,
+      "ms": 92,
       "ok": true,
       "expect": [
         200
@@ -39,7 +39,7 @@
       "name": "anomaly ewma",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 246,
+      "ms": 90,
       "ok": true,
       "expect": [
         200
@@ -49,33 +49,33 @@
     {
       "name": "anomaly unknown method",
       "path": "/anomaly/detect",
-      "status": 200,
-      "ms": 234,
-      "ok": false,
+      "status": 422,
+      "ms": 3,
+      "ok": true,
       "expect": [
         400,
         422
       ],
-      "excerpt": "{\"anomalies\":[{\"index\":20,\"score\":1.0798904091644361,\"methodHits\":{\"zscore\":2.464734983390462,\"ewma\":4.871376194541788,\"isolation_forest\":0.7943008348492254}}]}"
+      "excerpt": "{\"detail\":[{\"type\":\"literal_error\",\"loc\":[\"body\",\"method\"],\"msg\":\"Input should be 'ensemble', 'isolation_forest', 'zscore' or 'ewma'\",\"input\":\"tarot\",\"ctx\":{\"expected\":\"'ensemble', 'isolation_forest', 'zscore' or 'ewma'\"}}]}"
     },
     {
       "name": "anomaly empty series",
       "path": "/anomaly/detect",
-      "status": 200,
-      "ms": 5,
+      "status": 422,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"anomalies\":[]}"
+      "excerpt": "{\"detail\":[{\"type\":\"too_short\",\"loc\":[\"body\",\"values\"],\"msg\":\"List should have at least 1 item after validation, not 0\",\"input\":[],\"ctx\":{\"field_type\":\"List\",\"min_length\":1,\"actual_length\":0}}]}"
     },
     {
       "name": "anomaly single point",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 4,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
@@ -88,7 +88,7 @@
       "name": "anomaly constant series",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 216,
+      "ms": 86,
       "ok": true,
       "expect": [
         200
@@ -99,7 +99,7 @@
       "name": "anomaly timestamps length mismatch",
       "path": "/anomaly/detect",
       "status": 200,
-      "ms": 229,
+      "ms": 88,
       "ok": true,
       "expect": [
         200,
@@ -112,7 +112,7 @@
       "name": "forecast naive",
       "path": "/forecast",
       "status": 200,
-      "ms": 5,
+      "ms": 3,
       "ok": true,
       "expect": [
         200
@@ -120,10 +120,43 @@
       "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
     },
     {
-      "name": "forecast prophet (deferred)",
+      "name": "forecast prophet",
       "path": "/forecast",
       "status": 200,
-      "ms": 4,
+      "ms": 140,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"2027-01-01\",\"yhat\":172.00312954422188,\"yhat_lower_80\":161.26286984802738,\"yhat_upper_80\":182.19870512293207,\"yhat_lower_95\":155.57763874791945,\"yhat_upper_95\":187.59561404349776},{\"ds\":\"2027-02-01\",\"yhat\":178.99564318914355,\"yhat_lower_80\":168.4543700509877,\"yhat_upper_80\":189"
+    },
+    {
+      "name": "forecast prophet without timestamps (naive)",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 2,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
+    },
+    {
+      "name": "forecast arima",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 591,
+      "ok": true,
+      "expect": [
+        200
+      ],
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":161.0375676236088,\"yhat_lower_80\":144.93308693453307,\"yhat_upper_80\":177.14204831268452,\"yhat_lower_95\":136.40788982605883,\"yhat_upper_95\":185.66724542115875},{\"ds\":\"t+2\",\"yhat\":161.0375676236088,\"yhat_lower_80\":143.46099312470577,\"yhat_upper_80\":178.61414212251182"
+    },
+    {
+      "name": "forecast prophet unparseable timestamps",
+      "path": "/forecast",
+      "status": 200,
+      "ms": 3,
       "ok": true,
       "expect": [
         200
@@ -133,117 +166,117 @@
     {
       "name": "forecast horizon 0",
       "path": "/forecast",
-      "status": 200,
-      "ms": 4,
+      "status": 422,
+      "ms": 1,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593}],\"fitMetrics\":{\"rmse\":10.789261748269803,\"mape\":5.244622821180607},\"model\":\"naive\"}"
+      "excerpt": "{\"detail\":[{\"type\":\"greater_than_equal\",\"loc\":[\"body\",\"horizon\"],\"msg\":\"Input should be greater than or equal to 1\",\"input\":0,\"ctx\":{\"ge\":1}}]}"
     },
     {
       "name": "forecast negative horizon",
       "path": "/forecast",
-      "status": 200,
-      "ms": 4,
-      "ok": false,
+      "status": 422,
+      "ms": 1,
+      "ok": true,
       "expect": [
         400,
         422
       ],
-      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593}],\"fitMetrics\":{\"rmse\":10.789261748269803,\"mape\":5.244622821180607},\"model\":\"naive\"}"
+      "excerpt": "{\"detail\":[{\"type\":\"greater_than_equal\",\"loc\":[\"body\",\"horizon\"],\"msg\":\"Input should be greater than or equal to 1\",\"input\":-5,\"ctx\":{\"ge\":1}}]}"
     },
     {
       "name": "forecast huge horizon (1e6)",
       "path": "/forecast",
-      "status": 200,
-      "ms": 18436,
-      "ok": false,
+      "status": 422,
+      "ms": 1,
+      "ok": true,
       "expect": [
         400,
         422
       ],
-      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":171.1820516887505,\"yhat_lower_80\":157.35453383216793,\"yhat_upper_80\":185.00956954533308,\"yhat_lower_95\":150.0350986621417,\"yhat_upper_95\":192.3290047153593},{\"ds\":\"t+2\",\"yhat\":173.04774817643073,\"yhat_lower_80\":159.22023031984816,\"yhat_upper_80\":186.8752660330133,\""
+      "excerpt": "{\"detail\":[{\"type\":\"less_than_equal\",\"loc\":[\"body\",\"horizon\"],\"msg\":\"Input should be less than or equal to 365\",\"input\":1000000,\"ctx\":{\"le\":365}}]}"
     },
     {
       "name": "forecast empty series",
       "path": "/forecast",
-      "status": 200,
-      "ms": 23,
-      "ok": false,
+      "status": 422,
+      "ms": 1,
+      "ok": true,
       "expect": [
         400,
         422
       ],
-      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_95\":0.0,\"yhat_upper_95\":0.0},{\"ds\":\"t+2\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_95\":0.0,\"yhat_upper_95\":0.0},{\"ds\":\"t+3\",\"yhat\":0.0,\"yhat_lower_80\":0.0,\"yhat_upper_80\":0.0,\"yhat_lower_9"
+      "excerpt": "{\"detail\":[{\"type\":\"too_short\",\"loc\":[\"body\",\"values\"],\"msg\":\"List should have at least 1 item after validation, not 0\",\"input\":[],\"ctx\":{\"field_type\":\"List\",\"min_length\":1,\"actual_length\":0}}]}"
     },
     {
       "name": "forecast single point",
       "path": "/forecast",
       "status": 200,
-      "ms": 7,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,\"yhat_lower_95\":42.0,\"yhat_upper_95\":42.0},{\"ds\":\"t+2\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,\"yhat_lower_95\":42.0,\"yhat_upper_95\":42.0},{\"ds\":\"t+3\",\"yhat\":42.0,\"yhat_lower_80\":42.0,\"yhat_upper_80\":42.0,"
+      "excerpt": "{\"predictions\":[{\"ds\":\"t+1\",\"yhat\":42,\"yhat_lower_80\":42,\"yhat_upper_80\":42,\"yhat_lower_95\":42,\"yhat_upper_95\":42},{\"ds\":\"t+2\",\"yhat\":42,\"yhat_lower_80\":42,\"yhat_upper_80\":42,\"yhat_lower_95\":42,\"yhat_upper_95\":42},{\"ds\":\"t+3\",\"yhat\":42,\"yhat_lower_80\":42,\"yhat_upper_80\":42,\"yhat_lower_95\":42,\"yhat_u"
     },
     {
       "name": "correlation pearson",
       "path": "/correlation",
       "status": 200,
-      "ms": 10,
+      "ms": 2,
       "ok": true,
       "expect": [
         200
       ],
-      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":1.0,\"p\":0.0}]}"
+      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":1,\"p\":0}]}"
     },
     {
       "name": "correlation spearman",
       "path": "/correlation",
       "status": 200,
-      "ms": 8,
+      "ms": 7,
       "ok": true,
       "expect": [
         200
       ],
-      "excerpt": "{\"method\":\"spearman\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":-1.0,\"p\":0.0}]}"
+      "excerpt": "{\"method\":\"spearman\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":-1,\"p\":0}]}"
     },
     {
       "name": "correlation unequal lengths",
       "path": "/correlation",
-      "status": 200,
-      "ms": 6,
-      "ok": false,
+      "status": 422,
+      "ms": 2,
+      "ok": true,
       "expect": [
         400,
         422
       ],
-      "excerpt": "{\"method\":\"pearson\",\"pairs\":[{\"a\":\"a\",\"b\":\"b\",\"r\":0.9981387914636444,\"p\":0.03884722679401931}]}"
+      "excerpt": "{\"detail\":[{\"type\":\"value_error\",\"loc\":[\"body\"],\"msg\":\"Value error, all series must have the same length\",\"input\":{\"series\":{\"a\":[100,107,112.66025403784438,116,116.66025403784438,115,112,109,107.33974596215562,108,111.33974596215562,117,124,131,136.6602540378444,140,140.6602540378444,139,136,133,19"
     },
     {
       "name": "correlation single series",
       "path": "/correlation",
-      "status": 200,
-      "ms": 3,
+      "status": 422,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"method\":\"pearson\",\"pairs\":[]}"
+      "excerpt": "{\"detail\":[{\"type\":\"too_short\",\"loc\":[\"body\",\"series\"],\"msg\":\"Dictionary should have at least 2 items after validation, not 1\",\"input\":{\"a\":[100,107,112.66025403784438,116,116.66025403784438,115,112,109,107.33974596215562,108,111.33974596215562,117,124,131,136.6602540378444,140,140.6602540378444,139"
     },
     {
       "name": "correlation constant series (zero variance)",
       "path": "/correlation",
       "status": 200,
-      "ms": 17,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
@@ -256,31 +289,31 @@
       "name": "seasonality monthly",
       "path": "/seasonality",
       "status": 200,
-      "ms": 5,
+      "ms": 2,
       "ok": true,
       "expect": [
         200
       ],
-      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122.0,124.00000000000001,126.0,130.5,134.99999999999997,137.0,139.0,140.99999999999997,143.0,145.0,147.0,148.99999999999997,150.99999999999997,153.0,155.0,154.500000"
+      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122,124.00000000000001,126,130.5,134.99999999999997,137,139,140.99999999999997,143,145,147,148.99999999999997,150.99999999999997,153,155,154.50000000000003,154,156,1"
     },
     {
       "name": "seasonality auto period",
       "path": "/seasonality",
       "status": 200,
-      "ms": 5,
+      "ms": 3,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122.0,124.00000000000001,126.0,130.5,134.99999999999997,137.0,139.0,140.99999999999997,143.0,145.0,147.0,148.99999999999997,150.99999999999997,153.0,155.0,154.500000"
+      "excerpt": "{\"trend\":[null,null,null,null,null,null,111.99999999999999,113.99999999999997,115.99999999999999,117.99999999999999,120.00000000000001,122,124.00000000000001,126,130.5,134.99999999999997,137,139,140.99999999999997,143,145,147,148.99999999999997,150.99999999999997,153,155,154.50000000000003,154,156,1"
     },
     {
       "name": "seasonality too short for period",
       "path": "/seasonality",
       "status": 422,
-      "ms": 4,
+      "ms": 2,
       "ok": true,
       "expect": [
         400,
@@ -292,7 +325,7 @@
       "name": "seasonality multiplicative with zeros",
       "path": "/seasonality",
       "status": 422,
-      "ms": 3,
+      "ms": 2,
       "ok": true,
       "expect": [
         200,
@@ -305,44 +338,44 @@
       "name": "whatif percent",
       "path": "/whatif",
       "status": 200,
-      "ms": 6,
+      "ms": 2,
       "ok": true,
       "expect": [
         200
       ],
-      "excerpt": "{\"baseline\":[100.0,107.0,112.66025403784438,116.0,116.66025403784438,115.0,112.0,109.0,107.33974596215562,108.0,111.33974596215562,117.0,124.0,131.0,136.6602540378444,140.0,140.6602540378444,139.0,136.0,133.0,191.3397459621556,132.0,135.3397459621556,141.0,148.0,155.0,160.6602540378444,164.0,164.660"
+      "excerpt": "{\"baseline\":[100,107,112.66025403784438,116,116.66025403784438,115,112,109,107.33974596215562,108,111.33974596215562,117,124,131,136.6602540378444,140,140.6602540378444,139,136,133,191.3397459621556,132,135.3397459621556,141,148,155,160.6602540378444,164,164.6602540378444,163,160.00000000000003,157,"
     },
     {
       "name": "whatif unknown scenario type",
       "path": "/whatif",
       "status": 200,
-      "ms": 4,
+      "ms": 1,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"baseline\":[100.0,107.0,112.66025403784438,116.0,116.66025403784438,115.0,112.0,109.0,107.33974596215562,108.0,111.33974596215562,117.0,124.0,131.0,136.6602540378444,140.0,140.6602540378444,139.0,136.0,133.0,191.3397459621556,132.0,135.3397459621556,141.0,148.0,155.0,160.6602540378444,164.0,164.660"
+      "excerpt": "{\"baseline\":[100,107,112.66025403784438,116,116.66025403784438,115,112,109,107.33974596215562,108,111.33974596215562,117,124,131,136.6602540378444,140,140.6602540378444,139,136,133,191.3397459621556,132,135.3397459621556,141,148,155,160.6602540378444,164,164.6602540378444,163,160.00000000000003,157,"
     },
     {
       "name": "whatif empty baseline",
       "path": "/whatif",
-      "status": 200,
-      "ms": 3,
+      "status": 422,
+      "ms": 1,
       "ok": true,
       "expect": [
         200,
         400,
         422
       ],
-      "excerpt": "{\"baseline\":[],\"scenarios\":[{\"values\":[],\"aggregateLift\":0,\"aggregateLiftPct\":0.0}]}"
+      "excerpt": "{\"detail\":[{\"type\":\"too_short\",\"loc\":[\"body\",\"baseline\",\"values\"],\"msg\":\"List should have at least 1 item after validation, not 0\",\"input\":[],\"ctx\":{\"field_type\":\"List\",\"min_length\":1,\"actual_length\":0}}]}"
     },
     {
       "name": "malformed JSON body",
       "path": "/forecast",
       "status": 422,
-      "ms": 2,
+      "ms": 1,
       "ok": true,
       "expect": [
         400,
@@ -354,7 +387,7 @@
       "name": "auth: no signature headers",
       "path": "/forecast",
       "status": 401,
-      "ms": 2,
+      "ms": 1,
       "ok": true,
       "expect": [
         401
@@ -365,7 +398,7 @@
       "name": "auth: wrong secret",
       "path": "/forecast",
       "status": 401,
-      "ms": 2,
+      "ms": 1,
       "ok": true,
       "expect": [
         401
@@ -376,7 +409,7 @@
       "name": "auth: stale timestamp (10 min old)",
       "path": "/forecast",
       "status": 401,
-      "ms": 2,
+      "ms": 1,
       "ok": true,
       "expect": [
         401
@@ -398,7 +431,29 @@
       "name": "auth: non-numeric timestamp",
       "path": "/forecast",
       "status": 401,
-      "ms": 2,
+      "ms": 1,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    },
+    {
+      "name": "auth: signature replayed with a different body",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 1,
+      "ok": true,
+      "expect": [
+        401
+      ],
+      "excerpt": "{\"detail\":\"Invalid signature\"}"
+    },
+    {
+      "name": "auth: signature replayed against another path",
+      "path": "/forecast",
+      "status": 401,
+      "ms": 1,
       "ok": true,
       "expect": [
         401

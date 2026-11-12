@@ -28,8 +28,9 @@ function toModelKind(model: string): ForecastModelKind {
 
 /**
  * KPI forecasting via the ML sidecar. Visibility enforced via KpisService.getById.
- * The persisted `model` reflects what the sidecar actually used (currently NAIVE
- * — prophet/arima are deferred), not necessarily what was requested.
+ * The persisted `model` reflects what the sidecar actually used: it runs NAIVE
+ * instead of PROPHET/ARIMA when the history is too short, not necessarily what
+ * was requested (OT-005).
  */
 @Injectable()
 export class ForecastsService {
@@ -54,18 +55,20 @@ export class ForecastsService {
     };
     if (from) where.recordedAt = { gte: from };
 
+    // A forecast runs over the periods the values describe, not when they were
+    // entered: a backfill of 24 months is typed in seconds (OT-005).
     const points = await this.prisma.kPIDataPoint.findMany({
       where,
-      orderBy: { recordedAt: 'desc' },
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: WINDOW,
-      select: { value: true, recordedAt: true },
+      select: { value: true, periodStart: true },
     });
     if (points.length === 0) throw new InsufficientDataError('forecast');
     const ordered = points.reverse();
 
     const result = await this.ml.post<MlForecast>('/forecast', {
       values: ordered.map((p) => p.value),
-      timestamps: ordered.map((p) => p.recordedAt.toISOString()),
+      timestamps: ordered.map((p) => p.periodStart.toISOString()),
       horizon: opts.horizon,
       model: opts.model ?? 'naive',
     });

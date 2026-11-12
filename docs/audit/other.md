@@ -170,7 +170,8 @@ Decision record: [tenant-isolation plan](../superpowers/specs/2026-10-09-tenant-
 ### OT-010 · Low · Git history is clean of secrets ✅ (verified, no action)
 - Scanned `git log --all -p` for Google / Anthropic / OpenAI / Slack / GitHub / AWS key patterns and private keys → none. `.env` files were never committed and are gitignored. CORS uses an explicit allow-list (`CORS_ALLOWED_ORIGINS`), and `JWT_SECRET` is mandatory.
 
-### OT-005 · Low · Forecast models Prophet / ARIMA not implemented — ✅ FIXED (labelled)
+### OT-005 · Low · Forecast models Prophet / ARIMA not implemented — ✅ FIXED (implemented)
+- **Implemented (2026-11-12):** prophet 1.5.0 so Prophet can fit at all (#62), then Prophet and ARIMA in the sidecar, selectable on the forecast page. Forecasts use each value's period (`periodStart`), step at the series' own spacing (calendar months for monthly data), and fall back to naive, reported as naive, for short, flat or undated series. See the fix log.
 - **Fix (`6216b14`):** the picker keeps Prophet / ARIMA visible but disabled and labelled "coming soon"; naive is the only selectable model. Implementing them remains a product choice.
 - **Repro:** KPI → Forecast → Model "prophet" → Generate.
 - **Actual:** result reports model `NAIVE`. `apps/ml/app/routers/forecast.py:19` — `model: str = "naive"  # prophet/arima deferred → naive fallback`. The UI offers prophet/arima as if available; ROADMAP P5 lists Prophet/ARIMA as shipped.

@@ -88,7 +88,7 @@ function aggregate(values: number[], method: string): number | null {
     case 'MAX':
       return Math.max(...values);
     case 'LAST':
-      return values[0] ?? null; // values arrive sorted by recordedAt DESC
+      return values[0] ?? null; // values arrive newest period first (periodStart DESC)
     case 'FIRST':
       return values[values.length - 1] ?? null;
     default:
@@ -384,7 +384,9 @@ export class KpiDataService {
           // how old the data the principal may aggregate is. maxListRows governs the
           // raw data-point LIST endpoint (listForKpi), not this computed summary.
           select: { value: true, recordedAt: true, periodStart: true },
-          orderBy: [{ recordedAt: 'desc' }],
+          // Newest period first: "latest" is the newest period, so a backfilled
+          // older period never becomes the current value. Entry time breaks ties.
+          orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
           take: 1000,
         });
         return {
@@ -484,7 +486,8 @@ export class KpiDataService {
           userId: params.userId,
         },
         select: { value: true },
-        orderBy: { recordedAt: 'desc' },
+        // The 30 newest periods, not the 30 newest entries (see dashboardSummary).
+        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         take: 30,
       });
       return detectOutlier(prior.map((p) => p.value), params.dto.value).isOutlier;

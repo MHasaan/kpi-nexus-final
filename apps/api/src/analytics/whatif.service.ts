@@ -56,7 +56,8 @@ export class WhatIfService {
     if (from) where.recordedAt = { gte: from };
     const points = await this.prisma.kPIDataPoint.findMany({
       where,
-      orderBy: { recordedAt: 'desc' },
+      // Newest periods, not newest entries: backfills arrive out of order.
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take,
       select: { value: true },
     });

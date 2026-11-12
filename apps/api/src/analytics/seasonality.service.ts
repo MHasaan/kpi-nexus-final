@@ -51,9 +51,10 @@ export class SeasonalityService {
 
     const points = await this.prisma.kPIDataPoint.findMany({
       where,
-      orderBy: { recordedAt: 'desc' },
+      // Newest periods, not newest entries: backfills arrive out of order.
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: WINDOW,
-      select: { value: true, recordedAt: true },
+      select: { value: true },
     });
     const series = points.map((p) => p.value).reverse(); // chronological order
 

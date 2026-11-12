@@ -135,3 +135,11 @@ describe('WhatIfService.simulate with no data (BE-024)', () => {
     expect(mockMl.post).not.toHaveBeenCalled();
   });
 });
+
+describe('WhatIfService.simulate — period order', () => {
+  it('reads the newest periods, not the newest entries (backfills entered out of order)', async () => {
+    await makeSvc().simulate('kpi_1', { scenarios: [{ deltaPct: 10 }] });
+    const query = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { orderBy: unknown };
+    expect(query.orderBy).toEqual([{ periodStart: 'desc' }, { recordedAt: 'desc' }]);
+  });
+});

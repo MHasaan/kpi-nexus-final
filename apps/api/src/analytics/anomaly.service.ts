@@ -54,9 +54,10 @@ export class AnomalyService {
     if (from) where.recordedAt = { gte: from };
     const rows = await this.prisma.kPIDataPoint.findMany({
       where,
-      orderBy: { recordedAt: 'desc' },
+      // Newest periods, not newest entries: backfills arrive out of order.
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: WINDOW,
-      select: { id: true, value: true, recordedAt: true },
+      select: { id: true, value: true, periodStart: true },
     });
     return rows.reverse();
   }
@@ -76,7 +77,7 @@ export class AnomalyService {
 
     const result = await this.ml.post<{ anomalies: MlAnomaly[] }>('/anomaly/detect', {
       values: points.map((p) => p.value),
-      timestamps: points.map((p) => p.recordedAt.toISOString()),
+      timestamps: points.map((p) => p.periodStart.toISOString()),
       method: opts.method ?? 'ensemble',
       threshold: opts.threshold ?? 3.0,
     });

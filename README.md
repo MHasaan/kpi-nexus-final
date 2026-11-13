@@ -65,7 +65,7 @@ kpi-nexus-final/
 |---|---|---|
 | Node.js | 20 LTS (or 22) | Runtime for pnpm + apps |
 | pnpm | 9.x | Workspace package manager (`npm install -g pnpm@9`) |
-| Python | 3.12 | ML sidecar (apps/ml) |
+| Python | 3.14 | ML sidecar (apps/ml) |
 | Docker Desktop | 24+ | Postgres, Redis, SeaweedFS (S3), Mailhog, Jaeger via compose |
 | git | any recent | Version control |
 

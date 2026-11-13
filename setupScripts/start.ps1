@@ -104,7 +104,7 @@ Write-Step "Starting ML sidecar (:8000) in a new window"
 # The sidecar runs from its own venv at apps\ml\.venv (gitignored). A plain
 # PATH `python` is unreliable here: on machines with MSYS2 it resolves to the
 # MinGW build, which has no wheels for numpy/prophet. `uv` fetches a standard
-# CPython 3.12 (pyproject.toml pins >=3.12,<3.13) when the venv is missing.
+# CPython 3.14 (pyproject.toml pins >=3.14,<3.15) when the venv is missing.
 $MlDir     = Join-Path $ProjectRoot "apps\ml"
 $VenvDir   = Join-Path $MlDir ".venv"
 $PythonExe = Join-Path $VenvDir "Scripts\python.exe"
@@ -114,11 +114,11 @@ $HasUv     = [bool](Get-Command uv -ErrorAction SilentlyContinue)
 if (-not (Test-Path $PythonExe)) {
     Write-Host "  Creating ML venv at $VenvDir ..." -ForegroundColor Yellow
     if ($HasUv) {
-        uv venv $VenvDir --python 3.12 --python-preference only-managed
+        uv venv $VenvDir --python 3.14 --python-preference only-managed
     } else {
         python -m venv $VenvDir
     }
-    if (-not (Test-Path $PythonExe)) { throw "Could not create the ML venv. Install uv (https://docs.astral.sh/uv/) or CPython 3.12 and re-run." }
+    if (-not (Test-Path $PythonExe)) { throw "Could not create the ML venv. Install uv (https://docs.astral.sh/uv/) or CPython 3.14 and re-run." }
 }
 
 Write-Host "  Syncing ML deps (requirements.txt)..." -ForegroundColor Yellow

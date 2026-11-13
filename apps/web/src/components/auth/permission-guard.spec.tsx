@@ -15,7 +15,7 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 // Mock usePermissions before importing the component under test
 // ---------------------------------------------------------------------------
-const mockHas = vi.fn<[string], boolean>();
+const mockHas = vi.fn<(key: string) => boolean>();
 
 vi.mock('../../lib/use-permissions', () => ({
   usePermissions: () => ({

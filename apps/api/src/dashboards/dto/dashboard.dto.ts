@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../../common/partial-update.js';
+
 // The 10 supported widget types. Enforced at the service layer; extending
 // the list requires a corresponding renderer on the frontend.
 export const WidgetTypeEnum = z.enum([
@@ -41,7 +43,7 @@ export type CreateDashboardDto = z.infer<typeof CreateDashboardDtoSchema>;
 // Partial of the create shape. `isShared` can be toggled, name renamed,
 // description edited. Scope/ownership stays put — change via a new
 // dashboard or a dedicated reassign endpoint when needed.
-export const UpdateDashboardDtoSchema = CreateDashboardDtoSchema.partial().strict();
+export const UpdateDashboardDtoSchema = partialUpdate(CreateDashboardDtoSchema).strict();
 export type UpdateDashboardDto = z.infer<typeof UpdateDashboardDtoSchema>;
 
 export const AddWidgetDtoSchema = z

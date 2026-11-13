@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../common/partial-update.js';
+
 export const KpiTargetTypeEnum = z.enum([
   'STATIC',
   'TIERED',
@@ -27,7 +29,7 @@ export const CreateKpiTargetDtoSchema = z
   .strict();
 export type CreateKpiTargetDto = z.infer<typeof CreateKpiTargetDtoSchema>;
 
-export const UpdateKpiTargetDtoSchema = CreateKpiTargetDtoSchema.partial().strict();
+export const UpdateKpiTargetDtoSchema = partialUpdate(CreateKpiTargetDtoSchema).strict();
 export type UpdateKpiTargetDto = z.infer<typeof UpdateKpiTargetDtoSchema>;
 
 export type KpiDirection = 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER' | 'TARGET_IS_BEST' | 'NEUTRAL';

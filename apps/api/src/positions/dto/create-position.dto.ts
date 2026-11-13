@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../../common/partial-update.js';
+
 export const CreatePositionDtoSchema = z.object({
   name: z.string().trim().min(2).max(60),
   level: z.number().int().min(0).max(100).default(0),
@@ -12,5 +14,5 @@ export const CreatePositionDtoSchema = z.object({
 
 export type CreatePositionDto = z.infer<typeof CreatePositionDtoSchema>;
 
-export const UpdatePositionDtoSchema = CreatePositionDtoSchema.partial();
+export const UpdatePositionDtoSchema = partialUpdate(CreatePositionDtoSchema);
 export type UpdatePositionDto = z.infer<typeof UpdatePositionDtoSchema>;

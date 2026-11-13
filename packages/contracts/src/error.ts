@@ -30,7 +30,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 export const ErrorEnvelopeSchema = z.object({
   code: z.string(),
   message: z.string(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   requestId: z.string().optional(),
   timestamp: z.string().datetime(),
 });

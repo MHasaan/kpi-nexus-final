@@ -57,7 +57,7 @@ export const CompositeConfigSchema = z
             'RATE_OF_CHANGE',
             'NO_DATA',
           ]),
-          config: z.record(z.unknown()),
+          config: z.record(z.string(), z.unknown()),
         }),
       )
       .min(1)

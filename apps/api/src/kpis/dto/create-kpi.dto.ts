@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../../common/partial-update.js';
+
 export const KpiScopeEnum = z.enum(['ORG_WIDE', 'PER_UNIT', 'PER_USER']);
 export const KpiTypeEnum = z.enum([
   'NUMBER',
@@ -82,5 +84,5 @@ export const CreateKpiDtoSchema = z
 
 export type CreateKpiDto = z.infer<typeof CreateKpiDtoSchema>;
 
-export const UpdateKpiDtoSchema = CreateKpiDtoSchema.partial().strict();
+export const UpdateKpiDtoSchema = partialUpdate(CreateKpiDtoSchema).strict();
 export type UpdateKpiDto = z.infer<typeof UpdateKpiDtoSchema>;

@@ -37,7 +37,7 @@ export const UpdateOrganizationDtoSchema = z.object({
   numberFormat: z.string().min(1).max(40).optional(),
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   // To clear, omit the field (Prisma JSON nullable requires sentinel).
-  fiscalCalendar: z.record(z.unknown()).optional(),
+  fiscalCalendar: z.record(z.string(), z.unknown()).optional(),
 
   // Terminology — the 8 customizable labels
   roleLabel: z.string().trim().min(1).max(40).optional(),

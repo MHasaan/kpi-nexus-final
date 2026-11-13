@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../../common/partial-update.js';
+
 // The 10 supported widget types. Enforced at the service layer; extending
 // the list requires a corresponding renderer on the frontend.
 export const WidgetTypeEnum = z.enum([
@@ -33,7 +35,7 @@ export const CreateDashboardDtoSchema = z
     description: z.string().trim().max(2000).optional(),
     isShared: z.boolean().default(false),
     ownerRoleId: z.string().optional(),
-    layout: z.record(z.unknown()).optional(),
+    layout: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 export type CreateDashboardDto = z.infer<typeof CreateDashboardDtoSchema>;
@@ -41,14 +43,14 @@ export type CreateDashboardDto = z.infer<typeof CreateDashboardDtoSchema>;
 // Partial of the create shape. `isShared` can be toggled, name renamed,
 // description edited. Scope/ownership stays put — change via a new
 // dashboard or a dedicated reassign endpoint when needed.
-export const UpdateDashboardDtoSchema = CreateDashboardDtoSchema.partial().strict();
+export const UpdateDashboardDtoSchema = partialUpdate(CreateDashboardDtoSchema).strict();
 export type UpdateDashboardDto = z.infer<typeof UpdateDashboardDtoSchema>;
 
 export const AddWidgetDtoSchema = z
   .object({
     widgetType: WidgetTypeEnum,
     title: z.string().trim().max(120).optional(),
-    config: z.record(z.unknown()),
+    config: z.record(z.string(), z.unknown()),
     position: WidgetPositionSchema,
     sortOrder: z.number().int().optional(),
   })
@@ -59,7 +61,7 @@ export const UpdateWidgetDtoSchema = z
   .object({
     widgetType: WidgetTypeEnum.optional(),
     title: z.string().trim().max(120).optional(),
-    config: z.record(z.unknown()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
     position: WidgetPositionSchema.optional(),
     sortOrder: z.number().int().optional(),
   })

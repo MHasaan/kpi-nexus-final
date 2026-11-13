@@ -6,9 +6,10 @@ import {
   ScopeConfigSchema,
 } from '@kpi-nexus/contracts';
 
+import { partialUpdate } from '../../common/partial-update.js';
 import { CreateRoleDtoSchema } from './create-role.dto.js';
 
-export const UpdateRoleDtoSchema = CreateRoleDtoSchema.partial().extend({
+export const UpdateRoleDtoSchema = partialUpdate(CreateRoleDtoSchema).extend({
   /** Layer-2 per-domain scope override for this role (Phase 2). */
   scopeConfig: ScopeConfigSchema.optional(),
   /** Layer-3 data-type (KPI category) allowlist for this role (Phase 3). */

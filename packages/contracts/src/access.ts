@@ -72,7 +72,7 @@ export type ResourceGrant = z.infer<typeof ResourceGrantSchema>;
  * per-domain scope map. An unset domain falls back to the derived default
  * (`UNITS` for non-admins). Stored as JSON on `RoleDefinition.scopeConfig`.
  */
-export const ScopeConfigSchema = z.record(DomainSchema, ScopeSchema);
+export const ScopeConfigSchema = z.partialRecord(DomainSchema, ScopeSchema);
 export type ScopeConfig = z.infer<typeof ScopeConfigSchema>;
 
 /** Layer 3 — restrict to specific data types (null = all; [] = none; [ids] = only). */
@@ -154,7 +154,7 @@ export type AccessMembership = z.infer<typeof AccessMembershipSchema>;
 export const AccessProfileSchema = z.object({
   isAdmin: z.boolean(),
   capabilities: z.array(PermissionKeySchema),
-  scopeByDomain: z.record(DomainSchema, ScopeSchema),
+  scopeByDomain: z.partialRecord(DomainSchema, ScopeSchema),
   dataTypeFilters: DataTypeFiltersSchema,
   dataLimits: DataLimitsSchema,
   context: AccessMembershipSchema,

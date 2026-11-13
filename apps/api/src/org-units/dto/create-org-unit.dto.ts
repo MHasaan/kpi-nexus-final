@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { partialUpdate } from '../../common/partial-update.js';
+
 export const CreateOrgUnitDtoSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z.string().trim().max(40).optional(),
@@ -12,12 +14,12 @@ export const CreateOrgUnitDtoSchema = z.object({
   visibilityInherits: z.boolean().default(true),
   effectiveFrom: z.coerce.date().optional(),
   effectiveTo: z.coerce.date().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type CreateOrgUnitDto = z.infer<typeof CreateOrgUnitDtoSchema>;
 
-export const UpdateOrgUnitDtoSchema = CreateOrgUnitDtoSchema.partial();
+export const UpdateOrgUnitDtoSchema = partialUpdate(CreateOrgUnitDtoSchema);
 export type UpdateOrgUnitDto = z.infer<typeof UpdateOrgUnitDtoSchema>;
 
 export const AddMemberDtoSchema = z.object({

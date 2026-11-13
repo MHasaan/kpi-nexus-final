@@ -2,6 +2,7 @@
   "extends": "@kpi-nexus/config/tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "types": ["node"],
     "rootDir": "./src",
     "composite": true,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"

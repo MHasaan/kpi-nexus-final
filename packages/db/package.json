@@ -43,7 +43,7 @@
     "@kpi-nexus/contracts": "workspace:*",
     "@types/node": "^22.20.5",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.4",
+    "typescript": "^6.0.3",
     "vitest": "^1.6.0"
   },
   "prisma": {

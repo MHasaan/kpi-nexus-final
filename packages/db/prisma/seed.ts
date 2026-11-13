@@ -31,11 +31,12 @@
  * no Math.random), so charts look real but are fully reproducible.
  */
 
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 import { ROLE_INHERITANCE, ROLE_SPECS } from './seed-roles.js';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 const ORG_SLUG = 'helios';
 const ADMIN_EMAIL = 'admin@helios.io';

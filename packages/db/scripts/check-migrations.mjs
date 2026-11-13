@@ -43,14 +43,13 @@ try {
       'diff',
       '--from-migrations',
       join(PKG_ROOT, 'prisma/migrations'),
-      '--to-schema-datamodel',
+      '--to-schema',
       join(PKG_ROOT, 'prisma/schema.prisma'),
-      '--shadow-database-url',
-      shadowUrl.toString(),
       '--script',
       '--exit-code',
     ],
-    { cwd: PKG_ROOT, encoding: 'utf8' },
+    // Prisma 7 takes the shadow database from prisma.config.ts, not a flag.
+    { cwd: PKG_ROOT, encoding: 'utf8', env: { ...process.env, SHADOW_DATABASE_URL: shadowUrl.toString() } },
   );
   // --exit-code: 0 = no difference, 2 = difference, anything else = error.
   status = diff.status ?? 1;

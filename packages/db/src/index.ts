@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -38,8 +39,18 @@ const globalForPrisma = globalThis as unknown as {
   __kpiNexusPrisma?: PrismaClient;
 };
 
+/**
+ * Prisma 7 connects through a driver adapter (the built-in engine is gone).
+ * `url` defaults to DATABASE_URL. node-postgres waits forever to connect by
+ * default; Prisma 6 gave up after 5 s, so keep that.
+ */
+export function prismaAdapter(url: string | undefined = process.env.DATABASE_URL): PrismaPg {
+  return new PrismaPg({ connectionString: url, connectionTimeoutMillis: 5_000 });
+}
+
 const createClient = (): PrismaClient =>
   new PrismaClient({
+    adapter: prismaAdapter(),
     log: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
   });
 

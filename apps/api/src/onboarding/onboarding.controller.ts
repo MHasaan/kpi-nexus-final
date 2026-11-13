@@ -13,7 +13,7 @@ const StartSchema = z
   .strict();
 
 const PatchSchema = z
-  .object({ patch: z.record(z.unknown()), lastEditedStep: z.string().trim().max(60).optional() })
+  .object({ patch: z.record(z.string(), z.unknown()), lastEditedStep: z.string().trim().max(60).optional() })
   .strict();
 
 const ApplyTemplateSchema = z.object({ slug: z.string().trim().min(1) }).strict();

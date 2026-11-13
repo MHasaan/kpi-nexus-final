@@ -19,7 +19,7 @@ export const CreateKpiTargetDtoSchema = z
     stretchValue: z.number().finite().optional(),
     impossibleValue: z.number().finite().optional(),
     formula: z.string().trim().max(2000).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     effectiveFrom: z.string().datetime().transform((s) => new Date(s)).optional(),
     effectiveTo: z.string().datetime().transform((s) => new Date(s)).optional(),
     scenarioName: z.string().trim().max(120).optional(),

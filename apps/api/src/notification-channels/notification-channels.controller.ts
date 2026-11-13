@@ -35,7 +35,7 @@ const CreateChannelDtoSchema = z
   .object({
     name: z.string().trim().min(2).max(120),
     kind: ChannelKind,
-    config: z.record(z.unknown()).default({}),
+    config: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 
@@ -43,7 +43,7 @@ const UpdateChannelDtoSchema = z
   .object({
     name: z.string().trim().min(2).max(120).optional(),
     isActive: z.boolean().optional(),
-    config: z.record(z.unknown()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 

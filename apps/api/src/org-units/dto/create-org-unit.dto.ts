@@ -12,7 +12,7 @@ export const CreateOrgUnitDtoSchema = z.object({
   visibilityInherits: z.boolean().default(true),
   effectiveFrom: z.coerce.date().optional(),
   effectiveTo: z.coerce.date().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type CreateOrgUnitDto = z.infer<typeof CreateOrgUnitDtoSchema>;

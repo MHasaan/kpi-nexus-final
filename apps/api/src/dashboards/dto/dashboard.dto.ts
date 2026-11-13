@@ -33,7 +33,7 @@ export const CreateDashboardDtoSchema = z
     description: z.string().trim().max(2000).optional(),
     isShared: z.boolean().default(false),
     ownerRoleId: z.string().optional(),
-    layout: z.record(z.unknown()).optional(),
+    layout: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 export type CreateDashboardDto = z.infer<typeof CreateDashboardDtoSchema>;
@@ -48,7 +48,7 @@ export const AddWidgetDtoSchema = z
   .object({
     widgetType: WidgetTypeEnum,
     title: z.string().trim().max(120).optional(),
-    config: z.record(z.unknown()),
+    config: z.record(z.string(), z.unknown()),
     position: WidgetPositionSchema,
     sortOrder: z.number().int().optional(),
   })
@@ -59,7 +59,7 @@ export const UpdateWidgetDtoSchema = z
   .object({
     widgetType: WidgetTypeEnum.optional(),
     title: z.string().trim().max(120).optional(),
-    config: z.record(z.unknown()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
     position: WidgetPositionSchema.optional(),
     sortOrder: z.number().int().optional(),
   })

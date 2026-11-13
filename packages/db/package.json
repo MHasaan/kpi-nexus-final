@@ -44,7 +44,8 @@
     "@types/node": "^22.20.5",
     "tsx": "^4.19.0",
     "typescript": "^6.0.3",
-    "vitest": "^1.6.0"
+    "vite": "^7.3.8",
+    "vitest": "^4.1.7"
   },
   "prisma": {
     "schema": "prisma/schema.prisma",

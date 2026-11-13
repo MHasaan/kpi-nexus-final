@@ -28,7 +28,7 @@ function makeSvc(): KpiDataService {
     {} as never,
     {} as never,
   );
-  vi.spyOn(svc as never, 'buildVisibilityContext').mockResolvedValue({
+  vi.spyOn(svc as unknown as { buildVisibilityContext: () => Promise<unknown> }, 'buildVisibilityContext').mockResolvedValue({
     organizationId: ORG,
     userId: 'user_1',
     isAdmin: true,

@@ -25,7 +25,7 @@ describe('CalculationEngineService.recomputeKpi (AN-002)', () => {
     };
     const lineage = { record: vi.fn(async () => {}) };
     const service = new CalculationEngineService(prisma as never, {} as never, lineage as never);
-    vi.spyOn(service as never, 'dependentsOf').mockResolvedValue([] as never);
+    vi.spyOn(service as unknown as { dependentsOf: () => Promise<unknown[]> }, 'dependentsOf').mockResolvedValue([]);
 
     const result = await withCtx(() => service.recomputeKpi('kpi_formula'));
 

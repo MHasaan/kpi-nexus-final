@@ -2,7 +2,7 @@
 name = "kpi-nexus-ml"
 version = "0.0.0"
 description = "KPI Nexus ML sidecar — anomaly detection, forecasting, what-if analysis."
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -11,4 +11,4 @@ addopts = "-ra --strict-markers"
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"

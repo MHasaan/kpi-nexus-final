@@ -50,43 +50,23 @@ load (pass in isolation).
 
 ## Reconciled again (2026-11-13) — boxes ticked from code evidence
 
-The 188 boxes ticked in this pass were checked against the source: every model, module, route, file, function or queue an item names in backticks (or as a `…Module` / `…Service` class) exists in `apps/`, `packages/`, `scripts/`, `infra/` or `.github/` (paths checked on disk), and phase-tag items match the existing `pN-complete` tags. Existence was checked, not completeness; the phase plans, audit and fix log remain the source of truth.
+Boxes ticked in this pass were checked against the source: every model, module, route, file, function or queue an item names exists in `apps/`, `packages/`, `scripts/`, `infra/` or `.github/` (paths checked on disk), and phase-tag items match the existing `pN-complete` tags. Existence was checked, not completeness; the phase plans, audit and fix log remain the source of truth. Items built under a different name are ticked with a note saying where they live.
 
-165 boxes stay unticked: they describe behaviour, tests, benchmarks or live checks with nothing nameable to check, or they name something not found. Those 33 are listed here for a human decision; most look like naming drift (the feature exists under another name), some may be unbuilt:
+### Owner to-dos (need the project owner)
+- [ ] **Windows launcher cold run (OT-017):** run `setupScripts/start.cmd` once on a Windows machine; watch whether `db:setup`'s 10 s Postgres probe is long enough on a first start.
+- [ ] **Go live:** follow `docs/deploy.md` (Oracle Free Tier VM, DuckDNS, Brevo, Object Storage, GitHub secrets, first deploy, Vercel, then its *Check it* list incl. a backup-restore drill).
 
-- pnpm dev — not found: `pnpm ml:install && pnpm ml:dev`
-- OrgChartModule — not found: `OrgChartModule`
-- /login — not found: `/auth/mfa-required`
-- AuthContext with token + permissions + 5-min refresh — not found: `AuthContext`
-- KPIDataPoint — not found: `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`
-- LineageEdge — not found: `DataSnapshot`
-- UserKPIAssignment — not found: `UserKPIAssignment`, `OrgUnitKPIAssignment`
-- DataPointsModule — not found: `DataPointsModule`
-- EscalationsModule — not found: `escalate:{alertId}:lvl{n}`
-- AnomalyDetectionModule — not found: `AnomalyDetectionModule`
-- ForecastsModule — not found: `ForecastsModule`
-- WhatIfModule — not found: `WhatIfModule`
-- NlqModule — not found: `compare_kpis`, `get_kpi_history`
-- ${ts}.${orgId} — not found: `${ts}.${orgId}`
-- AI co-pilot rail: thread + composer + AIDiffPreview modal +  — not found: `SuggestChip`
-- OfflineBanner + ResumeBanner + DraftStatusBadge — not found: `OfflineBanner`, `ResumeBanner`, `DraftStatusBadge`
-- MentionsModule — not found: `MentionsModule`
-- IntegrationCryptoService — not found: `IV‖tag‖ct`
-- SlackModule — not found: `SlackModule`
-- TeamsModule — not found: `TeamsModule`
-- JiraModule — not found: `JiraModule`
-- ConnectorSchedulerService — not found: `ConnectorSchedulerService`
-- IngestModule — not found: `kpi:data_entry`
-- kpi:data_entry — not found: `kpi:data_entry`
-- ScimModule — not found: `scim:provision`
-- GdprModule.delete() — not found: `GdprModule.delete()`
-- KMS data key wiring for IntegrationConnection encryption (pr — not found: `GenerateDataKey`
-- nestjs-zod — not found: `nestjs-zod`
-- packages/sdk/ — not found: `packages/sdk/`
-- POST /organizations/seed-demo-data — not found: `POST /organizations/seed-demo-data`
-- apps/web/src/i18n/dictionaries/ — not found: `apps/web/src/i18n/dictionaries/`, `getDictionary()`, `dir="rtl"`
-- /status — not found: `status.kpinexus.app`
-- packages/ui/src/components/ — not found: `packages/ui/src/components/`
+### Not built (remaining work)
+- [ ] **Web access-token refresh:** the web app stores the refresh token but never calls `POST /auth/refresh`, so a signed-in user is sent to `/login` when the 15-minute access token expires (the "AuthContext … 5-min refresh" item below).
+- [ ] **Scheduled connector runs:** `Connector.schedule` is stored but nothing runs it; connectors only run on `POST /connectors/:id/run` (the `ConnectorSchedulerService` item).
+- [ ] **Onboarding co-pilot rail:** the API has `/onboarding/ai/assistant`, `/suggest` and `/explain`, but the wizard only uses `generate` + `apply` (the "AI co-pilot rail" item).
+- [ ] **Onboarding offline / resume / draft-status banners** (the `OfflineBanner` item).
+- [ ] **NLQ tool loop:** NLQ grounds the model in KPI context in one call; the planned pgvector + tool-use loop (`compare_kpis`, `get_kpi_history`, max 5 rounds) is not built.
+- [ ] **Data history models:** `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
+- [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
+- [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).
+- [ ] **Shared UI component library with Storybook** in `packages/ui/src/components/` (components live in `apps/web/src/components/` instead).
+- [ ] **AWS KMS data keys** — *won't do while hosting must stay free*: KMS bills per key per month (ADR-001). `integration-crypto.ts` keeps a KMS-ready key-loading hook.
 
 ---
 
@@ -174,7 +154,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [x] `PermissionDelegationsModule`: CRUD + BullMQ delayed auto-revoke at validTo
 - [x] `ResourcePermissionsModule`: CRUD + `hasResourcePermission()` fast-path
 - [x] `OrgUnitDimensionsModule`, `OrgUnitTypesModule` (dedicated CRUD + in-use guards, built 2026-05-29), `OrgUnitsModule` (+ reorganization: move/merge/split/rename)
-- [ ] `OrgChartModule`: read-side projection for SVG tree
+- [x] `OrgChartModule`: read-side projection for SVG tree — *built into `OrgUnitsModule` (`GET /org-units` returns the tree) + the `/org-units` chart page*
 - [x] `AuditModule`: structured events + redaction + interceptor + cross-tenant guard with `runWithBypass`
 - [x] `BillingModule`: Plan catalog (FREE/PRO/ENTERPRISE lazy seed), quota enforcement (assertWithinQuota wired into KPI create — 402 on exceed), FeatureFlag gating, setPlan, GET /billing status (built 2026-05-29; cost-telemetry cron + UI still deferred)
 - [x] `RateLimitModule`: Redis ZSET sliding window, 2 buckets (auth 10/60s by IP + general 600/60s by org), 429; env-gated APP_GUARD (RATE_LIMIT_ENABLED, off by default so tests/dev unaffected) — built 2026-05-29
@@ -182,7 +162,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 
 ### Frontend
 - [ ] App shell layout (sidebar + header) with permission-filtered nav
-- [ ] Auth pages: `/login` (multi-org picker), `/register`, `/auth/password/reset`, `/auth/accept-invitation/[token]`, `/auth/mfa-required`, `/unauthorized`
+- [x] Auth pages: `/login` (multi-org picker), `/register`, `/auth/password/reset`, `/auth/accept-invitation/[token]`, `/auth/mfa-required`, `/unauthorized` — *the MFA step is inline on `/login` (`MFA_REQUIRED` → code field), not a separate `/auth/mfa-required` page*
 - [ ] AuthContext with token + permissions + 5-min refresh
 - [ ] Route guards: `<ProtectedRoute>`, `<RequirePermission>`, `<RequireAnyPermission>`, `<PermissionGuard>`
 - [x] `/settings/organization`, `/settings/branding`, `/settings/custom-domain`, `/settings/locale`, `/settings/fiscal`, `/settings/terminology`, `/settings/password-policy`
@@ -225,7 +205,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [ ] `KPITarget` (6 types), `KPIThresholdBand`, `KPIBenchmark`, `KPICascade`
 - [ ] `KPIDataPoint` (TimescaleDB hypertable target), `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `KPITemplate`
 - [ ] `LineageEdge`, `DataSnapshot`
-- [ ] `UserKPIAssignment`, `OrgUnitKPIAssignment` (with `inherited` boolean)
+- [x] `UserKPIAssignment`, `OrgUnitKPIAssignment` (with `inherited` boolean) — *built as `KPIAssignmentUser` / `KPIAssignmentOrgUnit` (with `inherited`)*
 - [x] Convert `KPIDataPoint` to TimescaleDB hypertable partitioned by week
 - [ ] 5 continuous aggregates (hourly/daily/weekly/monthly/quarterly)
 - [ ] Auto-refresh policy every 30 min
@@ -242,7 +222,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [x] `KpiTemplatesModule`: curated catalog + relevance scoring + org-private + marketplace + instantiation
 - [x] `FormulaModule`: validate + attach/detach + dependency wiring
 - [x] `CalculationEngineModule`: BullMQ queue `calc-engine` + processor wired to FormulaEvaluator + KpiCascadeService + LineageService
-- [ ] `DataPointsModule`: single + bulk insert with idempotency, validation, outlier flag (Welford streaming 3σ), adjust with history
+- [x] `DataPointsModule`: single + bulk insert with idempotency, validation, outlier flag (Welford streaming 3σ), adjust with history — *built as `KpiDataService` in the KPIs module*
 - [x] **Critical: `POST /kpis/:id/data` returns HTTP 422 if KPI scope ≠ ORG_WIDE with correct endpoint name in error**
 - [x] `KpiTargetsModule`: 6 target types (STATIC/TIERED/DYNAMIC/TIME_VARYING/CONDITIONAL/SCENARIO) + `resolveActive(kpiId, at)`
 - [x] `KpiThresholdBandsModule`: N-band thresholds + hysteresis (`consecutivePointsRequired`)
@@ -350,7 +330,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 ### Backend modules
 - [x] `AlertRulesModule`: rule CRUD with 5 types (STATIC_THRESHOLD/DYNAMIC_STDDEV/RATE_OF_CHANGE/NO_DATA/COMPOSITE), severity, escalation editor
 - [x] `AlertEngineModule`: BullMQ queue `alert-eval`, post-data-point auto-enqueue, evaluator
-- [ ] `EscalationsModule`: delayed BullMQ jobs per level with deterministic jobId `escalate:{alertId}:lvl{n}`, abort-if-not-OPEN
+- [x] `EscalationsModule`: delayed BullMQ jobs per level with deterministic jobId `escalate:{alertId}:lvl{n}`, abort-if-not-OPEN — *jobId is `escalate-{alertId}-lvl{n}` (BullMQ rejects `:` in custom job IDs)*
 - [x] `NotificationChannelsModule`: per-org channels (6 kinds: EMAIL/SLACK/TEAMS/SMS/IN_APP/WEBHOOK) + test-send
 - [x] `NotificationsModule`: dispatcher + per-kind adapters (Resend/Slack webhook/Teams webhook/Twilio/IN_APP ack/HMAC webhook)
 - [ ] Notification retry queue with exponential backoff (30s → 5min → 30min, max 3 attempts) + DLQ
@@ -410,9 +390,9 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [ ] `AiCallLogService`: every call → AiCallLog with provider/model/tokens/cost/latency/status; cost via `priceCall()`
 - [x] BYO-key flow in `apps/api/src/ai/byo/`: AES-256-GCM encryption + per-deploy master secret + validate via test ping + persist + invalidate cache
 - [x] Prompt caching on Claude (`cache_control: ephemeral` on system prompts + KPI catalogs)
-- [ ] `AnomalyDetectionModule`: routes to ML `/anomaly/detect`; confirm-triggers-alert + confirm-triggers-recommendation on false→true transition
-- [ ] `ForecastsModule`: routes to ML `/forecast`; yhat + 80%/95% bands + fit metrics
-- [ ] `WhatIfModule`: routes to ML `/whatif`
+- [x] `AnomalyDetectionModule`: routes to ML `/anomaly/detect`; confirm-triggers-alert + confirm-triggers-recommendation on false→true transition — *built as `AnomalyService` in `AnalyticsModule`*
+- [x] `ForecastsModule`: routes to ML `/forecast`; yhat + 80%/95% bands + fit metrics — *built as the forecasts service in `AnalyticsModule`*
+- [x] `WhatIfModule`: routes to ML `/whatif` — *built as `WhatIfService` in `AnalyticsModule`*
 - [x] `KpiSuggestionsModule`: AI-suggested KPIs from org profile + existing catalog
 - [x] `InsightsModule`: scheduled cron `30 2 * * *` UTC + on-demand + batch endpoints; Claude haiku narratives
 - [x] `RecommendationsModule`: alert-triggered (auto) + anomaly-confirm-triggered (auto) + manual; structured JSON output; status flow PENDING→ACTIONED/DISMISSED
@@ -426,7 +406,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [x] `POST /whatif`: parameterized scenario simulator (additive/multiplicative + floor/ceiling clamps)
 - [x] `POST /correlation`: pairwise + matrix via scipy.stats
 - [x] `POST /seasonality`: statsmodels.tsa.seasonal_decompose
-- [ ] HMAC auth (X-Tenant-Id + X-Signature-Timestamp + X-Signature SHA256 of `${ts}.${orgId}` keyed by `ML_SIDECAR_HMAC_SECRET`); constant-time verify; 5-min skew; refuses placeholder dev secret in production
+- [x] HMAC auth (X-Tenant-Id + X-Signature-Timestamp + X-Signature SHA256 of `${ts}.${orgId}` keyed by `ML_SIDECAR_HMAC_SECRET`); constant-time verify; 5-min skew; refuses placeholder dev secret in production — *signed in `ml/ml-client.service.ts`, verified by `apps/ml/app/middleware/hmac_auth.py`*
 
 ### Frontend
 - [x] `/settings/ai` per-feature dropdown (provider + model) + budget caps + cost dashboard + last-7d call counts per provider
@@ -517,7 +497,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 ### Backend modules
 - [x] `TasksModule`: CRUD + status flow (TODO/IN_PROGRESS/BLOCKED/DONE/CANCELLED) + KPI/alert links + audit
 - [x] `CommentsModule`: threaded on KPI/Dashboard/Alert/Task + soft-delete + author-only edit/delete + mention support
-- [ ] `MentionsModule`: per-recipient inbox; created in same transaction as comment; self-mentions stripped
+- [x] `MentionsModule`: per-recipient inbox; created in same transaction as comment; self-mentions stripped — *built as `mentions.service.ts` in the comments module*
 - [x] `OkrsModule`: Objectives + KeyResults + KPI-linked auto-progress + weighted rollup + parent objective alignment + cycle guard (depth 10)
 - [x] OKR progress math (`keyResultProgress`, `objectiveProgress`) covering all 4 KR shape variants + weighted average + zero-weight fallback
 - [x] `syncFromLinkedKpis()` pulls latest KPI data point into linked KRs
@@ -564,14 +544,14 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 
 ### Backend modules
 - [x] `IntegrationsModule`: `IntegrationConnection` CRUD + AES-256-GCM encryption (KMS-ready master key loading) + audit log never carries raw tokens
-- [ ] `IntegrationCryptoService`: 12-byte random IV + 16-byte auth tag (ciphertext layout `IV‖tag‖ct` base64); 12+ unit tests covering hex/base64/passphrase key loading, round-trip, tampering rejection, short-cipher reject, 8KB+UTF-8 payloads
+- [x] `IntegrationCryptoService`: 12-byte random IV + 16-byte auth tag (ciphertext layout `IV‖tag‖ct` base64); 12+ unit tests covering hex/base64/passphrase key loading, round-trip, tampering rejection, short-cipher reject, 8KB+UTF-8 payloads — *built in `integrations/integration-crypto.ts`*
 - [ ] `SlackModule`: bot, slash command `/kpi <name>`, alert posting with action buttons, NLQ from Slack
 - [ ] `TeamsModule`: webhook + adaptive cards
-- [ ] `JiraModule`: create issue from alert + two-way status sync to `Task`
+- [x] `JiraModule`: create issue from alert + two-way status sync to `Task` — *built as `integrations/providers/jira.service.ts` (+ `POST /integrations/jira/webhook/:connectionId`)*
 - [x] `InboundEmailModule`: public webhook receiver at `POST /webhooks/inbound/email`; plus-addressing routing `inbound+<type>-<id>@host`; HMAC-SHA256 verifier; sender must match user in resolved org; strips quoted-reply lines
 - [x] `ConnectorsModule`: registry CRUD; REST runner + GraphQL runner first; Postgres + MySQL second; idempotency-key namespace per type
 - [ ] `ConnectorSchedulerService` + processor: per-connector repeatable BullMQ jobs (deterministic jobId), auto-reconcile on create/update/remove
-- [ ] `IngestModule`: `POST /ingest` authenticated by `Bearer kpinx_*` (ApiKey strategy) gated by `kpi:data_entry` scope; 1-10k rows per call; per-row idempotency
+- [x] `IngestModule`: `POST /ingest` authenticated by `Bearer kpinx_*` (ApiKey strategy) gated by `kpi:data_entry` scope; 1-10k rows per call; per-row idempotency — *API-key scopes are `PermissionKey` values (`KPI_DATA_ENTRY`), not `kpi:data_entry`*
 - [x] `ApiKeysModule`: (already shipped in P4) — extend with SCIM scope
 - [x] `WebhooksModule`: (already shipped in P4) — extend with event catalog
 - [x] `PluginsModule`: catalog + lifecycle (WIDGET/TEMPLATE/FORMULA_FN/CONNECTOR types); isolated-vm sandbox for formula-fn; iframe sandbox for widget rendering
@@ -590,7 +570,7 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [ ] Jira issue lifecycle round-trip (create from alert → close → Task status updates)
 - [ ] REST connector pulls a public sample API daily into a KPI (verified for a week)
 - [ ] Inbound email: send to `inbound+kpi-<id>@host` → comment appears on the KPI
-- [ ] API key minted with `kpi:data_entry` scope can hit `POST /ingest` but receives 403 on `POST /kpis`
+- [x] API key minted with `kpi:data_entry` scope can hit `POST /ingest` but receives 403 on `POST /kpis` — *scope is `KPI_DATA_ENTRY` (`PermissionKey`), not `kpi:data_entry`*
 
 ### Exit
 - [ ] Slack OAuth + alert posting + ack sync-back
@@ -610,8 +590,8 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 
 ### Backend modules
 - [x] `SsoModule`: SAML + OIDC via WorkOS provider; JIT user provisioning; default-role assignment
-- [ ] `ScimModule`: RFC 7644 `/scim/v2/*` endpoints (Users + Groups + ServiceProviderConfig + ResourceTypes); auth via ApiKey + `scim:provision` scope; PATCH active=false → suspend (reversible via active=true); DELETE → archive; Okta-style member filter `members[value eq "<id>"]`
-- [ ] Full `GdprModule.delete()` (P1 only had export; this adds cascade delete with audit)
+- [x] `ScimModule`: RFC 7644 `/scim/v2/*` endpoints (Users + Groups + ServiceProviderConfig + ResourceTypes); auth via ApiKey + `scim:provision` scope; PATCH active=false → suspend (reversible via active=true); DELETE → archive; Okta-style member filter `members[value eq "<id>"]` — *built in `apps/api/src/scim/` (SCIM tokens are their own credential, no `scim:provision` scope)*
+- [x] Full `GdprModule.delete()` (P1 only had export; this adds cascade delete with audit) — *built as `UsersService.purge()` (GDPR hard-purge after offboarding)*
 - [ ] KMS data key wiring for IntegrationConnection encryption (production AWS KMS GenerateDataKey)
 - [x] Per-tenant audit retention tiers (FREE 90d / PRO 1yr / ENTERPRISE 7yr); `RETENTION_TIERS` constant; `POST /retention-policies/apply-tier {tier}` one-click apply
 - [x] `SearchModule`: global FTS across KPIs/dashboards/users/units with relevance scoring (exact 1.0 / prefix 0.8 / substring 0.5); per-type cap 12, overall cap 50
@@ -624,10 +604,10 @@ The 188 boxes ticked in this pass were checked against the source: every model, 
 - [x] Soft-delete + 30-day restore UI for KPIs (`/kpis/archive`), Dashboards (`/dashboards/archive`), Users (trash list)
 - [ ] Per-card countdown badge + restore/purge actions
 - [ ] In-app help drawer with contextual route → tip cards; floating `?` button (top-right) with pulse hint until first open; CONTEXTUAL_HELP registry maps pathname patterns
-- [ ] Sample-data toggle: `POST /organizations/seed-demo-data` instantiates 5 curated KPIs (MRR/NPS/Churn/Deployment Frequency/Engagement Score) and back-fills 30 days of deterministic-pseudorandom data points; idempotent
+- [x] Sample-data toggle: `POST /organizations/seed-demo-data` instantiates 5 curated KPIs (MRR/NPS/Churn/Deployment Frequency/Engagement Score) and back-fills 30 days of deterministic-pseudorandom data points; idempotent — *built as `POST /demo-data/seed`*
 - [ ] Global search bar in app shell (⌘K command palette across navigation, KPIs, dashboards, users, recent actions)
 - [x] `/activity` per-user/per-org timeline page
-- [ ] i18n scaffolding: 4 starter locales (en-US, es, fr, ur-PK with RTL); `apps/web/src/i18n/dictionaries/`; `getDictionary()` + `<LocaleProvider>` + `useTranslations()` hook; locale picker on `/me`; layout sets `dir="rtl"` for ur-PK
+- [x] i18n scaffolding: 4 starter locales (en-US, es, fr, ur-PK with RTL); `apps/web/src/i18n/dictionaries/`; `getDictionary()` + `<LocaleProvider>` + `useTranslations()` hook; locale picker on `/me`; layout sets `dir="rtl"` for ur-PK — *built as `apps/web/src/i18n/` (`dictionaries.ts`, `translate`, RTL via `locale-provider.tsx`)*
 - [ ] Status page at `/status` (also `status.kpinexus.app` via custom domain)
 - [ ] Color-contrast token audit + axe-core enforcement (zero violations on top 10 pages)
 - [ ] Bundle budget enforcement (track JS size per route, fail CI on regression)

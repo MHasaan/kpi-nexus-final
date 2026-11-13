@@ -5,7 +5,7 @@ import 'react-resizable/css/styles.css';
 
 import { Pencil } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import GridLayout, { type Layout } from 'react-grid-layout';
+import ReactGridLayout, { type Layout } from 'react-grid-layout';
 
 import { deleteWidget, updateWidgetPosition, type DashboardWidget } from '../../lib/api-client';
 import { WidgetRenderer } from '../widgets/widget-renderer';
@@ -20,7 +20,7 @@ interface DashboardGridProps {
   onLayoutSaved?: () => void;
 }
 
-function widgetsToLayout(widgets: DashboardWidget[]): Layout[] {
+function widgetsToLayout(widgets: DashboardWidget[]): Layout {
   return widgets.map((w) => ({
     i: w.id,
     x: w.position.x,
@@ -41,7 +41,7 @@ export function DashboardGrid({
   onEditWidget,
   onLayoutSaved,
 }: DashboardGridProps) {
-  const [layout, setLayout] = useState<Layout[]>(() => widgetsToLayout(widgets));
+  const [layout, setLayout] = useState<Layout>(() => widgetsToLayout(widgets));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +66,7 @@ export function DashboardGrid({
   }, []);
 
   const handleLayoutChange = useCallback(
-    (newLayout: Layout[]) => {
+    (newLayout: Layout) => {
       setLayout(newLayout);
 
       // Debounce position saves
@@ -139,18 +139,13 @@ export function DashboardGrid({
       data-testid="dashboard-widgets-grid"
       className="w-full"
     >
-      <GridLayout
+      <ReactGridLayout
         layout={layout}
-        cols={COLS}
-        rowHeight={ROW_HEIGHT}
         width={containerWidth}
-        margin={MARGIN}
-        isDraggable={editMode}
-        isResizable={editMode}
-        draggableHandle=".widget-drag-handle"
-        draggableCancel=".widget-no-drag"
+        gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN }}
+        dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', cancel: '.widget-no-drag' }}
+        resizeConfig={{ enabled: editMode }}
         onLayoutChange={handleLayoutChange}
-        useCSSTransforms
       >
         {widgets.map((widget) => (
           <div
@@ -200,7 +195,7 @@ export function DashboardGrid({
             </div>
           </div>
         ))}
-      </GridLayout>
+      </ReactGridLayout>
     </div>
   );
 }

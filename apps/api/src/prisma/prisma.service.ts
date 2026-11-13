@@ -4,7 +4,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common';
-import { PrismaClient, setTenantContextResolver } from '@kpi-nexus/db';
+import { PrismaClient, prismaAdapter, setTenantContextResolver } from '@kpi-nexus/db';
 
 import { resolveTenantContextForDb } from '../tenancy/request-context.js';
 
@@ -23,7 +23,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   /** `datasourceUrl` overrides DATABASE_URL (the RLS roles — see prisma.module.ts). */
   constructor(datasourceUrl?: string) {
     super({
-      ...(datasourceUrl ? { datasourceUrl } : {}),
+      adapter: prismaAdapter(datasourceUrl),
       log:
         process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
     });

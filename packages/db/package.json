@@ -17,6 +17,7 @@
     "dist",
     "src",
     "prisma",
+    "prisma.config.ts",
     "scripts"
   ],
   "scripts": {
@@ -27,16 +28,17 @@
     "test": "vitest run --passWithNoTests",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push --skip-generate",
+    "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset --force",
     "check-migrations": "node scripts/check-migrations.mjs",
     "release": "node scripts/release-db.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "pg": "^8.13.0",
-    "prisma": "^6.1.0"
+    "prisma": "^7.10.1"
   },
   "devDependencies": {
     "@kpi-nexus/config": "workspace:*",
@@ -46,9 +48,5 @@
     "typescript": "^6.0.3",
     "vite": "^7.3.8",
     "vitest": "^4.1.7"
-  },
-  "prisma": {
-    "schema": "prisma/schema.prisma",
-    "seed": "tsx prisma/seed.ts"
   }
 }

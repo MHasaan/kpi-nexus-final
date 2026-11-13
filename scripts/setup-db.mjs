@@ -4,7 +4,7 @@
  *
  *  1. Probes Postgres until it accepts connections (≤10 attempts × 1s)
  *  2. Runs `prisma generate` to refresh the typed client
- *  3. Runs `prisma db push --skip-generate` to sync the (currently empty) schema
+ *  3. Runs `prisma db push` to sync the schema (Prisma 7's db push never generates)
  *  4. Applies the shared SQL steps (packages/db/scripts/db-steps.mjs):
  *     extensions, hypertables, continuous aggregates, RLS, role passwords
  *  5. Verifies extensions, hypertables and continuous aggregates
@@ -84,7 +84,6 @@ async function main() {
     'prisma',
     'db',
     'push',
-    '--skip-generate',
   ]);
   log.ok('schema synced');
 

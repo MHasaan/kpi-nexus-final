@@ -90,7 +90,7 @@ async function apiRequest<T>(path: string, token?: string, body?: object): Promi
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
-    throw new Error(`${method} ${safePath} failed: ${auditExcerpt(error, 120)}`);
+    throw new Error(`${method} ${safePath} failed: ${auditExcerpt(error, 120)}`, { cause: error });
   }
   if (!res.ok) throw new Error(`${method} ${safePath}: HTTP ${res.status}`);
   return (await res.json()) as T;

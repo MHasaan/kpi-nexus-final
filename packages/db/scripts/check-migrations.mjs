@@ -33,7 +33,7 @@ shadowUrl.pathname = `/${shadowName}`;
 const admin = new pg.Client({ connectionString: url });
 await admin.connect();
 await admin.query(`CREATE DATABASE "${shadowName}"`);
-let status = 1;
+let status;
 try {
   const diff = spawnSync(
     process.execPath,

@@ -57,7 +57,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [ ] **Go live:** follow `docs/deploy.md` (Oracle Free Tier VM, DuckDNS, Brevo, Object Storage, GitHub secrets, first deploy, Vercel, then its *Check it* list incl. a backup-restore drill).
 
 ### Not built (remaining work)
-- [ ] **Web access-token refresh:** the web app stores the refresh token but never calls `POST /auth/refresh`, so a signed-in user is sent to `/login` when the 15-minute access token expires (the "AuthContext … 5-min refresh" item below).
+- [x] **Web access-token refresh:** the web app now calls `POST /auth/refresh` on a 401 (one shared refresh, then the request is retried), so a signed-in user stays signed in past the 15-minute access-token expiry (FE-019).
 - [ ] **Scheduled connector runs:** `Connector.schedule` is stored but nothing runs it; connectors only run on `POST /connectors/:id/run` (the `ConnectorSchedulerService` item).
 - [ ] **Onboarding co-pilot rail:** the API has `/onboarding/ai/assistant`, `/suggest` and `/explain`, but the wizard only uses `generate` + `apply` (the "AI co-pilot rail" item).
 - [ ] **Onboarding offline / resume / draft-status banners** (the `OfflineBanner` item).
@@ -163,7 +163,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 ### Frontend
 - [ ] App shell layout (sidebar + header) with permission-filtered nav
 - [x] Auth pages: `/login` (multi-org picker), `/register`, `/auth/password/reset`, `/auth/accept-invitation/[token]`, `/auth/mfa-required`, `/unauthorized` — *the MFA step is inline on `/login` (`MFA_REQUIRED` → code field), not a separate `/auth/mfa-required` page*
-- [ ] AuthContext with token + permissions + 5-min refresh
+- [x] AuthContext with token + permissions + 5-min refresh — *refreshes on a 401 in `lib/api-client.ts` instead of on a timer (FE-019)*
 - [ ] Route guards: `<ProtectedRoute>`, `<RequirePermission>`, `<RequireAnyPermission>`, `<PermissionGuard>`
 - [x] `/settings/organization`, `/settings/branding`, `/settings/custom-domain`, `/settings/locale`, `/settings/fiscal`, `/settings/terminology`, `/settings/password-policy`
 - [x] `/users` table + create/edit sheet + invite + role/position assignment

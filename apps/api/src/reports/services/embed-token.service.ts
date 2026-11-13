@@ -171,7 +171,7 @@ export class EmbedTokenService {
       const expectedSig = hmacSign(payloadB64);
       const expectedBuf = Buffer.from(expectedSig);
       const receivedBuf = Buffer.from(receivedSig);
-      let valid = false;
+      let valid: boolean;
       try {
         valid = expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
       } catch {

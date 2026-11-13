@@ -98,7 +98,7 @@ export class NotificationAdaptersService {
       // An internal/forbidden target will never succeed — don't retry it.
       if (err instanceof OutboundUrlBlockedError) throw new NonRetryableDeliveryError(err.message);
       // Network error — retryable.
-      throw new Error(`Delivery network error: ${String(err)}`);
+      throw new Error(`Delivery network error: ${String(err)}`, { cause: err });
     }
     if (res.ok) return;
     if (res.status >= 400 && res.status < 500) {

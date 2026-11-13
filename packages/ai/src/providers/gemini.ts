@@ -27,6 +27,8 @@ export interface GeminiProviderOptions {
   fetchImpl?: FetchImpl;
   /** How long a 429'd key stays parked, ms. */
   cooldownMs?: number;
+  /** Deadline for one completion call (all key attempts), ms. */
+  timeoutMs?: number;
 }
 
 const DEFAULT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -42,6 +44,7 @@ export class GeminiProvider implements IAiProvider {
   private readonly baseUrl: string;
   private readonly fetchImpl: FetchImpl;
   private readonly cooldownMs: number;
+  private readonly timeoutMs: number;
   private cursor = 0;
   /** key → epoch-ms until which it stays parked after a 429. */
   private readonly parkedUntil = new Map<string, number>();
@@ -66,6 +69,7 @@ export class GeminiProvider implements IAiProvider {
     this.baseUrl = opts.baseUrl ?? DEFAULT_BASE;
     this.fetchImpl = resolveFetch(opts.fetchImpl);
     this.cooldownMs = opts.cooldownMs ?? 60_000;
+    this.timeoutMs = opts.timeoutMs ?? 60_000;
   }
 
   /**
@@ -127,6 +131,9 @@ export class GeminiProvider implements IAiProvider {
       try {
         res = (await this.fetchImpl(makeUrl(apiKey), init)) as Response;
       } catch (err) {
+        // Our own deadline: the model is slow, not the key — fail fast as
+        // retryable so the caller falls back instead of waiting on every key.
+        if (this.isTimeout(err)) throw this.timeoutError();
         // Network failure — transient; try the next key.
         lastError = new AiProviderError(`Gemini network error: ${String(err)}`, this.key, true);
         continue;
@@ -149,6 +156,14 @@ export class GeminiProvider implements IAiProvider {
 
     // Every key errored at the key level.
     throw lastError ?? new AiProviderError('Gemini: all API keys exhausted', this.key, true, 429);
+  }
+
+  private isTimeout(err: unknown): boolean {
+    return err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+  }
+
+  private timeoutError(): AiProviderError {
+    return new AiProviderError(`Gemini request timed out after ${this.timeoutMs} ms`, this.key, true);
   }
 
   private mapFinish(reason: string | undefined, hasToolCall: boolean): AiFinishReason {
@@ -209,13 +224,18 @@ export class GeminiProvider implements IAiProvider {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(this.buildBody(req)),
+        signal: AbortSignal.timeout(this.timeoutMs),
       },
     );
 
-    const data = (await res.json()) as {
+    type GenerateResponse = {
       candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>;
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
     };
+    // The deadline covers the body too.
+    const data = (await res.json().catch((err: unknown) => {
+      throw this.isTimeout(err) ? this.timeoutError() : err;
+    })) as GenerateResponse;
 
     const parts = data.candidates?.[0]?.content?.parts ?? [];
     const content = parts

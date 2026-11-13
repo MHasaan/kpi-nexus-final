@@ -168,3 +168,56 @@ describe('GeminiProvider reasoning budget', () => {
     expect(lastBody(fetchImpl).generationConfig).toEqual({ thinkingConfig: { thinkingBudget: 1024 } });
   });
 });
+
+// Real Gemini once took 152 s to answer an onboarding call; with no timeout the
+// request (and the user's browser) just waited. A stalled call now fails fast
+// as retryable so the caller falls back, without burning every pooled key.
+describe('GeminiProvider — request timeout', () => {
+  function hangingFetch() {
+    return vi.fn(
+      (_url: string, init?: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+        }),
+    ) as unknown as typeof fetch;
+  }
+
+  it('aborts a stalled call after timeoutMs with a retryable error, trying no other key', async () => {
+    const fetchImpl = hangingFetch();
+    const p = new GeminiProvider({ apiKeys: ['k1', 'k2'], fetchImpl, timeoutMs: 20 });
+    const err = await p
+      .complete({ model: 'gemini-3.5-flash', messages: [{ role: 'user', content: 'x' }] })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiProviderError);
+    expect((err as AiProviderError).retryable).toBe(true);
+    expect((err as AiProviderError).message).toMatch(/timed out after 20 ms/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('a timeout while reading the body is the same retryable error', async () => {
+    const fetchImpl = vi.fn(async (_url: string, init?: { signal?: AbortSignal }) => ({
+      ok: true,
+      status: 200,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+        }),
+    })) as unknown as typeof fetch;
+    const err = await new GeminiProvider({ apiKeys: ['k'], fetchImpl, timeoutMs: 20 })
+      .complete({ model: 'gemini-3.5-flash', messages: [{ role: 'user', content: 'x' }] })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiProviderError);
+    expect((err as AiProviderError).retryable).toBe(true);
+  });
+
+  it('defaults to a 60 s timeout', async () => {
+    const fetchImpl = jsonFetch(200, okCompletion);
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    await new GeminiProvider({ apiKeys: ['k'], fetchImpl }).complete({
+      model: 'gemini-3.5-flash',
+      messages: [{ role: 'user', content: 'x' }],
+    });
+    expect(timeout).toHaveBeenCalledWith(60_000);
+    timeout.mockRestore();
+  });
+});

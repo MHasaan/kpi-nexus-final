@@ -61,20 +61,60 @@ export function clearTokens(): void {
   clearCachedAccessProfile();
 }
 
+// One refresh at a time: refresh tokens rotate and reuse is detected, so
+// concurrent 401s must share a single POST /auth/refresh.
+let refreshing: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch(`${apiBaseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      const pair = (await res.json()) as { accessToken: string; refreshToken: string };
+      setTokens(pair.accessToken, pair.refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 export async function api<T = unknown>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
   const { auth = true, body, ...rest } = init;
-  const headers = new Headers(init.headers);
-  if (body !== undefined && body !== null) {
-    headers.set('content-type', 'application/json');
+  const send = (token: string | null) => {
+    const headers = new Headers(init.headers);
+    if (body !== undefined && body !== null) {
+      headers.set('content-type', 'application/json');
+    }
+    if (auth && token) headers.set('authorization', `Bearer ${token}`);
+    return fetch(`${apiBaseUrl}${path}`, { ...rest, headers, body });
+  };
+  const sentToken = auth ? getAccessToken() : null;
+  let res = await send(sentToken);
+  // Access tokens expire after 15 minutes: refresh once and retry, unless
+  // another tab already stored a newer token.
+  if (res.status === 401 && auth && sentToken && getRefreshToken()) {
+    const current = getAccessToken();
+    if (current && current !== sentToken) {
+      res = await send(current);
+    } else if (await refreshSession()) {
+      res = await send(getAccessToken());
+    } else {
+      clearTokens();
+    }
   }
-  if (auth) {
-    const token = getAccessToken();
-    if (token) headers.set('authorization', `Bearer ${token}`);
-  }
-  const res = await fetch(`${apiBaseUrl}${path}`, { ...rest, headers, body });
   if (res.status === 204) {
     return undefined as T;
   }
@@ -1123,10 +1163,16 @@ export function subscribeRealtime(
     const url = `${apiBaseUrl}/realtime/stream${qs.toString() ? `?${qs.toString()}` : ''}`;
 
     try {
-      const res = await fetch(url, {
-        headers: { authorization: `Bearer ${token}` },
-        signal: controller.signal,
-      });
+      const open = (bearer: string | null) =>
+        fetch(url, {
+          headers: { authorization: `Bearer ${bearer ?? ''}` },
+          signal: controller.signal,
+        });
+      let res = await open(token);
+      // A reconnect after the access token expired: refresh, then reconnect once.
+      if (res.status === 401 && (await refreshSession())) {
+        res = await open(getAccessToken());
+      }
 
       if (!res.ok || !res.body) return;
 

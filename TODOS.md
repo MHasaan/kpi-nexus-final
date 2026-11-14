@@ -61,7 +61,9 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **Scheduled connector runs:** an active connector with a schedule now runs on it (a 5-field cron, at most once a minute), as well as on `POST /connectors/:id/run` (BE-030).
 - [x] **Onboarding co-pilot rail:** the wizard's slide-out rail now uses all four modes: Generate (per-section accept / reject), Assistant (JSON Patch previewed and accepted per section), Suggest (chips) and Explain (FE-020).
 - [x] **Onboarding offline / resume / draft-status banners:** the wizard keeps a failed save, shows an offline banner with Retry, re-saves on reconnect, and won't finish with an unsaved edit; the resume banner has Start over (FE-021).
-- [ ] **NLQ tool loop:** NLQ grounds the model in KPI context in one call; the planned pgvector + tool-use loop (`compare_kpis`, `get_kpi_history`, max 5 rounds) is not built.
+- [x] **NLQ tool loop:** up to 5 model calls with `get_metadata`, `get_kpi_history`, `query_timeseries` and `compare_kpis`, each reading through the scoped `listForKpi`; tool turns in every AI adapter (BE-033).
+- [ ] **Analytics reads ignore per-user point scope:** forecast (and likely anomaly / what-if / seasonality) build their input from every user's points on a visible PER_USER KPI. Fix before adding the NLQ `forecast_kpi` tool.
+- [ ] **NLQ `forecast_kpi` tool** — waits on the analytics scope fix above.
 - [ ] **Data history models:** `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
 - [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
 - [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).

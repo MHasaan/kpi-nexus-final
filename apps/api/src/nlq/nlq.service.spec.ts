@@ -94,7 +94,9 @@ function buildService(opts: {
   const kpiData = {
     // The scoped reader (KPI visibility + point scope + Layer-4 clamps). Returns DESC.
     listForKpi: vi.fn().mockImplementation(async (kpiId: string) =>
-      [...(series[kpiId] ?? [])].reverse().map((value) => ({ value, recordedAt: new Date('2026-01-01') })),
+      [...(series[kpiId] ?? [])]
+        .map((value, i) => ({ value, periodStart: new Date(Date.UTC(2026, 0, i + 1)), recordedAt: new Date('2026-01-01'), userId: null, orgUnitId: null }))
+        .reverse(),
     ),
     dashboardSummary: vi.fn().mockImplementation(async () =>
       opts.kpis.map((k) => ({
@@ -323,6 +325,14 @@ describe('NlqService.ask — catalog grounding', () => {
     expect(completeCalls[0]!.messages[0]!.content).toContain('Alpha');
   });
 
+  it('each catalog line carries the KPI id, so tool calls can name it', async () => {
+    const kpis = [kpi({ id: 'cmabc123', name: 'Revenue' })];
+    const { service, completeCalls } = buildService({ kpis });
+    await run(() => service.ask('q'));
+    const line = completeCalls[0]!.messages[0]!.content.split('\n').find((l) => l.includes('Revenue'))!;
+    expect(line).toContain('id cmabc123');
+  });
+
   it('resolves categoryId → category name in the line', async () => {
     const kpis = [kpi({ id: 'a', name: 'Alpha', unit: 'x', categoryId: 'cat-1' })];
     const { service, completeCalls } = buildService({
@@ -363,5 +373,97 @@ describe('NlqService.ask — catalog grounding', () => {
     const { service, prisma } = buildService({ kpis });
     await run(() => service.ask('q'));
     expect(prisma.nLQQuery.create).toHaveBeenCalledOnce();
+  });
+});
+
+describe('NlqService.ask — tool-use loop', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  type Req = { messages: Array<{ role: string; content: string; toolCalls?: unknown[]; toolCallId?: string; toolName?: string }>; tools?: Array<{ name: string }> };
+  const toolTurn = (calls: Array<{ id: string; name: string; input: object }>) => ({
+    content: '',
+    toolCalls: calls,
+    finishReason: 'tool_use',
+    actualCost: 0.002,
+    usage: { inputTokens: 200, outputTokens: 20 },
+  });
+  const textTurn = (content: string) => ({ content, finishReason: 'stop', actualCost: 0.001, usage: { inputTokens: 100, outputTokens: 50 } });
+
+  it('offers the tools, runs a tool call through the scoped reader, and sends the result back', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue', unit: 'USD' }), kpi({ id: 'churn', name: 'Churn' })];
+    const { service, aiRouter, kpiData, completeCalls, prisma } = buildService({ kpis, series: { rev: [100, 120] } });
+    const requests: Req[] = [];
+    aiRouter.complete
+      .mockImplementationOnce(async (_f: string, req: Req) => {
+        requests.push(structuredClone(req));
+        return toolTurn([{ id: 'c1', name: 'get_kpi_history', input: { kpiId: 'rev', limit: 5 } }]);
+      })
+      .mockImplementationOnce(async (_f: string, req: Req) => {
+        requests.push(structuredClone(req));
+        return textTurn('Revenue rose from 100 to 120.');
+      });
+
+    const out = await run(() => service.ask('How did revenue move?'));
+
+    expect(requests[0]!.tools!.map((t) => t.name)).toEqual(['get_metadata', 'get_kpi_history', 'query_timeseries', 'compare_kpis']);
+    expect(kpiData.listForKpi).toHaveBeenCalledWith('rev', { limit: 5 });
+    const second = requests[1]!.messages;
+    expect(second[1]).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1', name: 'get_kpi_history' }] });
+    expect(second[2]).toMatchObject({ role: 'tool', toolCallId: 'c1', toolName: 'get_kpi_history' });
+    expect(JSON.parse(second[2]!.content)).toMatchObject({ kpiId: 'rev', points: [{ value: 120 }, { value: 100 }] });
+
+    expect(out.answer).toBe('Revenue rose from 100 to 120.');
+    expect(out.costUsd).toBeCloseTo(0.003);
+    expect(out.sources.map((s) => s.kpiId)).toContain('rev');
+    expect(out.toolCalls).toEqual([{ name: 'get_kpi_history', kpiIds: ['rev'] }]);
+    expect(prisma.nLQQuery.create.mock.calls[0]![0].data).toMatchObject({ inputTokens: 300, outputTokens: 70 });
+    expect(completeCalls).toHaveLength(0); // the default fake was replaced for both rounds
+  });
+
+  it('a tool call on a KPI outside the asker\'s catalog is "not found" and reads nothing', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
+    const { service, aiRouter, kpiData } = buildService({ kpis });
+    let toolResult = '';
+    aiRouter.complete
+      .mockImplementationOnce(async () => toolTurn([{ id: 'c1', name: 'get_kpi_history', input: { kpiId: 'someone-elses-kpi' } }]))
+      .mockImplementationOnce(async (_f: string, req: Req) => {
+        toolResult = req.messages[2]!.content;
+        return textTurn("I don't have access to that data.");
+      });
+
+    const out = await run(() => service.ask("What is John's attendance?"));
+    expect(JSON.parse(toolResult)).toEqual({ error: 'KPI not found: someone-elses-kpi' });
+    expect(kpiData.listForKpi).not.toHaveBeenCalledWith('someone-elses-kpi', expect.anything());
+    expect(out.answer).toBe("I don't have access to that data.");
+  });
+
+  it('stops after 5 rounds of tool calls and returns a partial answer with a warning', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
+    const { service, aiRouter } = buildService({ kpis });
+    aiRouter.complete.mockImplementation(async () => ({ ...toolTurn([{ id: 'c', name: 'get_metadata', input: { kpiId: 'rev' } }]), content: 'Still checking.' }));
+
+    const out = await run(() => service.ask('loop forever'));
+    expect(aiRouter.complete).toHaveBeenCalledTimes(5);
+    expect(out.warning).toBe('TOOL_ROUND_LIMIT');
+    expect(out.answer).toBe('Still checking.');
+  });
+
+  it('a round-limit stop with no text still answers something', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
+    const { service, aiRouter } = buildService({ kpis });
+    aiRouter.complete.mockImplementation(async () => toolTurn([{ id: 'c', name: 'get_metadata', input: { kpiId: 'rev' } }]));
+    const out = await run(() => service.ask('loop forever'));
+    expect(out.answer).toMatch(/could not finish/i);
+  });
+
+  it('answers in one call when the model needs no tools (no warning, no tool calls)', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
+    const { service, aiRouter } = buildService({ kpis });
+    const out = await run(() => service.ask('hi'));
+    expect(aiRouter.complete).toHaveBeenCalledTimes(1);
+    expect(out.warning).toBeUndefined();
+    expect(out.toolCalls).toEqual([]);
   });
 });

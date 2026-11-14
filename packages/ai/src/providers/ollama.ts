@@ -42,7 +42,13 @@ export class OllamaProvider implements IAiProvider {
     const model = requireModel(this.key, req.model);
     const messages = [
       ...(req.systemPrompt ? [{ role: 'system', content: req.systemPrompt }] : []),
-      ...req.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...req.messages.map((m) => {
+        if (m.role === 'tool') return { role: 'tool', tool_name: m.toolName ?? '', content: m.content };
+        if (m.role === 'assistant' && m.toolCalls?.length) {
+          return { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((tc) => ({ function: { name: tc.name, arguments: tc.input } })) };
+        }
+        return { role: m.role, content: m.content };
+      }),
     ];
     const body: Record<string, unknown> = { model, messages, stream: false };
     if (req.tools?.length) {

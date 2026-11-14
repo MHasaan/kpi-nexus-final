@@ -62,7 +62,17 @@ export class OpenAiProvider implements IAiProvider {
     const model = strip(requireModel(this.key, req.model));
     const messages = [
       ...(req.systemPrompt ? [{ role: 'system', content: req.systemPrompt }] : []),
-      ...req.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...req.messages.map((m) => {
+        if (m.role === 'tool') return { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content };
+        if (m.role === 'assistant' && m.toolCalls?.length) {
+          return {
+            role: 'assistant',
+            content: m.content || null,
+            tool_calls: m.toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.input) } })),
+          };
+        }
+        return { role: m.role, content: m.content };
+      }),
     ];
     const body: Record<string, unknown> = { model, messages };
     if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens;

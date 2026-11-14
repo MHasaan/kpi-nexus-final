@@ -27,6 +27,11 @@ import {
   listCascades,
   correctDataPoint,
   listDataPointHistory,
+  getKpiSnapshot,
+  listKpiSnapshots,
+  takeKpiSnapshot,
+  type KpiSnapshot,
+  type KpiSnapshotSummary,
   listKpiDataPoints,
   listKpis,
   listTargets,
@@ -925,6 +930,7 @@ function AddChildForm({
 function AuditTab({ kpiId }: { kpiId: string }) {
   const [versions] = useAsync(() => getKpiVersions(kpiId), [kpiId]);
   return (
+    <div className="space-y-4">
     <UICard className="p-0">
       <Table>
         <TableHeader>
@@ -951,6 +957,87 @@ function AuditTab({ kpiId }: { kpiId: string }) {
           )}
         </TableBody>
       </Table>
+    </UICard>
+    <SnapshotsCard kpiId={kpiId} />
+    </div>
+  );
+}
+
+/**
+ * Point-in-time snapshots of this KPI: its definition and the values you can
+ * read. A snapshot is visible to the person who took it (and admins).
+ */
+function SnapshotsCard({ kpiId }: { kpiId: string }) {
+  const [snapshots, reload] = useAsync(() => listKpiSnapshots(kpiId), [kpiId]);
+  const [reason, setReason] = useState('');
+  const [open, setOpen] = useState<KpiSnapshot | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const take = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    try {
+      await takeKpiSnapshot(kpiId, reason.trim() || undefined);
+      setReason('');
+      reload();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : 'Could not take a snapshot');
+    }
+  };
+
+  const view = async (s: KpiSnapshotSummary) => {
+    if (open?.id === s.id) {
+      setOpen(null);
+      return;
+    }
+    try {
+      setOpen(await getKpiSnapshot(kpiId, s.id));
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : 'Could not open the snapshot');
+    }
+  };
+
+  return (
+    <UICard>
+      <CardContent className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-content-strong">Snapshots</h3>
+          <p className="text-xs text-content-muted">Freeze this KPI and the values you can see, for later reference. Only you (and admins) can open your snapshots.</p>
+        </div>
+        <PermissionGuard permission="KPI_EDIT">
+          <form onSubmit={take} className="flex flex-wrap items-end gap-2">
+            <Input aria-label="Reason for the snapshot" placeholder="Reason (optional)" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="max-w-sm" data-testid="snapshot-reason" />
+            <Button type="submit" size="sm" data-testid="snapshot-take">Take snapshot</Button>
+          </form>
+        </PermissionGuard>
+        {err && <p className="text-sm text-status-critical" role="alert">{err}</p>}
+        <ul className="divide-y divide-border text-sm" data-testid="snapshot-list">
+          {(snapshots ?? []).length === 0 && <li className="py-2 text-content-muted">No snapshots yet.</li>}
+          {(snapshots ?? []).map((s) => (
+            <li key={s.id} className="py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className="text-content-strong">{s.reason ?? 'Snapshot'}</span>
+                  <span className="text-content-muted"> · {new Date(s.takenAt).toLocaleString()} · {s.pointCount} values</span>
+                </span>
+                <Button type="button" size="sm" variant="ghost" onClick={() => void view(s)} data-testid="snapshot-view">
+                  {open?.id === s.id ? 'Hide' : 'View'}
+                </Button>
+              </div>
+              {open?.id === s.id && (
+                <div className="mt-2 rounded border border-border bg-surface-bg p-2 text-xs" data-testid="snapshot-detail">
+                  <p className="text-content-muted">Version v{String(open.payload.kpi.version ?? '?')} · target {String(open.payload.kpi.targetValue ?? '—')}</p>
+                  <ul className="mt-1 max-h-48 overflow-y-auto tabular-nums">
+                    {open.payload.points.map((p, i) => (
+                      <li key={`${p.period}-${i}`}>{p.period}: {p.value}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
     </UICard>
   );
 }

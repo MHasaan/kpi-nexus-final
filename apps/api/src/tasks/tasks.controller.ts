@@ -21,6 +21,7 @@ import {
   UpdateTaskDtoSchema,
 } from './dto/task.dto.js';
 import { type PublicTask, TasksService } from './tasks.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -67,12 +68,14 @@ export class TasksController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_VIEW)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateTaskDtoSchema)
   create(@Body() body: unknown): Promise<PublicTask> {
     return this.tasks.create(parse(CreateTaskDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_VIEW)
+  @ApiBody(UpdateTaskDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicTask> {
     return this.tasks.update(id, parse(UpdateTaskDtoSchema, body));
   }

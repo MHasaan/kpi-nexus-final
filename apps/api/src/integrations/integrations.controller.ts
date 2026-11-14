@@ -15,6 +15,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreateIntegrationDtoSchema } from './dto/integration.dto.js';
 import { IntegrationsService, type PublicIntegrationConnection } from './integrations.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -46,6 +47,7 @@ export class IntegrationsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateIntegrationDtoSchema)
   create(@Body() body: unknown): Promise<PublicIntegrationConnection> {
     return this.integrations.create(parse(CreateIntegrationDtoSchema, body));
   }

@@ -23,6 +23,7 @@ import {
   CreateThresholdBandDtoSchema,
   UpdateThresholdBandDtoSchema,
 } from './dto/threshold-band.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -55,12 +56,14 @@ export class KpiThresholdBandsController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateThresholdBandDtoSchema)
   create(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<PublicThresholdBand> {
     return this.bands.create(kpiId, parse(CreateThresholdBandDtoSchema, body));
   }
 
   @Patch(':bandId')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateThresholdBandDtoSchema)
   update(@Param('bandId') bandId: string, @Body() body: unknown): Promise<PublicThresholdBand> {
     return this.bands.update(bandId, parse(UpdateThresholdBandDtoSchema, body));
   }

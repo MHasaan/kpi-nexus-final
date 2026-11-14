@@ -19,6 +19,7 @@ import {
   CreateKpiCategoryDtoSchema,
   UpdateKpiCategoryDtoSchema,
 } from './dto/kpi-category.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -51,12 +52,14 @@ export class KpiCategoriesController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateKpiCategoryDtoSchema)
   create(@Body() body: unknown): Promise<PublicKpiCategory> {
     return this.categories.create(parse(CreateKpiCategoryDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateKpiCategoryDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicKpiCategory> {
     return this.categories.update(id, parse(UpdateKpiCategoryDtoSchema, body));
   }

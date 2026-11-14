@@ -18,6 +18,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { CorrectDataPointDtoSchema } from './dto/correct-data-point.dto.js';
 import { RecordDataPointDtoSchema } from './dto/record-data-point.dto.js';
 import { KpiDataService, type PublicDataPoint } from './kpi-data.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -46,6 +47,7 @@ export class KpiDataController {
   @Post('kpis/:id/data')
   @RequirePermissions(PermissionKey.KPI_DATA_ENTRY)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(RecordDataPointDtoSchema)
   recordOrgWide(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -57,6 +59,7 @@ export class KpiDataController {
   @Post('org-units/kpi-assignments/:assignmentId/data')
   @RequirePermissions(PermissionKey.KPI_DATA_ENTRY)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(RecordDataPointDtoSchema)
   recordPerUnit(
     @Param('assignmentId') assignmentId: string,
     @Body() body: unknown,
@@ -71,6 +74,7 @@ export class KpiDataController {
   @Post('user-kpis/my-kpis/:assignmentId/data')
   @RequirePermissions(PermissionKey.KPI_DATA_ENTRY)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(RecordDataPointDtoSchema)
   recordPerUser(
     @Param('assignmentId') assignmentId: string,
     @Body() body: unknown,
@@ -100,6 +104,7 @@ export class KpiDataController {
   /** PATCH /kpis/:id/data/:pointId — correct a recorded value (recorder or KPI_EDIT; reason required). */
   @Patch('kpis/:id/data/:pointId')
   @RequirePermissions(PermissionKey.KPI_DATA_ENTRY)
+  @ApiBody(CorrectDataPointDtoSchema)
   correct(@Param('id') id: string, @Param('pointId') pointId: string, @Body() body: unknown): Promise<PublicDataPoint> {
     return this.data.correctDataPoint(id, pointId, parse(CorrectDataPointDtoSchema, body));
   }

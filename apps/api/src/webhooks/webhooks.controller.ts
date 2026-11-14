@@ -17,6 +17,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { WEBHOOK_EVENT_CATALOG } from './webhook-events.js';
 import { type PublicWebhook, WebhooksService } from './webhooks.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -61,12 +62,14 @@ export class WebhooksController {
   @Post()
   @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateWebhookDtoSchema)
   create(@Body() body: unknown): Promise<{ webhook: PublicWebhook; secret: string }> {
     return this.webhooks.create(parse(CreateWebhookDtoSchema, body));
   }
 
   @Patch(':id')
   @RequireAnyPermission(PermissionKey.INTEGRATIONS_MANAGE, PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpdateWebhookDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicWebhook> {
     const { isActive } = parse(UpdateWebhookDtoSchema, body);
     return this.webhooks.setActive(id, isActive);

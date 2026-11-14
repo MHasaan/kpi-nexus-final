@@ -25,6 +25,7 @@ import { AcceptInvitationDtoSchema } from './dto/accept-invitation.dto.js';
 import { InvitationPreviewDtoSchema } from './dto/invitation-preview.dto.js';
 import { LoginDtoSchema, RefreshDtoSchema } from './dto/login.dto.js';
 import { RegisterOrgDtoSchema } from './dto/register-org.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const NotificationSettingsDtoSchema = z
   .object({
@@ -73,6 +74,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(RegisterOrgDtoSchema)
   register(@Body() body: unknown) {
     const dto = parse(RegisterOrgDtoSchema, body);
     return this.auth.registerOrganization(dto);
@@ -81,6 +83,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(LoginDtoSchema)
   login(@Body() body: unknown, @Req() req: { ip?: string; headers: Record<string, string | string[] | undefined> }) {
     const dto = parse(LoginDtoSchema, body);
     const ua = req.headers['user-agent'];
@@ -90,6 +93,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(RefreshDtoSchema)
   refresh(@Body() body: unknown) {
     const dto = parse(RefreshDtoSchema, body);
     return this.auth.refresh(dto.refreshToken);
@@ -98,6 +102,7 @@ export class AuthController {
   @Public()
   @Post('accept-invitation')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(AcceptInvitationDtoSchema)
   acceptInvitation(@Body() body: unknown) {
     const dto = parse(AcceptInvitationDtoSchema, body);
     return this.auth.acceptInvitation(dto);
@@ -106,6 +111,7 @@ export class AuthController {
   @Public()
   @Post('invitation-preview')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(InvitationPreviewDtoSchema)
   invitationPreview(@Body() body: unknown) {
     const dto = parse(InvitationPreviewDtoSchema, body);
     return this.auth.previewInvitation(dto);
@@ -113,6 +119,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(RefreshDtoSchema)
   async logout(@Body() body: unknown): Promise<void> {
     const dto = parse(RefreshDtoSchema, body);
     await this.auth.logout(dto.refreshToken);
@@ -161,6 +168,7 @@ export class AuthController {
 
   /** Update the current user's notification preferences (digest, mute hours). */
   @Patch('me/notification-settings')
+  @ApiBody(NotificationSettingsDtoSchema)
   async updateNotificationSettings(
     @Body() body: unknown,
   ): Promise<{ notificationSettings: unknown }> {
@@ -179,6 +187,7 @@ export class AuthController {
    * no permission gate. Only `fullName` is mutable — role/status/email are not.
    */
   @Patch('me')
+  @ApiBody(UpdateProfileDtoSchema)
   async updateProfile(@Body() body: unknown): Promise<{ user: SelfUser }> {
     const dto = parse(UpdateProfileDtoSchema, body);
     const user = await this.account.updateProfile(dto);
@@ -192,6 +201,7 @@ export class AuthController {
    */
   @Post('me/change-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(ChangePasswordDtoSchema)
   async changePassword(@Body() body: unknown): Promise<void> {
     const dto = parse(ChangePasswordDtoSchema, body);
     await this.account.changePassword(dto);

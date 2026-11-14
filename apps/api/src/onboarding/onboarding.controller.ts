@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { OnboardingService } from './onboarding.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const StartSchema = z
   .object({
@@ -40,6 +41,7 @@ export class OnboardingController {
 
   @Post('start')
   @Public()
+  @ApiBody(StartSchema)
   start(@Body() body: unknown) {
     return this.onboarding.start(parse(StartSchema, body));
   }
@@ -52,6 +54,7 @@ export class OnboardingController {
 
   @Put(':id')
   @Public()
+  @ApiBody(PatchSchema)
   patch(@Param('id') id: string, @Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const data = parse(PatchSchema, body);
     return this.onboarding.patchDraft(id, token ?? '', data.patch, data.lastEditedStep);
@@ -59,12 +62,14 @@ export class OnboardingController {
 
   @Post(':id/apply-template')
   @Public()
+  @ApiBody(ApplyTemplateSchema)
   applyTemplate(@Param('id') id: string, @Body() body: unknown, @Headers('x-draft-token') token?: string) {
     return this.onboarding.applyTemplate(id, token ?? '', parse(ApplyTemplateSchema, body).slug);
   }
 
   @Post(':id/complete')
   @Public()
+  @ApiBody(CompleteSchema)
   complete(@Param('id') id: string, @Body() body: unknown, @Headers('x-draft-token') token?: string) {
     return this.onboarding.complete(id, token ?? '', parse(CompleteSchema, body));
   }

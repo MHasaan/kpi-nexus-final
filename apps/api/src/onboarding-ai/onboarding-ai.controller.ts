@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { OnboardingAiService } from './onboarding-ai.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const GenerateSchema = z.object({ sessionId: z.string().min(1), prompt: z.string().trim().min(1).max(2000) }).strict();
 const AssistantSchema = z.object({ sessionId: z.string().min(1), instruction: z.string().trim().min(1).max(2000) }).strict();
@@ -33,6 +34,7 @@ export class OnboardingAiController {
 
   @Post('generate')
   @Public()
+  @ApiBody(GenerateSchema)
   generate(@Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const d = parse(GenerateSchema, body);
     return this.ai.generate(d.sessionId, token ?? '', d.prompt);
@@ -40,6 +42,7 @@ export class OnboardingAiController {
 
   @Post('assistant')
   @Public()
+  @ApiBody(AssistantSchema)
   assistant(@Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const d = parse(AssistantSchema, body);
     return this.ai.assistant(d.sessionId, token ?? '', d.instruction);
@@ -47,6 +50,7 @@ export class OnboardingAiController {
 
   @Post('suggest')
   @Public()
+  @ApiBody(SuggestSchema)
   suggest(@Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const d = parse(SuggestSchema, body);
     return this.ai.suggest(d.sessionId, token ?? '', d.fieldPath, d.context);
@@ -54,6 +58,7 @@ export class OnboardingAiController {
 
   @Post('explain')
   @Public()
+  @ApiBody(ExplainSchema)
   explain(@Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const d = parse(ExplainSchema, body);
     return this.ai.explain(d.sessionId, token ?? '', d.fieldPath);
@@ -61,6 +66,7 @@ export class OnboardingAiController {
 
   @Post('apply')
   @Public()
+  @ApiBody(ApplySchema)
   apply(@Body() body: unknown, @Headers('x-draft-token') token?: string) {
     const d = parse(ApplySchema, body);
     return this.ai.apply(d.sessionId, token ?? '', d);

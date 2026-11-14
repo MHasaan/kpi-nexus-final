@@ -20,6 +20,7 @@ import {
   CreateAlertRuleDtoSchema,
   UpdateAlertRuleDtoSchema,
 } from './dto/alert-rule.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -52,12 +53,14 @@ export class AlertRulesController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateAlertRuleDtoSchema)
   create(@Body() body: unknown): Promise<PublicAlertRule> {
     return this.alertRules.create(parse(CreateAlertRuleDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateAlertRuleDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicAlertRule> {
     return this.alertRules.update(id, parse(UpdateAlertRuleDtoSchema, body));
   }

@@ -20,6 +20,7 @@ import {
   InstantiateTemplateDtoSchema,
   ListTemplatesQuerySchema,
 } from './dto/template.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -46,6 +47,7 @@ export class KpiTemplatesController {
   @Post(':id/instantiate')
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(InstantiateTemplateDtoSchema)
   instantiate(@Param('id') id: string, @Body() body: unknown): Promise<PublicKpi> {
     return this.templates.instantiate(id, parse(InstantiateTemplateDtoSchema, body ?? {}));
   }
@@ -53,6 +55,7 @@ export class KpiTemplatesController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateTemplateDtoSchema)
   create(@Body() body: unknown): Promise<PublicKpiTemplate> {
     return this.templates.create(parse(CreateTemplateDtoSchema, body));
   }

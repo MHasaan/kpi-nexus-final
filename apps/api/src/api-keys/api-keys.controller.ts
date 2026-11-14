@@ -15,6 +15,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { ApiKeysService, type PublicApiKey } from './api-keys.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -49,6 +50,7 @@ export class ApiKeysController {
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateApiKeyDtoSchema)
   async create(
     @Body() body: unknown,
   ): Promise<{ apiKey: PublicApiKey; plaintext: string }> {

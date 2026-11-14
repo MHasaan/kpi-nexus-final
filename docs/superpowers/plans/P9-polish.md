@@ -171,10 +171,10 @@ model ScimToken {
 
 ### Module 9: OpenAPI + SDK generation
 
-- [ ] `nestjs-zod` decorator integration — auto-generate OpenAPI from Zod schemas + Nest controllers
-- [ ] Spec served at `/api/v1/openapi.json`
-- [ ] Spectral lint config (`.spectral.yaml`) enforcing best practices
-- [ ] TypeScript SDK auto-gen into `packages/sdk/` via `openapi-typescript-codegen`
+- [x] `nestjs-zod` decorator integration — auto-generate OpenAPI from Zod schemas + Nest controllers *(BE-040: controllers parse bodies by hand, so the document is built from Nest's route metadata + an `@ApiBody(schema)` decorator — 130 handlers — using Zod 4's `toJSONSchema`)*
+- [x] Spec served at `/api/v1/openapi.json`
+- [x] Spectral lint config (`.spectral.yaml`) enforcing best practices
+- [x] TypeScript SDK auto-gen into `packages/sdk/` via `openapi-typescript-codegen` *(BE-040: `openapi-typescript` + `openapi-fetch` instead — `openapi-typescript-codegen` is no longer maintained)*
 - [ ] CI regenerates SDK on schema change; commit diff = surface area of API change
 
 ## Frontend
@@ -295,8 +295,8 @@ model ScimToken {
 - [ ] GDPR export <30s manual test
 
 ### SDK regeneration test
-- [ ] `pnpm sdk:regenerate` — check that `packages/sdk/` regenerates cleanly with no diff if API hasn't changed
-- [ ] Spectral lint on OpenAPI spec passes
+- [x] `pnpm sdk:regenerate` — check that `packages/sdk/` regenerates cleanly with no diff if API hasn't changed *(CI step)*
+- [x] Spectral lint on OpenAPI spec passes
 
 ## Acceptance checklist
 

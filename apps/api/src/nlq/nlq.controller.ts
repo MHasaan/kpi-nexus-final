@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { type NlqAnswer, NlqService } from './nlq.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const AskSchema = z.object({ question: z.string().trim().min(1).max(1000) }).strict();
 
@@ -13,6 +14,7 @@ export class NlqController {
 
   @Post('ask')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(AskSchema)
   ask(@Body() body: unknown): Promise<NlqAnswer> {
     const parsed = AskSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'question is required' });

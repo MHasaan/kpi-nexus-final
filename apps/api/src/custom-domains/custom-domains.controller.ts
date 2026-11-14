@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { CustomDomainsService, type PublicCustomDomain } from './custom-domains.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const RegisterSchema = z.object({ domain: z.string().trim().min(3).max(253) }).strict();
 
@@ -30,6 +31,7 @@ export class CustomDomainsController {
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(RegisterSchema)
   register(@Body() body: unknown): Promise<PublicCustomDomain> {
     const parsed = RegisterSchema.safeParse(body);
     if (!parsed.success) {

@@ -16,6 +16,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreateWorkflowDtoSchema, UpdateWorkflowDtoSchema } from './dto/workflow.dto.js';
 import { type PublicWorkflow, WorkflowsService } from './workflows.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -46,11 +47,13 @@ export class WorkflowsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateWorkflowDtoSchema)
   create(@Body() body: unknown): Promise<PublicWorkflow> {
     return this.workflows.create(parse(CreateWorkflowDtoSchema, body));
   }
 
   @Patch(':id')
+  @ApiBody(UpdateWorkflowDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicWorkflow> {
     return this.workflows.update(id, parse(UpdateWorkflowDtoSchema, body));
   }

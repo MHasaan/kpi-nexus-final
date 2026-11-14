@@ -24,6 +24,7 @@ import {
 } from './dto/okr.dto.js';
 import { KeyResultsService, type PublicKeyResult } from './key-results.service.js';
 import { ObjectivesService, type PublicObjective } from './objectives.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -59,12 +60,14 @@ export class OkrsController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateObjectiveDtoSchema)
   create(@Body() body: unknown): Promise<PublicObjective> {
     return this.objectives.create(parse(CreateObjectiveDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateObjectiveDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicObjective> {
     return this.objectives.update(id, parse(UpdateObjectiveDtoSchema, body));
   }
@@ -94,12 +97,14 @@ export class OkrsController {
   @Post(':id/key-results')
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateKeyResultDtoSchema)
   createKeyResult(@Param('id') id: string, @Body() body: unknown): Promise<PublicKeyResult> {
     return this.keyResults.create(id, parse(CreateKeyResultDtoSchema, body));
   }
 
   @Patch(':id/key-results/:krId')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateKeyResultDtoSchema)
   updateKeyResult(@Param('krId') krId: string, @Body() body: unknown): Promise<PublicKeyResult> {
     return this.keyResults.update(krId, parse(UpdateKeyResultDtoSchema, body));
   }

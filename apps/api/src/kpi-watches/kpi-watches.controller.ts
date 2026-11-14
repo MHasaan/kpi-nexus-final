@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { KPI_WATCH_EVENTS } from './kpi-watch.producer.js';
 import { KpiWatchesService } from './kpi-watches.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const WatchDtoSchema = z.object({ events: z.array(z.enum(KPI_WATCH_EVENTS)).min(1).max(KPI_WATCH_EVENTS.length) }).strict();
 
@@ -25,6 +26,7 @@ export class KpiWatchesController {
   }
 
   @Put('kpis/:id/watch')
+  @ApiBody(WatchDtoSchema)
   watch(@Param('id') id: string, @Body() body: unknown) {
     const parsed = WatchDtoSchema.safeParse(body);
     if (!parsed.success) {

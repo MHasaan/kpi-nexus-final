@@ -19,6 +19,7 @@ import {
   type PublicCascade,
 } from './kpi-cascades.service.js';
 import { AttachCascadeDtoSchema } from './dto/cascade.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -51,6 +52,7 @@ export class KpiCascadesController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(AttachCascadeDtoSchema)
   attach(@Body() body: unknown): Promise<PublicCascade> {
     return this.cascades.attach(parse(AttachCascadeDtoSchema, body));
   }

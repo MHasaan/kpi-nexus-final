@@ -69,7 +69,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **KPI watches (`KPIWatch`):** Watch on a KPI page for chosen events (new value, rule fired, anomaly confirmed, status change); a background job raises a personal, value-free notice per watcher, checked as that watcher (BE-038).
 - [x] **KPI snapshots (`DataSnapshot`):** freeze a KPI's definition and the values you can read, with a reason (KPI_EDIT); visible to the taker and admins only; Snapshots on the KPI Audit tab (BE-039).
 - [ ] **`KPI.allowNegative` is never enforced:** recording (and correcting) a negative value on a KPI that disallows it is accepted.
-- [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
+- [x] **OpenAPI generation** and the **TypeScript SDK** (`packages/sdk/`): document built from the registered routes at `/api/v1/openapi.json` (request schemas via `@ApiBody`, not `nestjs-zod`), Spectral-linted, committed and checked in CI; SDK = `openapi-typescript` types + `openapi-fetch` (BE-040).
 - [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).
 - [ ] **Shared UI component library with Storybook** in `packages/ui/src/components/` (components live in `apps/web/src/components/` instead).
 - [ ] **AWS KMS data keys** — *won't do while hosting must stay free*: KMS bills per key per month (ADR-001). `integration-crypto.ts` keeps a KMS-ready key-loading hook.

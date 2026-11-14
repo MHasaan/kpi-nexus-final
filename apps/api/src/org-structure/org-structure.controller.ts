@@ -26,6 +26,7 @@ import {
   UpdateDimensionDtoSchema,
   UpdateTypeDtoSchema,
 } from './dto/org-structure.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -48,12 +49,14 @@ export class OrgUnitDimensionsController {
   @Post()
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateDimensionDtoSchema)
   create(@Body() body: unknown): Promise<PublicDimension> {
     return this.svc.createDimension(parse(CreateDimensionDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(UpdateDimensionDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicDimension> {
     return this.svc.updateDimension(id, parse(UpdateDimensionDtoSchema, body));
   }
@@ -79,12 +82,14 @@ export class OrgUnitTypesController {
   @Post()
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateTypeDtoSchema)
   create(@Body() body: unknown): Promise<PublicType> {
     return this.svc.createType(parse(CreateTypeDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(UpdateTypeDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicType> {
     return this.svc.updateType(id, parse(UpdateTypeDtoSchema, body));
   }

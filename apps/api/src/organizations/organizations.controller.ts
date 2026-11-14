@@ -11,6 +11,7 @@ import type { ZodTypeAny, infer as ZInfer } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { UpdateOrganizationDtoSchema } from './dto/update-organization.dto.js';
 import { OrganizationsService } from './organizations.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -42,6 +43,7 @@ export class OrganizationsController {
 
   @Patch('me')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpdateOrganizationDtoSchema)
   updateMine(@Body() body: unknown): Promise<unknown> {
     const dto = parse(UpdateOrganizationDtoSchema, body);
     return this.orgs.updateMine(dto);

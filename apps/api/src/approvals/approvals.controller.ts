@@ -22,6 +22,7 @@ import {
   ListRequestsQuerySchema,
   UpsertWorkflowDtoSchema,
 } from './dto/approval.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -54,6 +55,7 @@ export class ApprovalsController {
 
   @Put('workflows/:entityType')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpsertWorkflowDtoSchema)
   upsertWorkflow(@Param('entityType') entityType: string, @Body() body: unknown): Promise<PublicApprovalWorkflow> {
     if (!ENTITY_TYPES.includes(entityType)) {
       throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `Unknown entityType ${entityType}` });
@@ -72,6 +74,7 @@ export class ApprovalsController {
   @Post('requests/:id/decide')
   @RequirePermissions(PermissionKey.KPI_VIEW)
   @HttpCode(HttpStatus.OK)
+  @ApiBody(DecideDtoSchema)
   decide(@Param('id') id: string, @Body() body: unknown): Promise<PublicApprovalRequest> {
     return this.requests.decide(id, parse(DecideDtoSchema, body));
   }

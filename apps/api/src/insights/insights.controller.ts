@@ -7,6 +7,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { InsightsService } from './insights.service.js';
 import { InsightsProducer } from './insights.producer.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const GenerateSchema = z.object({ kpiId: z.string().trim().min(1) }).strict();
 const BatchSchema = z
@@ -42,6 +43,7 @@ export class InsightsController {
 
   @Post('generate')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(GenerateSchema)
   async generate(@Body() body: unknown): Promise<{ insight: KPIInsight | null }> {
     const parsed = GenerateSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'kpiId is required' });
@@ -55,6 +57,7 @@ export class InsightsController {
 
   @Post('generate-batch')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(BatchSchema)
   async generateBatch(@Body() body: unknown): Promise<{ insights: KPIInsight[] }> {
     const parsed = BatchSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid batch request', details: parsed.error.flatten() });

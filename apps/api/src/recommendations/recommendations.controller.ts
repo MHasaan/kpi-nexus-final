@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { RecommendationsService } from './recommendations.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const GenerateSchema = z
   .object({
@@ -37,6 +38,7 @@ export class RecommendationsController {
 
   @Post('generate')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(GenerateSchema)
   generate(@Body() body: unknown): Promise<Recommendation> {
     const parsed = GenerateSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'kpiId or alertId is required' });
@@ -45,6 +47,7 @@ export class RecommendationsController {
 
   @Patch(':id/status')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(StatusSchema)
   updateStatus(@Param('id') id: string, @Body() body: unknown): Promise<Recommendation> {
     const parsed = StatusSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'status must be ACTIONED or DISMISSED' });

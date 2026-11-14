@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { BillingService, type BillingStatus } from './billing.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const SetPlanSchema = z.object({ planKey: z.string().trim().min(1) }).strict();
 
@@ -19,6 +20,7 @@ export class BillingController {
 
   @Post('plan')
   @RequireAnyPermission(PermissionKey.BILLING_MANAGE, PermissionKey.ORG_SETTINGS)
+  @ApiBody(SetPlanSchema)
   setPlan(@Body() body: unknown): Promise<BillingStatus> {
     const parsed = SetPlanSchema.safeParse(body);
     if (!parsed.success) {

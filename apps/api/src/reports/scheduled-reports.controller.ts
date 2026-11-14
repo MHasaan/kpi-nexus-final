@@ -19,6 +19,7 @@ import {
   UpdateScheduledReportDtoSchema,
 } from './dto/reports.dto.js';
 import { ScheduledReportService } from './scheduled-report.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
   const result = schema.safeParse(data);
@@ -55,6 +56,7 @@ export class ScheduledReportsController {
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateScheduledReportDtoSchema)
   create(@Body() body: unknown) {
     const dto = parse(CreateScheduledReportDtoSchema, body);
     return this.scheduledReports.create(dto);
@@ -68,6 +70,7 @@ export class ScheduledReportsController {
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpdateScheduledReportDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown) {
     const dto = parse(UpdateScheduledReportDtoSchema, body);
     return this.scheduledReports.update(id, dto);

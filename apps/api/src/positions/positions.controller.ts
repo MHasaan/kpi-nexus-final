@@ -19,6 +19,7 @@ import {
   UpdatePositionDtoSchema,
 } from './dto/create-position.dto.js';
 import { PositionsService, type PublicPosition } from './positions.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -48,12 +49,14 @@ export class PositionsController {
 
   @Post()
   @RequirePermissions(PermissionKey.POSITIONS_MANAGE)
+  @ApiBody(CreatePositionDtoSchema)
   create(@Body() body: unknown): Promise<PublicPosition> {
     return this.positions.create(parse(CreatePositionDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.POSITIONS_MANAGE)
+  @ApiBody(UpdatePositionDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicPosition> {
     return this.positions.update(id, parse(UpdatePositionDtoSchema, body));
   }

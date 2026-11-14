@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { InboundEmailService } from './inbound-email.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const InboundEmailDtoSchema = z
   .object({
@@ -26,6 +27,7 @@ export class InboundEmailController {
   @Public()
   @Post('email')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(InboundEmailDtoSchema)
   async email(
     @Body() body: unknown,
     @Headers('x-inbound-signature') signature?: string,

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { type PublicSsoConfig, SsoConfigService } from './sso-config.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const UpsertConfigDtoSchema = z
   .object({
@@ -29,6 +30,7 @@ export class SsoController {
 
   @Put('config')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpsertConfigDtoSchema)
   upsert(@Body() body: unknown): Promise<PublicSsoConfig> {
     const parsed = UpsertConfigDtoSchema.safeParse(body);
     if (!parsed.success) {

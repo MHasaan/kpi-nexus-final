@@ -16,6 +16,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
 import { type ConnectorRunResult, ConnectorsService, type PublicConnector } from './connectors.service.js';
 import { CreateConnectorDtoSchema, UpdateConnectorDtoSchema } from './dto/connector.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -48,11 +49,13 @@ export class ConnectorsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateConnectorDtoSchema)
   create(@Body() body: unknown): Promise<PublicConnector> {
     return this.connectors.create(parse(CreateConnectorDtoSchema, body));
   }
 
   @Patch(':id')
+  @ApiBody(UpdateConnectorDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicConnector> {
     return this.connectors.update(id, parse(UpdateConnectorDtoSchema, body));
   }

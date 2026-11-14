@@ -6,6 +6,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { CalculationEngineService } from './calculation-engine.service.js';
 import { CalculationEngineProducer } from './calculation-engine.producer.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const RollupBodySchema = z
   .object({
@@ -41,6 +42,7 @@ export class CalculationEngineController {
   @Post('rollup')
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.OK)
+  @ApiBody(RollupBodySchema)
   async rollup(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<{ value: number | null }> {
     const ctx = RequestContextStore.require();
     const parsed = RollupBodySchema.safeParse(body ?? {});

@@ -13,6 +13,7 @@ import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type ActiveSessionInfo, RefreshTokenService } from './services/refresh-token.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 // ---------------------------------------------------------------------------
 // Validation helpers
@@ -69,6 +70,7 @@ export class MeSessionsController {
 
   @Post('revoke-all')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(RevokeAllBodySchema)
   async revokeAll(@Body() body: unknown): Promise<{ revoked: number }> {
     const ctx = RequestContextStore.require();
     const dto = parse(RevokeAllBodySchema, body);

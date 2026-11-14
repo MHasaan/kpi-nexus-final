@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator.js';
 import { ByoKeyService, type ByoStatus } from './byo-key.service.js';
+import { ApiBody } from '../../openapi/api-body.decorator.js';
 
 const SetKeySchema = z.object({ apiKey: z.string().trim().min(8) }).strict();
 
@@ -20,6 +21,7 @@ export class ByoController {
 
   @Post(':key/byok')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(SetKeySchema)
   async setKey(@Param('key') key: string, @Body() body: unknown): Promise<{ configured: true; pingOk: boolean }> {
     const k = AiProviderKeySchema.safeParse(key);
     if (!k.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `Unknown provider '${key}'` });

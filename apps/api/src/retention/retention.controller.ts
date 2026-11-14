@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { type PublicRetentionPolicy, RetentionService } from './retention.service.js';
 import type { RetentionTier } from './retention-tiers.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const ApplyTierDtoSchema = z.object({ tier: z.enum(['FREE', 'PRO', 'ENTERPRISE']) }).strict();
 
@@ -25,6 +26,7 @@ export class RetentionController {
 
   @Post('apply-tier')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(ApplyTierDtoSchema)
   applyTier(@Body() body: unknown): Promise<PublicRetentionPolicy[]> {
     const parsed = ApplyTierDtoSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'tier must be FREE|PRO|ENTERPRISE' });

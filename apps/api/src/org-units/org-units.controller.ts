@@ -26,6 +26,7 @@ import {
   SplitUnitDtoSchema,
 } from './dto/reorganize.dto.js';
 import { OrgUnitsService } from './org-units.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -57,12 +58,14 @@ export class OrgUnitsController {
 
   @Post()
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(CreateOrgUnitDtoSchema)
   create(@Body() body: unknown) {
     return this.orgUnits.create(parse(CreateOrgUnitDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(UpdateOrgUnitDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown) {
     return this.orgUnits.update(id, parse(UpdateOrgUnitDtoSchema, body));
   }
@@ -79,6 +82,7 @@ export class OrgUnitsController {
   @Post('move-users')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(MoveUsersDtoSchema)
   moveUsers(@Body() body: unknown): Promise<void> {
     return this.orgUnits.moveUsers(parse(MoveUsersDtoSchema, body));
   }
@@ -91,6 +95,7 @@ export class OrgUnitsController {
 
   @Post(':id/rename')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(RenameOrgUnitDtoSchema)
   rename(@Param('id') id: string, @Body() body: unknown) {
     return this.orgUnits.renameUnit(id, parse(RenameOrgUnitDtoSchema, body).name);
   }
@@ -104,12 +109,14 @@ export class OrgUnitsController {
   @Post(':id/merge-into')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(MergeUnitsDtoSchema)
   mergeInto(@Param('id') id: string, @Body() body: unknown): Promise<void> {
     return this.orgUnits.mergeUnits(id, parse(MergeUnitsDtoSchema, body).targetId);
   }
 
   @Post(':id/split')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(SplitUnitDtoSchema)
   split(@Param('id') id: string, @Body() body: unknown) {
     return this.orgUnits.splitUnit(id, parse(SplitUnitDtoSchema, body));
   }
@@ -122,6 +129,7 @@ export class OrgUnitsController {
 
   @Post(':id/members')
   @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(AddMemberDtoSchema)
   addMember(@Param('id') id: string, @Body() body: unknown) {
     return this.orgUnits.addMember(id, parse(AddMemberDtoSchema, body));
   }

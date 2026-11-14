@@ -16,6 +16,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { NotificationChannelsService, type PublicChannel } from './notification-channels.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -60,12 +61,14 @@ export class NotificationChannelsController {
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateChannelDtoSchema)
   create(@Body() body: unknown): Promise<PublicChannel> {
     return this.channels.create(parse(CreateChannelDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpdateChannelDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicChannel> {
     return this.channels.update(id, parse(UpdateChannelDtoSchema, body));
   }

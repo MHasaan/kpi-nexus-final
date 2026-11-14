@@ -16,6 +16,7 @@ import type { ZodTypeAny, infer as ZInfer } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreatePermissionDelegationDtoSchema } from './dto/create-permission-delegation.dto.js';
 import { PermissionDelegationsService } from './permission-delegations.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -47,6 +48,7 @@ export class PermissionDelegationsController {
 
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(CreatePermissionDelegationDtoSchema)
   create(@Body() body: unknown) {
     return this.delegations.create(parse(CreatePermissionDelegationDtoSchema, body));
   }

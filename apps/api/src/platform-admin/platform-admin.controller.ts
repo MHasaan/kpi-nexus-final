@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PlatformAdminGuard } from './platform-admin.guard.js';
 import { type PlatformAdminRow, PlatformAdminService } from './platform-admin.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const GrantSchema = z.object({ userId: z.string().trim().min(1) }).strict();
 
@@ -30,6 +31,7 @@ export class PlatformAdminController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(GrantSchema)
   grant(@Body() body: unknown): Promise<{ userId: string }> {
     const parsed = GrantSchema.safeParse(body);
     if (!parsed.success) {

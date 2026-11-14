@@ -4,6 +4,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { type ShareLinkResolvedPayload, ShareLinksService } from './share-links.service.js';
 import { ResolveShareDtoSchema } from './dto/dashboard.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -62,6 +63,7 @@ export class PublicDashboardsController {
   @Post(':token')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @ApiBody(ResolveShareDtoSchema)
   resolveWithPassword(
     @Param('token') token: string,
     @Body() body: unknown,

@@ -35,6 +35,7 @@ import {
   UpdateWidgetDtoSchema,
   UpdateWidgetPositionDtoSchema,
 } from './dto/dashboard.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -109,6 +110,7 @@ export class DashboardsController {
   @Post()
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateDashboardDtoSchema)
   create(@Body() body: unknown): Promise<PublicDashboard> {
     return this.dashboards.create(parse(CreateDashboardDtoSchema, body));
   }
@@ -116,6 +118,7 @@ export class DashboardsController {
   @Patch(':id')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @RequireResourceAccess('dashboard', 'id', 'manage')
+  @ApiBody(UpdateDashboardDtoSchema)
   update(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -163,6 +166,7 @@ export class DashboardsController {
   @Post(':id/unit-assignments')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(AssignDashboardUnitDtoSchema)
   assignUnit(@Param('id') id: string, @Body() body: unknown): Promise<void> {
     return this.dashboards.assignUnit(id, parse(AssignDashboardUnitDtoSchema, body).orgUnitId);
   }
@@ -185,6 +189,7 @@ export class DashboardsController {
   @Post(':id/share')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateShareLinkDtoSchema)
   createShareLink(
     @Param('id') dashboardId: string,
     @Body() body: unknown,
@@ -203,6 +208,7 @@ export class DashboardsController {
   @Post(':id/snapshots')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CaptureSnapshotDtoSchema)
   captureSnapshot(
     @Param('id') dashboardId: string,
     @Body() body: unknown,
@@ -221,6 +227,7 @@ export class DashboardsController {
   @Post(':id/widgets')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(AddWidgetDtoSchema)
   addWidget(
     @Param('id') dashboardId: string,
     @Body() body: unknown,
@@ -230,6 +237,7 @@ export class DashboardsController {
 
   @Patch(':id/widgets/:wid')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @ApiBody(UpdateWidgetDtoSchema)
   updateWidget(
     @Param('id') dashboardId: string,
     @Param('wid') widgetId: string,
@@ -240,6 +248,7 @@ export class DashboardsController {
 
   @Post(':id/widgets/:wid/position')
   @RequirePermissions(PermissionKey.DASHBOARD_MANAGE)
+  @ApiBody(UpdateWidgetPositionDtoSchema)
   updateWidgetPosition(
     @Param('id') dashboardId: string,
     @Param('wid') widgetId: string,

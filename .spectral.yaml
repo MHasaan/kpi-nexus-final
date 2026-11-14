@@ -1,0 +1,12 @@
+# OpenAPI lint for apps/api/openapi.json (P9 plan, Module 9).
+extends: ['spectral:oas']
+rules:
+  # Responses carry no bodies yet (only status descriptions); summaries are generated.
+  oas3-valid-media-example: off
+  operation-description: off
+  info-contact: off
+  # Contract checks that matter for the SDK:
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-tags: error
+  path-params: error

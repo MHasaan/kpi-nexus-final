@@ -25,6 +25,7 @@ import {
   UsersService,
 } from './users.service.js';
 import { type OffboardSummary, OffboardingService } from './services/offboarding.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -77,6 +78,7 @@ export class UsersController {
 
   @Put(':id/access-override')
   @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @ApiBody(UserAccessOverrideSchema)
   upsertAccessOverride(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -95,6 +97,7 @@ export class UsersController {
   @Post()
   @RequirePermissions(PermissionKey.USERS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(InviteUserDtoSchema)
   invite(@Body() body: unknown): Promise<InviteResult> {
     return this.users.invite(parse(InviteUserDtoSchema, body));
   }
@@ -103,6 +106,7 @@ export class UsersController {
   @Post(':id/offboard')
   @RequirePermissions(PermissionKey.USERS_MANAGE)
   @HttpCode(HttpStatus.OK)
+  @ApiBody(OffboardDtoSchema)
   async offboard(@Param('id') id: string, @Body() body: unknown): Promise<OffboardSummary> {
     const dto = parse(OffboardDtoSchema, body ?? {});
     // The target must be someone the caller can see (PEOPLE scope, BE-004); the

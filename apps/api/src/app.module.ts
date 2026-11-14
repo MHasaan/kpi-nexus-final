@@ -20,6 +20,7 @@ import { KpisModule } from './kpis/kpis.module.js';
 import { KpiSavedViewsModule } from './kpi-saved-views/kpi-saved-views.module.js';
 import { KpiWatchesModule } from './kpi-watches/kpi-watches.module.js';
 import { DataSnapshotsModule } from './data-snapshots/data-snapshots.module.js';
+import { OpenApiModule } from './openapi/openapi.module.js';
 import { KpiCategoriesModule } from './kpi-categories/kpi-categories.module.js';
 import { KpiTargetsModule } from './kpi-targets/kpi-targets.module.js';
 import { KpiThresholdBandsModule } from './kpi-threshold-bands/kpi-threshold-bands.module.js';
@@ -123,6 +124,7 @@ import { RetentionModule } from './retention/retention.module.js';
     KpiSavedViewsModule,
     KpiWatchesModule,
     DataSnapshotsModule,
+    OpenApiModule,
     KpiCategoriesModule,
     KpiTargetsModule,
     KpiThresholdBandsModule,

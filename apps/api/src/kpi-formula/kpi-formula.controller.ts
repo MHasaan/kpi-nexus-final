@@ -15,6 +15,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { KpiFormulaService, type PublicFormula } from './kpi-formula.service.js';
 import { AttachFormulaDtoSchema } from './dto/formula.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -40,6 +41,7 @@ export class KpiFormulaController {
 
   @Put()
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(AttachFormulaDtoSchema)
   attach(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<PublicFormula> {
     return this.formula.attach(kpiId, parse(AttachFormulaDtoSchema, body));
   }

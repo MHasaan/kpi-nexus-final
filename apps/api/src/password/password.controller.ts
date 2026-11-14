@@ -10,6 +10,7 @@ import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
 import { PasswordResetService } from './password-reset.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const RequestResetSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -39,6 +40,7 @@ export class PasswordController {
   @Public()
   @Post('request-reset')
   @HttpCode(HttpStatus.ACCEPTED)
+  @ApiBody(RequestResetSchema)
   async requestReset(@Body() body: unknown): Promise<{ accepted: true }> {
     const dto = parse(RequestResetSchema, body);
     await this.passwords.request(dto.email);
@@ -48,6 +50,7 @@ export class PasswordController {
   @Public()
   @Post('confirm-reset')
   @HttpCode(HttpStatus.OK)
+  @ApiBody(ConfirmResetSchema)
   async confirmReset(@Body() body: unknown): Promise<{ ok: true }> {
     const dto = parse(ConfirmResetSchema, body);
     await this.passwords.confirm(dto.token, dto.newPassword);

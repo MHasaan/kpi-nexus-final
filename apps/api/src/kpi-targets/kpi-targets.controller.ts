@@ -20,6 +20,7 @@ import {
   CreateKpiTargetDtoSchema,
   UpdateKpiTargetDtoSchema,
 } from './kpi-target.validation.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -52,12 +53,14 @@ export class KpiTargetsController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateKpiTargetDtoSchema)
   create(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<PublicKpiTarget> {
     return this.targets.create(kpiId, parse(CreateKpiTargetDtoSchema, body));
   }
 
   @Patch(':targetId')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateKpiTargetDtoSchema)
   update(@Param('targetId') targetId: string, @Body() body: unknown): Promise<PublicKpiTarget> {
     return this.targets.update(targetId, parse(UpdateKpiTargetDtoSchema, body));
   }

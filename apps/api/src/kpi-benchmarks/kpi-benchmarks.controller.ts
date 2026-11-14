@@ -18,6 +18,7 @@ import {
   ComputeBenchmarkDtoSchema,
   CreateBenchmarkDtoSchema,
 } from './dto/benchmark.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -44,6 +45,7 @@ export class KpiBenchmarksController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateBenchmarkDtoSchema)
   create(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<PublicKpiBenchmark> {
     return this.benchmarks.create(kpiId, parse(CreateBenchmarkDtoSchema, body));
   }
@@ -51,6 +53,7 @@ export class KpiBenchmarksController {
   @Post('compute')
   @RequirePermissions(PermissionKey.KPI_EDIT)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(ComputeBenchmarkDtoSchema)
   compute(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<PublicKpiBenchmark> {
     return this.benchmarks.compute(kpiId, parse(ComputeBenchmarkDtoSchema, body ?? {}));
   }

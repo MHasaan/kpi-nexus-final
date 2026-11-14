@@ -19,6 +19,7 @@ import { RolesService, type PublicRole, type RoleHierarchy } from './roles.servi
 import { CreateRoleDtoSchema } from './dto/create-role.dto.js';
 import { UpdateRoleDtoSchema } from './dto/update-role.dto.js';
 import type { PermissionPreset } from './permission-presets.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -69,6 +70,7 @@ export class RolesController {
 
   @Post()
   @RequirePermissions(PermissionKey.ROLES_MANAGE)
+  @ApiBody(CreateRoleDtoSchema)
   create(@Body() body: unknown): Promise<PublicRole> {
     const dto = parse(CreateRoleDtoSchema, body);
     return this.roles.create(dto);
@@ -76,6 +78,7 @@ export class RolesController {
 
   @Post(':id/apply-preset')
   @RequirePermissions(PermissionKey.ROLES_MANAGE)
+  @ApiBody(ApplyPresetBodySchema)
   applyPreset(@Param('id') id: string, @Body() body: unknown): Promise<PublicRole> {
     const dto = parse(ApplyPresetBodySchema, body);
     return this.roles.applyPreset(id, dto.preset);
@@ -83,6 +86,7 @@ export class RolesController {
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.ROLES_MANAGE)
+  @ApiBody(UpdateRoleDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicRole> {
     const dto = parse(UpdateRoleDtoSchema, body);
     return this.roles.update(id, dto);

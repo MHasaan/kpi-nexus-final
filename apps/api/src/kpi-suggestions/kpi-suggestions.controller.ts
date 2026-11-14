@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { KpiSuggestionsService } from './kpi-suggestions.service.js';
 import type { KpiSuggestion } from './kpi-suggestion-parser.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const SuggestSchema = z
   .object({
@@ -19,6 +20,7 @@ export class KpiSuggestionsController {
 
   @Post('suggest-kpis')
   @RequirePermissions(PermissionKey.KPI_CREATE)
+  @ApiBody(SuggestSchema)
   async suggest(@Body() body: unknown): Promise<{ suggestions: KpiSuggestion[] }> {
     const parsed = SuggestSchema.safeParse(body ?? {});
     if (!parsed.success) {

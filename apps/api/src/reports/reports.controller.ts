@@ -19,6 +19,7 @@ import { BoardPackQuerySchema, GenerateReportDtoSchema } from './dto/reports.dto
 import { EmbedTokenService } from './services/embed-token.service.js';
 import { BoardPackService } from './services/board-pack.service.js';
 import { ReportsService } from './reports.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
   const result = schema.safeParse(data);
@@ -56,6 +57,7 @@ export class ReportsController {
   @Post('generate')
   @RequirePermissions(PermissionKey.REPORTS_VIEW)
   @HttpCode(HttpStatus.OK)
+  @ApiBody(GenerateReportDtoSchema)
   async generate(
     @Body() body: unknown,
     @Res() reply: FastifyReply,

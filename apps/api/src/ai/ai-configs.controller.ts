@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { AiBudgetService, type SpendSnapshot } from './ai-budget.service.js';
 import { AiConfigsService, type FeatureConfigView } from './ai-configs.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const UpsertConfigSchema = z
   .object({
@@ -45,6 +46,7 @@ export class AiConfigsController {
 
   @Put('configs/:feature')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpsertConfigSchema)
   upsertConfig(@Param('feature') feature: string, @Body() body: unknown): Promise<FeatureConfigView> {
     const f = AiFeatureSchema.safeParse(feature);
     if (!f.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `Unknown AI feature '${feature}'` });
@@ -70,6 +72,7 @@ export class AiConfigsController {
 
   @Patch('budget')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(UpdateBudgetSchema)
   updateBudget(@Body() body: unknown): Promise<SpendSnapshot> {
     const parsed = UpdateBudgetSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid budget update', details: parsed.error.flatten() });

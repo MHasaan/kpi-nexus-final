@@ -15,6 +15,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { OrgUnitKpisService, type UnitKpiRow } from './org-unit-kpis.service.js';
 import { AssignOrgUnitKpiDtoSchema } from './dto/org-unit-kpi.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -41,6 +42,7 @@ export class OrgUnitKpisController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_CREATE, PermissionKey.GROUPS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(AssignOrgUnitKpiDtoSchema)
   assign(@Param('orgUnitId') orgUnitId: string, @Body() body: unknown): Promise<{ id: string }> {
     const dto = parse(AssignOrgUnitKpiDtoSchema, body);
     return this.orgUnitKpis.assign(orgUnitId, dto.kpiId, dto.targetValue);

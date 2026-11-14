@@ -16,6 +16,7 @@ import type { ZodTypeAny, infer as ZInfer } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { CreateResourcePermissionDtoSchema } from './dto/create-resource-permission.dto.js';
 import { ResourcePermissionsService } from './resource-permissions.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -51,6 +52,7 @@ export class ResourcePermissionsController {
 
   @Post()
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @ApiBody(CreateResourcePermissionDtoSchema)
   create(@Body() body: unknown) {
     return this.resourcePermissions.create(parse(CreateResourcePermissionDtoSchema, body));
   }

@@ -15,6 +15,7 @@ import type { infer as ZInfer, ZodTypeAny } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { type MyKpiRow, UserKpisService } from './user-kpis.service.js';
 import { AssignUserKpiDtoSchema } from './dto/user-kpi.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -56,6 +57,7 @@ export class UserKpisController {
   @Post('assign')
   @RequirePermissions(PermissionKey.KPI_CREATE, PermissionKey.USERS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(AssignUserKpiDtoSchema)
   assign(@Body() body: unknown): Promise<{ id: string }> {
     return this.userKpis.assign(parse(AssignUserKpiDtoSchema, body));
   }

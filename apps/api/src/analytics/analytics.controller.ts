@@ -8,6 +8,7 @@ import { AnomalyService } from './anomaly.service.js';
 import { ForecastsService } from './forecasts.service.js';
 import { SeasonalityService } from './seasonality.service.js';
 import { WhatIfService } from './whatif.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const DetectSchema = z
   .object({
@@ -69,6 +70,7 @@ export class AnalyticsController {
 
   @Post('anomalies/detect')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(DetectSchema)
   detect(@Param('kpiId') kpiId: string, @Body() body: unknown) {
     const parsed = DetectSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid detect request', details: parsed.error.flatten() });
@@ -89,6 +91,7 @@ export class AnalyticsController {
 
   @Post('forecasts')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(ForecastSchema)
   forecast(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<Forecast> {
     const parsed = ForecastSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'horizon is required (1-365)', details: parsed.error.flatten() });
@@ -97,6 +100,7 @@ export class AnalyticsController {
 
   @Post('whatif')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(WhatIfSchema)
   simulate(@Param('kpiId') kpiId: string, @Body() body: unknown) {
     const parsed = WhatIfSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'scenarios required', details: parsed.error.flatten() });
@@ -105,6 +109,7 @@ export class AnalyticsController {
 
   @Post('seasonality')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @ApiBody(SeasonalitySchema)
   decompose(@Param('kpiId') kpiId: string, @Body() body: unknown) {
     const parsed = SeasonalitySchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid seasonality request', details: parsed.error.flatten() });

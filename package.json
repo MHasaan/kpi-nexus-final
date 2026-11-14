@@ -29,9 +29,13 @@
     "docker:down": "docker compose -f infra/docker/docker-compose.yml down",
     "docker:reset": "docker compose -f infra/docker/docker-compose.yml down -v",
     "docker:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
-    "docker:ps": "docker compose -f infra/docker/docker-compose.yml ps"
+    "docker:ps": "docker compose -f infra/docker/docker-compose.yml ps",
+    "openapi:export": "node apps/api/scripts/export-openapi.mjs",
+    "openapi:lint": "spectral lint apps/api/openapi.json --fail-severity warn",
+    "sdk:regenerate": "pnpm --filter @kpi-nexus/sdk generate"
   },
   "devDependencies": {
+    "@stoplight/spectral-cli": "^6",
     "pg": "^8.13.0",
     "turbo": "^2.9.14"
   },
@@ -48,6 +52,10 @@
       "sharp": "^0.35.5",
       "brace-expansion@^2": "^2.1.2",
       "brace-expansion@^1": "^1.1.20"
-    }
+    },
+    "neverBuiltDependencies": [
+      "@scarf/scarf"
+    ],
+    "//neverBuilt": "@scarf/scarf (pulled in by @stoplight/spectral-cli) runs an install-time analytics ping; never run it."
   }
 }

@@ -242,6 +242,15 @@ jobs:
       # RLS enforcement tests (which connect as kpi_app / kpi_system directly).
       - name: API integration tests (live, RLS enforced)
         run: pnpm --filter @kpi-nexus/api test:int
+      # The committed OpenAPI document must match the running API's routes, lint
+      # clean, and the SDK generated from it must be committed (P9 Module 9).
+      - name: OpenAPI is current, lints clean, and the SDK regenerates unchanged
+        run: |
+          pnpm openapi:export
+          git diff --exit-code apps/api/openapi.json
+          pnpm openapi:lint
+          pnpm sdk:regenerate
+          git diff --exit-code packages/sdk/src/schema.d.ts
       - name: Install Playwright browsers
         run: pnpm --filter @kpi-nexus/web exec playwright install --with-deps chromium
       # playwright.config.ts serves the production build (`next start`) under CI.

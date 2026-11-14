@@ -18,6 +18,7 @@ import { CreateKpiDtoSchema, UpdateKpiDtoSchema } from './dto/create-kpi.dto.js'
 import { KpisService, type PublicKpi } from './kpis.service.js';
 import { KpiImportService } from './kpi-import.service.js';
 import type { DryRunResult } from './kpi-import.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const ImportCsvDtoSchema = z.object({ csv: z.string().min(1).max(1_000_000) }).strict();
 
@@ -50,6 +51,7 @@ export class KpisController {
   @Post('import/dry-run')
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.OK)
+  @ApiBody(ImportCsvDtoSchema)
   importDryRun(@Body() body: unknown): Promise<DryRunResult> {
     return this.importer.dryRun(parse(ImportCsvDtoSchema, body).csv);
   }
@@ -57,6 +59,7 @@ export class KpisController {
   @Post('import/commit')
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(ImportCsvDtoSchema)
   importCommit(@Body() body: unknown): Promise<{ createdCount: number; createdIds: string[] }> {
     return this.importer.commit(parse(ImportCsvDtoSchema, body).csv);
   }
@@ -100,6 +103,7 @@ export class KpisController {
 
   @Post(':id/transition')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(TransitionDtoSchema)
   transition(@Param('id') id: string, @Body() body: unknown): Promise<PublicKpi> {
     const dto = parse(TransitionDtoSchema, body);
     return this.kpis.transitionStatus(id, dto.to, dto.reason);
@@ -108,12 +112,14 @@ export class KpisController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_CREATE)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateKpiDtoSchema)
   create(@Body() body: unknown): Promise<PublicKpi> {
     return this.kpis.create(parse(CreateKpiDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(UpdateKpiDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicKpi> {
     return this.kpis.update(id, parse(UpdateKpiDtoSchema, body));
   }

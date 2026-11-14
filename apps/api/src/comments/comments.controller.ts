@@ -21,6 +21,7 @@ import {
   ListCommentsQuerySchema,
   UpdateCommentDtoSchema,
 } from './dto/comment.dto.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -47,12 +48,14 @@ export class CommentsController {
   @Post()
   @RequirePermissions(PermissionKey.KPI_VIEW)
   @HttpCode(HttpStatus.CREATED)
+  @ApiBody(CreateCommentDtoSchema)
   create(@Body() body: unknown): Promise<PublicComment> {
     return this.comments.create(parse(CreateCommentDtoSchema, body));
   }
 
   @Patch(':id')
   @RequirePermissions(PermissionKey.KPI_VIEW)
+  @ApiBody(UpdateCommentDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown): Promise<PublicComment> {
     return this.comments.update(id, parse(UpdateCommentDtoSchema, body));
   }

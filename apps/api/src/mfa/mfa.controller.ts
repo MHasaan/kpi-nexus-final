@@ -9,6 +9,7 @@ import {
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
 import { MfaService, type EnrollmentResult } from './mfa.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const ConfirmSchema = z.object({
   code: z.string().min(6).max(8),
@@ -45,6 +46,7 @@ export class MfaController {
   /** Confirm with a TOTP code generated from the secret. Persists the recovery hashes. */
   @Post('confirm')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(ConfirmSchema)
   async confirm(@Body() body: unknown): Promise<void> {
     const dto = parse(ConfirmSchema, body);
     await this.mfa.confirm(dto.code, dto.recoveryCodes);
@@ -53,6 +55,7 @@ export class MfaController {
   /** Disable MFA — requires a current TOTP code or one recovery code. */
   @Post('disable')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody(DisableSchema)
   async disable(@Body() body: unknown): Promise<void> {
     const dto = parse(DisableSchema, body);
     await this.mfa.disable(dto.code);

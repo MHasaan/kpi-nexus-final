@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { DataSnapshotsService } from './data-snapshots.service.js';
+import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const TakeSnapshotDtoSchema = z.object({ reason: z.string().trim().max(500).optional() }).strict();
 
@@ -15,6 +16,7 @@ export class DataSnapshotsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermissions(PermissionKey.KPI_EDIT)
+  @ApiBody(TakeSnapshotDtoSchema)
   take(@Param('id') id: string, @Body() body: unknown) {
     const parsed = TakeSnapshotDtoSchema.safeParse(body ?? {});
     if (!parsed.success) {

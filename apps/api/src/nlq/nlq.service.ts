@@ -6,7 +6,6 @@ import { KpiDataService } from '../kpis/kpi-data.service.js';
 import { KpisService, type PublicKpi } from '../kpis/kpis.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
 
@@ -203,12 +202,6 @@ export class NlqService {
       this.logger.warn(`category fetch failed (non-fatal): ${String(err)}`);
     }
 
-    // Layer-4: the answer quotes these values back to the asker — clamp the
-    // recent-series read to historyWindowDays so out-of-window values never
-    // enter the prompt (null ⇒ parity).
-    const limits = await this.accessContext.dataLimits();
-    const windowFrom = clampHistoryFrom(undefined, limits.historyWindowDays);
-
     const lines: string[] = [];
     const deepIds: string[] = [];
     for (const id of catalogIds) {
@@ -221,18 +214,16 @@ export class NlqService {
       let recent: number[] = [];
       if (deepSet.has(id)) {
         deepIds.push(id);
-        const points = await this.prisma.kPIDataPoint.findMany({
-          where: {
-            organizationId,
-            kpiId: id,
-            ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
-          },
-          // Newest periods first ("latest" = newest period; entry time breaks ties).
-          orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
-          take: RECENT_POINTS,
-          select: { value: true },
-        });
-        recent = points.map((p) => p.value).reverse();
+        // The answer quotes these values back to the asker, so read them the way
+        // GET /kpis/:id/data does: only the points this KPI's scope lets the
+        // asker see (a PER_USER KPI's other users' values never enter the
+        // prompt), clamped to historyWindowDays and newest periods first.
+        try {
+          const points = await this.kpiData.listForKpi(id, { limit: RECENT_POINTS });
+          recent = points.map((p) => p.value).reverse();
+        } catch (err) {
+          this.logger.warn(`recent series for ${id} skipped: ${String(err)}`);
+        }
       }
 
       lines.push(this.formatLine(meta, latest, latestAt, recent, categoryById));

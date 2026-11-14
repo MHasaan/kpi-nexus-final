@@ -113,8 +113,10 @@ export class ConnectorsService {
   async listRuns(id: string): Promise<unknown[]> {
     const ctx = RequestContextStore.require();
     await this.getById(id);
+    // IngestionJob also logs CSV / webhook imports and other connectors' runs;
+    // runNow records this connector's id in `source`.
     return this.prisma.ingestionJob.findMany({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, source: { path: ['connectorId'], equals: id } },
       orderBy: [{ createdAt: 'desc' }],
       take: 50,
     });

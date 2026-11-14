@@ -10,7 +10,8 @@
  * Fakes (mirroring the patterns in reembed.spec.ts):
  *  - kpis.list()                  → the visible catalog (the visibility boundary)
  *  - kpiData.dashboardSummary()   → per-KPI latest value (one call)
- *  - prisma.kPIDataPoint.findMany → per-KPI recent series
+ *  - kpiData.listForKpi()        → per-KPI recent series, already scoped to the asker
+ *  - prisma.kPIDataPoint.findMany → an UNSCOPED read (must never feed the prompt)
  *  - embeddings.cosineSearch()    → RAG ordering (optional; [] ⇒ list order)
  *  - aiRouter.complete()          → captures the messages it receives
  *  - aiRouter.embed()             → the query vector
@@ -64,6 +65,8 @@ function buildService(opts: {
   series?: Record<string, number[]>;
   cosine?: Array<{ kpiId: string; similarity: number }>;
   categories?: Array<{ id: string; name: string }>;
+  /** What an unscoped read by kpiId returns (e.g. other users' points); defaults to `series`. */
+  unscopedSeries?: Record<string, number[]>;
 }) {
   const latest = opts.latest ?? {};
   const series = opts.series ?? {};
@@ -89,6 +92,10 @@ function buildService(opts: {
   };
 
   const kpiData = {
+    // The scoped reader (KPI visibility + point scope + Layer-4 clamps). Returns DESC.
+    listForKpi: vi.fn().mockImplementation(async (kpiId: string) =>
+      [...(series[kpiId] ?? [])].reverse().map((value) => ({ value, recordedAt: new Date('2026-01-01') })),
+    ),
     dashboardSummary: vi.fn().mockImplementation(async () =>
       opts.kpis.map((k) => ({
         kpiId: k.id,
@@ -122,7 +129,7 @@ function buildService(opts: {
     kPIDataPoint: {
       findMany: vi.fn().mockImplementation(async ({ where }: { where: { kpiId: string } }) => {
         // Service fetches DESC and reverses; return DESC here.
-        const pts = [...(series[where.kpiId] ?? [])].reverse();
+        const pts = [...((opts.unscopedSeries ?? series)[where.kpiId] ?? [])].reverse();
         return pts.map((value) => ({ value, recordedAt: new Date('2026-01-01') }));
       }),
     },
@@ -279,7 +286,7 @@ describe('NlqService.ask — catalog grounding', () => {
     const kpis = [kpi({ id: 'a', name: 'Alpha', unit: 'x', targetValue: 100 })];
     const latest = { a: { latestValue: 20, latestRecordedAt: new Date('2026-01-01') } };
     const series = { a: [10, 12, 15, 20] }; // oldest→newest; +100%
-    const { service, completeCalls, prisma } = buildService({ kpis, latest, series });
+    const { service, completeCalls, kpiData } = buildService({ kpis, latest, series });
 
     await run(() => service.ask('trend?'));
     const content = completeCalls[0]!.messages.map((m) => m.content).join('\n');
@@ -288,8 +295,32 @@ describe('NlqService.ask — catalog grounding', () => {
     expect(line).toContain('20');
     // change % over [10..20] = 100
     expect(line).toContain('100');
-    // Recent values = newest periods, not newest entries (AN-002).
-    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
+    // Read through the scoped reader (which orders newest periods first, AN-002).
+    expect(kpiData.listForKpi).toHaveBeenCalledWith('a', { limit: 8 });
+  });
+
+  it('a PER_USER trend holds only the points the asker may see, never other users\' values', async () => {
+    const kpis = [kpi({ id: 'p', name: 'Calls made', scope: 'PER_USER', targetValue: 50 })];
+    const latest = { p: { latestValue: 40, latestRecordedAt: new Date('2026-01-01') } };
+    // The asker's own points (what the scoped reader returns)…
+    const series = { p: [30, 35, 40] };
+    // …and what a read by kpiId alone returns: another user's 999 mixed in.
+    const unscopedSeries = { p: [30, 999, 35, 40] };
+    const { service, completeCalls } = buildService({ kpis, latest, series, unscopedSeries });
+
+    await run(() => service.ask('how many calls?'));
+    const content = completeCalls[0]!.messages.map((m) => m.content).join('\n');
+    expect(content).toContain('35');
+    expect(content).not.toContain('999');
+  });
+
+  it('a series the scoped reader refuses is left out, not fatal', async () => {
+    const kpis = [kpi({ id: 'a', name: 'Alpha', targetValue: 100 })];
+    const { service, completeCalls, kpiData } = buildService({ kpis, series: { a: [1, 2] } });
+    kpiData.listForKpi.mockRejectedValueOnce(new Error('KPI not found'));
+
+    await run(() => service.ask('trend?'));
+    expect(completeCalls[0]!.messages[0]!.content).toContain('Alpha');
   });
 
   it('resolves categoryId → category name in the line', async () => {

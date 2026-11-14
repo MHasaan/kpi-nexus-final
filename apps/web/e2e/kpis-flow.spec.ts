@@ -216,3 +216,29 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     await expect(page.getByTestId('kpis-no-matches')).toBeVisible();
   });
 });
+
+test('kpis: save the current filters as a view, then apply it after a reload', async ({ page }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const reg = await registerAndSeed(page, stamp);
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${reg.accessToken}` } });
+  for (const [name, status] of [[`Active KPI ${stamp}`, 'ACTIVE'], [`Draft KPI ${stamp}`, 'DRAFT']] as const) {
+    const res = await api.post('/kpis', { data: { name, status, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' } });
+    expect(res.status()).toBe(201);
+  }
+
+  await page.goto('/kpis');
+  await expect(page.getByText(`Draft KPI ${stamp}`)).toBeVisible();
+  await page.getByTestId('kpi-filter-status').selectOption('ACTIVE');
+  await expect(page.getByText(`Draft KPI ${stamp}`)).toBeHidden();
+  await page.getByTestId('saved-view-name').fill('Active only');
+  await page.getByTestId('saved-view-save').click();
+  await expect(page.getByTestId('saved-view-select')).toContainText('Active only');
+
+  await page.reload();
+  await expect(page.getByText(`Draft KPI ${stamp}`)).toBeVisible();
+  await page.getByTestId('saved-view-select').selectOption({ label: 'Active only' });
+  await expect(page.getByTestId('kpi-filter-status')).toHaveValue('ACTIVE');
+  await expect(page.getByText(`Active KPI ${stamp}`)).toBeVisible();
+  await expect(page.getByText(`Draft KPI ${stamp}`)).toBeHidden();
+});

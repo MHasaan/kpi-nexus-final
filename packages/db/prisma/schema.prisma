@@ -191,6 +191,7 @@ model Organization {
   kpis                  KPI[]
   kpiDataPoints         KPIDataPoint[]
   kpiDataPointHistory   KPIDataPointHistory[]
+  kpiSavedViews         KPISavedView[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
@@ -1012,6 +1013,23 @@ model KPIDataPointHistory {
 
   @@index([organizationId])
   @@index([dataPointId, changedAt])
+}
+
+// A named set of KPI-list filters. It stores filters, not KPIs: whoever opens
+// a shared view still sees only the KPIs visible to them.
+model KPISavedView {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  name           String
+  filters        Json
+  isShared       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId, name])
+  @@index([organizationId, isShared])
 }
 
 // ============================================================================

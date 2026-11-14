@@ -193,6 +193,7 @@ model Organization {
   kpiDataPointHistory   KPIDataPointHistory[]
   kpiSavedViews         KPISavedView[]
   kpiWatches            KPIWatch[]
+  dataSnapshots         DataSnapshot[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
@@ -1047,6 +1048,22 @@ model KPIWatch {
 
   @@unique([userId, kpiId])
   @@index([organizationId, kpiId])
+}
+
+// A point-in-time copy of an entity (entityType 'KPI': its definition plus the
+// values the taker could read). Visible to its taker and admins only.
+model DataSnapshot {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType     String
+  entityId       String
+  payload        Json
+  reason         String?
+  takenById      String
+  takenAt        DateTime     @default(now())
+
+  @@index([organizationId, entityType, entityId, takenAt])
 }
 
 // ============================================================================

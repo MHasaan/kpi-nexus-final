@@ -949,6 +949,34 @@ export async function unwatchKpi(kpiId: string): Promise<void> {
   await api(`/kpis/${kpiId}/watch`, { method: 'DELETE' });
 }
 
+export interface KpiSnapshotSummary {
+  id: string;
+  reason: string | null;
+  takenById: string;
+  takenAt: string;
+  pointCount: number;
+}
+
+export interface KpiSnapshot {
+  id: string;
+  reason: string | null;
+  takenAt: string;
+  payload: { kpi: Record<string, unknown>; points: Array<{ period: string; value: number }> };
+}
+
+/** Snapshot a KPI (definition + the values you can read). Visible to you and admins only. */
+export async function takeKpiSnapshot(kpiId: string, reason?: string): Promise<KpiSnapshotSummary> {
+  return api(`/kpis/${kpiId}/snapshots`, { method: 'POST', body: JSON.stringify(reason ? { reason } : {}) });
+}
+
+export async function listKpiSnapshots(kpiId: string): Promise<KpiSnapshotSummary[]> {
+  return api(`/kpis/${kpiId}/snapshots`);
+}
+
+export async function getKpiSnapshot(kpiId: string, snapshotId: string): Promise<KpiSnapshot> {
+  return api(`/kpis/${kpiId}/snapshots/${snapshotId}`);
+}
+
 export interface DashboardSummaryRow {
   kpiId: string;
   name: string;

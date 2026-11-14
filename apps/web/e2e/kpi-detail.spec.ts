@@ -165,3 +165,47 @@ test('kpi detail: watch a KPI for chosen events, keep it after a reload, stop wa
   await page.getByTestId('watch-stop').click();
   await expect(page.getByTestId('watch-button')).toHaveText('Watch');
 });
+
+test('kpi detail: take a snapshot with a reason and open it', async ({ page }) => {
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  let reg: { accessToken: string; refreshToken: string };
+  try {
+    reg = (await (await anon.post('/auth/register', {
+      data: {
+        orgName: `Snap E2E ${stamp}`,
+        slug: `snap-${stamp}`,
+        adminEmail: `admin-${stamp}@snap.test.local`,
+        adminPassword: 'correct-horse-battery-staple',
+        adminFullName: 'Snap Admin',
+      },
+    })).json()) as { accessToken: string; refreshToken: string };
+  } catch {
+    test.skip(true, 'api not reachable');
+    return;
+  }
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${reg.accessToken}` } });
+  const kpi = (await (await api.post('/kpis', {
+    data: { name: `Snap KPI ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' },
+  })).json()) as { id: string };
+  const now = new Date().toISOString();
+  await api.post(`/kpis/${kpi.id}/data`, { data: { value: 77, periodStart: now, periodEnd: now } });
+
+  await page.goto('/');
+  await page.evaluate(
+    ([a, r]) => {
+      window.localStorage.setItem('kpi-nexus.access-token', a);
+      window.localStorage.setItem('kpi-nexus.refresh-token', r);
+    },
+    [reg.accessToken, reg.refreshToken] as const,
+  );
+  await page.goto(`/kpis/${kpi.id}`);
+  await page.getByTestId('tab-audit').click();
+  await expect(page.getByTestId('snapshot-list')).toContainText('No snapshots yet.');
+  await page.getByTestId('snapshot-reason').fill('Before target change');
+  await page.getByTestId('snapshot-take').click();
+  await expect(page.getByTestId('snapshot-list')).toContainText('Before target change');
+  await expect(page.getByTestId('snapshot-list')).toContainText('1 values');
+  await page.getByTestId('snapshot-view').click();
+  await expect(page.getByTestId('snapshot-detail')).toContainText(': 77');
+});

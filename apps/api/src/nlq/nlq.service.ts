@@ -3,6 +3,7 @@ import type { AiCompletionResult, AiMessage } from '@kpi-nexus/ai';
 
 import { AiConfigsService } from '../ai/ai-configs.service.js';
 import { AiRouterService } from '../ai/ai-router.service.js';
+import { ForecastsService } from '../analytics/forecasts.service.js';
 import { KpiDataService } from '../kpis/kpi-data.service.js';
 import { KpisService, type PublicKpi } from '../kpis/kpis.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -78,6 +79,7 @@ export class NlqService {
     private readonly configs: AiConfigsService,
     private readonly accessContext: AccessContextService,
     private readonly kpiData: KpiDataService,
+    private readonly forecasts: ForecastsService,
   ) {}
 
   private now(): number {
@@ -182,7 +184,7 @@ export class NlqService {
    * partial answer flagged TOOL_ROUND_LIMIT.
    */
   private async runToolLoop(question: string, context: string, metaById: Map<string, PublicKpi>) {
-    const toolbox = new NlqToolbox(this.kpiData, metaById);
+    const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts);
     const messages: AiMessage[] = [
       {
         role: 'user',

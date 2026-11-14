@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
+import type { ForecastsService } from '../analytics/forecasts.service.js';
 import type { KpiDataService } from '../kpis/kpi-data.service.js';
 import type { PublicKpi } from '../kpis/kpis.service.js';
 import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
@@ -19,15 +20,21 @@ function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}) {
   // listForKpi returns newest first, like the real reader.
   const listForKpi = vi.fn(async (kpiId: string) => [...(series[kpiId] ?? [])].sort((a, b) => b.periodStart.getTime() - a.periodStart.getTime()));
   const visible = new Map([kpi('rev'), kpi('churn', { direction: 'LOWER_IS_BETTER', unit: '%' }), kpi('calls', { scope: 'PER_USER' })].map((k) => [k.id, k]));
-  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible);
-  return { toolbox, listForKpi };
+  const forecast = vi.fn(async (kpiId: string, opts: { horizon: number }) => ({
+    kpiId,
+    horizon: opts.horizon,
+    model: 'NAIVE',
+    predictions: Array.from({ length: opts.horizon }, (_, i) => ({ ds: `2027-0${i + 1}-01`, yhat: 10 + i, yhat_lower_80: 8, yhat_upper_80: 12, extra: 'x' })),
+  }));
+  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService);
+  return { toolbox, listForKpi, forecast };
 }
 
 const call = (name: string, input: object) => ({ id: 'c1', name, input });
 
 describe('NLQ_TOOLS', () => {
-  it('declares the four tools with JSON-schema parameters', () => {
-    expect(NLQ_TOOLS.map((t) => t.name)).toEqual(['get_metadata', 'get_kpi_history', 'query_timeseries', 'compare_kpis']);
+  it('declares the five tools with JSON-schema parameters', () => {
+    expect(NLQ_TOOLS.map((t) => t.name)).toEqual(['get_metadata', 'get_kpi_history', 'query_timeseries', 'compare_kpis', 'forecast_kpi']);
     for (const t of NLQ_TOOLS) expect(t.parameters).toMatchObject({ type: 'object' });
   });
 });
@@ -119,5 +126,25 @@ describe('NlqToolbox', () => {
     listForKpi.mockRejectedValueOnce(new Error('KPI not found'));
     expect((await toolbox.run(call('get_kpi_history', { kpiId: 'rev' }))).result).toEqual({ error: 'KPI not found' });
     expect((await toolbox.run(call('drop_tables', {}))).result).toEqual({ error: 'Unknown tool: drop_tables' });
+  });
+});
+
+describe('NlqToolbox forecast_kpi', () => {
+  it('forecasts a visible KPI through ForecastsService without saving it (horizon capped at 12)', async () => {
+    const { toolbox, forecast } = makeToolbox();
+    const out = await toolbox.run(call('forecast_kpi', { kpiId: 'rev', horizon: 40 }));
+    expect(forecast).toHaveBeenCalledWith('rev', { horizon: 12, persist: false });
+    const result = out.result as { model: string; predictions: Array<Record<string, unknown>> };
+    expect(result.model).toBe('NAIVE');
+    expect(result.predictions[0]).toEqual({ period: '2027-01-01', value: 10, low: 8, high: 12 });
+    expect(out.kpiIds).toEqual(['rev']);
+  });
+
+  it('a hidden KPI is not forecast; a forecast error comes back as text', async () => {
+    const { toolbox, forecast } = makeToolbox();
+    expect((await toolbox.run(call('forecast_kpi', { kpiId: 'secret' }))).result).toEqual({ error: 'KPI not found: secret' });
+    expect(forecast).not.toHaveBeenCalled();
+    forecast.mockRejectedValueOnce(new Error('Not enough data to forecast'));
+    expect((await toolbox.run(call('forecast_kpi', { kpiId: 'rev' }))).result).toEqual({ error: 'Not enough data to forecast' });
   });
 });

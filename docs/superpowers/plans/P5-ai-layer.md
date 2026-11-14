@@ -505,7 +505,7 @@ export function priceCall(model: string, usage: {inputTokens: number; outputToke
   6. Persist NLQQuery row including question embedding, response, latency, cost
   7. Return `{answer, chartSpec?, sources[], latencyMs, costUsd, provider, model}`
 - [ ] `NlqService.reembed(orgId?)` — back-fills `KpiCatalogEmbedding` for the org (or all orgs if admin endpoint)
-- [x] `nlq.tools.ts` — 5 tool implementations: *(4 built — `get_metadata`, `get_kpi_history`, `query_timeseries`, `compare_kpis`, all via the scoped `listForKpi`; `forecast_kpi` waits until ForecastsService reads per-user point scope)*
+- [x] `nlq.tools.ts` — 5 tool implementations: *(all 5 built: `get_metadata`, `get_kpi_history`, `query_timeseries`, `compare_kpis` via the scoped `listForKpi`; `forecast_kpi` via ForecastsService with `persist: false`, BE-035)*
   - `query_timeseries({kpiId, from, to, agg})` — uses CAGG-backed query; **applies visibility filter so user can't query a KPI they don't see**
   - `compare_kpis({kpiIds[], from, to})` — multi-KPI series with same visibility filter
   - `get_metadata({kpiId})` — definition + thresholds + targets (visibility-filtered)

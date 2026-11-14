@@ -74,7 +74,15 @@ class FakePrisma {
       this.jobs.push(j);
       return j;
     }),
-    findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => this.jobs.filter((j) => j.organizationId === where.organizationId)),
+    // Honours Prisma's JSON-path filter (`source: { path: ['connectorId'], equals }`).
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string; source?: { path: string[]; equals: unknown } } }) =>
+      this.jobs.filter((j) => {
+        if (j.organizationId !== where.organizationId) return false;
+        if (!where.source) return true;
+        const source = j.source as Record<string, unknown>;
+        return source[where.source.path[0]!] === where.source.equals;
+      }),
+    ),
   };
 }
 
@@ -184,5 +192,27 @@ describe('ConnectorsService keeps the schedule in step', () => {
     const c = await withCtx({}, () => service.create({ name: 'GH', type: 'REST', config, schedule: '0 8 * * *' }));
     await withCtx({}, () => service.remove(c.id));
     expect(scheduler.remove).toHaveBeenCalledWith(c.id);
+  });
+});
+
+describe('ConnectorsService.listRuns', () => {
+  test('lists only this connector’s runs, not other connectors’ runs or CSV / webhook imports', async () => {
+    const { service, prisma } = makeService();
+    stubFetch({ n: 1 });
+    const config = { url: 'https://api.test/x', valuePath: 'n', kpiId: 'kpi_1' };
+    const a = await withCtx({}, () => service.create({ name: 'A', type: 'REST', config }));
+    const b = await withCtx({}, () => service.create({ name: 'B', type: 'REST', config }));
+    const runA = await withCtx({}, () => service.runNow(a.id));
+    await withCtx({}, () => service.runNow(b.id));
+    prisma.jobs.push({ id: 'job_csv', organizationId: ORG, kind: 'webhook', source: { label: 'api-key ingest' } });
+
+    const runs = (await withCtx({}, () => service.listRuns(a.id))) as Array<{ id: string }>;
+    expect(runs.map((r) => r.id)).toEqual([runA.jobId]);
+  });
+
+  test('another org’s connector → 404', async () => {
+    const { service } = makeService();
+    const c = await withCtx({ organizationId: 'a' }, () => service.create({ name: 'X', type: 'REST', config: { url: 'http://x', valuePath: 'n', kpiId: 'k' } }));
+    await expect(withCtx({ organizationId: 'b' }, () => service.listRuns(c.id))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

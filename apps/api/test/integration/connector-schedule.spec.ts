@@ -65,6 +65,21 @@ describe('connector schedules', () => {
     }
   });
 
+  test('run history lists only that connector’s runs (not other connectors’)', async () => {
+    const ids: string[] = [];
+    for (const name of ['History A', 'History B']) {
+      const c = await http<Connector>('/connectors', { method: 'POST', token, body: JSON.stringify({ name, type: 'REST', config }) });
+      expect(c.status).toBe(201);
+      ids.push(c.body!.id);
+      expect((await http(`/connectors/${c.body!.id}/run`, { method: 'POST', token })).status).toBe(200);
+    }
+    for (const id of ids) {
+      const runs = await http<Array<{ source: { connectorId?: string } }>>(`/connectors/${id}/runs`, { token });
+      expect(runs.body!.map((r) => r.source.connectorId)).toEqual([id]);
+      await http(`/connectors/${id}`, { method: 'DELETE', token });
+    }
+  });
+
   test('a connector scheduled every minute runs without a manual trigger', { timeout: 100_000 }, async () => {
     const created = await http<Connector>('/connectors', {
       method: 'POST',

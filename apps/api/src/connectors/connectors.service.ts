@@ -7,6 +7,7 @@ import { assertOutboundUrl } from '../outbound/assert-outbound-url.js';
 import { outboundFetch } from '../outbound/outbound-fetch.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { ConnectorSchedulerService } from './connector-scheduler.service.js';
 import {
   type ExtractedRow,
   type GraphqlConfig,
@@ -48,6 +49,7 @@ export class ConnectorsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly data: KpiDataService,
+    private readonly scheduler: ConnectorSchedulerService,
   ) {}
 
   async list(): Promise<PublicConnector[]> {
@@ -71,12 +73,13 @@ export class ConnectorsService {
         name: dto.name,
         type: dto.type as ConnectorType,
         config: dto.config as Prisma.InputJsonValue,
-        schedule: dto.schedule,
+        schedule: dto.schedule || null,
         isActive: dto.isActive,
         createdById: ctx.userId,
       },
       select: connectorSelect,
     });
+    await this.scheduler.sync(created);
     await this.audit.record({ action: 'CREATE', entityType: 'Connector', entityId: created.id, metadata: { name: created.name, type: created.type } });
     return created;
   }
@@ -90,11 +93,12 @@ export class ConnectorsService {
         name: dto.name,
         type: dto.type as ConnectorType | undefined,
         config: dto.config as Prisma.InputJsonValue | undefined,
-        schedule: dto.schedule,
+        schedule: dto.schedule === undefined ? undefined : dto.schedule || null,
         isActive: dto.isActive,
       },
       select: connectorSelect,
     });
+    await this.scheduler.sync(updated);
     await this.audit.record({ action: 'UPDATE', entityType: 'Connector', entityId: id });
     return updated;
   }
@@ -102,6 +106,7 @@ export class ConnectorsService {
   async remove(id: string): Promise<void> {
     await this.getById(id);
     await this.prisma.connector.delete({ where: { id } });
+    await this.scheduler.remove(id);
     await this.audit.record({ action: 'DELETE', entityType: 'Connector', entityId: id });
   }
 

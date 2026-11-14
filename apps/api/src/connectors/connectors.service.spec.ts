@@ -9,6 +9,7 @@ import { NotFoundException } from '@nestjs/common';
 import type { AuditService } from '../audit/audit.service.js';
 import type { KpiDataService } from '../kpis/kpi-data.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { ConnectorSchedulerService } from './connector-scheduler.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
 import { ConnectorsService } from './connectors.service.js';
 
@@ -90,8 +91,14 @@ function makeService() {
   const bulk = vi.fn(async (rows: unknown[]) => ({ succeeded: (rows as unknown[]).length, failed: 0, errors: [] as string[] }));
   const data = { bulkRecordOrgWide: bulk } as unknown as KpiDataService;
   const audit = { record: vi.fn(async () => {}) };
-  const service = new ConnectorsService(prisma as unknown as PrismaService, audit as unknown as AuditService, data);
-  return { service, prisma, bulk };
+  const scheduler = { sync: vi.fn(async () => {}), remove: vi.fn(async () => {}) };
+  const service = new ConnectorsService(
+    prisma as unknown as PrismaService,
+    audit as unknown as AuditService,
+    data,
+    scheduler as unknown as ConnectorSchedulerService,
+  );
+  return { service, prisma, bulk, scheduler };
 }
 
 function stubFetch(body: unknown, ok = true): void {
@@ -144,5 +151,38 @@ describe('ConnectorsService.runNow', () => {
     const c = await withCtx({}, () => service.create({ name: 'S3', type: 'S3', config: {} }));
     const job = await withCtx({}, () => service.runNow(c.id));
     expect(job.status).toBe('FAILED');
+  });
+});
+
+describe('ConnectorsService keeps the schedule in step', () => {
+  const config = { url: 'http://x', valuePath: 'n', kpiId: 'k' };
+
+  test('create syncs the new connector’s schedule', async () => {
+    const { service, scheduler } = makeService();
+    const c = await withCtx({}, () => service.create({ name: 'GH', type: 'REST', config, schedule: '0 8 * * *' }));
+    expect(scheduler.sync).toHaveBeenCalledWith(expect.objectContaining({ id: c.id, organizationId: ORG, schedule: '0 8 * * *', isActive: true }));
+  });
+
+  test('update syncs the saved row (new schedule, or deactivation)', async () => {
+    const { service, scheduler } = makeService();
+    const c = await withCtx({}, () => service.create({ name: 'GH', type: 'REST', config, schedule: '0 8 * * *' }));
+    await withCtx({}, () => service.update(c.id, { isActive: false }));
+    expect(scheduler.sync).toHaveBeenLastCalledWith(expect.objectContaining({ id: c.id, isActive: false, schedule: '0 8 * * *' }));
+  });
+
+  test('an empty or null schedule is stored as null (manual only)', async () => {
+    const { service, prisma } = makeService();
+    const c = await withCtx({}, () => service.create({ name: 'GH', type: 'REST', config, schedule: '' }));
+    expect(prisma.connectors[0]!.schedule).toBeNull();
+    await withCtx({}, () => service.update(c.id, { schedule: '*/5 * * * *' }));
+    await withCtx({}, () => service.update(c.id, { schedule: null }));
+    expect(prisma.connectors[0]!.schedule).toBeNull();
+  });
+
+  test('remove deletes the scheduler', async () => {
+    const { service, scheduler } = makeService();
+    const c = await withCtx({}, () => service.create({ name: 'GH', type: 'REST', config, schedule: '0 8 * * *' }));
+    await withCtx({}, () => service.remove(c.id));
+    expect(scheduler.remove).toHaveBeenCalledWith(c.id);
   });
 });

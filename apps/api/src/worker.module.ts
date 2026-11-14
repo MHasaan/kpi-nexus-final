@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { AlertEngineModule } from './alert-engine/alert-engine.module.js';
 import { CalculationEngineModule } from './calculation-engine/calculation-engine.module.js';
+import { ConnectorsModule } from './connectors/connectors.module.js';
 import { bullConnectionFromUrl } from './config/redis-connection.js';
 import { EscalationsModule } from './escalations/escalations.module.js';
 import { InsightsModule } from './insights/insights.module.js';
@@ -50,6 +51,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     PrismaModule,
     AlertEngineModule,
     CalculationEngineModule,
+    ConnectorsModule,
     EscalationsModule,
     InsightsModule,
     NlqModule,

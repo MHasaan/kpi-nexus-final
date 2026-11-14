@@ -35,7 +35,7 @@ sparklines, P4 alerting integration specs, and the P1 settings pages
 hardening; Stripe/payment billing wiring; mobile + real-time collab; live SAML/OIDC IdP
 handshake (JIT is built+tested); Lighthouse/k6/axe blocking CI gates + bundle budgets;
 OpenAPI/Spectral + `packages/sdk`; plugin isolated-vm/iframe sandbox; ACM TLS automation;
-P8 connector scheduler auto-runs + Postgres/MySQL runners; Turbo remote cache; Sentry wiring;
+P8 Postgres/MySQL connector runners; Turbo remote cache; Sentry wiring;
 cloud-KMS data-key sourcing; admin impersonation.
 
 **Accepted deviations (documented, not "fixed"):** NLQ golden set is 8/8 ≥80% (not 20/18);
@@ -58,7 +58,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 
 ### Not built (remaining work)
 - [x] **Web access-token refresh:** the web app now calls `POST /auth/refresh` on a 401 (one shared refresh, then the request is retried), so a signed-in user stays signed in past the 15-minute access-token expiry (FE-019).
-- [ ] **Scheduled connector runs:** `Connector.schedule` is stored but nothing runs it; connectors only run on `POST /connectors/:id/run` (the `ConnectorSchedulerService` item).
+- [x] **Scheduled connector runs:** an active connector with a schedule now runs on it (a 5-field cron, at most once a minute), as well as on `POST /connectors/:id/run` (BE-030).
 - [ ] **Onboarding co-pilot rail:** the API has `/onboarding/ai/assistant`, `/suggest` and `/explain`, but the wizard only uses `generate` + `apply` (the "AI co-pilot rail" item).
 - [ ] **Onboarding offline / resume / draft-status banners** (the `OfflineBanner` item).
 - [ ] **NLQ tool loop:** NLQ grounds the model in KPI context in one call; the planned pgvector + tool-use loop (`compare_kpis`, `get_kpi_history`, max 5 rounds) is not built.
@@ -550,7 +550,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] `JiraModule`: create issue from alert + two-way status sync to `Task` — *built as `integrations/providers/jira.service.ts` (+ `POST /integrations/jira/webhook/:connectionId`)*
 - [x] `InboundEmailModule`: public webhook receiver at `POST /webhooks/inbound/email`; plus-addressing routing `inbound+<type>-<id>@host`; HMAC-SHA256 verifier; sender must match user in resolved org; strips quoted-reply lines
 - [x] `ConnectorsModule`: registry CRUD; REST runner + GraphQL runner first; Postgres + MySQL second; idempotency-key namespace per type
-- [ ] `ConnectorSchedulerService` + processor: per-connector repeatable BullMQ jobs (deterministic jobId), auto-reconcile on create/update/remove
+- [x] `ConnectorSchedulerService` + processor: per-connector repeatable BullMQ jobs (deterministic jobId), auto-reconcile on create/update/remove — *one BullMQ job scheduler per connector (`connector:<id>`), reconciled on create/update/delete and at boot; `ConnectorRunProcessor` runs it as the connector's creator*
 - [x] `IngestModule`: `POST /ingest` authenticated by `Bearer kpinx_*` (ApiKey strategy) gated by `kpi:data_entry` scope; 1-10k rows per call; per-row idempotency — *API-key scopes are `PermissionKey` values (`KPI_DATA_ENTRY`), not `kpi:data_entry`*
 - [x] `ApiKeysModule`: (already shipped in P4) — extend with SCIM scope
 - [x] `WebhooksModule`: (already shipped in P4) — extend with event catalog

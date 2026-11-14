@@ -199,10 +199,10 @@ model Plugin {
   - Config: `{connectionString (encrypted), query, kpiId, valueColumn, recordedAtColumn?}`
   - Read-only connection; runs query → maps rows → bulkCreate
 - [ ] MySQL runner same pattern
-- [ ] `ConnectorSchedulerService.onModuleInit()`:
+- [x] `ConnectorSchedulerService.onModuleInit()`: *(built as `onApplicationBootstrap()` → `reconcileAll()`; job scheduler id `connector:<id>`)*
   - Reads every `type=rest|graphql|postgres|mysql, isActive=true, schedule!=null` Connector
   - Registers per-row repeatable BullMQ job (`jobId: connector-run:<id>`, idempotent across redeploys)
-- [ ] `ConnectorRunnerProcessor.handleRun(job)`:
+- [x] `ConnectorRunnerProcessor.handleRun(job)`: *(built as `ConnectorRunProcessor`; runs as the connector's creator, not a `system` user, so `recordedById` stays a real user, as `ScheduledReportProcessor` does)*
   - Re-establishes org's ALS context via `RequestContextStore.run({principalType:"system", organizationId, userId:"system"})`
   - Dispatches by connector type to appropriate runner
   - Logs IngestionJob row (status SUCCEEDED/PARTIAL/FAILED with row counts)

@@ -271,6 +271,7 @@ jobs:
           fi
           pnpm exec vitest run --config vitest.int.config.ts \
             test/integration/alerting.spec.ts \
+            test/integration/connector-schedule.spec.ts \
             test/integration/scheduled-report.spec.ts \
             test/integration/invitation-email.spec.ts \
             test/integration/password-reset.spec.ts \

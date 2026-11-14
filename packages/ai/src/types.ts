@@ -9,10 +9,21 @@ import type { AiProviderKey } from '@kpi-nexus/contracts';
 
 export type { AiProviderKey };
 
-/** A single turn in a chat completion. */
+/**
+ * A single turn in a chat completion. A tool-use loop adds two kinds of turn:
+ * the model's own `assistant` turn carrying the `toolCalls` it made, and one
+ * `tool` turn per result (`toolCallId` + `toolName`, the result as `content`).
+ * Each adapter maps them to its vendor's wire shape.
+ */
 export interface AiMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool';
   content: string;
+  /** `assistant` only: the tool calls this turn made, echoed back verbatim. */
+  toolCalls?: NormalizedToolCall[];
+  /** `tool` only: the id of the call this result answers. */
+  toolCallId?: string;
+  /** `tool` only: the called tool's name (Gemini and Ollama match results by name). */
+  toolName?: string;
 }
 
 /** A tool the model may call, described with a JSON-schema parameter spec. */
@@ -27,6 +38,8 @@ export interface NormalizedToolCall {
   id: string;
   name: string;
   input: object;
+  /** Opaque vendor state that must be replayed with the call (Gemini's thought signature). */
+  signature?: string;
 }
 
 export interface AiCompletionRequest {

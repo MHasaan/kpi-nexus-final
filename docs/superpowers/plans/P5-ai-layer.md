@@ -485,7 +485,7 @@ export function priceCall(model: string, usage: {inputTokens: number; outputToke
 
 **Files**: `nlq.module.ts`, `nlq.controller.ts`, `nlq.service.ts`, `nlq.tools.ts`, `kpi-catalog-embedding.service.ts`, `reembed.producer.ts`, `reembed.processor.ts`
 
-- [ ] `NlqService.ask({question, userId, organizationId})`:
+- [x] `NlqService.ask({question, userId, organizationId})`: *(BE-033: catalog grounding + tool loop on `NLQ_PRIMARY`, max 5 model calls, partial answer flagged `TOOL_ROUND_LIMIT`; `chartSpec` not built)*
   1. EMBED question via `AiRouter.embed('EMBEDDINGS', {texts: [question]})`
   2. pgvector cosine search `KpiCatalogEmbedding` filtered by org → LIMIT 20:
      ```sql
@@ -505,7 +505,7 @@ export function priceCall(model: string, usage: {inputTokens: number; outputToke
   6. Persist NLQQuery row including question embedding, response, latency, cost
   7. Return `{answer, chartSpec?, sources[], latencyMs, costUsd, provider, model}`
 - [ ] `NlqService.reembed(orgId?)` — back-fills `KpiCatalogEmbedding` for the org (or all orgs if admin endpoint)
-- [ ] `nlq.tools.ts` — 5 tool implementations:
+- [x] `nlq.tools.ts` — 5 tool implementations: *(4 built — `get_metadata`, `get_kpi_history`, `query_timeseries`, `compare_kpis`, all via the scoped `listForKpi`; `forecast_kpi` waits until ForecastsService reads per-user point scope)*
   - `query_timeseries({kpiId, from, to, agg})` — uses CAGG-backed query; **applies visibility filter so user can't query a KPI they don't see**
   - `compare_kpis({kpiIds[], from, to})` — multi-KPI series with same visibility filter
   - `get_metadata({kpiId})` — definition + thresholds + targets (visibility-filtered)

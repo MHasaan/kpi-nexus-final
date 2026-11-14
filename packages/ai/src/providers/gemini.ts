@@ -7,6 +7,7 @@ import {
   type AiCompletionResult,
   type AiEmbeddingRequest,
   type AiFinishReason,
+  type AiMessage,
   AiProviderError,
   type AiStreamChunk,
   type IAiProvider,
@@ -36,6 +37,50 @@ const DEFAULT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 interface GeminiPart {
   text?: string;
   functionCall?: { name: string; args: object };
+  functionResponse?: { name: string; response: object };
+  thoughtSignature?: string;
+}
+
+/** Parse a tool result for functionResponse.response (an object); non-JSON stays text. */
+function toolResponse(content: string): object {
+  try {
+    return { result: JSON.parse(content) as unknown };
+  } catch {
+    return { result: content };
+  }
+}
+
+/**
+ * AiMessage[] → Gemini contents. An assistant turn's tool calls become
+ * functionCall parts (thought signature replayed); consecutive tool results
+ * become ONE user turn of functionResponse parts.
+ */
+function toContents(messages: AiMessage[]): Array<{ role: 'user' | 'model'; parts: GeminiPart[] }> {
+  const contents: Array<{ role: 'user' | 'model'; parts: GeminiPart[] }> = [];
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      const part: GeminiPart = { functionResponse: { name: m.toolName ?? '', response: toolResponse(m.content) } };
+      const last = contents[contents.length - 1];
+      if (last?.role === 'user' && last.parts.every((p) => p.functionResponse)) last.parts.push(part);
+      else contents.push({ role: 'user', parts: [part] });
+      continue;
+    }
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      contents.push({
+        role: 'model',
+        parts: [
+          ...(m.content ? [{ text: m.content }] : []),
+          ...m.toolCalls.map((tc) => ({
+            functionCall: { name: tc.name, args: tc.input },
+            ...(tc.signature ? { thoughtSignature: tc.signature } : {}),
+          })),
+        ],
+      });
+      continue;
+    }
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] });
+  }
+  return contents;
 }
 
 export class GeminiProvider implements IAiProvider {
@@ -181,10 +226,7 @@ export class GeminiProvider implements IAiProvider {
 
   private buildBody(req: AiCompletionRequest): object {
     const body: Record<string, unknown> = {
-      contents: req.messages.map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      })),
+      contents: toContents(req.messages),
     };
     if (req.systemPrompt) {
       body.system_instruction = { parts: [{ text: req.systemPrompt }] };
@@ -243,8 +285,13 @@ export class GeminiProvider implements IAiProvider {
       .join('')
       .trim();
     const toolCalls: NormalizedToolCall[] = parts
-      .filter((p): p is { functionCall: { name: string; args: object } } => Boolean(p.functionCall))
-      .map((p, i) => ({ id: `gemini-tool-${i}`, name: p.functionCall.name, input: p.functionCall.args }));
+      .filter((p): p is GeminiPart & { functionCall: { name: string; args: object } } => Boolean(p.functionCall))
+      .map((p, i) => ({
+        id: `gemini-tool-${i}`,
+        name: p.functionCall.name,
+        input: p.functionCall.args,
+        ...(p.thoughtSignature ? { signature: p.thoughtSignature } : {}),
+      }));
 
     const usage = {
       inputTokens: data.usageMetadata?.promptTokenCount ?? 0,

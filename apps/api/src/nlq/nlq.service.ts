@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { AiCompletionResult, AiMessage } from '@kpi-nexus/ai';
 
 import { AiConfigsService } from '../ai/ai-configs.service.js';
 import { AiRouterService } from '../ai/ai-router.service.js';
@@ -8,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
+import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
 
 export interface NlqSource {
   kpiId: string;
@@ -17,6 +19,10 @@ export interface NlqSource {
 export interface NlqAnswer {
   answer: string;
   sources: NlqSource[];
+  /** Tools the model called, in order, with the visible KPIs each read. */
+  toolCalls: Array<{ name: string; kpiIds: string[] }>;
+  /** Set when the answer is partial: the model was still calling tools after MAX_TOOL_ROUNDS. */
+  warning?: 'TOOL_ROUND_LIMIT';
   latencyMs: number;
   costUsd: number;
   provider: string;
@@ -33,9 +39,15 @@ const MAX_CATALOG = 60;
 const DEEP_SERIES_KPIS = 24;
 /** Recent points pulled per deep-series KPI. */
 const RECENT_POINTS = 8;
+/** Model calls per question, tool rounds included (a hard cost cap). */
+const MAX_TOOL_ROUNDS = 5;
+/** Tool calls honoured per round, and characters of each result sent back. */
+const MAX_CALLS_PER_ROUND = 6;
+const MAX_TOOL_RESULT_CHARS = 8000;
 
 const SYSTEM_PROMPT = [
   "You are the organization's KPI analyst. The context below contains the CURRENT STATE of every KPI the user can see — latest values, targets, threshold status, and recent trends. Use it to answer: compute trends and percentages, compare values to targets, rank or filter KPIs, and cite specific numbers. The data IS available to you in the context. Only say a metric is unavailable if that specific KPI is genuinely not in the list. Be concise and concrete.",
+  'When the context is not enough (exact dates, a longer history, a date range, a side-by-side comparison), call a tool with KPI ids from the context. A tool answers "KPI not found" for any KPI the user cannot see: then say you do not have access to that data.',
 ].join('\n');
 
 type Direction = PublicKpi['direction'];
@@ -119,29 +131,24 @@ export class NlqService {
     const { context, deepIds } = await this.buildContext(ctx.organizationId, catalogIds, deepSet, metaById);
 
     const route = await this.configs.resolve('NLQ_PRIMARY');
-    const result = await this.aiRouter.complete('NLQ_PRIMARY', {
-      systemPrompt: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `Question: ${question}\n\nKPI context (current state of every KPI you can see):\n${context || '(no KPIs available)'}`,
-        },
-      ],
-      maxTokens: 900,
-    });
+    const { result, costUsd, usage, toolCalls, warning } = await this.runToolLoop(question, context, metaById);
 
-    // Sources = the KPIs we put deep detail on (or all when the catalog is small).
-    const sourceIds = catalogIds.length <= 12 ? catalogIds : deepIds;
+    // Sources = the KPIs we put deep detail on (or all when the catalog is small),
+    // plus any KPI a tool read.
+    const toolKpiIds = toolCalls.flatMap((c) => c.kpiIds);
+    const sourceIds = [...new Set([...(catalogIds.length <= 12 ? catalogIds : deepIds), ...toolKpiIds])];
     const sources: NlqSource[] = sourceIds
       .map((id) => metaById.get(id))
       .filter((k): k is NonNullable<typeof k> => Boolean(k))
       .map((k) => ({ kpiId: k.id, name: k.name }));
 
     const answer: NlqAnswer = {
-      answer: result.content,
+      answer: result.content || (warning ? 'I could not finish looking this up. Try a narrower question.' : ''),
       sources,
+      toolCalls,
+      ...(warning ? { warning } : {}),
       latencyMs: this.now() - started,
-      costUsd: result.actualCost,
+      costUsd,
       provider: route.provider,
       model: route.model,
     };
@@ -155,8 +162,8 @@ export class NlqService {
           response: { answer: answer.answer, sources: answer.sources } as unknown as object,
           latencyMs: answer.latencyMs,
           costUsd: answer.costUsd,
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
           providerKey: route.provider,
           modelId: route.model,
           status: 'SUCCESS',
@@ -165,6 +172,50 @@ export class NlqService {
       .catch((err) => this.logger.warn(`NLQQuery log failed (non-fatal): ${String(err)}`));
 
     return answer;
+  }
+
+  /**
+   * The tool-use loop: up to MAX_TOOL_ROUNDS model calls. Each round's tool
+   * calls run in an NlqToolbox bound to the asker's visible catalog (reads go
+   * through the scoped KpiDataService.listForKpi) and their results go back as
+   * `tool` turns. A model still calling tools after the last round gets a
+   * partial answer flagged TOOL_ROUND_LIMIT.
+   */
+  private async runToolLoop(question: string, context: string, metaById: Map<string, PublicKpi>) {
+    const toolbox = new NlqToolbox(this.kpiData, metaById);
+    const messages: AiMessage[] = [
+      {
+        role: 'user',
+        content: `Question: ${question}\n\nKPI context (current state of every KPI you can see):\n${context || '(no KPIs available)'}`,
+      },
+    ];
+    const toolCalls: NlqAnswer['toolCalls'] = [];
+    const usage = { inputTokens: 0, outputTokens: 0 };
+    let costUsd = 0;
+    let result: AiCompletionResult | undefined;
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      result = await this.aiRouter.complete('NLQ_PRIMARY', { systemPrompt: SYSTEM_PROMPT, messages, maxTokens: 900, tools: NLQ_TOOLS });
+      costUsd += result.actualCost;
+      usage.inputTokens += result.usage.inputTokens;
+      usage.outputTokens += result.usage.outputTokens;
+      const calls = (result.toolCalls ?? []).slice(0, MAX_CALLS_PER_ROUND);
+      if (calls.length === 0) return { result, costUsd, usage, toolCalls };
+
+      messages.push({ role: 'assistant', content: result.content, toolCalls: calls });
+      for (const call of calls) {
+        const ran = await toolbox.run(call);
+        toolCalls.push({ name: call.name, kpiIds: ran.kpiIds });
+        messages.push({
+          role: 'tool',
+          toolCallId: call.id,
+          toolName: call.name,
+          content: JSON.stringify(ran.result).slice(0, MAX_TOOL_RESULT_CHARS),
+        });
+      }
+    }
+    this.logger.warn(`NLQ hit the ${MAX_TOOL_ROUNDS}-round tool limit; returning a partial answer`);
+    return { result: result!, costUsd, usage, toolCalls, warning: 'TOOL_ROUND_LIMIT' as const };
   }
 
   /**
@@ -242,7 +293,7 @@ export class NlqService {
   ): string {
     const parts: string[] = [];
     // Header: name (unit) [category] scope/direction
-    let header = `- ${meta.name}`;
+    let header = `- ${meta.name} (id ${meta.id})`;
     if (meta.unit) header += ` (${meta.unit})`;
     const catName = meta.categoryId ? categoryById.get(meta.categoryId) : undefined;
     if (catName) header += ` [${catName}]`;

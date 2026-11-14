@@ -7,6 +7,7 @@ import {
   type AiCompletionResult,
   type AiEmbeddingRequest,
   type AiFinishReason,
+  type AiMessage,
   AiProviderError,
   type AiStreamChunk,
   type IAiProvider,
@@ -28,6 +29,41 @@ export interface ClaudeProviderOptions {
 }
 
 const DEFAULT_BASE = 'https://api.anthropic.com';
+
+type ClaudeRequestBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: object }
+  | { type: 'tool_result'; tool_use_id: string; content: string };
+
+/**
+ * AiMessage[] → Claude messages. An assistant turn's tool calls become
+ * tool_use blocks; consecutive tool results become ONE user turn of
+ * tool_result blocks. Plain text turns keep string content.
+ */
+function toClaudeMessages(messages: AiMessage[]): Array<{ role: 'user' | 'assistant'; content: string | ClaudeRequestBlock[] }> {
+  const out: Array<{ role: 'user' | 'assistant'; content: string | ClaudeRequestBlock[] }> = [];
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      const block: ClaudeRequestBlock = { type: 'tool_result', tool_use_id: m.toolCallId ?? '', content: m.content };
+      const last = out[out.length - 1];
+      if (last?.role === 'user' && Array.isArray(last.content) && last.content.every((b) => b.type === 'tool_result')) last.content.push(block);
+      else out.push({ role: 'user', content: [block] });
+      continue;
+    }
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      out.push({
+        role: 'assistant',
+        content: [
+          ...(m.content ? [{ type: 'text' as const, text: m.content }] : []),
+          ...m.toolCalls.map((tc) => ({ type: 'tool_use' as const, id: tc.id, name: tc.name, input: tc.input })),
+        ],
+      });
+      continue;
+    }
+    out.push({ role: m.role, content: m.content });
+  }
+  return out;
+}
 const ANTHROPIC_VERSION = '2023-06-01';
 const ANTHROPIC_BETA = 'prompt-caching-2024-07-31,context-1m-2025-08-07';
 
@@ -66,7 +102,7 @@ export class ClaudeProvider implements IAiProvider {
     const body: Record<string, unknown> = {
       model,
       max_tokens: req.maxTokens ?? 1024,
-      messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: toClaudeMessages(req.messages),
     };
     if (req.systemPrompt) {
       body.system =

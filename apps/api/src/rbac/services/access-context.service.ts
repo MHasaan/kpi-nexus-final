@@ -23,7 +23,12 @@ import type { Prisma } from '@kpi-nexus/db';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 import { DOMAIN_DEFAULT_SCOPE, scopedOrgUnitIds, scopedUserIds } from '../visibility/domain-visibility.js';
-import { buildKpiVisibilityWhere, kpiContextFromProfile } from '../visibility/kpi-visibility.js';
+import {
+  type KpiScope,
+  buildKpiVisibilityWhere,
+  kpiContextFromProfile,
+  kpiDataPointScopeWhere,
+} from '../visibility/kpi-visibility.js';
 import { PermissionResolverService } from './permission-resolver.service.js';
 
 const DOMAINS: readonly Domain[] = [
@@ -303,6 +308,28 @@ export class AccessContextService {
       select: { id: true },
     });
     return row !== null;
+  }
+
+  /**
+   * The data points analytics may use for a KPI of `kpiScope`: the narrower
+   * of the KPIS point scope (what GET /kpis/:id/data returns) and the
+   * ANALYTICS ceiling. Forecasts, anomalies, what-if and seasonality are built
+   * from these points, so a PER_USER KPI's analytics never draw on other
+   * users' values the caller cannot read. `{}` means unrestricted.
+   */
+  async analyticsPointScopeWhere(kpiScope: KpiScope): Promise<{ userId?: { in: string[] }; orgUnitId?: { in: string[] } }> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.resolveForCurrentPrincipal();
+    const base = kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
+    const kpisWhere = kpiDataPointScopeWhere(kpiScope, base);
+    const ceiling = profile.scopeByDomain.ANALYTICS ?? DOMAIN_DEFAULT_SCOPE.ANALYTICS;
+    if (ceiling === 'ORG') return kpisWhere;
+    const analyticsWhere = kpiDataPointScopeWhere(kpiScope, { ...base, scope: ceiling });
+    const both = <T,>(a: T[] | undefined, b: T[] | undefined): T[] | undefined =>
+      a && b ? a.filter((x) => b.includes(x)) : (a ?? b);
+    const userIds = both(kpisWhere.userId?.in, analyticsWhere.userId?.in);
+    const unitIds = both(kpisWhere.orgUnitId?.in, analyticsWhere.orgUnitId?.in);
+    return { ...(userIds ? { userId: { in: userIds } } : {}), ...(unitIds ? { orgUnitId: { in: unitIds } } : {}) };
   }
 
   /** Resource ids the principal holds a grant for, for a given type + acceptable actions. */

@@ -27,6 +27,8 @@ const mockKpis = {
 const mockAccessContext = {
   // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
   isKpiAnalyticsAllowed: vi.fn(async () => true),
+  // Point scope for analytics (BE-034): unrestricted unless a test narrows it.
+  analyticsPointScopeWhere: vi.fn(async (_kpiScope: string): Promise<Record<string, unknown>> => ({})),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -199,5 +201,17 @@ describe('SeasonalityService.decompose — period order', () => {
     await makeSvc().decompose('kpi_1', {});
     const query = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { orderBy: unknown };
     expect(query.orderBy).toEqual([{ periodStart: 'desc' }, { recordedAt: 'desc' }]);
+  });
+});
+
+describe('SeasonalityService — per-user point scope (BE-034)', () => {
+  it('reads only the points the caller may analyse (a PER_USER KPI: their own)', async () => {
+    mockKpis.getById.mockResolvedValueOnce({ id: 'kpi_1', scope: 'PER_USER' });
+    mockAccessContext.analyticsPointScopeWhere.mockResolvedValueOnce({ userId: { in: ['user_1'] } });
+    const svc = makeSvc();
+    await svc.decompose('kpi_1', {}).catch(() => undefined);
+    expect(mockAccessContext.analyticsPointScopeWhere).toHaveBeenCalledWith('PER_USER');
+    const call = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { where: Record<string, unknown> };
+    expect(call.where).toMatchObject({ kpiId: 'kpi_1', userId: { in: ['user_1'] } });
   });
 });

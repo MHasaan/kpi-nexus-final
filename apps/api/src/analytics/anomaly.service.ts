@@ -46,10 +46,12 @@ export class AnomalyService {
    * Recent points oldest→newest (visibility already enforced by caller).
    * `from`, when given, is the Layer-4 history-window lower bound (null ⇒ parity).
    */
-  private async series(organizationId: string, kpiId: string, from?: Date) {
+  private async series(organizationId: string, kpiId: string, pointScope: object, from?: Date) {
     const where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date } } = {
       organizationId,
       kpiId,
+      // Only the points the caller may analyse (BE-034).
+      ...pointScope,
     };
     if (from) where.recordedAt = { gte: from };
     const rows = await this.prisma.kPIDataPoint.findMany({
@@ -67,12 +69,12 @@ export class AnomalyService {
     opts: { method?: string; threshold?: number; persist?: boolean } = {},
   ): Promise<AnomalyDetectResult> {
     const ctx = RequestContextStore.require();
-    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing on-demand series to historyWindowDays (null ⇒ parity).
     const limits = await this.accessContext.dataLimits();
     const from = clampHistoryFrom(undefined, limits.historyWindowDays);
-    const points = await this.series(ctx.organizationId, kpiId, from);
+    const points = await this.series(ctx.organizationId, kpiId, await this.accessContext.analyticsPointScopeWhere(kpi.scope), from);
     if (points.length < 2) return { anomalies: [] };
 
     const result = await this.ml.post<{ anomalies: MlAnomaly[] }>('/anomaly/detect', {
@@ -114,8 +116,8 @@ export class AnomalyService {
     filter: { from?: Date; to?: Date; isConfirmed?: boolean },
   ): Promise<AnomalyDetection[]> {
     const ctx = RequestContextStore.require();
-    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
-    return this.prisma.anomalyDetection.findMany({
+    const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    const rows = await this.prisma.anomalyDetection.findMany({
       where: {
         organizationId: ctx.organizationId,
         kpiId,
@@ -127,6 +129,16 @@ export class AnomalyService {
       orderBy: { detectedAt: 'desc' },
       take: 200,
     });
+    // Keep only anomalies on points the caller may read (BE-034).
+    const pointScope = await this.accessContext.analyticsPointScopeWhere(kpi.scope);
+    if (Object.keys(pointScope).length === 0) return rows;
+    const ids = rows.map((r) => r.dataPointId).filter((id): id is string => id !== null);
+    const readable = await this.prisma.kPIDataPoint.findMany({
+      where: { organizationId: ctx.organizationId, kpiId, id: { in: ids }, ...pointScope },
+      select: { id: true },
+    });
+    const allowed = new Set(readable.map((p) => p.id));
+    return rows.filter((r) => r.dataPointId !== null && allowed.has(r.dataPointId));
   }
 
   /**

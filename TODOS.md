@@ -64,7 +64,9 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **NLQ tool loop:** up to 5 model calls with `get_metadata`, `get_kpi_history`, `query_timeseries` and `compare_kpis`, each reading through the scoped `listForKpi`; tool turns in every AI adapter (BE-033).
 - [x] **Analytics reads ignore per-user point scope:** forecast, anomaly, what-if and seasonality now use only the points the caller may analyse; stored forecasts and anomalies are filtered the same way (BE-034).
 - [x] **NLQ `forecast_kpi` tool** — through ForecastsService (visibility, ANALYTICS ceiling, point scope), not saved (BE-035).
-- [ ] **Data history models:** `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
+- [x] **Data point corrections (`KPIDataPointHistory`):** `PATCH /kpis/:id/data/:pointId` (recorder or KPI_EDIT, reason required) keeps every correction; `GET …/history`; Correct + History on the KPI Data tab (BE-037).
+- [ ] **Remaining data history models:** `KPISavedView`, `KPIWatch`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
+- [ ] **`KPI.allowNegative` is never enforced:** recording (and correcting) a negative value on a KPI that disallows it is accepted.
 - [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
 - [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).
 - [ ] **Shared UI component library with Storybook** in `packages/ui/src/components/` (components live in `apps/web/src/components/` instead).

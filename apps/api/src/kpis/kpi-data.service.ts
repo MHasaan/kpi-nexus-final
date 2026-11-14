@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -7,7 +8,8 @@ import {
   Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { Prisma } from '@kpi-nexus/db';
+import { PermissionKey } from '@kpi-nexus/contracts';
+import type { KPIDataPointHistory, Prisma } from '@kpi-nexus/db';
 
 import { WorkflowsService } from '../workflows/workflows.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -27,6 +29,7 @@ import { CalculationEngineProducer } from '../calculation-engine/calculation-eng
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { detectOutlier } from './outlier-detector.js';
 import { type KpiDirection, computeAssignmentStatus } from '../user-kpis/assignment-status.js';
+import type { CorrectDataPointDto } from './dto/correct-data-point.dto.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 import { type KpiHealthStatus, attainmentPct, kpiHealthStatus } from './kpi-health.js';
 
@@ -448,9 +451,118 @@ export class KpiDataService {
     });
   }
 
+  /**
+   * PATCH /kpis/:id/data/:pointId — correct a recorded value and/or its note.
+   * Only a point the caller can read (KPI visible + point scope) is found;
+   * then only its recorder or a KPI_EDIT holder may change it. The old and new
+   * values are kept in KPIDataPointHistory with the reason, and what a new
+   * value triggers runs again (audit, live update, alerts, derived KPIs).
+   */
+  async correctDataPoint(kpiId: string, pointId: string, dto: CorrectDataPointDto): Promise<PublicDataPoint> {
+    const ctx = RequestContextStore.require();
+    const point = await this.requireReadablePoint(kpiId, pointId);
+    if (point.sourceType === 'COMPUTED') {
+      throw new ConflictException({ code: 'COMPUTED_VALUE', message: 'Calculated values are recalculated from their inputs, not corrected' });
+    }
+    if (point.recordedById !== ctx.userId) {
+      const profile = await this.accessContext.resolveForCurrentPrincipal();
+      if (!profile.isAdmin && !profile.capabilities.includes(PermissionKey.KPI_EDIT)) {
+        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Only the person who recorded this value, or a KPI editor, can correct it' });
+      }
+    }
+    const previousValue = point.value;
+    const previousNote = point.note;
+    const newValue = dto.value ?? previousValue;
+    const newNote = dto.note === undefined ? previousNote : dto.note;
+    if (newValue === previousValue && newNote === previousNote) {
+      throw new BadRequestException({ code: 'NO_CHANGE', message: 'The correction changes nothing' });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.kPIDataPoint.update({
+        where: { recordedAt_id: { recordedAt: point.recordedAt, id: point.id } },
+        data: { value: newValue, note: newNote },
+        select: dataPointSelect,
+      });
+      await tx.kPIDataPointHistory.create({
+        data: {
+          organizationId: ctx.organizationId,
+          dataPointId: point.id,
+          kpiId,
+          previousValue,
+          newValue,
+          previousNote,
+          newNote,
+          reason: dto.reason,
+          changedById: ctx.userId,
+        },
+      });
+      return row;
+    });
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'KPIDataPoint',
+      entityId: point.id,
+      metadata: { kpiId, previousValue, newValue, reason: dto.reason },
+    });
+    try {
+      await this.realtime.publish(ctx.organizationId, {
+        type: 'data_point_updated',
+        kpiId,
+        dataPointId: point.id,
+        value: newValue,
+        previousValue,
+        recordedAt: updated.recordedAt.toISOString(),
+        orgUnitId: updated.orgUnitId,
+        userId: updated.userId,
+      });
+    } catch (err) {
+      this.logger.warn(`KpiDataService: realtime publish failed for corrected dataPoint ${point.id}: ${String(err)}`);
+    }
+    if (newValue !== previousValue) {
+      await this.alertEngine.enqueueEvaluateKpi({
+        organizationId: ctx.organizationId,
+        kpiId,
+        dataPointId: point.id,
+        value: newValue,
+        recordedAt: updated.recordedAt.toISOString(),
+        targetUserId: updated.userId,
+      });
+      await this.enqueueDerivedRecomputes(kpiId, updated.periodStart, updated.periodEnd, ctx.organizationId);
+    }
+    return updated;
+  }
+
+  /** GET /kpis/:id/data/:pointId/history — corrections of a point the caller can read, newest first. */
+  async dataPointHistory(kpiId: string, pointId: string): Promise<KPIDataPointHistory[]> {
+    const ctx = RequestContextStore.require();
+    await this.requireReadablePoint(kpiId, pointId);
+    return this.prisma.kPIDataPointHistory.findMany({
+      where: { organizationId: ctx.organizationId, dataPointId: pointId },
+      orderBy: { changedAt: 'desc' },
+      take: 100,
+    });
+  }
+
   // --------------------------------------------------------------------------
   // Internal
   // --------------------------------------------------------------------------
+
+  /** A point the caller may read (GET /kpis/:id/data's rule), else 404 — no existence leak. */
+  private async requireReadablePoint(kpiId: string, pointId: string) {
+    const ctx = RequestContextStore.require();
+    const kpi = await this.requireKpiInTenant(kpiId);
+    if (!(await this.accessContext.isKpiVisible(kpiId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Data point not found' });
+    }
+    const point = await this.prisma.kPIDataPoint.findFirst({
+      where: { id: pointId, organizationId: ctx.organizationId, kpiId, ...(await this.accessContext.kpiPointScopeWhere(kpi.scope)) },
+      select: dataPointSelect,
+    });
+    if (!point) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Data point not found' });
+    return point;
+  }
 
   private async requireKpiInTenant(kpiId: string) {
     const ctx = RequestContextStore.require();

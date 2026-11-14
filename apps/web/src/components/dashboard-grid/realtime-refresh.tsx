@@ -24,7 +24,7 @@ export function RealtimeRefresh({ dashboardId, onRefresh }: RealtimeRefreshProps
     const unsubscribe = subscribeRealtime(
       { dashboardId },
       (evt) => {
-        if (evt.type === 'data_point_added' || evt.type === 'message') {
+        if (evt.type === 'data_point_added' || evt.type === 'data_point_updated' || evt.type === 'message') {
           // Debounce 1500ms — multiple events can arrive in quick succession
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {

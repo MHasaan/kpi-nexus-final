@@ -101,6 +101,7 @@ export type {
   KpiCatalogEmbedding,
   NLQQuery,
   AnomalyDetection,
+  KPIDataPointHistory,
   Forecast,
   OnboardingSession,
   OnboardingAIInteraction,

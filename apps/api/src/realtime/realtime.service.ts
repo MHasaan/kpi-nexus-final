@@ -29,8 +29,8 @@ export function eventMatchesFilter(
 
   const { kpiId, dashboardId } = filters;
 
-  // data_point_added carries kpiId and (optionally) dashboardId
-  if (event.type === 'data_point_added') {
+  // data_point_added / _updated carry kpiId and (optionally) dashboardId
+  if (event.type === 'data_point_added' || event.type === 'data_point_updated') {
     if (kpiId !== undefined && event.kpiId !== kpiId) return false;
     if (dashboardId !== undefined && event.dashboardId !== dashboardId) return false;
     return true;

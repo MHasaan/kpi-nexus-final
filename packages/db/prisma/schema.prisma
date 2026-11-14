@@ -190,6 +190,7 @@ model Organization {
   kpiCategories         KPICategory[]
   kpis                  KPI[]
   kpiDataPoints         KPIDataPoint[]
+  kpiDataPointHistory   KPIDataPointHistory[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
@@ -990,6 +991,27 @@ model KPIDataPoint {
   @@index([organizationId, kpiId, periodStart])
   @@index([organizationId, orgUnitId, periodStart])
   @@index([organizationId, userId, periodStart])
+}
+
+// One correction of a recorded value: what it was, what it became, why, and
+// who changed it. KPIDataPoint is a hypertable with a composite key, so the
+// point is referenced by id without a foreign key.
+model KPIDataPointHistory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataPointId    String
+  kpiId          String
+  previousValue  Float
+  newValue       Float
+  previousNote   String?
+  newNote        String?
+  reason         String
+  changedById    String
+  changedAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([dataPointId, changedAt])
 }
 
 // ============================================================================

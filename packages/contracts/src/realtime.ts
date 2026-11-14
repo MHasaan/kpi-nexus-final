@@ -17,6 +17,7 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 export const REALTIME_EVENTS = {
   DATA_POINT_ADDED: 'data_point_added',
+  DATA_POINT_UPDATED: 'data_point_updated',
   ALERT_TRIGGERED: 'alert_triggered',
   ALERT_ESCALATED: 'alert_escalated',
   ALERT_DIGEST: 'alert_digest',
@@ -53,6 +54,13 @@ export const RealtimeDataPointAddedEventSchema = z.object({
   dashboardId: z.string().optional(),
 });
 
+// A recorded value was corrected (KPIDataPointHistory). Same shape as
+// data_point_added plus the value it replaced.
+export const RealtimeDataPointUpdatedEventSchema = RealtimeDataPointAddedEventSchema.extend({
+  type: z.literal('data_point_updated'),
+  previousValue: z.number(),
+});
+
 // P4 — alert events. `alert_triggered` + `alert_escalated` carry kpiId so a
 // KPI-filtered subscription can receive them; `alert_digest` is user-scoped.
 export const RealtimeAlertTriggeredEventSchema = z.object({
@@ -86,6 +94,7 @@ export const RealtimeAlertDigestEventSchema = z.object({
 export const RealtimeEventSchema = z.discriminatedUnion('type', [
   RealtimePingEventSchema,
   RealtimeDataPointAddedEventSchema,
+  RealtimeDataPointUpdatedEventSchema,
   RealtimeAlertTriggeredEventSchema,
   RealtimeAlertEscalatedEventSchema,
   RealtimeAlertDigestEventSchema,
@@ -96,6 +105,7 @@ export const RealtimeEventSchema = z.discriminatedUnion('type', [
 // ---------------------------------------------------------------------------
 export type RealtimePingEvent = z.infer<typeof RealtimePingEventSchema>;
 export type RealtimeDataPointAddedEvent = z.infer<typeof RealtimeDataPointAddedEventSchema>;
+export type RealtimeDataPointUpdatedEvent = z.infer<typeof RealtimeDataPointUpdatedEventSchema>;
 export type RealtimeAlertTriggeredEvent = z.infer<typeof RealtimeAlertTriggeredEventSchema>;
 export type RealtimeAlertEscalatedEvent = z.infer<typeof RealtimeAlertEscalatedEventSchema>;
 export type RealtimeAlertDigestEvent = z.infer<typeof RealtimeAlertDigestEventSchema>;

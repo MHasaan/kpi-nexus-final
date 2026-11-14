@@ -907,6 +907,34 @@ export async function listDataPointHistory(kpiId: string, pointId: string): Prom
   return api(`/kpis/${kpiId}/data/${pointId}/history`);
 }
 
+export interface KpiViewFilters {
+  search?: string;
+  categoryId?: string;
+  status?: KpiStatus;
+  scope?: KpiScope;
+}
+
+export interface KpiSavedView {
+  id: string;
+  name: string;
+  filters: KpiViewFilters;
+  isShared: boolean;
+  /** True when the current user owns it (only the owner can change it). */
+  mine: boolean;
+}
+
+export async function listKpiSavedViews(): Promise<KpiSavedView[]> {
+  return api('/kpi-saved-views');
+}
+
+export async function createKpiSavedView(body: { name: string; filters: KpiViewFilters; isShared?: boolean }): Promise<KpiSavedView> {
+  return api('/kpi-saved-views', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function deleteKpiSavedView(id: string): Promise<void> {
+  await api(`/kpi-saved-views/${id}`, { method: 'DELETE' });
+}
+
 export interface DashboardSummaryRow {
   kpiId: string;
   name: string;

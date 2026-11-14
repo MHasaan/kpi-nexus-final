@@ -8,6 +8,7 @@ import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { KpiSubnav } from '../../components/kpis/kpi-subnav';
+import { SavedViewsBar } from '../../components/kpis/saved-views-bar';
 import {
   ApiError,
   clearTokens,
@@ -22,6 +23,7 @@ import {
   type KpiScope,
   type KpiStatus,
   type KpiSummary,
+  type KpiViewFilters,
 } from '../../lib/api-client';
 import {
   pluralize,
@@ -220,6 +222,20 @@ function KpisPageInner() {
     setScopeFilter('ALL');
   }
 
+  // The toolbar's filters as a saved view stores them (ALL ⇒ omitted).
+  const currentFilters: KpiViewFilters = {
+    ...(search.trim() ? { search: search.trim() } : {}),
+    ...(categoryFilter !== 'ALL' ? { categoryId: categoryFilter } : {}),
+    ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
+    ...(scopeFilter !== 'ALL' ? { scope: scopeFilter } : {}),
+  };
+  function applyFilters(f: KpiViewFilters) {
+    setSearch(f.search ?? '');
+    setCategoryFilter(f.categoryId ?? 'ALL');
+    setStatusFilter(f.status ?? 'ALL');
+    setScopeFilter(f.scope ?? 'ALL');
+  }
+
   return (
     <RequirePermission permission="KPI_VIEW">
     <AppShell title={kpiLabelPlural} crumbs={[{ label: 'Home', href: '/' }, { label: kpiLabelPlural }]}>
@@ -343,6 +359,8 @@ function KpisPageInner() {
               </div>
             )}
           </div>
+
+          <SavedViewsBar current={currentFilters} canSave={filtersActive} onApply={applyFilters} />
 
           {kpis === null && !loadError && (
             <Card className="p-4">

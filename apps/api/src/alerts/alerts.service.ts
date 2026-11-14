@@ -111,6 +111,13 @@ export class AlertsService {
     return alert;
   }
 
+  /** Whether the caller may see this alert (getById's rule, without throwing). Used by the realtime stream. */
+  async isVisible(id: string): Promise<boolean> {
+    const ctx = RequestContextStore.require();
+    const where = await this.applyVisibility({ organizationId: ctx.organizationId, id } as Prisma.AlertWhereInput);
+    return (await this.prisma.alert.findFirst({ where, select: { id: true } })) !== null;
+  }
+
   async acknowledge(id: string): Promise<PublicAlert> {
     const ctx = RequestContextStore.require();
     await this.getById(id);

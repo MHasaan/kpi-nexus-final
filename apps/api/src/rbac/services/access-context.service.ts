@@ -311,6 +311,16 @@ export class AccessContextService {
   }
 
   /**
+   * The data points of a KPI of `kpiScope` the caller may read at the KPIS
+   * scope (the rule GET /kpis/:id/data applies). `{}` means unrestricted.
+   */
+  async kpiPointScopeWhere(kpiScope: KpiScope): Promise<{ userId?: { in: string[] }; orgUnitId?: { in: string[] } }> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.resolveForCurrentPrincipal();
+    return kpiDataPointScopeWhere(kpiScope, kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+  }
+
+  /**
    * The data points analytics may use for a KPI of `kpiScope`: the narrower
    * of the KPIS point scope (what GET /kpis/:id/data returns) and the
    * ANALYTICS ceiling. Forecasts, anomalies, what-if and seasonality are built

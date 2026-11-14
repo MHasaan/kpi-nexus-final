@@ -810,6 +810,13 @@ describe('AccessContextService PEOPLE / ORG / ANALYTICS scopes (BE-004)', () => 
   // Analytics output (forecast, anomalies, what-if, seasonality) is built from
   // data points, so it may only use the points the caller could read: the
   // narrower of the KPIS point scope and the ANALYTICS ceiling.
+  test('kpiPointScopeWhere: the KPIS point scope alone (what GET /kpis/:id/data returns)', async () => {
+    const wide = (await inCtx(() => make({ ANALYTICS: 'SELF' }).svc.kpiPointScopeWhere('PER_USER'))) as { userId: { in: string[] } };
+    expect(sorted(wide.userId.in)).toEqual(['me', 'r1']); // the ANALYTICS ceiling does not apply here
+    await expect(inCtx(() => make({}).svc.kpiPointScopeWhere('ORG_WIDE'))).resolves.toEqual({});
+    await expect(inCtx(() => make({}, { isAdmin: true }).svc.kpiPointScopeWhere('PER_USER'))).resolves.toEqual({});
+  });
+
   test('analyticsPointScopeWhere: admins and ORG_WIDE KPIs are unrestricted', async () => {
     await expect(inCtx(() => make({ ANALYTICS: 'SELF' }, { isAdmin: true }).svc.analyticsPointScopeWhere('PER_USER'))).resolves.toEqual({});
     await expect(inCtx(() => make({ ANALYTICS: 'SELF' }).svc.analyticsPointScopeWhere('ORG_WIDE'))).resolves.toEqual({});

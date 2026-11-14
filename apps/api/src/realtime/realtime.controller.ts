@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { RealtimeStreamQuerySchema } from '@kpi-nexus/contracts';
 
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { RealtimeAccessService } from './realtime-access.service.js';
 import { RealtimeService } from './realtime.service.js';
 
 /**
@@ -24,7 +25,10 @@ import { RealtimeService } from './realtime.service.js';
  */
 @Controller('realtime')
 export class RealtimeController {
-  constructor(private readonly realtimeService: RealtimeService) {}
+  constructor(
+    private readonly realtimeService: RealtimeService,
+    private readonly access: RealtimeAccessService,
+  ) {}
 
   @Get('stream')
   stream(
@@ -44,6 +48,10 @@ export class RealtimeController {
 
     // Get org from tenant context (populated by TenancyInterceptor post-JWT)
     const { organizationId: orgId } = RequestContextStore.require();
+    // Events go to the whole org; each is checked against what THIS subscriber
+    // may read before it is written (other users' PER_USER values, alerts on
+    // hidden KPIs and other users' digests are withheld).
+    const filter = this.access.forSubscriber();
 
     // Hijack the Fastify reply so Nest/Fastify leave the raw stream alone
     reply.hijack();
@@ -72,9 +80,11 @@ export class RealtimeController {
     // Subscribe to realtime events for this org
     const subscription = this.realtimeService.subscribe(orgId, filters).subscribe({
       next: (event) => {
-        if (raw.writableEnded) return;
-        // SSE wire format: "event: <type>\ndata: <json>\n\n"
-        raw.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        void filter.allows(event).then((allowed) => {
+          if (!allowed || raw.writableEnded) return;
+          // SSE wire format: "event: <type>\ndata: <json>\n\n"
+          raw.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        });
       },
       error: (err: unknown) => {
         // On subscription error, close the stream cleanly

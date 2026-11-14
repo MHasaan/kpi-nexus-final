@@ -22,6 +22,7 @@ import {
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateKpiDto, UpdateKpiDto } from './dto/create-kpi.dto.js';
+import { KpiWatchProducer } from '../kpi-watches/kpi-watch.producer.js';
 import { type KpiStatus, canTransition } from './kpi-status.js';
 
 const kpiSelect = {
@@ -72,6 +73,7 @@ export class KpisService {
     private readonly billing: BillingService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
     @Optional() private readonly reembedProducer?: ReembedProducer,
+    @Optional() private readonly watches?: KpiWatchProducer,
   ) {}
 
   async list(): Promise<PublicKpi[]> {
@@ -436,6 +438,7 @@ export class KpisService {
       entityId: id,
       metadata: { statusFrom: from, statusTo: to },
     });
+    await this.watches?.enqueue({ organizationId: ctx.organizationId, kpiId: id, event: 'status_changed', actorUserId: ctx.userId, detail: to });
     return updated;
   }
 

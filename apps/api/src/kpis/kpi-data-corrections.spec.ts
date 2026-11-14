@@ -49,8 +49,9 @@ function setup(opts: { capabilities?: string[]; visible?: boolean; pointScope?: 
   const realtime = { publish: vi.fn(async () => {}) };
   const alertEngine = { enqueueEvaluateKpi: vi.fn(async () => {}) };
   const calcEngine = { enqueueCascadeRollup: vi.fn(async () => {}), enqueueRecompute: vi.fn(async () => {}) };
-  const svc = new KpiDataService(prisma as never, audit as never, accessContext as never, realtime as never, alertEngine as never, calcEngine as never);
-  return { svc, point, history, tx, prisma, audit, realtime, alertEngine };
+  const watches = { enqueue: vi.fn(async (_job: unknown) => {}) };
+  const svc = new KpiDataService(prisma as never, audit as never, accessContext as never, realtime as never, alertEngine as never, calcEngine as never, undefined, watches as never);
+  return { svc, point, history, tx, prisma, audit, realtime, alertEngine, watches };
 }
 
 const as = <T>(userId: string, fn: () => Promise<T>) =>
@@ -118,5 +119,25 @@ describe('KpiDataService.dataPointHistory', () => {
   it('a point the caller cannot read has no readable history (404)', async () => {
     const { svc } = setup({ point: { userId: 'stranger' } });
     await expect(as('me', () => svc.dataPointHistory('k1', 'p1'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('KpiDataService → KPI watchers', () => {
+  it('a corrected value is announced to watchers as a new value, with its owner for their scope check', async () => {
+    const { svc, watches } = setup();
+    await as('me', () => svc.correctDataPoint('k1', 'p1', { value: 12, reason: 'Fix' }));
+    expect(watches.enqueue).toHaveBeenCalledWith({
+      organizationId: ORG, kpiId: 'k1', event: 'data_point_added', actorUserId: 'me', pointUserId: 'me', pointOrgUnitId: null,
+    });
+  });
+
+  it('a recorded value is announced to watchers', async () => {
+    const { svc, prisma, watches } = setup();
+    (prisma.kPI.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'k1', name: 'Rev', scope: 'ORG_WIDE', allowNegative: true, categoryId: null });
+    (prisma as unknown as { kPIDataPoint: Record<string, unknown> }).kPIDataPoint.create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+      id: 'p9', ...data, orgUnitId: null, userId: null, recordedAt: new Date(), sourceType: 'MANUAL',
+    }));
+    await as('me', () => svc.recordForOrgWideKpi('k1', { value: 5, periodStart: new Date(), periodEnd: new Date(), sourceType: 'MANUAL', qualityFlag: 'HIGH' }));
+    expect(watches.enqueue).toHaveBeenCalledWith(expect.objectContaining({ kpiId: 'k1', event: 'data_point_added', actorUserId: 'me', pointUserId: null }));
   });
 });

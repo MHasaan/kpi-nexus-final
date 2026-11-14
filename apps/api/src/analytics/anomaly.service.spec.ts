@@ -59,8 +59,11 @@ function makeSvc(): AnomalyService {
     mockKpis as never,
     mockRecommendations as unknown as RecommendationsService,
     mockAccessContext as unknown as AccessContextService,
+    mockWatches as never,
   );
 }
+
+const mockWatches = { enqueue: vi.fn(async (_job: unknown) => {}) };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -187,5 +190,26 @@ describe('AnomalyService.list — per-user point scope (BE-034)', () => {
     expect(out.map((r) => r.id)).toEqual(['a1']);
     const pointQuery = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { where: Record<string, unknown> };
     expect(pointQuery.where).toMatchObject({ id: { in: ['mine', 'someone-elses'] }, userId: { in: ['user_1'] } });
+  });
+});
+
+describe('AnomalyService.confirm → KPI watchers', () => {
+  it('confirming an anomaly (first time only) is announced as anomaly_confirmed', async () => {
+    const prisma = mockPrisma as unknown as Record<string, unknown>;
+    let confirmed = false;
+    prisma.anomalyDetection = {
+      findFirst: vi.fn(async () => ({ id: 'an_1', kpiId: 'kpi_1', score: 4.2, method: 'ZSCORE', isConfirmed: confirmed })),
+      update: vi.fn(async () => {
+        confirmed = true;
+        return { id: 'an_1', isConfirmed: true };
+      }),
+      findMany: vi.fn(async () => []),
+    };
+    prisma.alert = { create: vi.fn(async () => ({ id: 'a1' })) };
+    const svc = makeSvc();
+    await svc.confirm('kpi_1', 'an_1');
+    await svc.confirm('kpi_1', 'an_1');
+    expect(mockWatches.enqueue).toHaveBeenCalledTimes(1);
+    expect(mockWatches.enqueue).toHaveBeenCalledWith({ organizationId: 'org_test_123', kpiId: 'kpi_1', event: 'anomaly_confirmed', actorUserId: 'user_1' });
   });
 });

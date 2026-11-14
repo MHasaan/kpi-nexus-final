@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { KpiWatchQueueModule } from '../kpi-watches/kpi-watch-queue.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
 import { RecommendationsModule } from '../recommendations/recommendations.module.js';
@@ -23,6 +24,7 @@ import { queueProcessors } from '../config/queue-workers.js';
     RealtimeModule,
     EscalationsModule,
     RecommendationsModule,
+    KpiWatchQueueModule,
     BullModule.registerQueue({ name: ALERT_EVAL_QUEUE }),
   ],
   providers: [AlertEngineService, AlertEngineProducer, ...queueProcessors([AlertEngineProcessor])],

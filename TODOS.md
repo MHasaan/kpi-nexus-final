@@ -66,7 +66,8 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **NLQ `forecast_kpi` tool** — through ForecastsService (visibility, ANALYTICS ceiling, point scope), not saved (BE-035).
 - [x] **Data point corrections (`KPIDataPointHistory`):** `PATCH /kpis/:id/data/:pointId` (recorder or KPI_EDIT, reason required) keeps every correction; `GET …/history`; Correct + History on the KPI Data tab (BE-037).
 - [x] **KPI saved views (`KPISavedView`):** `/kpi-saved-views` CRUD (owner-only changes, optional share with the org; filters only, so a shared view never widens what a viewer sees); Saved views bar on `/kpis` (FE-022).
-- [ ] **Remaining data history models:** `KPIWatch`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
+- [x] **KPI watches (`KPIWatch`):** Watch on a KPI page for chosen events (new value, rule fired, anomaly confirmed, status change); a background job raises a personal, value-free notice per watcher, checked as that watcher (BE-038).
+- [ ] **Remaining data history model:** `DataSnapshot` does not exist (dashboards have `DashboardSnapshot`).
 - [ ] **`KPI.allowNegative` is never enforced:** recording (and correcting) a negative value on a KPI that disallows it is accepted.
 - [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
 - [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).

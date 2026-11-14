@@ -935,6 +935,20 @@ export async function deleteKpiSavedView(id: string): Promise<void> {
   await api(`/kpi-saved-views/${id}`, { method: 'DELETE' });
 }
 
+export type KpiWatchEvent = 'data_point_added' | 'threshold_breached' | 'anomaly_confirmed' | 'status_changed';
+
+export async function getKpiWatch(kpiId: string): Promise<{ watching: boolean; events: KpiWatchEvent[] }> {
+  return api(`/kpis/${kpiId}/watch`);
+}
+
+export async function watchKpi(kpiId: string, events: KpiWatchEvent[]): Promise<{ watching: true; events: KpiWatchEvent[] }> {
+  return api(`/kpis/${kpiId}/watch`, { method: 'PUT', body: JSON.stringify({ events }) });
+}
+
+export async function unwatchKpi(kpiId: string): Promise<void> {
+  await api(`/kpis/${kpiId}/watch`, { method: 'DELETE' });
+}
+
 export interface DashboardSummaryRow {
   kpiId: string;
   name: string;

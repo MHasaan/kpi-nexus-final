@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
 import { ApiError, setTokens } from '../../../lib/api-client';
 import {
   type CachedDraft,
   type DraftPayload,
-  aiApply,
-  aiGenerate,
   clearCachedDraft,
   completeOnboarding,
   getDraft,
@@ -37,10 +36,16 @@ export default function WizardPage() {
   const [sync, setSync] = useState<SyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  // AI co-pilot
-  const [prompt, setPrompt] = useState('');
-  const [genBusy, setGenBusy] = useState(false);
-  const [genResult, setGenResult] = useState<{ interactionId: string; counts: Record<string, number> } | null>(null);
+  // AI co-pilot rail: open by default on wide screens; Esc closes it.
+  const [railOpen, setRailOpen] = useState(false);
+  useEffect(() => {
+    setRailOpen(window.matchMedia('(min-width: 1024px)').matches);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRailOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Complete
   const [adminEmail, setAdminEmail] = useState('');
@@ -89,31 +94,6 @@ export default function WizardPage() {
     }, 600);
   };
 
-  const generate = async () => {
-    if (!handle || !prompt.trim()) return;
-    setError(null);
-    setGenBusy(true);
-    try {
-      const res = await aiGenerate(handle.sessionId, handle.draftToken, prompt.trim());
-      setGenResult(res);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Generation failed');
-    } finally {
-      setGenBusy(false);
-    }
-  };
-
-  const applyGenerated = async () => {
-    if (!handle || !genResult) return;
-    try {
-      await aiApply(handle.sessionId, handle.draftToken, genResult.interactionId, ['organization', 'roles', 'positions', 'orgUnitTypes', 'orgUnits', 'kpiCategories', 'kpis']);
-      setGenResult(null);
-      await loadDraft(handle);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Apply failed');
-    }
-  };
-
   const complete = async () => {
     if (!handle) return;
     setError(null);
@@ -133,7 +113,7 @@ export default function WizardPage() {
   const c = payload ? counts(payload) : null;
 
   return (
-    <main className="min-h-screen bg-surface-bg">
+    <main className={`min-h-screen bg-surface-bg ${railOpen ? 'lg:pr-[380px]' : ''}`}>
       <header className="border-b border-border bg-surface-1">
         <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
           <Link href="/" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
@@ -141,6 +121,15 @@ export default function WizardPage() {
           <span data-testid="sync-status" className="ml-auto text-xs text-content-muted">
             {sync === 'saving' ? 'Saving…' : sync === 'saved' ? 'Saved ✓' : ''}
           </span>
+          <button
+            type="button"
+            data-testid="copilot-toggle"
+            aria-expanded={railOpen}
+            onClick={() => setRailOpen((o) => !o)}
+            className="rounded border border-border px-3 py-1.5 text-xs font-medium text-content-strong hover:border-accent-primary"
+          >
+            ✨ AI co-pilot
+          </button>
         </div>
       </header>
 
@@ -154,26 +143,6 @@ export default function WizardPage() {
             Name
             <input data-testid="wizard-org-name" value={orgName} onChange={(e) => onOrgNameChange(e.target.value)} className="mt-1 block w-full max-w-md rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong" />
           </label>
-        </section>
-
-        {/* AI co-pilot */}
-        <section className="rounded-lg border border-border bg-surface-1 p-5">
-          <h2 className="text-sm font-semibold text-content-strong">AI co-pilot</h2>
-          <p className="mt-1 text-xs text-content-muted">Describe your organization and let AI draft roles, units, and KPIs.</p>
-          <div className="mt-3 flex gap-2">
-            <input data-testid="ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. B2B SaaS startup, 50 employees" className="flex-1 rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-            <button type="button" data-testid="ai-generate" onClick={generate} disabled={genBusy} className="rounded bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-              {genBusy ? 'Generating…' : 'Generate'}
-            </button>
-          </div>
-          {genResult && (
-            <div data-testid="ai-diff" className="mt-3 rounded border border-border bg-surface-bg p-3 text-xs">
-              <p className="text-content-strong">Proposed: {genResult.counts.roles} roles · {genResult.counts.orgUnits} units · {genResult.counts.kpis} KPIs</p>
-              <button type="button" data-testid="ai-apply" onClick={applyGenerated} className="mt-2 rounded bg-status-positive px-3 py-1 text-xs font-medium text-white hover:opacity-90">
-                Apply all
-              </button>
-            </div>
-          )}
         </section>
 
         {/* Review */}
@@ -204,6 +173,10 @@ export default function WizardPage() {
           </button>
         </section>
       </div>
+
+      {railOpen && handle && payload && (
+        <AiCopilotRail handle={handle} payload={payload} onDraftChanged={() => loadDraft(handle)} onClose={() => setRailOpen(false)} />
+      )}
     </main>
   );
 }

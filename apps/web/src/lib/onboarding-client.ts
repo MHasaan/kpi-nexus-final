@@ -111,12 +111,46 @@ export function aiGenerate(sessionId: string, token: string, prompt: string): Pr
   });
 }
 
-export function aiApply(sessionId: string, token: string, interactionId: string, appliedSections: string[]): Promise<{ applied: string[] }> {
+export function aiApply(
+  sessionId: string,
+  token: string,
+  interactionId: string,
+  appliedSections: string[],
+  rejectedSections: string[] = [],
+): Promise<{ applied: string[] }> {
   return api('/onboarding/ai/apply', {
     auth: false,
     method: 'POST',
     headers: draftHeaders(token),
-    body: JSON.stringify({ sessionId, interactionId, appliedSections }),
+    body: JSON.stringify({ sessionId, interactionId, appliedSections, rejectedSections }),
+  });
+}
+
+/** Assistant mode: an RFC 6902 patch against the draft (applied client-side, see lib/copilot). */
+export function aiAssistant(sessionId: string, token: string, instruction: string): Promise<{ interactionId: string; patch: unknown[] }> {
+  return api('/onboarding/ai/assistant', {
+    auth: false,
+    method: 'POST',
+    headers: draftHeaders(token),
+    body: JSON.stringify({ sessionId, instruction }),
+  });
+}
+
+export function aiSuggest(sessionId: string, token: string, fieldPath: string, context?: string): Promise<{ interactionId: string; suggestions: string[] }> {
+  return api('/onboarding/ai/suggest', {
+    auth: false,
+    method: 'POST',
+    headers: draftHeaders(token),
+    body: JSON.stringify({ sessionId, fieldPath, ...(context ? { context } : {}) }),
+  });
+}
+
+export function aiExplain(sessionId: string, token: string, fieldPath: string): Promise<{ interactionId: string; explanation: string }> {
+  return api('/onboarding/ai/explain', {
+    auth: false,
+    method: 'POST',
+    headers: draftHeaders(token),
+    body: JSON.stringify({ sessionId, fieldPath }),
   });
 }
 

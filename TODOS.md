@@ -60,7 +60,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **Web access-token refresh:** the web app now calls `POST /auth/refresh` on a 401 (one shared refresh, then the request is retried), so a signed-in user stays signed in past the 15-minute access-token expiry (FE-019).
 - [x] **Scheduled connector runs:** an active connector with a schedule now runs on it (a 5-field cron, at most once a minute), as well as on `POST /connectors/:id/run` (BE-030).
 - [x] **Onboarding co-pilot rail:** the wizard's slide-out rail now uses all four modes: Generate (per-section accept / reject), Assistant (JSON Patch previewed and accepted per section), Suggest (chips) and Explain (FE-020).
-- [ ] **Onboarding offline / resume / draft-status banners** (the `OfflineBanner` item).
+- [x] **Onboarding offline / resume / draft-status banners:** the wizard keeps a failed save, shows an offline banner with Retry, re-saves on reconnect, and won't finish with an unsaved edit; the resume banner has Start over (FE-021).
 - [ ] **NLQ tool loop:** NLQ grounds the model in KPI context in one call; the planned pgvector + tool-use loop (`compare_kpis`, `get_kpi_history`, max 5 rounds) is not built.
 - [ ] **Data history models:** `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
 - [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
@@ -462,7 +462,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [ ] Per-step advanced expand-to-reveal sections (matching original seed.ts depth)
 - [x] AI co-pilot rail: thread + composer + AIDiffPreview modal + SuggestChip inline — *`components/onboarding/ai-copilot-rail.tsx`; the diff preview is inline in the thread, not a modal; per-section accept / reject (no in-place edit)*
 - [x] DraftSyncProvider with 600ms debounced backend sync + instant localStorage cache
-- [ ] OfflineBanner + ResumeBanner + DraftStatusBadge
+- [x] OfflineBanner + ResumeBanner + DraftStatusBadge — *`components/onboarding/draft-sync-ui.tsx` + `lib/draft-sync.ts`; ResumeBanner was already on `/signup`, now with Start over*
 - [ ] Keyboard shortcuts: Ctrl+Enter (save & continue), Esc (close rail/diff)
 - [ ] `<TemplateGallery>` with rich + starter previews + apply
 - [x] Post-onboarding `/setup-checklist` page with progress bar + pending tasks + collapsed completed group

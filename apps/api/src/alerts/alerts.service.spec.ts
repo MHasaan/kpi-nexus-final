@@ -204,3 +204,17 @@ describe('AlertsService visibility (Phase 2.5)', () => {
     expect(n).toBe(1);
   });
 });
+
+describe('AlertsService.isVisible (realtime stream filter)', () => {
+  const alert = (over: Partial<FakeAlert> = {}): FakeAlert =>
+    ({ id: 'a1', organizationId: ORG, alertRuleId: null, kpiId: 'k1', message: 'm', severity: 'HIGH', status: 'OPEN', targetUserId: null, ...over }) as FakeAlert;
+
+  test('true when the same rule as getById lets the caller see the alert, false otherwise (no throw)', async () => {
+    const { service, prisma } = makeService({ alertsScope: 'SELF' });
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    prisma.alerts = [alert({ id: 'mine', targetUserId: 'me' }), alert({ id: 'theirs', targetUserId: 'other' }), alert({ id: 'hidden-kpi', kpiId: 'k9', targetUserId: 'me' })];
+    await expect(withCtx({ userId: 'me' }, () => service.isVisible('mine'))).resolves.toBe(true);
+    await expect(withCtx({ userId: 'me' }, () => service.isVisible('theirs'))).resolves.toBe(false);
+    await expect(withCtx({ userId: 'me' }, () => service.isVisible('hidden-kpi'))).resolves.toBe(false);
+  });
+});

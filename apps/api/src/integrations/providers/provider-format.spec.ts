@@ -48,12 +48,33 @@ describe('buildSlackAlertBlocks', () => {
 });
 
 describe('buildTeamsAdaptiveCard', () => {
-  test('produces an AdaptiveCard with the KPI + severity colour', () => {
-    const card = buildTeamsAdaptiveCard({ alertId: 'al_1', kpiName: 'Churn', severity: 'MEDIUM', message: 'spiked' });
+  const card = buildTeamsAdaptiveCard({ alertId: 'al_1', title: 'Churn', severity: 'HIGH', message: 'spiked to 9%', alertUrl: 'https://app.example.test/alerts/al_1' });
+  const content = (card.attachments[0] as { contentType: string; content: Record<string, unknown> }).content as {
+    type: string; version: string; body: Array<Record<string, unknown>>; actions: Array<Record<string, unknown>>;
+  };
+
+  test('is a Teams message carrying one Adaptive Card attachment', () => {
     expect(card.type).toBe('message');
-    const json = JSON.stringify(card);
-    expect(json).toContain('Churn');
-    expect(json).toContain('AdaptiveCard');
+    expect(card.attachments).toHaveLength(1);
+    expect((card.attachments[0] as { contentType: string }).contentType).toBe('application/vnd.microsoft.card.adaptive');
+    expect(content).toMatchObject({ type: 'AdaptiveCard', version: '1.4' });
+  });
+
+  test('shows the title in the severity colour, the message, and the facts', () => {
+    expect(content.body[0]).toMatchObject({ type: 'TextBlock', text: 'Churn', color: 'attention', weight: 'Bolder' });
+    expect(content.body[1]).toMatchObject({ type: 'TextBlock', text: 'spiked to 9%', wrap: true });
+    expect(content.body[2]).toMatchObject({ type: 'FactSet', facts: [{ title: 'Severity', value: 'HIGH' }, { title: 'Alert', value: 'al_1' }] });
+  });
+
+  test('its only action opens the alert in KPI Nexus (a webhook card cannot submit back)', () => {
+    expect(content.actions).toEqual([{ type: 'Action.OpenUrl', title: 'Open in KPI Nexus', url: 'https://app.example.test/alerts/al_1' }]);
+    expect(JSON.stringify(card)).not.toContain('Action.Submit');
+  });
+
+  test('severity colours: LOW warning, MEDIUM warning, HIGH attention', () => {
+    const colour = (severity: string) =>
+      ((buildTeamsAdaptiveCard({ alertId: 'a', title: 't', severity, message: 'm', alertUrl: 'u' }).attachments[0] as { content: { body: Array<{ color?: string }> } }).content.body[0]!.color);
+    expect([colour('LOW'), colour('MEDIUM'), colour('HIGH')]).toEqual(['warning', 'warning', 'attention']);
   });
 });
 

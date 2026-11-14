@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { EmailService } from '../email/email.service.js';
 import { escapeHtml } from '../email/escape-html.js';
+import { webAppUrl } from '../email/web-app-url.js';
+import { buildTeamsAdaptiveCard } from '../integrations/providers/teams-format.js';
 import { OutboundUrlBlockedError, outboundFetch } from '../outbound/outbound-fetch.js';
 
 export interface NotificationPayload {
@@ -47,12 +49,17 @@ export class NotificationAdaptersService {
           text: `${SEVERITY_EMOJI[payload.severity] ?? ''} *${payload.title ?? 'Alert'}*\n${payload.message}`,
         });
       case 'TEAMS':
-        return this.postJson(String(config.webhookUrl ?? ''), {
-          '@type': 'MessageCard',
-          themeColor: payload.severity === 'HIGH' ? 'D00000' : 'FFC400',
-          title: payload.title ?? 'KPI Alert',
-          text: payload.message,
-        });
+        // An Adaptive Card: Teams retired the legacy MessageCard connector format.
+        return this.postJson(
+          String(config.webhookUrl ?? ''),
+          buildTeamsAdaptiveCard({
+            alertId: payload.alertId,
+            title: payload.title ?? 'KPI Alert',
+            severity: payload.severity,
+            message: payload.message,
+            alertUrl: webAppUrl(`/alerts/${payload.alertId}`),
+          }),
+        );
       case 'WEBHOOK':
         return this.postJson(String(config.url ?? ''), { event: 'alert', payload });
       case 'SMS':

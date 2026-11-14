@@ -44,6 +44,7 @@ import {
   type ThresholdBand,
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
+import { WatchButton } from '../../../components/kpis/watch-button';
 import { AppShell } from '../../../components/app-shell';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
@@ -138,7 +139,8 @@ export default function KpiDetailPage() {
           <span className="text-xs tabular-nums text-content-muted">
             v{kpi.version} · {kpi.type}
           </span>
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-2">
+            <WatchButton kpiId={kpiId} />
             <CommentsDrawer entityType="kpi" entityId={kpiId} />
           </span>
         </div>

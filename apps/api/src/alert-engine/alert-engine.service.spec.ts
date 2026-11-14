@@ -106,12 +106,14 @@ function makeEngine(prisma: FakePrisma) {
   const escalations = {
     enqueueLevel: vi.fn(async (_a: string, _o: string, _l: number, _d: number) => {}),
   };
+  const watches = { enqueue: vi.fn(async (_job: unknown) => {}) };
   const engine = new AlertEngineService(
     prisma as unknown as PrismaService,
     realtime as unknown as RealtimeService,
     escalations as unknown as EscalationsService,
+    watches as never,
   );
-  return { engine, realtime, escalations };
+  return { engine, realtime, escalations, watches };
 }
 
 const ORG = 'org_1';
@@ -232,5 +234,21 @@ describe('AlertEngineService.scanNoDataForOrg', () => {
     const { engine } = makeEngine(prisma);
     const created = await engine.scanNoDataForOrg(ORG, now);
     expect(created).toHaveLength(0);
+  });
+});
+
+describe('AlertEngineService → KPI watchers', () => {
+  test('a fired rule alert tells the KPI\'s watchers (threshold_breached), a suppressed one does not', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push({
+      id: 'rule_1', organizationId: ORG, kpiId: KPI, name: 'High', ruleType: 'STATIC_THRESHOLD',
+      config: { operator: '>', value: 100 }, severity: 'HIGH', isActive: true,
+    });
+    const { engine, watches } = makeEngine(prisma);
+    await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 150, recordedAt: new Date() });
+    expect(watches.enqueue).toHaveBeenCalledWith({ organizationId: ORG, kpiId: KPI, event: 'threshold_breached', actorUserId: null });
+    watches.enqueue.mockClear();
+    await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 50, recordedAt: new Date() });
+    expect(watches.enqueue).not.toHaveBeenCalled();
   });
 });

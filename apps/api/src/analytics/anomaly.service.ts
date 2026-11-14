@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { AnomalyDetection } from '@kpi-nexus/db';
 
 import { KpisService } from '../kpis/kpis.service.js';
 import { requireAnalyticsKpi } from './analytics-scope.js';
 import { MlClientService } from '../ml/ml-client.service.js';
+import { KpiWatchProducer } from '../kpi-watches/kpi-watch.producer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { clampHistoryFrom } from '../rbac/visibility/kpi-visibility.js';
@@ -40,6 +41,7 @@ export class AnomalyService {
     private readonly kpis: KpisService,
     private readonly recommendations: RecommendationsService,
     private readonly accessContext: AccessContextService,
+    @Optional() private readonly watches?: KpiWatchProducer,
   ) {}
 
   /**
@@ -173,6 +175,7 @@ export class AnomalyService {
         .catch(() => undefined);
       // AI recommendation (never throws — won't block confirm).
       await this.recommendations.generateInOrg({ kpiId, anomalyId });
+      await this.watches?.enqueue({ organizationId: ctx.organizationId, kpiId, event: 'anomaly_confirmed', actorUserId: ctx.userId });
     }
     return updated;
   }

@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type { AlertRule, Prisma } from '@kpi-nexus/db';
 
+import { KpiWatchProducer } from '../kpi-watches/kpi-watch.producer.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { EscalationsService } from '../escalations/escalations.service.js';
@@ -40,6 +41,7 @@ export class AlertEngineService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeService,
     private readonly escalations: EscalationsService,
+    @Optional() private readonly watches?: KpiWatchProducer,
   ) {}
 
   /** Evaluate all data-point-triggered rules for a KPI after a new data point. */
@@ -164,6 +166,8 @@ export class AlertEngineService {
       },
       select: { id: true, severity: true, kpiId: true, alertRuleId: true, createdAt: true },
     });
+    // A fired rule is "threshold breached" for the KPI's watchers.
+    await this.watches?.enqueue({ organizationId: rule.organizationId, kpiId: rule.kpiId, event: 'threshold_breached', actorUserId: null });
 
     try {
       await this.realtime.publish(rule.organizationId, {

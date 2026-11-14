@@ -28,6 +28,7 @@ interface FakeAlert {
   acknowledgedById: string | null;
   resolvedAt: Date | null;
   meta: unknown;
+  isPersonal: boolean;
   createdAt: Date;
 }
 
@@ -35,7 +36,7 @@ function mkAlert(over: Partial<FakeAlert> = {}): FakeAlert {
   return {
     id: 'a_x', organizationId: ORG, alertRuleId: null, kpiId: 'k1', message: 'm',
     severity: 'LOW', status: 'OPEN', targetUserId: null, acknowledgedAt: null,
-    acknowledgedById: null, resolvedAt: null, meta: null, createdAt: new Date(),
+    acknowledgedById: null, resolvedAt: null, meta: null, isPersonal: false, createdAt: new Date(),
     ...over,
   };
 }
@@ -59,8 +60,12 @@ function matchAlert(a: FakeAlert, where: Record<string, unknown>): boolean {
       if (!(c as { in: string[] }).in.includes(a.targetUserId ?? '')) return false;
     } else if (a.targetUserId !== c) return false;
   }
+  if (where.isPersonal !== undefined && a.isPersonal !== where.isPersonal) return false;
   if (Array.isArray(where.OR)) {
     if (!(where.OR as Array<Record<string, unknown>>).some((b) => matchAlert(a, b))) return false;
+  }
+  if (Array.isArray(where.AND)) {
+    if (!(where.AND as Array<Record<string, unknown>>).every((b) => matchAlert(a, b))) return false;
   }
   return true;
 }
@@ -216,5 +221,30 @@ describe('AlertsService.isVisible (realtime stream filter)', () => {
     await expect(withCtx({ userId: 'me' }, () => service.isVisible('mine'))).resolves.toBe(true);
     await expect(withCtx({ userId: 'me' }, () => service.isVisible('theirs'))).resolves.toBe(false);
     await expect(withCtx({ userId: 'me' }, () => service.isVisible('hidden-kpi'))).resolves.toBe(false);
+  });
+});
+
+describe('AlertsService — personal notices (KPI watch)', () => {
+  test("someone else's personal notice is hidden, even from admins and ORG-scope viewers; your own shows", async () => {
+    for (const opts of [{ isAdmin: false }, { isAdmin: true }]) {
+      const { service, prisma } = makeService(opts);
+      prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+      prisma.alerts = [
+        mkAlert({ id: 'mine', isPersonal: true, targetUserId: 'me' }),
+        mkAlert({ id: 'theirs', isPersonal: true, targetUserId: 'other' }),
+        mkAlert({ id: 'rule', targetUserId: null }),
+      ];
+      const ids = (await withCtx({ userId: 'me' }, () => service.list())).map((a) => a.id).sort();
+      expect(ids).toEqual(['mine', 'rule']);
+      await expect(withCtx({ userId: 'me' }, () => service.isVisible('theirs'))).resolves.toBe(false);
+    }
+  });
+
+  test('UNITS scope (which already uses OR) still hides personal notices of others', async () => {
+    const { service, prisma } = makeService({ alertsScope: 'UNITS', unitMemberIds: ['other'] });
+    prisma.kPI.findMany.mockResolvedValue([{ id: 'k1' }]);
+    prisma.alerts = [mkAlert({ id: 'theirs', isPersonal: true, targetUserId: 'other' }), mkAlert({ id: 'peer', targetUserId: 'other' })];
+    const ids = (await withCtx({ userId: 'me' }, () => service.list())).map((a) => a.id);
+    expect(ids).toEqual(['peer']);
   });
 });

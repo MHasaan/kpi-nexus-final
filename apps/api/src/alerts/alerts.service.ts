@@ -46,10 +46,14 @@ export class AlertsService {
    * visible to the principal) plus ALERTS-scope target narrowing to an alert `where`.
    * Admin ⇒ unchanged. ORG ⇒ floor only. SELF/DIRECT_REPORTS ⇒ targetUserId IN set.
    * UNITS ⇒ targetUserId IN set OR untargeted (null) — org-wide-KPI alerts stay visible.
+   * A personal notice (isPersonal, e.g. a KPI watch) is visible to its target only,
+   * admins included: it is that person's inbox item, not an org alert.
    */
   private async applyVisibility(where: Prisma.AlertWhereInput): Promise<Prisma.AlertWhereInput> {
     const ctx = RequestContextStore.require();
     const profile = await this.accessContext.resolveForCurrentPrincipal();
+    const personal: Prisma.AlertWhereInput = { OR: [{ isPersonal: false }, { targetUserId: ctx.userId }] };
+    where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), personal];
     if (profile.isAdmin) return where;
 
     // Floor: only alerts whose KPI the principal may see.

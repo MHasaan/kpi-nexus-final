@@ -12,6 +12,7 @@ import { PermissionKey } from '@kpi-nexus/contracts';
 import type { KPIDataPointHistory, Prisma } from '@kpi-nexus/db';
 
 import { WorkflowsService } from '../workflows/workflows.service.js';
+import { KpiWatchProducer } from '../kpi-watches/kpi-watch.producer.js';
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
@@ -111,6 +112,7 @@ export class KpiDataService {
     private readonly alertEngine: AlertEngineProducer,
     private readonly calcEngine: CalculationEngineProducer,
     @Optional() private readonly workflows?: WorkflowsService,
+    @Optional() private readonly watches?: KpiWatchProducer,
   ) {}
 
   /** POST /kpis/:id/data — ORG_WIDE only. */
@@ -530,6 +532,14 @@ export class KpiDataService {
         targetUserId: updated.userId,
       });
       await this.enqueueDerivedRecomputes(kpiId, updated.periodStart, updated.periodEnd, ctx.organizationId);
+      await this.watches?.enqueue({
+        organizationId: ctx.organizationId,
+        kpiId,
+        event: 'data_point_added',
+        actorUserId: ctx.userId,
+        pointUserId: updated.userId,
+        pointOrgUnitId: updated.orgUnitId,
+      });
     }
     return updated;
   }
@@ -684,6 +694,15 @@ export class KpiDataService {
       value: point.value,
       recordedAt: point.recordedAt.toISOString(),
       targetUserId: point.userId,
+    });
+    // Tell the KPI's watchers (each checked against their own point scope).
+    await this.watches?.enqueue({
+      organizationId: params.organizationId,
+      kpiId: point.kpiId,
+      event: 'data_point_added',
+      actorUserId: params.recordedById,
+      pointUserId: point.userId,
+      pointOrgUnitId: point.orgUnitId,
     });
 
     // Reactive recompute pipeline (fire-and-forget). COMPUTED points are written

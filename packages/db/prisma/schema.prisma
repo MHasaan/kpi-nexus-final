@@ -192,6 +192,7 @@ model Organization {
   kpiDataPoints         KPIDataPoint[]
   kpiDataPointHistory   KPIDataPointHistory[]
   kpiSavedViews         KPISavedView[]
+  kpiWatches            KPIWatch[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
@@ -1032,6 +1033,22 @@ model KPISavedView {
   @@index([organizationId, isShared])
 }
 
+// A user watching a KPI for chosen events (data_point_added,
+// threshold_breached, anomaly_confirmed, status_changed). Each event raises a
+// personal LOW alert for the watcher, checked against what they may see.
+model KPIWatch {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  kpiId          String
+  events         String[]
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, kpiId])
+  @@index([organizationId, kpiId])
+}
+
 // ============================================================================
 // P2.4 — KPICascade (parent-child rollups)
 // ============================================================================
@@ -1363,6 +1380,8 @@ model Alert {
   acknowledgedById String?
   resolvedAt       DateTime?
   meta             Json?
+  // A personal notice (e.g. a KPI watch): visible to targetUserId only.
+  isPersonal       Boolean       @default(false)
   createdAt        DateTime      @default(now())
 
   deliveries NotificationDelivery[]

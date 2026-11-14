@@ -117,3 +117,51 @@ test('kpi detail: correct a recorded value with a reason, then see it in the his
   await expect(page.getByTestId('data-point-history-list')).toContainText('42 → 45');
   await expect(page.getByTestId('data-point-history-list')).toContainText('Typed 42 instead of 45');
 });
+
+test('kpi detail: watch a KPI for chosen events, keep it after a reload, stop watching', async ({ page }) => {
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  let reg: { accessToken: string; refreshToken: string };
+  try {
+    reg = (await (await anon.post('/auth/register', {
+      data: {
+        orgName: `Watch E2E ${stamp}`,
+        slug: `watch-${stamp}`,
+        adminEmail: `admin-${stamp}@watch.test.local`,
+        adminPassword: 'correct-horse-battery-staple',
+        adminFullName: 'Watch Admin',
+      },
+    })).json()) as { accessToken: string; refreshToken: string };
+  } catch {
+    test.skip(true, 'api not reachable');
+    return;
+  }
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${reg.accessToken}` } });
+  const kpi = (await (await api.post('/kpis', {
+    data: { name: `Watch KPI ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' },
+  })).json()) as { id: string };
+
+  await page.goto('/');
+  await page.evaluate(
+    ([a, r]) => {
+      window.localStorage.setItem('kpi-nexus.access-token', a);
+      window.localStorage.setItem('kpi-nexus.refresh-token', r);
+    },
+    [reg.accessToken, reg.refreshToken] as const,
+  );
+  await page.goto(`/kpis/${kpi.id}`);
+  await expect(page.getByTestId('watch-button')).toHaveText('Watch');
+  await page.getByTestId('watch-button').click();
+  await page.getByTestId('watch-event-data_point_added').check();
+  await page.getByTestId('watch-event-anomaly_confirmed').uncheck();
+  await page.getByTestId('watch-save').click();
+  await expect(page.getByTestId('watch-button')).toHaveText('Watching ✓');
+
+  await page.reload();
+  await expect(page.getByTestId('watch-button')).toHaveText('Watching ✓');
+  await page.getByTestId('watch-button').click();
+  await expect(page.getByTestId('watch-event-data_point_added')).toBeChecked();
+  await expect(page.getByTestId('watch-event-anomaly_confirmed')).not.toBeChecked();
+  await page.getByTestId('watch-stop').click();
+  await expect(page.getByTestId('watch-button')).toHaveText('Watch');
+});

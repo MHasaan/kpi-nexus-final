@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { KpiWatchQueueModule } from '../kpi-watches/kpi-watch-queue.module.js';
 import { KpisModule } from '../kpis/kpis.module.js';
 import { MlModule } from '../ml/ml.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
@@ -18,7 +19,7 @@ import { WhatIfService } from './whatif.service.js';
  * RecommendationsService.
  */
 @Module({
-  imports: [PrismaModule, RbacModule, MlModule, KpisModule, RecommendationsModule],
+  imports: [PrismaModule, RbacModule, MlModule, KpisModule, RecommendationsModule, KpiWatchQueueModule],
   controllers: [AnalyticsController],
   providers: [AnomalyService, ForecastsService, WhatIfService, SeasonalityService],
   exports: [AnomalyService, ForecastsService, WhatIfService, SeasonalityService],

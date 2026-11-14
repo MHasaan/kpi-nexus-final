@@ -1,15 +1,17 @@
 import type { NormalizedTool, NormalizedToolCall } from '@kpi-nexus/ai';
 
+import type { ForecastsService } from '../analytics/forecasts.service.js';
 import type { KpiDataService } from '../kpis/kpi-data.service.js';
 import type { PublicKpi } from '../kpis/kpis.service.js';
 
 const MAX_HISTORY = 50;
 const MAX_SERIES = 500;
 const MAX_COMPARE = 5;
+const MAX_HORIZON = 12;
 
 const kpiIdParam = { kpiId: { type: 'string', description: 'The KPI id shown in the catalog (or its exact name).' } };
 
-/** The tools the NLQ model may call. forecast_kpi joins once forecasts read per-user scope (see the P5 plan). */
+/** The tools the NLQ model may call. */
 export const NLQ_TOOLS: NormalizedTool[] = [
   {
     name: 'get_metadata',
@@ -50,6 +52,15 @@ export const NLQ_TOOLS: NormalizedTool[] = [
         to: { type: 'string', description: 'End date, YYYY-MM-DD.' },
       },
       required: ['kpiIds'],
+    },
+  },
+  {
+    name: 'forecast_kpi',
+    description: `Forecast a KPI's next periods (up to ${MAX_HORIZON}) from its history, with an 80% range.`,
+    parameters: {
+      type: 'object',
+      properties: { ...kpiIdParam, horizon: { type: 'integer', description: `How many periods ahead (max ${MAX_HORIZON}).` } },
+      required: ['kpiId'],
     },
   },
 ];
@@ -103,6 +114,7 @@ export class NlqToolbox {
   constructor(
     private readonly kpiData: Pick<KpiDataService, 'listForKpi'>,
     private readonly visible: Map<string, PublicKpi>,
+    private readonly forecasts: Pick<ForecastsService, 'forecast'>,
   ) {}
 
   async run(call: NormalizedToolCall): Promise<ToolRun> {
@@ -117,6 +129,8 @@ export class NlqToolbox {
           return await this.timeseries(input);
         case 'compare_kpis':
           return await this.compare(input);
+        case 'forecast_kpi':
+          return await this.forecast(input);
         default:
           return { result: { error: `Unknown tool: ${call.name}` }, kpiIds: [] };
       }
@@ -221,5 +235,19 @@ export class NlqToolbox {
       }
     }
     return { result: { kpis }, kpiIds: read };
+  }
+
+  /** ForecastsService applies KPI visibility, the ANALYTICS ceiling and the caller's point scope (BE-034); nothing is saved. */
+  private async forecast(input: Record<string, unknown>): Promise<ToolRun> {
+    const k = this.kpi(input.kpiId);
+    const horizon = Math.min(Math.max(Number(input.horizon) || 3, 1), MAX_HORIZON);
+    const f = await this.forecasts.forecast(k.id, { horizon, persist: false });
+    const predictions = (f.predictions as unknown as Array<Record<string, unknown>>).map((p) => ({
+      period: String(p.ds ?? ''),
+      value: typeof p.yhat === 'number' ? round(p.yhat) : null,
+      ...(typeof p.yhat_lower_80 === 'number' ? { low: round(p.yhat_lower_80) } : {}),
+      ...(typeof p.yhat_upper_80 === 'number' ? { high: round(p.yhat_upper_80) } : {}),
+    }));
+    return { result: { kpiId: k.id, name: k.name, unit: k.unit, model: f.model, predictions }, kpiIds: [k.id] };
   }
 }

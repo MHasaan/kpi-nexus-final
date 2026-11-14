@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AiModule } from '../ai/ai.module.js';
+import { AnalyticsModule } from '../analytics/analytics.module.js';
 import { KpisModule } from '../kpis/kpis.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
@@ -22,7 +23,7 @@ import { queueProcessors } from '../config/queue-workers.js';
  * KpisModule ↔ NlqModule bidirectional dependency.
  */
 @Module({
-  imports: [PrismaModule, RbacModule, AiModule, KpisModule, NlqReembedQueueModule],
+  imports: [PrismaModule, RbacModule, AiModule, KpisModule, AnalyticsModule, NlqReembedQueueModule],
   controllers: [NlqController],
   providers: [NlqService, KpiCatalogEmbeddingService, ...queueProcessors([ReembedProcessor])],
   exports: [NlqService, KpiCatalogEmbeddingService],

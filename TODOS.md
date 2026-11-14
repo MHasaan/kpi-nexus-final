@@ -63,7 +63,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **Onboarding offline / resume / draft-status banners:** the wizard keeps a failed save, shows an offline banner with Retry, re-saves on reconnect, and won't finish with an unsaved edit; the resume banner has Start over (FE-021).
 - [x] **NLQ tool loop:** up to 5 model calls with `get_metadata`, `get_kpi_history`, `query_timeseries` and `compare_kpis`, each reading through the scoped `listForKpi`; tool turns in every AI adapter (BE-033).
 - [x] **Analytics reads ignore per-user point scope:** forecast, anomaly, what-if and seasonality now use only the points the caller may analyse; stored forecasts and anomalies are filtered the same way (BE-034).
-- [ ] **NLQ `forecast_kpi` tool** — waits on the analytics scope fix above.
+- [x] **NLQ `forecast_kpi` tool** — through ForecastsService (visibility, ANALYTICS ceiling, point scope), not saved (BE-035).
 - [ ] **Data history models:** `KPIDataPointHistory`, `KPIWatch`, `KPISavedView`, `DataSnapshot` do not exist (dashboards have `DashboardSnapshot`).
 - [ ] **OpenAPI generation** (`nestjs-zod`) and the **TypeScript SDK** (`packages/sdk/`), which depends on it.
 - [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) and **Teams adaptive cards** (Teams posts plain webhook messages).

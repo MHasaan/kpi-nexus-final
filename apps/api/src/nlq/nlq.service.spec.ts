@@ -151,6 +151,7 @@ function buildService(opts: {
     configs as never,
     accessContext as never,
     kpiData as never,
+    { forecast: vi.fn() } as never,
   );
 
   return { service, aiRouter, kpis, kpiData, embeddings, configs, accessContext, prisma, completeCalls };
@@ -407,7 +408,7 @@ describe('NlqService.ask — tool-use loop', () => {
 
     const out = await run(() => service.ask('How did revenue move?'));
 
-    expect(requests[0]!.tools!.map((t) => t.name)).toEqual(['get_metadata', 'get_kpi_history', 'query_timeseries', 'compare_kpis']);
+    expect(requests[0]!.tools!.map((t) => t.name)).toEqual(['get_metadata', 'get_kpi_history', 'query_timeseries', 'compare_kpis', 'forecast_kpi']);
     expect(kpiData.listForKpi).toHaveBeenCalledWith('rev', { limit: 5 });
     const second = requests[1]!.messages;
     expect(second[1]).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1', name: 'get_kpi_history' }] });

@@ -41,7 +41,8 @@ export class ForecastsService {
     private readonly accessContext: AccessContextService,
   ) {}
 
-  async forecast(kpiId: string, opts: { horizon: number; model?: string }): Promise<Forecast> {
+  /** `persist: false` runs it without saving a row (the NLQ forecast_kpi tool). */
+  async forecast(kpiId: string, opts: { horizon: number; model?: string; persist?: boolean }): Promise<Forecast> {
     const ctx = RequestContextStore.require();
     const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
@@ -76,17 +77,19 @@ export class ForecastsService {
       model: opts.model ?? 'naive',
     });
 
-    return this.prisma.forecast.create({
-      data: {
-        organizationId: ctx.organizationId,
-        kpiId,
-        createdById: ctx.userId,
-        horizon: opts.horizon,
-        model: toModelKind(result.model),
-        predictions: result.predictions as unknown as object,
-        fitMetrics: (result.fitMetrics ?? undefined) as unknown as object | undefined,
-      },
-    });
+    const data = {
+      organizationId: ctx.organizationId,
+      kpiId,
+      createdById: ctx.userId,
+      horizon: opts.horizon,
+      model: toModelKind(result.model),
+      predictions: result.predictions as unknown as object,
+      fitMetrics: (result.fitMetrics ?? undefined) as unknown as object | undefined,
+    };
+    if (opts.persist === false) {
+      return { id: '', generatedAt: new Date(), ...data, fitMetrics: data.fitMetrics ?? null } as Forecast;
+    }
+    return this.prisma.forecast.create({ data });
   }
 
   async list(kpiId: string, model?: string): Promise<Forecast[]> {

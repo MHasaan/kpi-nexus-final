@@ -218,3 +218,12 @@ describe('ForecastsService stored forecasts (BE-034)', () => {
     expect(where).toMatchObject({ kpiId: 'kpi_1', createdById: 'user_1' });
   });
 });
+
+describe('ForecastsService.forecast persist:false (NLQ tool)', () => {
+  it('runs the forecast without saving a row', async () => {
+    mockMl.post.mockResolvedValueOnce({ predictions: [{ ds: '2026-12-01', yhat: 5 }], fitMetrics: {}, model: 'naive' });
+    const out = await makeSvc().forecast('kpi_1', { horizon: 3, persist: false });
+    expect(mockPrisma.forecast.create).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ kpiId: 'kpi_1', horizon: 3, model: 'NAIVE', predictions: [{ ds: '2026-12-01', yhat: 5 }] });
+  });
+});

@@ -15,6 +15,7 @@ const mockPrisma = {
   },
   forecast: {
     create: vi.fn(),
+    findMany: vi.fn(async (_args: unknown) => []),
   },
 };
 
@@ -30,6 +31,8 @@ const mockKpis = {
 const mockAccessContext = {
   // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
   isKpiAnalyticsAllowed: vi.fn(async () => true),
+  // Point scope for analytics (BE-034): unrestricted unless a test narrows it.
+  analyticsPointScopeWhere: vi.fn(async (_kpiScope: string): Promise<Record<string, unknown>> => ({})),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -179,5 +182,39 @@ describe('ForecastsService.forecast — ANALYTICS scope (BE-004)', () => {
     await expect(makeSvc().forecast('kpi_1', { horizon: 7 })).rejects.toMatchObject({ status: 404 });
     expect(mockMl.post).not.toHaveBeenCalled();
     expect(mockPrisma.kPIDataPoint.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('ForecastsService — per-user point scope (BE-034)', () => {
+  it('reads only the points the caller may analyse (a PER_USER KPI: their own)', async () => {
+    mockKpis.getById.mockResolvedValueOnce({ id: 'kpi_1', scope: 'PER_USER' });
+    mockAccessContext.analyticsPointScopeWhere.mockResolvedValueOnce({ userId: { in: ['user_1'] } });
+    const svc = makeSvc();
+    await svc.forecast('kpi_1', { horizon: 7 }).catch(() => undefined);
+    expect(mockAccessContext.analyticsPointScopeWhere).toHaveBeenCalledWith('PER_USER');
+    const call = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { where: Record<string, unknown> };
+    expect(call.where).toMatchObject({ kpiId: 'kpi_1', userId: { in: ['user_1'] } });
+  });
+});
+
+describe('ForecastsService stored forecasts (BE-034)', () => {
+  it('records who generated a forecast', async () => {
+    await makeSvc().forecast('kpi_1', { horizon: 7 });
+    const data = (mockPrisma.forecast.create.mock.calls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(data.createdById).toBe('user_1');
+  });
+
+  it('a caller with full reach lists every stored forecast for the KPI', async () => {
+    await makeSvc().list('kpi_1');
+    const where = (mockPrisma.forecast.findMany.mock.calls[0]![0] as { where: Record<string, unknown> }).where;
+    expect(where).not.toHaveProperty('createdById');
+  });
+
+  it('a caller with restricted point scope lists only the forecasts they generated', async () => {
+    mockKpis.getById.mockResolvedValueOnce({ id: 'kpi_1', scope: 'PER_USER' });
+    mockAccessContext.analyticsPointScopeWhere.mockResolvedValueOnce({ userId: { in: ['user_1'] } });
+    await makeSvc().list('kpi_1');
+    const where = (mockPrisma.forecast.findMany.mock.calls[0]![0] as { where: Record<string, unknown> }).where;
+    expect(where).toMatchObject({ kpiId: 'kpi_1', createdById: 'user_1' });
   });
 });

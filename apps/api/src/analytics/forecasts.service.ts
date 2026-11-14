@@ -43,7 +43,7 @@ export class ForecastsService {
 
   async forecast(kpiId: string, opts: { horizon: number; model?: string }): Promise<Forecast> {
     const ctx = RequestContextStore.require();
-    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing read window to the principal's historyWindowDays
     // (null ⇒ parity / admin). Fixed WINDOW read with no request `from`.
@@ -57,8 +57,11 @@ export class ForecastsService {
 
     // A forecast runs over the periods the values describe, not when they were
     // entered: a backfill of 24 months is typed in seconds (OT-005).
+    // Only the points the caller may analyse: a PER_USER KPI's other users'
+    // values never feed the result (BE-034).
+    const pointScope = await this.accessContext.analyticsPointScopeWhere(kpi.scope);
     const points = await this.prisma.kPIDataPoint.findMany({
-      where,
+      where: { ...where, ...pointScope },
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: WINDOW,
       select: { value: true, periodStart: true },
@@ -77,6 +80,7 @@ export class ForecastsService {
       data: {
         organizationId: ctx.organizationId,
         kpiId,
+        createdById: ctx.userId,
         horizon: opts.horizon,
         model: toModelKind(result.model),
         predictions: result.predictions as unknown as object,
@@ -87,11 +91,15 @@ export class ForecastsService {
 
   async list(kpiId: string, model?: string): Promise<Forecast[]> {
     const ctx = RequestContextStore.require();
-    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    // A stored forecast was built from its generator's points. A caller with
+    // restricted point scope sees only the ones they generated (BE-034).
+    const restricted = Object.keys(await this.accessContext.analyticsPointScopeWhere(kpi.scope)).length > 0;
     return this.prisma.forecast.findMany({
       where: {
         organizationId: ctx.organizationId,
         kpiId,
+        ...(restricted ? { createdById: ctx.userId } : {}),
         ...(model ? { model: toModelKind(model) } : {}),
       },
       orderBy: { generatedAt: 'desc' },

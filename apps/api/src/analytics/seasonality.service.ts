@@ -38,7 +38,7 @@ export class SeasonalityService {
 
   async decompose(kpiId: string, opts: SeasonalityOpts): Promise<SeasonalityResult> {
     const ctx = RequestContextStore.require();
-    await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
+    const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
 
     // Layer-4: clamp the user-facing decompose read to historyWindowDays (null ⇒ parity).
     const limits = await this.accessContext.dataLimits();
@@ -49,8 +49,11 @@ export class SeasonalityService {
     };
     if (from) where.recordedAt = { gte: from };
 
+    // Only the points the caller may analyse: a PER_USER KPI's other users'
+    // values never feed the result (BE-034).
+    const pointScope = await this.accessContext.analyticsPointScopeWhere(kpi.scope);
     const points = await this.prisma.kPIDataPoint.findMany({
-      where,
+      where: { ...where, ...pointScope },
       // Newest periods, not newest entries: backfills arrive out of order.
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: WINDOW,

@@ -1847,6 +1847,9 @@ model Forecast {
   predictions    Json
   fitMetrics     Json?
   generatedAt    DateTime          @default(now())
+  // Who generated it (BE-034): a caller whose point scope is restricted lists
+  // only their own forecasts. Null on rows from before the column existed.
+  createdById    String?
 
   @@index([organizationId, kpiId, generatedAt])
 }

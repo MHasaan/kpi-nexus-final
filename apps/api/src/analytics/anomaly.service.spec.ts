@@ -14,6 +14,9 @@ const mockPrisma = {
   kPIDataPoint: {
     findMany: vi.fn(),
   },
+  anomalyDetection: {
+    findMany: vi.fn(async (_args: unknown): Promise<Array<{ id: string; dataPointId: string | null }>> => []),
+  },
 };
 
 const mockMl = {
@@ -32,6 +35,8 @@ const mockRecommendations = {
 const mockAccessContext = {
   // ANALYTICS ceiling (BE-004): allowed unless a test says otherwise.
   isKpiAnalyticsAllowed: vi.fn(async () => true),
+  // Point scope for analytics (BE-034): unrestricted unless a test narrows it.
+  analyticsPointScopeWhere: vi.fn(async (_kpiScope: string): Promise<Record<string, unknown>> => ({})),
   dataLimits: vi.fn().mockResolvedValue({
     historyWindowDays: null,
     maxListRows: null,
@@ -145,5 +150,42 @@ describe('AnomalyService.detect — period order', () => {
     const payload = mockMl.post.mock.calls[0]![1] as { values: number[]; timestamps: string[] };
     expect(payload.values).toEqual([10, 12]);
     expect(payload.timestamps).toEqual(['2024-01-01T00:00:00.000Z', '2024-02-01T00:00:00.000Z']);
+  });
+});
+
+describe('AnomalyService — per-user point scope (BE-034)', () => {
+  it('reads only the points the caller may analyse (a PER_USER KPI: their own)', async () => {
+    mockKpis.getById.mockResolvedValueOnce({ id: 'kpi_1', scope: 'PER_USER' });
+    mockAccessContext.analyticsPointScopeWhere.mockResolvedValueOnce({ userId: { in: ['user_1'] } });
+    const svc = makeSvc();
+    await svc.detect('kpi_1').catch(() => undefined);
+    expect(mockAccessContext.analyticsPointScopeWhere).toHaveBeenCalledWith('PER_USER');
+    const call = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { where: Record<string, unknown> };
+    expect(call.where).toMatchObject({ kpiId: 'kpi_1', userId: { in: ['user_1'] } });
+  });
+});
+
+describe('AnomalyService.list — per-user point scope (BE-034)', () => {
+  const rows = [
+    { id: 'a1', dataPointId: 'mine' },
+    { id: 'a2', dataPointId: 'someone-elses' },
+    { id: 'a3', dataPointId: null },
+  ];
+
+  it('a caller with full reach sees every stored anomaly', async () => {
+    mockPrisma.anomalyDetection.findMany.mockResolvedValueOnce(rows);
+    const out = await makeSvc().list('kpi_1', {});
+    expect(out.map((r) => r.id)).toEqual(['a1', 'a2', 'a3']);
+  });
+
+  it('a restricted caller sees only anomalies on points they may read', async () => {
+    mockKpis.getById.mockResolvedValueOnce({ id: 'kpi_1', scope: 'PER_USER' });
+    mockAccessContext.analyticsPointScopeWhere.mockResolvedValueOnce({ userId: { in: ['user_1'] } });
+    mockPrisma.anomalyDetection.findMany.mockResolvedValueOnce(rows);
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValueOnce([{ id: 'mine' }]);
+    const out = await makeSvc().list('kpi_1', {});
+    expect(out.map((r) => r.id)).toEqual(['a1']);
+    const pointQuery = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as { where: Record<string, unknown> };
+    expect(pointQuery.where).toMatchObject({ id: { in: ['mine', 'someone-elses'] }, userId: { in: ['user_1'] } });
   });
 });

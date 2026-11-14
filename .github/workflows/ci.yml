@@ -58,15 +58,24 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pgvol" && sudo chown root:root "$RUNNER_TEMP/pgvol"
           docker run -d --name proddb -v "$RUNNER_TEMP/pgvol:/home/postgres/pgdata" \
             -e POSTGRES_PASSWORD=ci-superuser -e KPI_OWNER_DB_PASSWORD=ci-owner kpi-nexus-db:ci
+          # First boot runs initdb on a temporary server, which answers and then
+          # shuts down before the real start: pg_isready alone can pass too early
+          # and the next query hits "the database system is shutting down". Wait
+          # for the entrypoint's "init process complete" line (logged once that
+          # temporary server is gone), then retry the checks until both hold.
+          ok=
           for i in $(seq 1 60); do
-            docker exec proddb pg_isready -U postgres -d kpi_nexus >/dev/null 2>&1 && break
+            if ! docker logs proddb 2>&1 | grep -q 'PostgreSQL init process complete'; then sleep 2; continue; fi
+            superuser=$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
+              "SELECT rolsuper FROM pg_roles WHERE rolname = 'kpi_nexus'" 2>/dev/null || true)
+            extensions=$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
+              "SELECT count(*) FROM pg_extension WHERE extname IN ('timescaledb', 'vector')" 2>/dev/null || true)
+            if [ "$superuser" = f ] && [ "$extensions" = 2 ]; then ok=1; break; fi
             sleep 2
           done
           docker logs proddb 2>&1 | tail -n 5
-          test "$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
-            "SELECT rolsuper FROM pg_roles WHERE rolname = 'kpi_nexus'")" = f
-          test "$(docker exec proddb psql -U postgres -d kpi_nexus -tAc \
-            "SELECT count(*) FROM pg_extension WHERE extname IN ('timescaledb', 'vector')")" = 2
+          echo "kpi_nexus superuser: '$superuser'; extensions: '$extensions'"
+          test -n "$ok"
       # The production database release, from the API image, on that database:
       # once on an empty schema, then again (every deploy re-runs it).
       - name: Database release from the image, twice

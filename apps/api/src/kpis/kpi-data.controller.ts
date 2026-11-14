@@ -6,13 +6,16 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
+import type { KPIDataPointHistory } from '@kpi-nexus/db';
 import type { ZodTypeAny, infer as ZInfer } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { CorrectDataPointDtoSchema } from './dto/correct-data-point.dto.js';
 import { RecordDataPointDtoSchema } from './dto/record-data-point.dto.js';
 import { KpiDataService, type PublicDataPoint } from './kpi-data.service.js';
 
@@ -92,6 +95,20 @@ export class KpiDataController {
       to: to ? new Date(to) : undefined,
       limit: limit ? Number.parseInt(limit, 10) : undefined,
     });
+  }
+
+  /** PATCH /kpis/:id/data/:pointId — correct a recorded value (recorder or KPI_EDIT; reason required). */
+  @Patch('kpis/:id/data/:pointId')
+  @RequirePermissions(PermissionKey.KPI_DATA_ENTRY)
+  correct(@Param('id') id: string, @Param('pointId') pointId: string, @Body() body: unknown): Promise<PublicDataPoint> {
+    return this.data.correctDataPoint(id, pointId, parse(CorrectDataPointDtoSchema, body));
+  }
+
+  /** GET /kpis/:id/data/:pointId/history — the point's corrections, newest first. */
+  @Get('kpis/:id/data/:pointId/history')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  history(@Param('id') id: string, @Param('pointId') pointId: string): Promise<KPIDataPointHistory[]> {
+    return this.data.dataPointHistory(id, pointId);
   }
 
   /**

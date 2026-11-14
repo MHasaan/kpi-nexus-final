@@ -86,6 +86,14 @@ describe('RealtimeAccessService', () => {
     expect(findFirst).toHaveBeenCalledTimes(1);
   });
 
+  it('a corrected value (data_point_updated) follows the same rule as a new one', async () => {
+    const { svc } = make();
+    const f = subscriber(svc);
+    const updated = (userId: string) => ({ ...(point({ userId }) as object), type: 'data_point_updated', previousValue: 10 }) as RealtimeEvent;
+    await expect(f.allows(updated('me'))).resolves.toBe(true);
+    await expect(f.allows(updated('stranger'))).resolves.toBe(false);
+  });
+
   it('alert events follow the alert\'s own visibility', async () => {
     const alert = { type: 'alert_triggered', alertId: 'a1', alertRuleId: null, kpiId: 'k_user', severity: 'HIGH', message: 'x', createdAt: '2026-11-14T10:00:00.000Z' } as const;
     const allowed = make({ alertVisible: true });

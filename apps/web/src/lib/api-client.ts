@@ -882,6 +882,31 @@ export async function listKpiDataPoints(
   return api(`/kpis/${kpiId}/data${qs ? `?${qs}` : ''}`);
 }
 
+export interface DataPointCorrection {
+  id: string;
+  dataPointId: string;
+  previousValue: number;
+  newValue: number;
+  previousNote: string | null;
+  newNote: string | null;
+  reason: string;
+  changedById: string;
+  changedAt: string;
+}
+
+/** Correct a recorded value and/or note. The recorder or a KPI editor only; a reason is required. */
+export async function correctDataPoint(
+  kpiId: string,
+  pointId: string,
+  body: { value?: number; note?: string | null; reason: string },
+): Promise<DataPoint> {
+  return api(`/kpis/${kpiId}/data/${pointId}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function listDataPointHistory(kpiId: string, pointId: string): Promise<DataPointCorrection[]> {
+  return api(`/kpis/${kpiId}/data/${pointId}/history`);
+}
+
 export interface DashboardSummaryRow {
   kpiId: string;
   name: string;

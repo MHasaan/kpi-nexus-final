@@ -25,6 +25,8 @@ import {
   getThresholdStatus,
   listBenchmarks,
   listCascades,
+  correctDataPoint,
+  listDataPointHistory,
   listKpiDataPoints,
   listKpis,
   listTargets,
@@ -34,6 +36,7 @@ import {
   type Benchmark,
   type Cascade,
   type DataPoint,
+  type DataPointCorrection,
   type KpiSummary,
   type KpiTarget,
   type KpiVersion,
@@ -42,6 +45,7 @@ import {
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
 import { AppShell } from '../../../components/app-shell';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   Badge,
@@ -305,13 +309,70 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
               <TableHead>Period</TableHead>
               <TableHead>Recorded</TableHead>
               <TableHead>Flags</TableHead>
+              <TableHead className="sr-only">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(points ?? []).map((p: DataPoint) => (
-              <TableRow key={p.id}>
+              <DataPointRow key={p.id} kpi={kpi} point={p} onChanged={reload} />
+            ))}
+            {points && points.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-4 text-center text-content-muted">
+                  No data points yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </UICard>
+    </div>
+  );
+}
+
+/**
+ * One recorded value, with Correct (value / note + a required reason) and its
+ * correction history. The server allows a correction only by the person who
+ * recorded the value or a KPI editor, and never on calculated values.
+ */
+function DataPointRow({ kpi, point: p, onChanged }: { kpi: KpiSummary; point: DataPoint; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(p.value));
+  const [reason, setReason] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [history, setHistory] = useState<DataPointCorrection[] | null>(null);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    try {
+      await correctDataPoint(kpi.id, p.id, { value: Number(value), reason });
+      setEditing(false);
+      setReason('');
+      setHistory(null);
+      onChanged();
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : 'Could not correct this value');
+    }
+  };
+
+  const toggleHistory = async () => {
+    if (history) {
+      setHistory(null);
+      return;
+    }
+    try {
+      setHistory(await listDataPointHistory(kpi.id, p.id));
+    } catch (e2) {
+      setErr(e2 instanceof ApiError ? e2.message : 'Could not load the history');
+    }
+  };
+
+  return (
+    <>
+      <TableRow>
                 <TableCell className="tabular-nums">
-                  {p.value}
+                  <span data-testid="data-point-value">{p.value}</span>
                   {kpi.unit ? ` ${kpi.unit}` : ''}
                 </TableCell>
                 <TableCell className="text-content-muted">{new Date(p.periodStart).toLocaleDateString()}</TableCell>
@@ -325,19 +386,53 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
                     ''
                   )}
                 </TableCell>
-              </TableRow>
-            ))}
-            {points && points.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="py-4 text-center text-content-muted">
-                  No data points yet.
+                <TableCell className="whitespace-nowrap text-right">
+                  {p.sourceType !== 'COMPUTED' && (
+                    <PermissionGuard permission="KPI_DATA_ENTRY">
+                      <Button size="sm" variant="ghost" data-testid="data-point-correct" onClick={() => setEditing((v) => !v)}>
+                        Correct
+                      </Button>
+                    </PermissionGuard>
+                  )}
+                  <Button size="sm" variant="ghost" data-testid="data-point-history" onClick={() => void toggleHistory()}>
+                    History
+                  </Button>
                 </TableCell>
-              </TableRow>
+      </TableRow>
+      {(editing || err || history) && (
+        <TableRow>
+          <TableCell colSpan={5} className="bg-surface-bg">
+            {editing && (
+              <form onSubmit={save} className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`correct-value-${p.id}`}>Correct value</Label>
+                  <Input id={`correct-value-${p.id}`} type="number" step="any" required value={value} onChange={(e) => setValue(e.target.value)} data-testid="correct-value" />
+                </div>
+                <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
+                  <Label htmlFor={`correct-reason-${p.id}`}>Reason</Label>
+                  <Input id={`correct-reason-${p.id}`} required minLength={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it changed" data-testid="correct-reason" />
+                </div>
+                <Button type="submit" size="sm" data-testid="correct-save">Save correction</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+              </form>
             )}
-          </TableBody>
-        </Table>
-      </UICard>
-    </div>
+            {err && <p className="mt-2 text-sm text-status-critical" role="alert">{err}</p>}
+            {history && (
+              <ul className="mt-2 space-y-1 text-sm" data-testid="data-point-history-list">
+                {history.length === 0 && <li className="text-content-muted">Never corrected.</li>}
+                {history.map((h) => (
+                  <li key={h.id}>
+                    <span className="tabular-nums">{h.previousValue} → {h.newValue}</span>
+                    <span className="text-content-muted"> · {new Date(h.changedAt).toLocaleString()} · </span>
+                    {h.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 

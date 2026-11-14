@@ -21,7 +21,7 @@ export interface RealtimeSubscriberFilter {
  * Per-subscriber gate for GET /realtime/stream. Events are published to the
  * whole organization, so each one is checked against what this subscriber may
  * read before it is written to their stream:
- *  - data_point_added: the KPI is visible and the point is in their point
+ *  - data_point_added / data_point_updated: the KPI is visible and the point is in their point
  *    scope (a PER_USER point's userId, a PER_UNIT point's unit);
  *  - alert_triggered / alert_escalated: AlertsService's own alert visibility;
  *  - alert_digest: only the user it is for;
@@ -62,7 +62,8 @@ export class RealtimeAccessService {
           switch (event.type) {
             case 'ping':
               return true;
-            case 'data_point_added': {
+            case 'data_point_added':
+            case 'data_point_updated': {
               const access = await kpiAccess(event.kpiId);
               if (!access.visible) return false;
               if (access.userIds && !(event.userId !== null && access.userIds.includes(event.userId))) return false;

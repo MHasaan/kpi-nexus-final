@@ -149,3 +149,12 @@ describe('eventMatchesFilter — edge cases', () => {
     expect(eventMatchesFilter(event, {})).toBe(true);
   });
 });
+
+describe('eventMatchesFilter — data_point_updated', () => {
+  test('is filtered by kpiId like data_point_added', () => {
+    const e = { ...makeDataPointEvent({ kpiId: 'k1' }), type: 'data_point_updated', previousValue: 1 } as unknown as Parameters<typeof eventMatchesFilter>[0];
+    expect(eventMatchesFilter(e, { kpiId: 'k1' })).toBe(true);
+    expect(eventMatchesFilter(e, { kpiId: 'k2' })).toBe(false);
+    expect(eventMatchesFilter(e, {})).toBe(true);
+  });
+});

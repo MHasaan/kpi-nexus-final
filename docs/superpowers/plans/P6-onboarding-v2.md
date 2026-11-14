@@ -242,7 +242,7 @@ model OnboardingTask {
   3. **Template gallery** (browse rich/starter templates → applies payload → enters full mode with prefilled data)
 - [ ] `<StepSidebar>` — list of steps with checkmark icons + sync status badge + jump-to navigation
 - [ ] `<StepContent>` — renders the active step component
-- [ ] `<AICopilotRail>` — slides in from right; contains:
+- [x] `<AICopilotRail>` — slides in from right; contains: *(FE-020: one component, `components/onboarding/ai-copilot-rail.tsx`; diff previews are inline in the thread with per-section accept / reject, no in-place edit)*
   - `<AICopilotHeader>` — mode tabs (Generate / Assistant / Suggest / Explain)
   - `<AICopilotComposer>` — text input + send button + rate-limit indicator
   - `<AICopilotThread>` — message list with diff previews
@@ -258,7 +258,7 @@ model OnboardingTask {
 - [ ] `<WizardCard>`, `<WizardEmptyState>`, `<WizardField>` — reusable UI primitives
 - [ ] `<WizardSectionHeader>` — section title + description
 - [ ] `<WizardKeyboardHints>` — floating hint showing keyboard shortcuts (Ctrl+Enter = save & continue, Esc = close rail)
-- [ ] `<SuggestChip>` — AI suggestion chip (click to accept)
+- [x] `<SuggestChip>` — AI suggestion chip (click to accept) *(in the rail's Suggest mode: industry, organization type, KPI categories)*
 - [ ] `<TemplateGallery>` — browse template cards with preview + apply
 
 ### Wizard steps (`apps/web/src/components/wizard/steps/`)

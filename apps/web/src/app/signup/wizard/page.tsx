@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
+import { DraftStatusBadge, OfflineBanner, useDraftSync } from '../../../components/onboarding/draft-sync-ui';
 import { ApiError, setTokens } from '../../../lib/api-client';
 import {
   type CachedDraft,
@@ -12,11 +13,8 @@ import {
   clearCachedDraft,
   completeOnboarding,
   getDraft,
-  patchDraft,
   readCachedDraft,
 } from '../../../lib/onboarding-client';
-
-type SyncStatus = 'idle' | 'saving' | 'saved';
 
 function counts(p: DraftPayload) {
   return {
@@ -33,7 +31,6 @@ export default function WizardPage() {
   const [handle, setHandle] = useState<CachedDraft | null>(null);
   const [payload, setPayload] = useState<DraftPayload | null>(null);
   const [orgName, setOrgName] = useState('');
-  const [sync, setSync] = useState<SyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
   // AI co-pilot rail: open by default on wide screens; Esc closes it.
@@ -53,8 +50,6 @@ export default function WizardPage() {
   const [adminFullName, setAdminFullName] = useState('');
   const [slug, setSlug] = useState('');
   const [completing, setCompleting] = useState(false);
-
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadDraft = useCallback(async (h: CachedDraft) => {
     try {
@@ -78,26 +73,24 @@ export default function WizardPage() {
     void loadDraft(h);
   }, [loadDraft, router]);
 
-  // Debounced draft sync of the org name (the DraftSyncProvider behaviour).
+  // Debounced draft autosave; a failed save is kept and retried (offline banner).
+  const { state: sync, edit, flush } = useDraftSync(handle);
   const onOrgNameChange = (value: string) => {
     setOrgName(value);
     if (!handle) return;
-    setSync('saving');
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(async () => {
-      try {
-        await patchDraft(handle.sessionId, handle.draftToken, { organization: { ...(payload?.organization ?? {}), name: value } }, 'org');
-        setSync('saved');
-      } catch {
-        setSync('idle');
-      }
-    }, 600);
+    edit({ organization: { ...(payload?.organization ?? {}), name: value } });
   };
 
   const complete = async () => {
     if (!handle) return;
     setError(null);
     setCompleting(true);
+    // Completion builds the org from the saved draft: an unsaved edit would be lost.
+    if (!(await flush())) {
+      setError('Your latest changes are not saved yet. Retry saving, then finish setup.');
+      setCompleting(false);
+      return;
+    }
     try {
       const res = await completeOnboarding(handle.sessionId, handle.draftToken, { adminEmail, adminPassword, adminFullName, slug });
       setTokens(res.accessToken, res.refreshToken);
@@ -118,9 +111,7 @@ export default function WizardPage() {
         <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
           <Link href="/" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
           <span className="text-sm text-content-muted">Setup wizard</span>
-          <span data-testid="sync-status" className="ml-auto text-xs text-content-muted">
-            {sync === 'saving' ? 'Saving…' : sync === 'saved' ? 'Saved ✓' : ''}
-          </span>
+          <DraftStatusBadge state={sync} />
           <button
             type="button"
             data-testid="copilot-toggle"
@@ -134,6 +125,7 @@ export default function WizardPage() {
       </header>
 
       <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
+        <OfflineBanner state={sync} onRetry={() => void flush()} />
         {error && <p className="text-sm text-status-critical" data-testid="wizard-error">{error}</p>}
 
         {/* Organization */}

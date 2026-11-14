@@ -169,3 +169,72 @@ test('wizard: co-pilot rail — assistant, suggest and explain modes write to th
   await page.getByTestId('copilot-toggle').click();
   await expect(page.getByTestId('copilot-rail')).toBeVisible();
 });
+
+test('wizard: a failed save is kept, blocks Finish, and is saved by Retry', async ({ page }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  test.setTimeout(60_000);
+  const stamp = suffix();
+  await fillEntry(page, stamp);
+  await page.getByTestId('entry-quick').click();
+  await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Wiz ${stamp}`, { timeout: 15_000 });
+
+  // Draft saves (PUT /onboarding/:id) fail.
+  const failPuts = (route: import('@playwright/test').Route) =>
+    route.request().method() === 'PUT' ? route.abort('failed') : route.fallback();
+  await page.route('**/onboarding/*', failPuts);
+  await page.getByTestId('wizard-org-name').fill(`Renamed ${stamp}`);
+  await expect(page.getByTestId('offline-banner')).toContainText('could not be saved');
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'offline');
+
+  // Finish refuses to complete with an unsaved edit.
+  await page.getByTestId('admin-name').fill('Wiz Admin');
+  await page.getByTestId('admin-email').fill(`admin-${stamp}@wiz.test.local`);
+  await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('wizard-complete').click();
+  await expect(page.getByTestId('wizard-error')).toContainText('not saved yet');
+  await expect(page).toHaveURL(/\/signup\/wizard/);
+
+  // Saves work again: Retry sends the kept edit.
+  await page.unroute('**/onboarding/*', failPuts);
+  await page.getByTestId('offline-retry').click();
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'saved');
+  await expect(page.getByTestId('offline-banner')).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Renamed ${stamp}`, { timeout: 15_000 });
+});
+
+test('wizard: going offline shows the banner; reconnecting saves the edit', async ({ page, context }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  test.setTimeout(60_000);
+  const stamp = suffix();
+  await fillEntry(page, stamp);
+  await page.getByTestId('entry-quick').click();
+  await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Wiz ${stamp}`, { timeout: 15_000 });
+
+  await context.setOffline(true);
+  await expect(page.getByTestId('offline-banner')).toContainText('You are offline');
+  await page.getByTestId('wizard-org-name').fill(`Offline ${stamp}`);
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'offline');
+
+  await context.setOffline(false);
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'saved', { timeout: 15_000 });
+  await expect(page.getByTestId('offline-banner')).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Offline ${stamp}`, { timeout: 15_000 });
+});
+
+test('signup: "Start over" on the resume banner forgets the cached draft', async ({ page }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  await fillEntry(page, stamp);
+  await page.getByTestId('entry-quick').click();
+  await expect(page).toHaveURL(/\/signup\/wizard/);
+
+  await page.goto('/signup');
+  await expect(page.getByTestId('resume-banner')).toBeVisible();
+  await page.getByTestId('resume-discard').click();
+  await expect(page.getByTestId('resume-banner')).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId('signup-email')).toBeVisible();
+  await expect(page.getByTestId('resume-banner')).toBeHidden();
+});

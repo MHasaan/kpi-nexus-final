@@ -252,9 +252,9 @@ model OnboardingTask {
   - Instant localStorage cache write on every state change
   - Sync status: 'saving' | 'saved' | 'offline' (header badge reflects)
   - `flush()` (force immediate save), `clearLocal()` (wipe), `readLocal()` (restore on mount)
-- [ ] `<OfflineBanner>` — top warning if last sync failed
-- [ ] `<ResumeBanner>` — prompt to resume cached draft on /signup landing
-- [ ] `<DraftStatusBadge>` — visual (saving spinner / checkmark / offline icon)
+- [x] `<OfflineBanner>` — top warning if last sync failed *(FE-021; also while the browser is offline, with Retry)*
+- [x] `<ResumeBanner>` — prompt to resume cached draft on /signup landing *(Resume + Start over)*
+- [x] `<DraftStatusBadge>` — visual (saving spinner / checkmark / offline icon)
 - [ ] `<WizardCard>`, `<WizardEmptyState>`, `<WizardField>` — reusable UI primitives
 - [ ] `<WizardSectionHeader>` — section title + description
 - [ ] `<WizardKeyboardHints>` — floating hint showing keyboard shortcuts (Ctrl+Enter = save & continue, Esc = close rail)

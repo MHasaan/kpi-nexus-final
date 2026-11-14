@@ -12,6 +12,7 @@ import {
   type TemplateSummary,
   applyTemplate,
   cacheDraft,
+  clearCachedDraft,
   listTemplates,
   readCachedDraft,
   startOnboarding,
@@ -94,9 +95,22 @@ export default function SignupPage() {
         {resume && (
           <div data-testid="resume-banner" className="mb-6 flex items-center justify-between rounded-lg border border-accent-primary/40 bg-accent-primary/10 p-4">
             <span className="text-sm text-content-strong">Resume your setup for <strong>{resume.organizationName}</strong>?</span>
-            <button type="button" data-testid="resume-button" onClick={() => router.push('/signup/wizard')} className="rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
-              Resume
-            </button>
+            <span className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                data-testid="resume-discard"
+                onClick={() => {
+                  clearCachedDraft();
+                  setResume(null);
+                }}
+                className="rounded border border-border px-3 py-1.5 text-sm text-content-strong hover:border-accent-primary"
+              >
+                Start over
+              </button>
+              <button type="button" data-testid="resume-button" onClick={() => router.push('/signup/wizard')} className="rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
+                Resume
+              </button>
+            </span>
           </div>
         )}
 

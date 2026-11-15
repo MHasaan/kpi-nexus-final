@@ -68,7 +68,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [x] **KPI saved views (`KPISavedView`):** `/kpi-saved-views` CRUD (owner-only changes, optional share with the org; filters only, so a shared view never widens what a viewer sees); Saved views bar on `/kpis` (FE-022).
 - [x] **KPI watches (`KPIWatch`):** Watch on a KPI page for chosen events (new value, rule fired, anomaly confirmed, status change); a background job raises a personal, value-free notice per watcher, checked as that watcher (BE-038).
 - [x] **KPI snapshots (`DataSnapshot`):** freeze a KPI's definition and the values you can read, with a reason (KPI_EDIT); visible to the taker and admins only; Snapshots on the KPI Audit tab (BE-039).
-- [ ] **`KPI.allowNegative` is never enforced:** recording (and correcting) a negative value on a KPI that disallows it is accepted.
+- [x] **`KPI.allowNegative` is enforced:** recording (any scope, bulk ingest) or correcting a negative value on a KPI that disallows it is 422 `NEGATIVE_NOT_ALLOWED` (BE-043).
 - [x] **OpenAPI generation** and the **TypeScript SDK** (`packages/sdk/`): document built from the registered routes at `/api/v1/openapi.json` (request schemas via `@ApiBody`, not `nestjs-zod`), Spectral-linted, committed and checked in CI; SDK = `openapi-typescript` types + `openapi-fetch` (BE-040).
 - [x] **Teams adaptive cards:** Teams alert notifications are an Adaptive Card 1.4 (severity colour, message, facts, Open in KPI Nexus), replacing the retired MessageCard (BE-041).
 - [x] **Slack slash command `/kpi`:** `/kpi <name>`, `/kpi ask <question>`, `/kpi unlink`; a Slack user first links their KPI Nexus account through a private, signed, 10-minute link, and every answer runs as that account (BE-042).

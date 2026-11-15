@@ -479,6 +479,8 @@ export class KpiDataService {
     if (newValue === previousValue && newNote === previousNote) {
       throw new BadRequestException({ code: 'NO_CHANGE', message: 'The correction changes nothing' });
     }
+    // A note-only fix of an older negative value stays possible.
+    if (dto.value !== undefined) await this.assertValueAllowed(kpiId, newValue);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.kPIDataPoint.update({
@@ -574,6 +576,23 @@ export class KpiDataService {
     return point;
   }
 
+  /** Refuses a negative value on a KPI with allowNegative off (the default). */
+  private async assertValueAllowed(kpiId: string, value: number): Promise<void> {
+    if (value >= 0) return;
+    const ctx = RequestContextStore.require();
+    const kpi = await this.prisma.kPI.findFirst({
+      where: { id: kpiId, organizationId: ctx.organizationId },
+      select: { allowNegative: true },
+    });
+    if (kpi && !kpi.allowNegative) {
+      throw new UnprocessableEntityException({
+        code: 'NEGATIVE_NOT_ALLOWED',
+        message: 'This KPI does not allow negative values',
+        details: { value },
+      });
+    }
+  }
+
   private async requireKpiInTenant(kpiId: string) {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
@@ -633,6 +652,7 @@ export class KpiDataService {
         message: 'value is required',
       });
     }
+    await this.assertValueAllowed(params.kpiId, params.dto.value);
     const isOutlier = await this.computeOutlierFlag(params);
     const point = await this.prisma.kPIDataPoint.create({
       data: {

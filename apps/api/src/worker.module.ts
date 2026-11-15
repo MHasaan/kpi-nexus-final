@@ -9,6 +9,7 @@ import { ConnectorsModule } from './connectors/connectors.module.js';
 import { bullConnectionFromUrl } from './config/redis-connection.js';
 import { EscalationsModule } from './escalations/escalations.module.js';
 import { InsightsModule } from './insights/insights.module.js';
+import { IntegrationProvidersModule } from './integrations/providers/integration-providers.module.js';
 import { KpiWatchesModule } from './kpi-watches/kpi-watches.module.js';
 import { NlqModule } from './nlq/nlq.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -55,6 +56,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     ConnectorsModule,
     EscalationsModule,
     InsightsModule,
+    IntegrationProvidersModule,
     KpiWatchesModule,
     NlqModule,
     NotificationsModule,

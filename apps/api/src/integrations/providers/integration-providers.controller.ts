@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -11,10 +12,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
+import { PermissionKey } from '@kpi-nexus/contracts';
+import { z } from 'zod';
+
+import { ApiBody } from '../../openapi/api-body.decorator.js';
 import { Public } from '../../rbac/decorators/public.decorator.js';
+import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator.js';
+import { type SlackReply, SlackCommandService } from './slack-command.service.js';
 import { JiraService, type JiraWebhookPayload } from './jira.service.js';
 import { type SlackInteractivePayload, SlackService } from './slack.service.js';
 import { verifySlackSignature } from './slack-format.js';
+
+const SlackLinkDtoSchema = z.object({ token: z.string().min(10).max(2000) }).strict();
 
 /**
  * Public provider callbacks. Slack interactive button clicks (always
@@ -27,7 +36,46 @@ export class IntegrationProvidersController {
   constructor(
     private readonly slack: SlackService,
     private readonly jira: JiraService,
+    private readonly slackCommands: SlackCommandService,
   ) {}
+
+  /**
+   * Slack `/kpi` slash command. Signature-verified over the raw form body like
+   * the interactive callback; the form fields are read from those exact bytes.
+   * Replies are ephemeral; see SlackCommandService for who may see what.
+   */
+  @Public()
+  @Post('slack/commands')
+  @HttpCode(HttpStatus.OK)
+  async slackCommand(
+    @Req() req: { rawBody?: Buffer },
+    @Headers('x-slack-signature') signature?: string,
+    @Headers('x-slack-request-timestamp') timestamp?: string,
+  ): Promise<SlackReply> {
+    const secret = process.env.SLACK_SIGNING_SECRET;
+    const raw = req.rawBody?.toString('utf8');
+    if (!secret || !signature || !timestamp || raw === undefined || !verifySlackSignature(secret, timestamp, raw, signature)) {
+      throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Invalid Slack signature' });
+    }
+    const form = new URLSearchParams(raw);
+    return this.slackCommands.handle({
+      teamId: form.get('team_id') ?? '',
+      slackUserId: form.get('user_id') ?? '',
+      text: form.get('text') ?? '',
+      responseUrl: form.get('response_url') ?? '',
+    });
+  }
+
+  /** Signed in: bind the Slack user from a `/kpi` link to this account. */
+  @Post('slack/link')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  @ApiBody(SlackLinkDtoSchema)
+  slackLink(@Body() body: unknown): Promise<{ linked: true }> {
+    const parsed = SlackLinkDtoSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'token is required' });
+    return this.slackCommands.linkAccount(parsed.data.token);
+  }
 
   /**
    * Slack interactive button callbacks. Every request must carry a valid

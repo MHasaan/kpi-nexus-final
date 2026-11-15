@@ -109,7 +109,7 @@ chmod 600 .env app.env
 
 - Generate every secret with `openssl rand -hex 32` (the templates have a loop for each file). Hex only: the values go into connection URLs.
 - `.env`: `API_DOMAIN=kpinexus-api.duckdns.org`; the `BACKUP_S3_*` lines use the endpoint, region and key from step 7 with `BACKUP_S3_BUCKET=kpi-nexus-backups`. Leave `IMAGE_TAG` and `DB_IMAGE_TAG` empty; the deploy sets them.
-- `app.env`: `S3_*` the same, with `S3_BUCKET=kpi-nexus-files`; the Brevo login and key as `SMTP_USER` / `SMTP_PASS`; `SMTP_FROM` with the verified sender; `WEB_APP_URL` and `CORS_ALLOWED_ORIGINS` set to your Vercel URL (step 11; `https://<project>.vercel.app`). Optional: `GEMINI_API_KEYS`, `SENTRY_DSN`.
+- `app.env`: `S3_*` the same, with `S3_BUCKET=kpi-nexus-files`; the Brevo login and key as `SMTP_USER` / `SMTP_PASS`; `SMTP_FROM` with the verified sender; `WEB_APP_URL` and `CORS_ALLOWED_ORIGINS` set to your Vercel URL (step 11; `https://<project>.vercel.app`). Optional: `GEMINI_API_KEYS`, `SENTRY_DSN`, and `SLACK_SIGNING_SECRET` for Slack (in the Slack app, set the `/kpi` slash command's request URL to `https://<api host>/integrations/slack/commands` and Interactivity to `https://<api host>/integrations/slack/interactive`; then connect Slack under Integrations with the workspace's `team_id`).
 - **Copy `BACKUP_PASSPHRASE` into your password manager.** Without it, the backups can't be decrypted.
 
 ### 9. GitHub secrets

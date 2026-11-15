@@ -71,7 +71,7 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 - [ ] **`KPI.allowNegative` is never enforced:** recording (and correcting) a negative value on a KPI that disallows it is accepted.
 - [x] **OpenAPI generation** and the **TypeScript SDK** (`packages/sdk/`): document built from the registered routes at `/api/v1/openapi.json` (request schemas via `@ApiBody`, not `nestjs-zod`), Spectral-linted, committed and checked in CI; SDK = `openapi-typescript` types + `openapi-fetch` (BE-040).
 - [x] **Teams adaptive cards:** Teams alert notifications are an Adaptive Card 1.4 (severity colour, message, facts, Open in KPI Nexus), replacing the retired MessageCard (BE-041).
-- [ ] **Slack slash command `/kpi`** (Slack has interactive actions + alert posting) — needs Slack-user ↔ app-user linking so answers respect each person's visibility.
+- [x] **Slack slash command `/kpi`:** `/kpi <name>`, `/kpi ask <question>`, `/kpi unlink`; a Slack user first links their KPI Nexus account through a private, signed, 10-minute link, and every answer runs as that account (BE-042).
 - [ ] **Shared UI component library with Storybook** in `packages/ui/src/components/` (components live in `apps/web/src/components/` instead).
 - [ ] **AWS KMS data keys** — *won't do while hosting must stay free*: KMS bills per key per month (ADR-001). `integration-crypto.ts` keeps a KMS-ready key-loading hook.
 

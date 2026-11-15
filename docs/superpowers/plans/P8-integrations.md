@@ -143,9 +143,9 @@ model Plugin {
 
 - [ ] Slack OAuth flow (`/integrations/slack/callback`)
 - [ ] Bot installation + workspace metadata persistence
-- [ ] Slash command handler `POST /integrations/slack/slash-command` (verifies Slack signature):
-  - `/kpi <name>` → returns KPI card with current value + sparkline (Slack Block Kit)
-  - `/kpi ask <question>` → calls NlqService → returns answer + chart URL
+- [x] Slash command handler `POST /integrations/slack/slash-command` (verifies Slack signature): *(BE-042: `POST /integrations/slack/commands`; answers only for a Slack user linked to a KPI Nexus account, run as that account; plus `/kpi unlink`)*
+  - `/kpi <name>` → returns KPI card with current value + sparkline (Slack Block Kit) *(latest value, target, date and a link; no sparkline)*
+  - `/kpi ask <question>` → calls NlqService → returns answer + chart URL *(queued; the answer is posted to Slack's response_url; no chart URL)*
 - [ ] Interactive components handler `POST /integrations/slack/interactive`:
   - "Acknowledge" button → calls `AlertsService.acknowledge(alertId)`
   - "Snooze 1h" button → updates Alert with snoozedUntil
@@ -155,7 +155,7 @@ model Plugin {
 ### Module 3: TeamsModule
 
 - [ ] Webhook-based posting (incoming webhook URLs per channel; no OAuth needed for posting)
-- [ ] Adaptive Card format for alerts (severity color + KPI link + values + action buttons that POST back to integration handler)
+- [x] Adaptive Card format for alerts (severity color + KPI link + values + action buttons that POST back to integration handler) *(BE-041: Open in KPI Nexus link; webhook cards cannot POST back)*
 - [ ] Limited bidirectional (Teams adaptive card actions are limited vs Slack)
 
 ### Module 4: JiraModule

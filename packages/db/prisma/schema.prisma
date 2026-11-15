@@ -194,6 +194,7 @@ model Organization {
   kpiSavedViews         KPISavedView[]
   kpiWatches            KPIWatch[]
   dataSnapshots         DataSnapshot[]
+  slackUserLinks        SlackUserLink[]
   dashboards            Dashboard[]
   dashboardWidgets      DashboardWidget[]
   dashboardSnapshots    DashboardSnapshot[]
@@ -1064,6 +1065,21 @@ model DataSnapshot {
   takenAt        DateTime     @default(now())
 
   @@index([organizationId, entityType, entityId, takenAt])
+}
+
+// A Slack user linked to a KPI Nexus account (via a signed link from /kpi).
+// /kpi answers run as userId, so they show only what that person may see.
+model SlackUserLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slackTeamId    String
+  slackUserId    String
+  userId         String
+  createdAt      DateTime     @default(now())
+
+  @@unique([slackTeamId, slackUserId])
+  @@index([organizationId])
 }
 
 // ============================================================================

@@ -34,6 +34,7 @@ describe('POST /integrations/slack/interactive signature verification', () => {
   const controller = new IntegrationProvidersController(
     { handleInteractive } as unknown as SlackService,
     {} as unknown as JiraService,
+    {} as never,
   );
   const payload = { team: { id: 'T123' }, actions: [{ action_id: 'acknowledge_alert', value: 'alert_1' }] };
   const now = () => String(Math.floor(Date.now() / 1000));

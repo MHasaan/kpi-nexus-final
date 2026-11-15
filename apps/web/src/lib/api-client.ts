@@ -977,6 +977,11 @@ export async function getKpiSnapshot(kpiId: string, snapshotId: string): Promise
   return api(`/kpis/${kpiId}/snapshots/${snapshotId}`);
 }
 
+/** Bind the Slack user from a /kpi link to the signed-in account. */
+export async function linkSlackAccount(token: string): Promise<{ linked: true }> {
+  return api('/integrations/slack/link', { method: 'POST', body: JSON.stringify({ token }) });
+}
+
 export interface DashboardSummaryRow {
   kpiId: string;
   name: string;

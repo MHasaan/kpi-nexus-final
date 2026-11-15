@@ -1,0 +1,15 @@
+/*
+ * Stories render with the web app's own stylesheet (tokens, Tailwind layers and
+ * the kn-* helpers), so what you see here is what the app shows.
+ */
+@import '../../../apps/web/src/app/globals.css';
+
+/* In the app next/font defines these; here the token stacks fall back to installed fonts. */
+:root {
+  --font-inter: 'Inter';
+  --font-jetbrains-mono: 'JetBrains Mono';
+}
+
+body {
+  background: hsl(var(--surface-bg));
+}

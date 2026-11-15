@@ -5,6 +5,7 @@ node_modules/
 .turbo/
 .next/
 dist/
+storybook-static/
 build/
 out/
 *.tsbuildinfo

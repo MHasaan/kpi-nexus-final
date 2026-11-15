@@ -16,23 +16,42 @@
       "import": "./tailwind.preset.ts"
     }
   },
-  "files": ["dist", "src", "tailwind.preset.ts"],
+  "files": [
+    "dist",
+    "src",
+    "tailwind.preset.ts"
+  ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.0"
+    "tailwind-merge": "^2.5.0",
+    "lucide-react": "^0.460.0"
   },
   "devDependencies": {
     "@kpi-nexus/config": "workspace:*",
+    "@storybook/react-vite": "10.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "storybook": "10.6.5",
     "tailwindcss": "^3.4.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.8",
     "vitest": "^4.1.7"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }

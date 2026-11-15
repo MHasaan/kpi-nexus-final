@@ -1,6 +1,6 @@
 import { CircleCheck, TriangleAlert, OctagonX, CircleDashed, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/cn';
-import { Badge, type BadgeTone } from './badge';
+import { cn } from '../cn.js';
+import { Badge, type BadgeTone } from './badge.js';
 
 export type KpiStatus = 'on-track' | 'at-risk' | 'off-track' | 'no-data';
 

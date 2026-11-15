@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export interface SegmentedOption<T extends string> {
   value: T;

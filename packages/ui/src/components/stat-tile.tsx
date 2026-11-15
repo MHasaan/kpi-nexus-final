@@ -1,7 +1,7 @@
-import { cn } from '@/lib/cn';
-import { Card } from './card';
-import { Delta } from './delta';
-import { Sparkline } from '@/components/charts/sparkline';
+import { cn } from '../cn.js';
+import { Card } from './card.js';
+import { Delta } from './delta.js';
+import { Sparkline } from './sparkline.js';
 
 export interface StatTileProps {
   /** Eyebrow label (uppercase). */

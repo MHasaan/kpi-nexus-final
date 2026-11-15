@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export interface DeltaProps {
   /** The change value. Sign drives direction/colour; magnitude is shown as absolute. */

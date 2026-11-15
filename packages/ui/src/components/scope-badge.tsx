@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export type KpiScope = 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
 

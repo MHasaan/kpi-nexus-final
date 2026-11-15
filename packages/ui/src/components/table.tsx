@@ -1,5 +1,5 @@
 import { forwardRef, type HTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(function Table(
   { className, ...rest },

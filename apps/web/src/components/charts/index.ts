@@ -1,5 +1,5 @@
-export { Sparkline } from './sparkline';
-export type { SparklineProps } from './sparkline';
+export { Sparkline } from '@kpi-nexus/ui';
+export type { SparklineProps } from '@kpi-nexus/ui';
 
 export { LineChart } from './line-chart';
 export type { LineChartProps, LineSeries, ForecastBand, Anomaly } from './line-chart';

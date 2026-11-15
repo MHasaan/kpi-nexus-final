@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 interface TabsContextValue {
   value: string;

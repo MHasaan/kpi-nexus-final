@@ -1,5 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ElementType } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   /** Semantic element to render as. Defaults to `div`. */

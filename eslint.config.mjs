@@ -5,6 +5,7 @@ export default [
   {
     ignores: [
       '**/dist/**',
+      '**/storybook-static/**',
       '**/.next/**',
       '**/.turbo/**',
       '**/node_modules/**',

@@ -1,5 +1,5 @@
 import { forwardRef, type LabelHTMLAttributes } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
   /** Renders a required marker after the label text. */

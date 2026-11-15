@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
 

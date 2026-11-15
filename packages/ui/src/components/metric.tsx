@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export interface MetricProps {
   /** The primary numeric/string value (rendered with tabular-nums). */

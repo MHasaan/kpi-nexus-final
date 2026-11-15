@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { formatDeltaMagnitude } from './delta';
+import { formatDeltaMagnitude } from './delta.js';
 
 describe('formatDeltaMagnitude (FE-016)', () => {
   test('floating-point noise never reaches the screen', () => {

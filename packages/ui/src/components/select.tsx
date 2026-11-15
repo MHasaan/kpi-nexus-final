@@ -1,6 +1,6 @@
 import { forwardRef, type SelectHTMLAttributes } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/cn';
+import { cn } from '../cn.js';
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 

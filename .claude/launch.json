@@ -4,8 +4,21 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@kpi-nexus/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@kpi-nexus/web",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "source .cache/activate.sh && pnpm --filter @kpi-nexus/ui storybook --ci"
+      ],
+      "port": 6006
     }
   ]
 }

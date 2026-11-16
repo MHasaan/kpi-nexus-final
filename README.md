@@ -16,7 +16,7 @@ The stack choices are locked (spec Appendix A); the major versions below are cur
 - **Language**: TypeScript 6 (strict) on Node.js 22
 - **Frontend**: Next.js 16 + React 19 (App Router) — Vercel Hobby
 - **Backend API**: NestJS 12 on Fastify 5 — Oracle Cloud Always Free VM ([ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md))
-- **Background workers**: NestJS + BullMQ. Product queues run in the API. The separate worker is an echo scaffold.
+- **Background workers**: NestJS + BullMQ, 13 queue processors (alerts, escalations, calculations, notifications, reports, connectors, webhooks, insights, KPI watches, NLQ re-embedding, Slack commands, onboarding cleanup). Locally the API runs them; production runs them in a separate worker process built from `apps/api` (`dist/worker.js`, with `RUN_QUEUE_WORKERS=false` on the API). There is no `apps/worker` package any more.
 - **ML sidecar**: Python 3.14 + FastAPI (Prophet, ARIMA, IsolationForest, what-if) — same VM
 - **Database**: PostgreSQL 16 + TimescaleDB + pgvector, self-hosted on the VM with a persistent volume
 - **Cache & queue**: Redis 7 — on the VM

@@ -28,7 +28,9 @@ eyebrow labels (reuse `.kn-eyebrow` from globals.css). Server-component-safe exc
 |---|---|---|
 | `apps/web/src/lib/cn.ts` | `cn(...inputs: ClassValue[]): string` | `twMerge(clsx(inputs))`. NOTE: `cn.spec.ts` imports `cn` from `@kpi-nexus/ui` (already exists in `packages/ui/src/index.ts`), not from this local file — both are identical impls. This local `@/lib/cn` is what the primitives import. |
 
-## UI components — `apps/web/src/components/ui/`
+## UI components — `packages/ui/src/components/`
+
+> Moved here from `apps/web/src/components/ui/` in FE-023 (#113); browse them in Storybook (`pnpm --filter @kpi-nexus/ui storybook`). The web barrel `@/components/ui` re-exports `@kpi-nexus/ui`, so the import below still works.
 
 | File | Export(s) | Props / variants |
 |---|---|---|

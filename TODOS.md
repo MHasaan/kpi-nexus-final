@@ -657,9 +657,9 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 
 The frontend visual design is deferred to a "Claude Design" session per design spec §12. Once a phase's backend is stable, the design session can produce:
 - [x] `packages/ui/src/tokens.css` — final tokens light + dark
-- [ ] `packages/ui/src/components/` — implemented primitives + composites with Storybook stories
+- [x] `packages/ui/src/components/` — implemented primitives + composites with Storybook stories (FE-023)
 - [x] `apps/web/src/app/**/page.tsx` — final pages per route map
-- [ ] Storybook component documentation
+- [x] Storybook component documentation (`pnpm --filter @kpi-nexus/ui storybook`)
 - [ ] Updated CLAUDE.md with design conventions adopted
 
 This can happen incrementally — design + implement P1's auth pages before P2's KPI pages, etc. — or in one big handoff at the end.

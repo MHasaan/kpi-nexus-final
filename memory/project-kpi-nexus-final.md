@@ -12,11 +12,7 @@ A fresh ground-up rebuild of the KPI Nexus FYP project. Production-quality multi
 
 ## Status
 
-As of 2026-05-25 (end of P0): **P0 (Foundation) merged to master and pushed to https://github.com/MHasaan/kpi-nexus-final (private).** Static verification (typecheck/lint/test/build) all green at merge. Live-infra acceptance (docker:up, db:setup, /health responses, e2e) ran end of session — see `git tag` for `p0-complete` status.
-
-**P1 (Identity + Tenancy + RBAC) is the next thing to execute** — see `docs/superpowers/plans/P1-identity-tenancy-rbac.md`.
-
-Spec + framework docs + all 10 phase plans were committed on the same day during the prior planning session.
+As of 2026-11-16: **all ten phases (P0–P9) are built and tagged `v1.0.0`**; the October 2026 audit is fixed and every "Not built" item (#94–#114) is merged into `main`. Only the owner's steps remain: the Windows launcher run (OT-017) and go-live on the Oracle Always Free VM ([ADR-001](../docs/adrs/ADR-001-free-tier-hosting.md), `docs/deploy.md`). Current state and next steps: `HANDOFF.md`; what was fixed and how: the fix log in `docs/audit/README.md`.
 
 ## Locked decisions (from brainstorming session 2026-05-25)
 

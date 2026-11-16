@@ -10,20 +10,23 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 
 ## Stack (locked)
 
+The stack choices are locked (spec Appendix A); the major versions below are current as of 2026-11-16. Exact versions live in each `package.json`, `apps/ml/requirements.txt` and the Dockerfiles.
+
 - **Monorepo**: pnpm + Turborepo
-- **Frontend**: Next.js 15 (App Router, RSC) — Vercel Hobby
-- **Backend API**: NestJS 11 on Fastify — Oracle Cloud Always Free VM ([ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md))
+- **Language**: TypeScript 6 (strict) on Node.js 22
+- **Frontend**: Next.js 16 + React 19 (App Router) — Vercel Hobby
+- **Backend API**: NestJS 12 on Fastify 5 — Oracle Cloud Always Free VM ([ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md))
 - **Background workers**: NestJS + BullMQ. Product queues run in the API. The separate worker is an echo scaffold.
-- **ML sidecar**: Python FastAPI (Prophet, ARIMA, IsolationForest, what-if) — same VM
+- **ML sidecar**: Python 3.14 + FastAPI (Prophet, ARIMA, IsolationForest, what-if) — same VM
 - **Database**: PostgreSQL 16 + TimescaleDB + pgvector, self-hosted on the VM with a persistent volume
 - **Cache & queue**: Redis 7 — on the VM
-- **ORM**: Prisma 6
-- **Validation**: Zod (shared between web and api via `packages/contracts`)
+- **ORM**: Prisma 7 (through the `@prisma/adapter-pg` driver adapter)
+- **Validation**: Zod 4 (shared between web and api via `packages/contracts`)
 - **Auth**: JWT + refresh-token rotation, MFA TOTP, SSO (SAML/OIDC) via WorkOS
 - **AI**: provider-pluggable; Gemini default (free tier), Claude/OpenAI/Ollama BYO
 - **Real-time**: SSE
 - **Observability**: Pino + OpenTelemetry + Sentry
-- **Testing**: Vitest + Playwright + Testcontainers
+- **Testing**: Vitest 4 + Playwright + Testcontainers; Storybook 10 for `packages/ui`
 - **CI**: GitHub Actions
 
 ## Repository structure (post P0)
@@ -31,8 +34,8 @@ A production-grade multi-tenant SaaS for KPI definition, tracking, analytics, an
 ```
 kpi-nexus-final/
 ├── apps/
-│   ├── web/         Next.js 15 — UI only, no DB
-│   ├── api/         NestJS 11 — HTTP + business logic; also builds the queue
+│   ├── web/         Next.js 16 — UI only, no DB
+│   ├── api/         NestJS 12 — HTTP + business logic; also builds the queue
 │   │                worker (dist/worker.js: BullMQ processors, no HTTP)
 │   └── ml/          Python FastAPI — stateless math service
 ├── packages/
@@ -67,7 +70,7 @@ kpi-nexus-final/
 
 | Tool | Version | Why |
 |---|---|---|
-| Node.js | 20 LTS (or 22) | Runtime for pnpm + apps |
+| Node.js | 22 LTS (22.12+; NestJS 12 needs it) | Runtime for pnpm + apps (`.nvmrc`, Docker and CI all use 22) |
 | pnpm | 9.x | Workspace package manager (`npm install -g pnpm@9`) |
 | Python | 3.14 | ML sidecar (apps/ml) |
 | Docker Desktop | 24+ | Postgres, Redis, SeaweedFS (S3), Mailhog, Jaeger via compose |

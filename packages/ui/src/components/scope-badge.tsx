@@ -14,23 +14,28 @@ const labels: Record<KpiScope, string> = {
   PER_USER: 'Per user',
 };
 
+/** The words for a KPI scope: "Organisation-wide", "Per unit", "Per user". */
+export function scopeLabel(scope: KpiScope): string {
+  return labels[scope] ?? scope;
+}
+
 export interface ScopeBadgeProps {
   scope: KpiScope;
   className?: string;
 }
 
-/** Mono pill conveying a KPI's scope with a distinct tint per scope. */
+/** Pill conveying a KPI's scope in words, with a distinct tint per scope. */
 export function ScopeBadge({ scope, className }: ScopeBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-mono',
+        'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
         map[scope] ?? map.ORG_WIDE,
         className,
       )}
-      aria-label={`Scope: ${labels[scope] ?? scope}`}
+      data-scope={scope}
     >
-      {scope}
+      {scopeLabel(scope)}
     </span>
   );
 }

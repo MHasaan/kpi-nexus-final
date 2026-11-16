@@ -19,6 +19,33 @@
         "source .cache/activate.sh && pnpm --filter @kpi-nexus/ui storybook --ci"
       ],
       "port": 6006
+    },
+    {
+      "name": "uiwalk-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "source .cache/activate.sh && source .cache/uiwalk/env.sh && pnpm --filter @kpi-nexus/api start"
+      ],
+      "port": 4000
+    },
+    {
+      "name": "uiwalk-ml",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "source .cache/activate.sh && source .cache/uiwalk/env.sh && OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .cache/uiwalk/mlvenv/bin/python -m uvicorn app.main:app --app-dir apps/ml --host 127.0.0.1 --port 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "uiwalk-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "source .cache/activate.sh && source .cache/uiwalk/env.sh && NODE_ENV=production pnpm --filter @kpi-nexus/web start"
+      ],
+      "port": 3000
     }
   ]
 }

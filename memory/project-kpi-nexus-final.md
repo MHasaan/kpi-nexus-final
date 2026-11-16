@@ -21,7 +21,7 @@ As of 2026-11-16: **all ten phases (P0–P9) are built and tagged `v1.0.0`**; th
 3. **Stack**: pnpm + Turborepo · Next.js 15 App Router · NestJS 11 (Fastify) · Prisma 6 · Postgres 16 + TimescaleDB + pgvector · Redis 7 · BullMQ · Python FastAPI ML sidecar · Zod · Pino + OTel + Sentry
 4. **Deployment**: Docker locally for dev; Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod. *Replaced 2026-11-11 by ADR-001 (`docs/adrs/ADR-001-free-tier-hosting.md`): Vercel Hobby + one Oracle Cloud Always Free ARM VM with Docker Compose; must never be able to charge (student FYP).*
 5. **AI**: Gemini default (free tier with key rotation, ports current app's 8-key pattern) + multi-provider abstraction (Claude/OpenAI/Ollama pluggable per-org-per-feature) from day one. Default budget caps: $1/day, $30/month per org. Circuit breaker FAIL_CLOSED or FALLBACK.
-6. **Scope**: maximum — ~77 NestJS modules across 10 domains, ~70 Prisma models, 18 canonical permissions, ~18 BullMQ queues, 5 ML endpoints, 11 AI features
+6. **Scope**: maximum — ~77 NestJS modules across 10 domains, ~70 Prisma models, 18 canonical permissions (25 since the 2026-06-01 capability refinement), ~18 BullMQ queues, 5 ML endpoints, 11 AI features
 7. **Multi-tenancy**: 3-layer defense — AsyncLocalStorage context + Prisma filter + Postgres RLS
 8. **KPI scope model** (ORG_WIDE/PER_UNIT/PER_USER) as first-class concept with cross-user isolation invariants enforced by tests. Critical: the current app had a bug where user A could see user B's PER_USER values — this must not recur in the rebuild.
 9. **Permissions** threaded through backend AND frontend at every layer — never trust the client

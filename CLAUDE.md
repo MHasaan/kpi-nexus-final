@@ -13,7 +13,7 @@ Work is broken into **10 phases (P0–P9)**, each with its own detailed plan in 
 | Phase | Location | What it builds |
 |---|---|---|
 | P0 | `docs/superpowers/plans/P0-foundation.md` | Repo scaffold + CI + docker-compose + empty apps |
-| P1 | `docs/superpowers/plans/P1-identity-tenancy-rbac.md` | Auth + tenancy + 18-permission RBAC + basic onboarding stub |
+| P1 | `docs/superpowers/plans/P1-identity-tenancy-rbac.md` | Auth + tenancy + 18-permission RBAC (25 since 2026-06-01) + basic onboarding stub |
 | P2 | `docs/superpowers/plans/P2-kpi-engine.md` | KPI defs + formulas + cascades + targets + thresholds + TimescaleDB hypertable |
 | P3 | `docs/superpowers/plans/P3-visualization.md` | Dashboards + widgets + SSE real-time + scheduled reports + public share + embeds |
 | P4 | `docs/superpowers/plans/P4-alerting.md` | Alert rules + escalation + multi-channel notifications + dedup + digest + DLQ |
@@ -44,7 +44,7 @@ These are locked in `docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md
 1. Tech stack: NestJS + Next.js + Prisma + Postgres + TimescaleDB + pgvector + Redis + BullMQ + Python FastAPI ML
 2. AI: Gemini default + multi-provider abstraction (Claude/OpenAI/Ollama)
 3. Multi-tenancy: 3-layer defense (ALS context + Prisma filter + Postgres RLS)
-4. 18 canonical permissions (locked enum)
+4. 25 canonical permissions (locked enum): the 18 core keys of spec §5.2 plus 7 refined keys (`KPI_IMPORT`, `REPORTS_MANAGE`, `ANALYTICS_FORECAST`, `EXPORTS`, `AUDIT_VIEW`, `INTEGRATIONS_MANAGE`, `BILLING_MANAGE`) added 2026-06-01 with user signoff by the capability-refinement decision in [granular-access spec §5](./docs/superpowers/specs/2026-06-01-granular-access-control-design.md). That decision is titled "ADR-001" there and in code comments; it is not `docs/adrs/ADR-001` (hosting)
 5. KPI scope is first-class: ORG_WIDE / PER_UNIT / PER_USER
 6. Default AI budget: $1/day, $30/month per org
 7. Deployment: Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM (api/worker/ml/postgres/redis via Docker Compose). Replaced Fly.io + Upstash by [ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md)
@@ -139,7 +139,7 @@ P1 + P2 exit criteria include explicit tests for these invariants (12-case unit 
 
 Permissions must be checked at every layer (endpoint, service, UI element). See spec §5 for the full model. In short:
 
-- 18 canonical permissions (locked enum in `packages/contracts/src/permissions.ts`)
+- 25 canonical permissions (locked enum in `packages/contracts/src/permissions.ts`: 18 core + 7 refined, see decision 4 above). Count from `ALL_PERMISSIONS` / `PERMISSION_COUNT`; never hard-code the number
 - Resolver order: `isAdmin` → `ResourcePermission` → role direct → role inherited → delegation → owner-override
 - Backend: every endpoint gated by `@RequirePermissions(...)`; every list endpoint applies visibility filter
 - Frontend: every route by `<RequirePermission>` or `<RequireAnyPermission>`; every action button by `<PermissionGuard>`; sidebar nav filtered

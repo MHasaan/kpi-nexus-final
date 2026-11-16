@@ -78,7 +78,7 @@ export interface NavItem {
   icon: IconType;
   /**
    * Canonical permission key required to see this entry. Omitted entries are
-   * visible to everyone (admin holds all 18 keys, so they always see all).
+   * visible to everyone (admin holds every key, so they always see all).
    */
   permission?: string;
   /**
@@ -96,7 +96,7 @@ export interface NavGroup {
 
 /**
  * The single source of truth for the primary application navigation, grouped
- * into the design's four sections. The keys here are the 18 canonical
+ * into the design's four sections. The keys here are the canonical
  * permissions (see `packages/contracts/src/permissions.ts`). Use these EXACT
  * keys — never invent new ones.
  *

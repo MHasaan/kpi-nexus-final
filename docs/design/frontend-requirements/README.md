@@ -125,7 +125,7 @@ Today most pages render their own minimal header (`<Link>KPI Nexus</Link>` + pag
 
 - `<RequirePermission permission="X">` hard-guards a route (redirect to an unauthorized state); `<RequireAnyPermission>` for or-guards.
 - `<PermissionGuard permission="X" fallback={null}>` soft-hides an action; disabled controls show a tooltip explaining the missing permission.
-- **Sidebar items and action buttons are permission-filtered.** The frontend never trusts itself; the backend re-checks. The 18 canonical permissions: `KPI_VIEW/CREATE/EDIT/DELETE/DATA_ENTRY`, `DASHBOARD_VIEW/MANAGE`, `USERS_VIEW/MANAGE`, `ROLES_MANAGE`, `POSITIONS_MANAGE`, `GROUPS_VIEW/MANAGE`, `ALERTS_VIEW`, `REPORTS_VIEW`, `ANALYTICS_VIEW`, `INSIGHTS_VIEW`, `ORG_SETTINGS`.
+- **Sidebar items and action buttons are permission-filtered.** The frontend never trusts itself; the backend re-checks. The 25 canonical permissions: `KPI_VIEW/CREATE/EDIT/DELETE/DATA_ENTRY/IMPORT`, `DASHBOARD_VIEW/MANAGE`, `USERS_VIEW/MANAGE`, `ROLES_MANAGE`, `POSITIONS_MANAGE`, `GROUPS_VIEW/MANAGE`, `ALERTS_VIEW`, `REPORTS_VIEW/MANAGE`, `ANALYTICS_VIEW/FORECAST`, `INSIGHTS_VIEW`, `EXPORTS`, `AUDIT_VIEW`, `INTEGRATIONS_MANAGE`, `BILLING_MANAGE`, `ORG_SETTINGS` (source of truth: `packages/contracts/src/permissions.ts`).
 - **List visibility mirrors the backend**: pages render only what the API returned (no client-side filtering of data the user shouldn't have received).
 
 ### PER_USER KPI patterns (FE contract — spec §12.9)

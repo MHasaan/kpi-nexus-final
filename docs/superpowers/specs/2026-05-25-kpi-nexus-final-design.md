@@ -515,6 +515,8 @@ TRIAL ──► ACTIVE ──► SUSPENDED ──► ARCHIVED ──► PURGED (
 
 ### 5.2 Permissions: 18 canonical permissions
 
+> *Amended 2026-06-01:* the enum now has **25** keys. The 18 below are the core; the capability refinement in [the granular-access spec §5](./2026-06-01-granular-access-control-design.md) added `KPI_IMPORT`, `REPORTS_MANAGE`, `ANALYTICS_FORECAST`, `EXPORTS`, `AUDIT_VIEW`, `INTEGRATIONS_MANAGE` and `BILLING_MANAGE`. `packages/contracts/src/permissions.ts` is the source of truth.
+
 Locked enum:
 
 | Category | Permissions |
@@ -1197,7 +1199,7 @@ Future "Claude Design" session produces:
 4. **Deployment**: Docker locally for dev + Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod. *Amended 2026-11-11 by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md): Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM running api, worker, ml, Postgres, Redis and Caddy with Docker Compose; Oracle Object Storage, Brevo SMTP, DuckDNS, GHCR.*
 5. **Stack**: NestJS 11 (Fastify) API + Next.js 15 (App Router) web + Python FastAPI ML sidecar + Postgres 16 + TimescaleDB (self-hosted) + pgvector + Redis + Prisma 6 + Zod + Pino + OTel + Sentry
 6. **Scope**: maximum — all current-app features + high-value additions + enterprise features (~30 module surfaces)
-7. **Permissions**: 18 canonical (locked)
+7. **Permissions**: 18 canonical (locked). *Amended 2026-06-01 by the capability refinement in [the granular-access spec §5](./2026-06-01-granular-access-control-design.md) (titled "ADR-001" there; unrelated to `docs/adrs/ADR-001`): 7 refined keys added, 25 in all.*
 8. **Tenancy enforcement**: 3 layers (AsyncLocalStorage context + Prisma filter + Postgres RLS)
 9. **KPI scope model**: ORG_WIDE / PER_UNIT / PER_USER as first-class concept; data isolation invariants enforced by tests
 10. **AI budget defaults**: $1/day, $30/month per org; circuit breaker FAIL_CLOSED or FALLBACK per org

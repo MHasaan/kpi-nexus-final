@@ -8,6 +8,10 @@
  */
 import { expect, test } from '@playwright/test';
 
+// PERMISSION_COUNT in @kpi-nexus/contracts (Playwright loads specs as CommonJS
+// and contracts is ESM-only, so it can't be imported here).
+const PERMISSION_COUNT = 25;
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiUp(): Promise<boolean> {
@@ -90,6 +94,26 @@ test.describe('E5: contextual help drawer', () => {
     await page.getByTestId('help-drawer-close').click();
     // After close the "?" button is still visible.
     await expect(trigger).toBeVisible();
+  });
+
+  test('/roles help states the real permission count (DOC-004)', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    await page.goto('/register');
+    await page.getByLabel('Organization name').fill(`e2e-help-roles-${stamp}`);
+    await page.getByLabel('Your full name').fill('Roles Help Admin');
+    await page.getByLabel('Your email').fill(`${stamp}@help-roles.test.local`);
+    await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
+    await page.getByRole('button', { name: /create organization/i }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    await page.goto('/roles');
+    await page.getByTestId('help-drawer-trigger').click();
+    await expect(page.getByTestId('help-drawer-title')).toHaveText('Roles & permissions tips');
+    await expect(page.getByTestId('help-drawer-tips')).toContainText(
+      `Roles bundle the ${PERMISSION_COUNT} permissions`,
+    );
   });
 
   test('pulse class is absent after the drawer has been opened once', async ({

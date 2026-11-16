@@ -160,7 +160,7 @@ pnpm docker:ps      # show container status
 
 All ten phases (P0–P9) are implemented and tagged (`p0-complete` … `p9-complete`, `v1.0.0`); see [ROADMAP](./ROADMAP.md).
 
-The October 2026 full audit is fixed and merged into `main`, and so is every item from the "Not built" list (#94–#114: onboarding co-pilot, NLQ tool loop, data corrections / saved views / watches / snapshots, OpenAPI + SDK, Teams cards, Slack `/kpi`, the shared UI library with Storybook, `allowNegative` enforcement). The fix log in [docs/audit/README.md](./docs/audit/README.md) is the source of truth for what was broken and how it was fixed. What is left is the owner's: the Windows launcher run (OT-017) and going live ([docs/deploy.md](./docs/deploy.md)). The phase checklists in `TODOS.md` predate v1.0.0; trust its status banner and its "Not built" section.
+The October 2026 full audit is fixed and merged into `main`, and so is every item from the "Not built" list (#94–#114: onboarding co-pilot, NLQ tool loop, data corrections / saved views / watches / snapshots, OpenAPI + SDK, Teams cards, Slack `/kpi`, the shared UI library with Storybook, `allowNegative` enforcement). The fix log in [docs/audit/README.md](./docs/audit/README.md) is the source of truth for what was broken and how it was fixed. What is left is the owner's: the Windows launcher run (OT-017) and going live ([docs/deploy.md](./docs/deploy.md)). That covers the audit and the "Not built" list. Some original phase-plan items were built only in part, never built, never measured, or deferred (for example a GDPR data export, Slack / Jira OAuth, the p95 benchmarks and the axe / Lighthouse gates); `TODOS.md` marks each phase box with its evidence or the reason it is open.
 
 ## Context
 

@@ -190,7 +190,7 @@ The full table, with commit and regression test for every finding, is **`docs/au
 
 ## 5. What is left — exact current state
 
-Only the owner's steps are left: the Windows launcher cold run (OT-017) and go-live (§6, step 0). Every code item in `TODOS.md`'s "Not built" section is done (§4). The AWS KMS item is "won't do" while hosting must stay free.
+Only the owner's steps are left: the Windows launcher cold run (OT-017) and go-live (§6, step 0). Beyond the audit, some original phase-plan items were built only in part, never built or never measured (e.g. GDPR data export, Slack / Jira OAuth, p95 benchmarks, axe / Lighthouse gates). Each unticked box in `TODOS.md` says which (DOC-007); none is scheduled. Every code item in `TODOS.md`'s "Not built" section is done (§4). The AWS KMS item is "won't do" while hosting must stay free.
 
 
 Linux startup was verified on Ubuntu 26.04 using application commit `9684888`, Node 22.23.4, pnpm 9.15.0, and Python 3.12.15. A disposable Compose project provided fresh volumes and separate ports. The API booted with RLS enabled, and the web, worker, and ML services started. The fresh database regression, two scheduled report tests, worker echo job, 49 ML tests, and eight browser tests passed. AI calls used the mock fixture.

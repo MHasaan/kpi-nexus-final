@@ -1,4 +1,4 @@
-# Session handoff — resume here (updated 2026-11-11)
+# Session handoff — resume here (updated 2026-11-16)
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
@@ -172,10 +172,12 @@ The full table, with commit and regression test for every finding, is **`docs/au
   - Contracts drift (OT-002), silent integration passes (OT-006), and stale E2E specs (FE-011) are fixed.
   - The CI workflow was rewritten; fresh-install gaps were subsequently fixed and verified on GitHub (OT-007, see §5).
 - **UX and docs:** FE-003/004/007/008/015/016/017, BE-005/006/012/020/022/023/024, and OT-004/005/012/015.
-- **Local suite counts at the last full run, with RLS enforced:**
-  - API unit: 1634
-  - API integration: 133
-  - Web E2E: 167
+- **"Not built" items, all built (2026-11-13 → 11-16, #94–#114):** onboarding co-pilot rail and draft offline / resume (FE-020/021); NLQ tool loop (BE-033); per-user analytics point scope and the `forecast_kpi` tool (BE-034/035); data corrections with history (BE-037), saved views (FE-022), KPI watches (BE-038), snapshots (BE-039); OpenAPI document + `packages/sdk` (BE-040); Teams Adaptive Cards (BE-041); Slack `/kpi` with account linking (BE-042); the shared UI library in `packages/ui` with Storybook (FE-023); `KPI.allowNegative` enforced (BE-043). Privacy leaks found and fixed on the way: NLQ trend (BE-032, #100), analytics points (BE-034, #102), the realtime stream (BE-036, #104), personal watch notices (#107).
+- **Suite counts at the last full run (2026-11-16), with RLS enforced:**
+  - API unit: 1896
+  - Web unit: 150; `packages/ui`: 33
+  - Web E2E: 177 in hosted CI
+  - API integration: green in hosted CI
   - ML pytest: all green
   - Typecheck and lint: clean
 - **Cleanup:**
@@ -186,6 +188,8 @@ The full table, with commit and regression test for every finding, is **`docs/au
 ---
 
 ## 5. What is left — exact current state
+
+Only the owner's steps are left: the Windows launcher cold run (OT-017) and go-live (§6, step 0). Every code item in `TODOS.md`'s "Not built" section is done (§4). The AWS KMS item is "won't do" while hosting must stay free.
 
 
 Linux startup was verified on Ubuntu 26.04 using application commit `9684888`, Node 22.23.4, pnpm 9.15.0, and Python 3.12.15. A disposable Compose project provided fresh volumes and separate ports. The API booted with RLS enabled, and the web, worker, and ML services started. The fresh database regression, two scheduled report tests, worker echo job, 49 ML tests, and eight browser tests passed. AI calls used the mock fixture.
@@ -239,7 +243,7 @@ The review integrated original #3/#10/#7 and handled checkout #5 with replacemen
 
 ## 6. Next steps (in order)
 
-Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51), the deploy config (#52, #53) and free-tier hosting (#55–#60, ADR-001). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
+Main `8ba3770` (2026-11-16) adds every "Not built" item (#94–#114, §4). Before that, main `8f9b0cc` had the audit closure (#35), the 2026-11-11 fixes (#45–#48), the separate worker (#50, #51), the deploy config (#52, #53) and free-tier hosting (#55–#60, ADR-001). Take the remaining work one item at a time, each with its own plan, an isolated trial, exact-head CI/Security, a merge commit, resulting-main checks and a recorded rollback. Test on disposable infrastructure only; never touch the development database.
 
 0. **Go live (the owner's step; needs accounts).** Follow [docs/deploy.md](docs/deploy.md): Oracle Free Tier VM (never upgraded), DuckDNS, Brevo, Object Storage, the four GitHub secrets, first deploy (make the three GHCR packages public), Vercel, then its *Check it* list including a backup restore drill. The config is done and rehearsed ([ADR-001](docs/adrs/ADR-001-free-tier-hosting.md), #55–#60); nothing has run on a real VM yet.
 1. **"Latest value" = newest period (AN-002) — done.** Every read of a KPI's latest or recent values orders by `periodStart`, entry time breaking ties (OT-005, AN-001, AN-002 parts 1–4). The NO_DATA alert stays on entry time on purpose: it measures how recently data was reported. History-window limits still filter on `recordedAt` (an access rule).
@@ -248,7 +252,7 @@ Main `8f9b0cc` has the audit closure (#35), the 2026-11-11 fixes (#45–#48), th
 4. **Real-provider AI check — done.** Insights, recommendations, NLQ, KPI suggestions and onboarding generate work on real Gemini; the assistant's cut-off replies are fixed (AI-001). AI-generated roles now use only the canonical permission keys (AI-002). Gemini calls now time out after 60 s and fall back (AI-003).
 5. **Windows launcher (OT-017).** `start.ps1` now creates missing `.env` files from the templates (OT-017 part 1). Still needs a cold run of `setupScripts/start.cmd` on Windows; watch whether `db:setup`'s 10 s Postgres probe is long enough on a first start.
 
-Deferred dependency majors (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Node types, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3/NumPy 2, Python 3.14, gitleaks-action 3) stay open until their own migration rounds. Keep the `docs/audit/README.md` fix log and this file current as items close.
+The dependency majors once deferred here have since landed (Zod 4, ESLint 10, TypeScript 6, Vitest 4, Next 16, Prisma 7, NestJS 12, OpenTelemetry, pandas 3 / NumPy 2, Python 3.14, gitleaks-action 3); `@types/node` stays on 22 to match the Node 22 runtime. Dependabot PRs are never closed or deleted. Keep the `docs/audit/README.md` fix log and this file current as items close.
 
 ---
 

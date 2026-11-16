@@ -81,6 +81,7 @@ Once code starts landing (during P0+), conventions to follow:
 - Data fetching via Server Actions OR API route proxies — never direct fetch to api from client component (loses cookie context)
 - Forms use react-hook-form + Zod resolver pulling schema from `packages/contracts`
 - Permission gating via `<PermissionGuard>` + `<RequirePermission>` components — never check `user.permissions.includes(...)` ad-hoc
+- Design-system primitives live in `packages/ui/src/components/` (import from `@/components/ui` or `@kpi-nexus/ui`); a new exported component needs a Storybook story or `stories.spec.tsx` fails
 
 ### Prisma (`packages/db/`)
 

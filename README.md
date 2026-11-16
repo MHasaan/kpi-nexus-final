@@ -42,11 +42,15 @@ kpi-nexus-final/
 │   ├── formula/     Unused placeholder — the formula engine is
 │   │                apps/api/src/formula (hand-written parser + AST
 │   │                evaluator; no eval/Function)
-│   ├── ui/          Design tokens + theme + primitive utilities
+│   ├── ui/          Design tokens, Tailwind preset, cn() and the UI
+│   │                components, with Storybook (see packages/ui/README.md)
+│   ├── sdk/         TypeScript client generated from apps/api/openapi.json
 │   └── config/      Shared tsconfig / eslint / vitest / tailwind
 ├── infra/
 │   ├── docker/      docker-compose for local dev
-│   ├── fly/         (empty — deploy config not written yet, audit OT-011)
+│   ├── prod/        Production compose, Caddy, deploy/backup scripts (Oracle
+│   │                Always Free VM — ADR-001, docs/deploy.md)
+│   ├── fly/         (empty — Fly.io replaced by ADR-001)
 │   └── github/      (empty — CI lives in .github/workflows)
 ├── docs/
 │   ├── superpowers/specs/   Design specs
@@ -153,7 +157,7 @@ pnpm docker:ps      # show container status
 
 All ten phases (P0–P9) are implemented and tagged (`p0-complete` … `p9-complete`, `v1.0.0`); see [ROADMAP](./ROADMAP.md).
 
-A full audit (October 2026) is being worked through on branch `fix/full-audit`. Its findings, their status and the fix log are in [docs/audit/README.md](./docs/audit/README.md) — that is the current source of truth for what is broken or open. `TODOS.md` checkboxes predate v1.0.0 and are stale; trust its status banner instead.
+The October 2026 full audit is fixed and merged into `main`, and so is every item from the "Not built" list (#94–#114: onboarding co-pilot, NLQ tool loop, data corrections / saved views / watches / snapshots, OpenAPI + SDK, Teams cards, Slack `/kpi`, the shared UI library with Storybook, `allowNegative` enforcement). The fix log in [docs/audit/README.md](./docs/audit/README.md) is the source of truth for what was broken and how it was fixed. What is left is the owner's: the Windows launcher run (OT-017) and going live ([docs/deploy.md](./docs/deploy.md)). The phase checklists in `TODOS.md` predate v1.0.0; trust its status banner and its "Not built" section.
 
 ## Context
 

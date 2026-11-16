@@ -2,7 +2,7 @@
 
 **KPI Nexus Final is built: all ten phases (P0–P9) are implemented and tagged `v1.0.0`.** The October 2026 full audit is fixed and merged; work continues on `main`.
 
-> **Resuming? Read [`HANDOFF.md`](./HANDOFF.md) first** — new-computer setup, exact state, what's left (CI is red on GitHub — top priority), and the ordered next steps.
+> **Resuming? Read [`HANDOFF.md`](./HANDOFF.md) first** — new-computer setup, exact state, what's left (only the owner's steps: the Windows launcher run and go-live), and the ordered next steps.
 
 ## In 30 seconds
 

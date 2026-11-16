@@ -8,6 +8,8 @@
  */
 import { expect, test } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 // PERMISSION_COUNT in @kpi-nexus/contracts (Playwright loads specs as CommonJS
 // and contracts is ESM-only, so it can't be imported here).
 const PERMISSION_COUNT = 25;
@@ -52,20 +54,13 @@ test.describe('E5: contextual help drawer', () => {
     const adminPassword = 'correct-horse-battery-staple';
 
     // Register a fresh org via the FE form so we arrive on /dashboard.
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await page.getByLabel('Your full name').fill('Help Admin');
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) =>
-        r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    expect((await registerResp).status()).toBe(201);
-
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: orgName,
+      adminFullName: 'Help Admin',
+      adminEmail: adminEmail,
+      adminPassword: adminPassword,
+    });
 
     // The floating "?" button should be visible.
     const trigger = page.getByTestId('help-drawer-trigger');
@@ -100,13 +95,13 @@ test.describe('E5: contextual help drawer', () => {
     test.skip(!apiAvailable, 'api not reachable');
 
     const stamp = suffix();
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(`e2e-help-roles-${stamp}`);
-    await page.getByLabel('Your full name').fill('Roles Help Admin');
-    await page.getByLabel('Your email').fill(`${stamp}@help-roles.test.local`);
-    await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
-    await page.getByRole('button', { name: /create organization/i }).click();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: `e2e-help-roles-${stamp}`,
+      slug: `e2e-help-roles-${stamp}`,
+      adminFullName: 'Roles Help Admin',
+      adminEmail: `${stamp}@help-roles.test.local`,
+      adminPassword: 'correct-horse-battery-staple',
+    });
 
     await page.goto('/roles');
     await page.getByTestId('help-drawer-trigger').click();
@@ -127,19 +122,13 @@ test.describe('E5: contextual help drawer', () => {
     const adminPassword = 'correct-horse-battery-staple';
 
     // Register + land on /dashboard.
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await page.getByLabel('Your full name').fill('Pulse Admin');
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) =>
-        r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    await registerResp;
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: orgName,
+      adminFullName: 'Pulse Admin',
+      adminEmail: adminEmail,
+      adminPassword: adminPassword,
+    });
 
     const trigger = page.getByTestId('help-drawer-trigger');
     await expect(trigger).toBeVisible();
@@ -171,19 +160,13 @@ test.describe('E5: contextual help drawer', () => {
     const adminEmail = `${stamp}@help-esc.test.local`;
     const adminPassword = 'correct-horse-battery-staple';
 
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await page.getByLabel('Your full name').fill('Esc Admin');
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) =>
-        r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    await registerResp;
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: orgName,
+      adminFullName: 'Esc Admin',
+      adminEmail: adminEmail,
+      adminPassword: adminPassword,
+    });
 
     // Open then close via Esc.
     await page.getByTestId('help-drawer-trigger').click();

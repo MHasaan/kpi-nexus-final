@@ -1,3 +1,7 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -10,14 +14,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const PROCESSORS = [
   'AlertEngineProcessor',
   'CalculationEngineProcessor',
+  'ConnectorRunProcessor',
   'EscalationProcessor',
   'InsightsProcessor',
+  'KpiWatchProcessor',
   'NotificationDigestProcessor',
   'NotificationRetryProcessor',
   'OnboardingCleanupProcessor',
   'OutboundWebhookProcessor',
   'ReembedProcessor',
   'ScheduledReportProcessor',
+  'SlackCommandProcessor',
 ].sort();
 
 type ModuleRef = { name?: string; module?: ModuleRef; providers?: unknown[]; imports?: unknown[]; forwardRef?: () => ModuleRef };
@@ -49,6 +56,18 @@ function providerNames(root: ModuleRef): Set<string> {
   return names;
 }
 
+/** Every `export class X extends WorkerHost` under src/, read from the source files. */
+function processorClassesInSource(): string[] {
+  const srcDir = fileURLToPath(new URL('.', import.meta.url));
+  const names: string[] = [];
+  for (const file of readdirSync(srcDir, { recursive: true }) as string[]) {
+    if (!file.endsWith('.ts') || file.endsWith('.spec.ts')) continue;
+    const text = readFileSync(join(srcDir, file), 'utf8');
+    for (const m of text.matchAll(/export class (\w+) extends WorkerHost\b/g)) names.push(m[1]!);
+  }
+  return names.sort();
+}
+
 const processorsIn = (root: ModuleRef): string[] =>
   [...providerNames(root)].filter((n) => PROCESSORS.includes(n)).sort();
 
@@ -64,6 +83,10 @@ afterEach(() => {
 
 // Loading the whole API module graph takes a few seconds on a busy machine.
 describe('queue processor placement', { timeout: 30_000 }, () => {
+  it('checks every processor in the source, so a new one cannot be left out of the worker', () => {
+    expect(PROCESSORS).toEqual(processorClassesInSource());
+  });
+
   it('runs every processor inside the API by default', async () => {
     const { AppModule } = await load<{ AppModule: ModuleRef }>('./app.module.js', {});
     expect(processorsIn(AppModule)).toEqual(PROCESSORS);

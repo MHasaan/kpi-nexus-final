@@ -34,7 +34,7 @@ This file lets a new Claude Code session, on any computer, carry on exactly wher
 | Monorepo | pnpm 9.15 + Turborepo |
 | `apps/web` | Next.js 16 + React 19 (App Router) |
 | `apps/api` | NestJS 12 on Fastify 5, Prisma 7 (`@prisma/adapter-pg`), Zod 4, TypeScript 6 |
-| Queue worker | Built from `apps/api` as `dist/worker.js`: the 10 BullMQ processors, no HTTP. The API runs them itself unless `RUN_QUEUE_WORKERS=false`; production runs the worker as its own process (OT-003). |
+| Queue worker | Built from `apps/api` as `dist/worker.js`: the 13 BullMQ processors, no HTTP. The API runs them itself unless `RUN_QUEUE_WORKERS=false`; production runs the worker as its own process (OT-003). |
 | `apps/ml` | FastAPI on Python 3.14, venv via `uv` |
 | packages | `ai`, `contracts`, `db` (Prisma schema, seed, SQL), `formula` (empty stub), `ui`, `config` |
 | Infra (`infra/docker/docker-compose.yml`) | Postgres 16 + TimescaleDB (`timescaledb-ha`), Redis 7, MailHog, Jaeger, SeaweedFS (S3 on :9000; replaced MinIO) |
@@ -49,6 +49,7 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
 
 1. **Prerequisites:** Docker Desktop, Node 22, pnpm 9.15 (`corepack enable`), `uv` (https://docs.astral.sh/uv/), git, gh.
 2. **Clone:** `git clone https://github.com/MHasaan/kpi-nexus-final.git`, then `git checkout main`.
+   - **Updating an older checkout instead?** `apps/worker` was removed in #51, but git leaves its ignored files behind (`dist`, `node_modules`, `.env`, `tsconfig.tsbuildinfo`). Nothing uses them; remove the folder with `git clean -fdX apps/worker`.
 3. **Env files:** create each one from its template.
    - `.env` ← `.env.example`
    - `apps/api/.env` ← `apps/api/.env.example`

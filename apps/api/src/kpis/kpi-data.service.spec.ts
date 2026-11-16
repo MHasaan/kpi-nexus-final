@@ -97,3 +97,29 @@ describe('KpiDataService outlier priors', () => {
     expect(call.take).toBe(30);
   });
 });
+
+describe('KpiDataService read window (UI-002)', () => {
+  it('dashboardSummary keeps periods that overlap the window, including the current one', async () => {
+    const from = new Date('2026-10-17T00:00:00Z');
+    const to = new Date('2026-11-16T23:59:59.999Z');
+    await makeSvc().dashboardSummary({ from, to });
+    const { where } = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as {
+      where: { periodStart?: { gte?: Date; lte?: Date }; periodEnd?: { gte?: Date; lte?: Date } };
+    };
+    // The period only has to START before the window ends and END after it begins.
+    expect(where.periodStart).toEqual({ lte: to });
+    expect(where.periodEnd).toEqual({ gte: from });
+    // Nothing requires the period to finish inside the window any more.
+    expect(where.periodEnd?.lte).toBeUndefined();
+  });
+
+  it('historyWindowDays still bounds how far back a principal may aggregate', async () => {
+    mockAccessContext.dataLimits.mockResolvedValue({ historyWindowDays: 30, maxListRows: null, maxExportRows: null });
+    await makeSvc().dashboardSummary({ from: new Date('2000-01-01T00:00:00Z') });
+    const { where } = mockPrisma.kPIDataPoint.findMany.mock.calls[0]![0] as {
+      where: { periodStart?: { gte?: Date } };
+    };
+    const floor = where.periodStart!.gte!;
+    expect(Math.abs(floor.getTime() - (Date.now() - 30 * 86_400_000))).toBeLessThan(5_000);
+  });
+});

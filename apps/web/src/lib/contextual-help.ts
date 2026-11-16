@@ -3,6 +3,8 @@
  * floating help drawer. Keep tips under ~100 chars each; 2-4 per route.
  */
 
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+
 export interface HelpEntry {
   title: string;
   tips: string[];
@@ -58,7 +60,7 @@ const CONTEXTUAL_HELP: Record<string, HelpEntry> = {
   '/roles': {
     title: 'Roles & permissions tips',
     tips: [
-      'Roles bundle the 18 canonical permissions — assign one role per user.',
+      `Roles bundle the ${ALL_PERMISSIONS.length} permissions — assign one role per user.`,
       'Use the "Duplicate" button to clone an existing role before editing.',
       'Changes to a role take effect on the user\'s next page load.',
     ],

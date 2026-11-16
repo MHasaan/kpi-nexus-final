@@ -4,6 +4,8 @@
  */
 import { describe, expect, test } from 'vitest';
 
+import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+
 import { helpForPath, HELP_DEFAULT } from './contextual-help';
 
 describe('helpForPath', () => {
@@ -26,6 +28,11 @@ describe('helpForPath', () => {
   test('exact route /roles returns roles entry', () => {
     const entry = helpForPath('/roles');
     expect(entry.title).toBe('Roles & permissions tips');
+  });
+
+  test('/roles tip states the real permission count (DOC-004)', () => {
+    const tips = helpForPath('/roles').tips.join(' ');
+    expect(tips).toContain(`${ALL_PERMISSIONS.length} permissions`);
   });
 
   test('exact route /org-units returns org-units entry', () => {

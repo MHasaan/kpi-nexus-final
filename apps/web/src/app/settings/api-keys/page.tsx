@@ -17,7 +17,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
-// Curated scope choices (subset of the 18 canonical permissions).
+// Curated scope choices (subset of the canonical permissions in @kpi-nexus/contracts).
 const SCOPE_CHOICES = [
   'KPI_VIEW',
   'KPI_DATA_ENTRY',

@@ -37,7 +37,7 @@ API keys, Webhooks, Retention, SSO, SCIM, Audit, …) with a consistent two-colu
 
 ## `/settings/api-keys` — API keys
 
-- **Purpose**: mint/revoke API keys with **permission scopes** (scopes are the 18 PermissionKeys; e.g., a `KPI_DATA_ENTRY`-only key can POST `/ingest` but not create KPIs).
+- **Purpose**: mint/revoke API keys with **permission scopes** (scopes are the 25 PermissionKeys; e.g., a `KPI_DATA_ENTRY`-only key can POST `/ingest` but not create KPIs).
 - **Layout**: heading (`apikeys-heading`); **create** (`apikey-create-form`): name (`apikey-name-input`), scopes (multi-select), submit (`apikey-create-submit`) → **plaintext shown once** (`apikey-plaintext`) with copy + dismiss (`apikey-plaintext-dismiss`); a **table** (`apikeys-table`) — prefix, scopes, last used, revoke.
 - **States**: `apikeys-empty`, `apikeys-error`, `apikey-create-error`.
 - **Design notes**: the "copy now, shown once" pattern must be unmistakable (modal, mono, copy button, warning); scope multi-select grouped like the permission matrix.

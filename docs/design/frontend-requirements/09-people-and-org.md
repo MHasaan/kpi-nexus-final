@@ -1,7 +1,7 @@
 # 09 — People & Org (Users, Roles, Positions, Org Units, Team, My KPIs, Profile)
 
 Identity, RBAC, org structure, and the per-user KPI surfaces. RBAC is the trust backbone —
-the UI must gate precisely (18 canonical permissions; admin bypass).
+the UI must gate precisely (25 canonical permissions; admin bypass).
 
 ---
 
@@ -26,9 +26,9 @@ the UI must gate precisely (18 canonical permissions; admin bypass).
 
 - **Access**: `ROLES_MANAGE` to mutate; `USERS_VIEW` to read.
 - **Purpose**: manage roles, their permission sets, admin flag, hierarchy/inheritance.
-- **Layout**: heading (`roles-heading`); a roles list/table (level, isAdmin, member count, color); a **create role** form (name, description, level, color, isAdmin, **permission matrix** of the 18 permissions); role detail shows direct vs inherited permissions and parent roles. Nav `nav-roles`, `nav-users`, `nav-positions`.
+- **Layout**: heading (`roles-heading`); a roles list/table (level, isAdmin, member count, color); a **create role** form (name, description, level, color, isAdmin, **permission matrix** of the 25 permissions); role detail shows direct vs inherited permissions and parent roles. Nav `nav-roles`, `nav-users`, `nav-positions`.
 - **Data/API**: `/roles` CRUD; permission changes may be **approval-gated** (ROLE_PERMISSIONS workflow → 202). Guardrail: can't delete the last admin role / a role with members.
-- **Design notes**: the **PermissionMatrix** is the key component — 18 permissions grouped (KPIs/Dashboards/Users&RBAC/Org/Alerts/Insights/Admin), with inherited ones shown read-only/derived. Resolver order matters (isAdmin → resource → role → inherited → delegation → owner) — surface "effective permissions".
+- **Design notes**: the **PermissionMatrix** is the key component — 25 permissions grouped (KPIs/Dashboards/Users&RBAC/Org/Alerts/Insights/Admin), with inherited ones shown read-only/derived. Resolver order matters (isAdmin → resource → role → inherited → delegation → owner) — surface "effective permissions".
 
 ## `/positions` — Positions
 

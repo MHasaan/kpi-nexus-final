@@ -4,7 +4,7 @@
  * Verifies that GET /auth/me includes a resolved `permissions` array inside
  * the `user` object. Two cases per spec §5.4:
  *
- *  - Admin principal  → permissions contains every PermissionKey (18 keys)
+ *  - Admin principal  → permissions contains every PermissionKey (ALL_PERMISSIONS)
  *  - Non-admin user   → permissions contains exactly the keys returned by the resolver
  *
  * Prisma and PermissionResolverService are mocked; no NestJS bootstrap needed.
@@ -95,7 +95,7 @@ function makeController(
 // Tests
 // ---------------------------------------------------------------------------
 describe('AuthController.me()', () => {
-  test('admin principal — user.permissions contains all 18 PermissionKeys', async () => {
+  test('admin principal — user.permissions contains every PermissionKey', async () => {
     const controller = makeController({
       isAdmin: true,
       permissions: new Set<PermissionKey>(), // admin bypass; actual set is empty

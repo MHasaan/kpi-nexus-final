@@ -1,8 +1,9 @@
 /**
- * 72-case RBAC truth table — P1 exit criterion (spec §5.3 + §5.7).
+ * 100-case RBAC truth table — P1 exit criterion (spec §5.3 + §5.7).
  *
- * The four default roles seeded by registerOrganization × the 18 canonical
- * PermissionKeys = 72 (role, permission) tuples. For each tuple the test
+ * The four default roles seeded by registerOrganization × the 25 canonical
+ * PermissionKeys (18 core + 7 refined, granular-access spec §5) = 100
+ * (role, permission) tuples. P1 shipped this as 4 × 18 = 72. For each tuple the test
  * asserts the principal's effective access matches the spec, using the same
  * resolution logic the PermissionsGuard relies on:
  *

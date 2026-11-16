@@ -10,7 +10,7 @@ export type { BadgeProps, BadgeTone } from './badge.js';
 export { StatusBadge } from './status-badge.js';
 export type { StatusBadgeProps, KpiStatus } from './status-badge.js';
 
-export { ScopeBadge } from './scope-badge.js';
+export { ScopeBadge, scopeLabel } from './scope-badge.js';
 export type { ScopeBadgeProps, KpiScope } from './scope-badge.js';
 
 export { Delta } from './delta.js';

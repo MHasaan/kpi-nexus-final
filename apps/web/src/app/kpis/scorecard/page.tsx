@@ -10,6 +10,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, StatTile } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { isOnTarget, onTargetTally } from '../../../lib/kpi-health';
 
 const QUADRANTS: Array<{ key: string; label: string }> = [
   { key: 'FINANCIAL', label: 'Financial' },
@@ -17,28 +18,6 @@ const QUADRANTS: Array<{ key: string; label: string }> = [
   { key: 'INTERNAL_PROCESS', label: 'Internal Process' },
   { key: 'LEARNING_GROWTH', label: 'Learning & Growth' },
 ];
-
-/**
- * Whether a row is on target. Mirrors the per-row logic exactly:
- * a row is comparable only when both target and latest values exist,
- * and is on-target when latest >= target. Returns null when not comparable.
- */
-function isOnTarget(r: DashboardSummaryRow): boolean | null {
-  return r.targetValue !== null && r.latestValue !== null ? r.latestValue >= r.targetValue : null;
-}
-
-/** Count comparable rows (have both target + latest) and how many are on target. */
-function onTargetTally(rows: DashboardSummaryRow[]): { onTarget: number; comparable: number } {
-  let onTarget = 0;
-  let comparable = 0;
-  for (const r of rows) {
-    const result = isOnTarget(r);
-    if (result === null) continue;
-    comparable += 1;
-    if (result) onTarget += 1;
-  }
-  return { onTarget, comparable };
-}
 
 export default function ScorecardPage() {
   const router = useRouter();

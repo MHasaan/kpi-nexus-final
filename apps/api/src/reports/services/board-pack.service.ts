@@ -16,6 +16,8 @@ export interface BoardPackMover {
   currentValue: number | null;
   change: number | null;
   changePct: number | null;
+  /** The KPI's direction, so a reader knows whether the move is good news. */
+  direction: string;
 }
 
 export interface BoardPackQuadrantKpi {
@@ -105,6 +107,7 @@ export class BoardPackService {
           currentValue: r.latestValue,
           change,
           changePct: change !== null && prev !== null && prev !== 0 ? (change / Math.abs(prev)) * 100 : null,
+          direction: r.direction,
         };
       })
       // % change is comparable across units (USD vs %); absolute change is not.

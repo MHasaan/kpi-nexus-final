@@ -275,6 +275,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-011 with an approval workflow active, saving a KPI edit navigated to `/kpis/undefined` and adding a target looked as if nothing happened (the 202 `APPROVAL_REQUIRED` body was treated as the saved row) | ✅ fixed | `f8955bc` | `e2e/kpi-approval-pending.spec.ts` (failed before the fix): notice shown on edit and on target add, URL stays valid, nothing applied until approved |
 | OT-020 seven browser specs drove the `/register` form only to get an admin session, coupling them to that page and re-testing sign-up on every run (groundwork for the per-page click-through specs) | ✅ done | `03a6936` | `e2e/helpers/org.ts` `registerOrgViaApi()`; 11 call sites moved in `me-sessions`, `help-drawer`, `settings-flow`, `permission-nav`, `settings-pages`, `status`, `roles-flow`. The form itself stays covered by `auth-flow.spec.ts` (UC-01). 29 tests pass |
 | UI-002 a read window required the whole period inside it, so a monthly KPI vanished from any range shorter than two months and the current period was never in range — the seeded demo dashboard read "No data" on every card at its default 30 days | ✅ fixed | `a7854f1` | `period-window.spec.ts` (9), `kpi-data.service.spec.ts` window cases (2), `test/integration/kpi-dashboard-summary.spec.ts` "a period that straddles the window, and the current unfinished one" — verified failing on the pre-fix build (`pointCount` 0) and passing after |
+| X-08 the scorecard and the board pack assumed higher is better: a lower-is-better KPI comfortably under its target read "Below", and a rise in churn was coloured green as a win | ✅ fixed for the scorecard and board pack (the KPI card colour follows in 1.3) | `0633f2f` | `apps/web/src/lib/kpi-health.spec.ts` (11), `e2e/direction-aware-status.spec.ts` — verified failing on the pre-fix build (churn 3.5 / 4 read "Below") and passing after |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -303,7 +304,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-05 pages that need `GET /users` show "—", "Unassigned", "Unknown user" for contributors | Medium | ⬜ open | 5.3 |
 | X-06 forms: no busy state, blank saved as 0, fields that cannot be cleared, typed ids | Medium | ⬜ open | 7.4 |
 | X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
-| X-08 "higher is better" assumed (scorecard, board pack, KPI card colour) | Medium | ⬜ open | 1.3, 1.4 |
+| X-08 (remainder) the dashboard KPI card still colours its value by `value <= threshold`, ignoring direction | Medium | ⬜ open | 1.3 |
 | X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
 | X-10 hidden duplicate controls and dead files kept for tests | Low | ⬜ open | 7.6 |
 

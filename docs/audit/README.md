@@ -268,6 +268,40 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | DOC-005 the stated stack versions predated the dependency majors (DEP-005..DEP-015): README said Next.js 15 / NestJS 11 / Prisma 6 and Node "20 LTS (or 22)"; HANDOFF said Next 15.5.27, NestJS 11, Prisma 6, Python 3.12 and told a new machine to build the ML venv with `--python 3.12` (the sidecar needs 3.14); HANDOFF §5c still listed the landed majors as pending migration work; root `engines.node` allowed Node 20, which NestJS 12 does not support | ✅ fixed | #117 | Docs + `engines`: README stack (TypeScript 6 / Node 22, Next.js 16 + React 19, NestJS 12 on Fastify 5, Prisma 7 via `@prisma/adapter-pg`, Zod 4, Python 3.14, Vitest 4, Storybook 10) with a note that exact versions live in the manifests, repo tree, prerequisites (Node 22.12+); HANDOFF stack table, ML venv command (3.14), §5c rewritten (every deferred major landed, with its DEP row; the old Dependabot PRs stay open by rule, superseded); spec §2 and Appendix A #5 amendment notes (choices unchanged); project memory; root `engines.node` `>=20.0.0` → `>=22.12.0`. Checked: the versions match the installed packages (`require.resolve` of each), `apps/ml/Dockerfile` (`python:3.14-slim`), `pyproject.toml` (`>=3.14,<3.15`), CI (Node 22, Python 3.14); a grep of the living docs finds no stale major left (phase plans and audit history keep theirs) |
 | DOC-006 the worker was described wrongly, and its test covered only 10 of 13 processors: README called the separate worker "an echo scaffold" (there is no echo queue; it runs every product queue), HANDOFF said "the 10 BullMQ processors" (13 since connector runs, KPI watches and Slack commands, #96/#107/#112), and `worker.module.spec.ts` checked a hard-coded list of 10, so leaving one of the three newer modules out of `WorkerModule` would have passed CI while production (API with `RUN_QUEUE_WORKERS=false`) silently never ran it. An old checkout also kept an ignored `apps/worker` folder (`dist`, `node_modules`, `.env`) after #51 removed the package | ✅ fixed | #118 | `worker.module.spec.ts` "checks every processor in the source" scans `src/` for `export class … extends WorkerHost` and requires the list to match: it failed on `ConnectorRunProcessor`, `KpiWatchProcessor`, `SlackCommandProcessor`; with them added all 5 placement tests pass (API by default, none in the API with `RUN_QUEUE_WORKERS=false`, all 13 in `WorkerModule`), so no processor was actually missing. README background-workers line and HANDOFF stack row corrected; HANDOFF §2 says how to clear an old checkout's leftovers (`git clean -fdX apps/worker`). This machine's leftover folder was moved out (it was all ignored build output and a dev `.env`); `pnpm ls -r` still lists the same 10 workspace packages |
 | DOC-007 after DOC-001/002, 144 TODOS.md phase boxes were still unticked with no reason, so the docs called the checklist "stale" and an unticked box could mean done, deferred, missing or unmeasured | ✅ classified | #119 | Each of the 141 phase boxes checked by hand against the code, specs and the hosted CI log (which specs run, which skip): 84 ticked with the spec, page or file that proves them; 57 left unticked with *partly* / *not built* / *not verified* / *deferred* / *won't do* / *not followed* and what exists. New banner explains the labels and the tally (390 ticked, 60 unticked, each explained). Not built or not measured, now visible: GDPR per-user data export, Slack / Jira OAuth, Jira issue creation from an alert, a multi-channel fan-out test, comments on dashboards / alerts, escalation level reordering, anomaly F1 / forecast MAPE targets, the 1000×365 p95 and alert-latency benchmarks, k6 / axe / Lighthouse / bundle gates, separate onboarding step routes. README, HANDOFF and NEXT-SESSION point at this instead of calling the boxes stale. Docs only |
+| DOC-008 the 2026-11-16 UI walkthrough (84 pages × 4 personas crawled, live walk from signup, a control-by-control code inventory) found that every page loads but many controls do the wrong thing, do nothing or are missing; none of it was written down | ✅ recorded | this PR | [ui-verification-plan-2026-11-16.md](./ui-verification-plan-2026-11-16.md) (findings per page) and [the implementation plan](../superpowers/plans/2026-11-16-ui-completion.md) (ordered work items); open findings listed below |
+
+### UI completion round — open findings (2026-11-16)
+
+Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verification-plan-2026-11-16.md). "Plan" is the work item in [2026-11-16-ui-completion.md](../superpowers/plans/2026-11-16-ui-completion.md). A row moves to the table above, with its PR and regression test, when it is fixed.
+
+| Finding | Severity | Status | Plan |
+|---|---|---|---|
+| UI-001 dashboard widgets show an old value as "latest" and plot newest → oldest | Critical | ⬜ open | 1.2, 1.3 |
+| UI-002 dashboard date range drops any period not wholly inside it (default 30d shows "No data") | Critical | ⬜ open | 1.1 |
+| UI-003 per-unit KPI values cannot be recorded in the web app | Critical | ⬜ open | 2.1, 2.2, 2.7, 2.8 |
+| UI-004 no UI assigns a KPI to a unit or user after creation | Critical | ⬜ open | 2.6, 2.8–2.10 |
+| UI-005 setup wizard is one screen; only the AI co-pilot can add roles, units and KPIs | Critical | ⬜ open | 3.1–3.9 |
+| UI-006 dashboard live refresh does nothing | High | ⬜ open | 4.1 |
+| UI-007 "Create automation" always fails (400); page unlinked | High | ⬜ open | 4.2 |
+| UI-008 approvers are bounced from `/approvals`; a new org cannot create its first workflow | High | ⬜ open | 4.3 |
+| UI-009 std-dev and rate-of-change alert rules never fire | High | ⬜ open | 4.5 |
+| UI-010 a user's manager, role and position cannot be changed after the invite | High | ⬜ open | 2.4, 2.5, 2.11 |
+| UI-011 KPI edit under an approval workflow goes to `/kpis/undefined`; target add looks like nothing happened | High | ⬜ open | 0.5, 4.4 |
+| UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |
+| UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
+| UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
+| UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
+| UI-016 inviting a user shows no success message outside development | High | ⬜ open | 2.11 |
+| X-01 deletes with no confirmation; `window.confirm` in six places | Medium | ⬜ open | 0.2, 7.1 |
+| X-02 failures that show nothing (empty `catch`) | Medium | ⬜ open | 0.4, 7.2 |
+| X-03 internal enums and ids shown to users | Low | ⬜ open | 0.3, 7.3 |
+| X-04 page ↔ API permission table | High | ⬜ open | 5.2 |
+| X-05 pages that need `GET /users` show "—", "Unassigned", "Unknown user" for contributors | Medium | ⬜ open | 5.3 |
+| X-06 forms: no busy state, blank saved as 0, fields that cannot be cleared, typed ids | Medium | ⬜ open | 7.4 |
+| X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
+| X-08 "higher is better" assumed (scorecard, board pack, KPI card colour) | Medium | ⬜ open | 1.3, 1.4 |
+| X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
+| X-10 hidden duplicate controls and dead files kept for tests | Low | ⬜ open | 7.6 |
 
 ## Cleanup performed
 

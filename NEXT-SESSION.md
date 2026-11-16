@@ -9,7 +9,7 @@
 1. **Status of what is broken or open:** [`docs/audit/README.md`](./docs/audit/README.md) — findings table, suggested batches, and the fix log (finding → commit → regression test). Details per area in `docs/audit/backend.md`, `frontend.md`, `other.md`.
 2. **What the product is and how the repo is laid out:** [`README.md`](./README.md).
 3. **Conventions and locked decisions you must not re-litigate:** [`CLAUDE.md`](./CLAUDE.md).
-4. **Phase history:** [`ROADMAP.md`](./ROADMAP.md). `TODOS.md` checkboxes predate v1.0.0 and are stale — trust its status banner.
+4. **Phase history:** [`ROADMAP.md`](./ROADMAP.md). `TODOS.md`: every phase box is ticked with its evidence or says why not (partly / not built / not verified / deferred), reconciled 2026-11-16 (DOC-007).
 
 ## Running it locally
 

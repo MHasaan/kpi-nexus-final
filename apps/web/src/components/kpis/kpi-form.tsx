@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
+import { isApprovalPending } from '../../lib/role-permissions';
+import { ApprovalPendingNotice } from '../approval-pending-notice';
+
 import {
   ApiError,
   createKpi,
@@ -273,6 +276,7 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
   const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approvalPending, setApprovalPending] = useState(false);
 
   // Load pickers.
   useEffect(() => {
@@ -305,6 +309,7 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setApprovalPending(false);
 
     const name = values.name.trim();
     if (name.length < 2) {
@@ -337,8 +342,14 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
       if (isEdit) {
         if (!kpiId) throw new Error('Missing KPI id');
         // Scope + assignments are immutable in edit mode — never sent.
-        const result = await updateKpi(kpiId, base);
-        onDone(result.id);
+        const result: unknown = await updateKpi(kpiId, base);
+        // 202: an active KPI_DEFINITION workflow queued the change instead of saving it.
+        if (isApprovalPending(result)) {
+          setApprovalPending(true);
+          setSubmitting(false);
+          return;
+        }
+        onDone(kpiId);
       } else {
         const body: KpiWriteBody = {
           ...base,
@@ -686,6 +697,14 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
           </Select>
         </Field>
       </Section>
+
+      {approvalPending && kpiId && (
+        <ApprovalPendingNotice what="Your changes to this KPI" plural testId="kpi-approval-pending">
+          <Link href={`/kpis/${kpiId}`} className="text-content-muted hover:underline">
+            Back to the KPI
+          </Link>
+        </ApprovalPendingNotice>
+      )}
 
       {error && (
         <p

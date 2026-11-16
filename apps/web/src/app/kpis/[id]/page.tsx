@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+
+import { cn } from '../../../lib/cn';
+import { useAsyncData } from '../../../lib/use-async-data';
 
 import {
   ApiError,
@@ -192,24 +195,42 @@ function Shell({ children, kpiId, name }: { children: React.ReactNode; kpiId: st
   );
 }
 
-function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): [T | null, () => void] {
-  const [data, setData] = useState<T | null>(null);
-  const reload = useCallback(() => {
-    fn().then(setData).catch(() => setData(null));
-  }, deps);
-  useEffect(reload, [reload]);
-  return [data, reload];
+/** A tab's data, how to reload it, and why the last load failed (never swallowed: X-02). */
+function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): [T | null, () => void, string | null] {
+  const { data, error, reload } = useAsyncData(fn, deps);
+  return [data, reload, error];
+}
+
+/** Shown in a tab whose data failed to load, so a failure never looks like "nothing here". */
+function TabLoadError({ error, onRetry, className }: { error: string | null; onRetry: () => void; className?: string }) {
+  if (!error) return null;
+  return (
+    <div
+      role="alert"
+      data-testid="tab-load-error"
+      className={cn(
+        'flex items-center justify-between gap-3 rounded-lg border border-status-critical/30 bg-status-critical-bg px-4 py-3 text-sm text-status-critical',
+        className,
+      )}
+    >
+      <span>{error}</span>
+      <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
+  );
 }
 
 // ---- Tabs ------------------------------------------------------------------
 
 function OverviewTab({ kpi }: { kpi: KpiSummary }) {
-  const [points] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
+  const [points, reloadPoints, pointsError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [status] = useAsync(() => getThresholdStatus(kpi.id).catch(() => null), [kpi.id]);
   const latest = points?.[0];
   const series = (points ?? []).slice().reverse().map((p) => p.value);
   return (
     <div className="space-y-4">
+      <TabLoadError error={pointsError} onRetry={reloadPoints} />
       <div className="grid gap-4 sm:grid-cols-3">
         <UICard>
           <CardContent>
@@ -261,7 +282,7 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
 }
 
 function DataTab({ kpi }: { kpi: KpiSummary }) {
-  const [points, reload] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
+  const [points, reload, loadError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [value, setValue] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
@@ -284,6 +305,7 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
 
   return (
     <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
       {kpi.scope === 'ORG_WIDE' && (
         <UICard>
           <CardContent>
@@ -444,7 +466,7 @@ function DataPointRow({ kpi, point: p, onChanged }: { kpi: KpiSummary; point: Da
 }
 
 function TargetsTab({ kpiId }: { kpiId: string }) {
-  const [targets, reload] = useAsync(() => listTargets(kpiId), [kpiId]);
+  const [targets, reload, loadError] = useAsync(() => listTargets(kpiId), [kpiId]);
   const [value, setValue] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
@@ -460,6 +482,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
   };
   return (
     <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
           <form onSubmit={add} className="flex items-end gap-3">
@@ -514,7 +537,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
 }
 
 function ThresholdsTab({ kpiId }: { kpiId: string }) {
-  const [bands, reload] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
+  const [bands, reload, loadError] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
   const [status] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
   const [form, setForm] = useState({ name: '', lower: '', upper: '', color: '#16a34a', order: '0' });
   const [err, setErr] = useState<string | null>(null);
@@ -537,6 +560,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
   };
   return (
     <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
           <p className="text-sm text-content-muted">
@@ -617,7 +641,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
 }
 
 function BenchmarksTab({ kpiId }: { kpiId: string }) {
-  const [benchmarks, reload] = useAsync(() => listBenchmarks(kpiId), [kpiId]);
+  const [benchmarks, reload, loadError] = useAsync(() => listBenchmarks(kpiId), [kpiId]);
   const [form, setForm] = useState({ kind: 'EXTERNAL_INDUSTRY', value: '', source: '' });
   const [err, setErr] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
@@ -642,6 +666,7 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
   };
   return (
     <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
           <div className="flex items-center justify-between gap-3">
@@ -715,8 +740,13 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
 }
 
 function LineageTab({ kpiId }: { kpiId: string }) {
-  const [up] = useAsync(() => getLineageUpstream('kpi', kpiId, 3), [kpiId]);
-  const [down] = useAsync(() => getLineageDownstream('kpi', kpiId, 3), [kpiId]);
+  const [up, reloadUp, upError] = useAsync(() => getLineageUpstream('kpi', kpiId, 3), [kpiId]);
+  const [down, reloadDown, downError] = useAsync(() => getLineageDownstream('kpi', kpiId, 3), [kpiId]);
+  const loadError = upError ?? downError;
+  const reload = () => {
+    reloadUp();
+    reloadDown();
+  };
   const col = (title: string, hops: LineageHop[] | null) => (
     <UICard>
       <CardContent>
@@ -735,6 +765,7 @@ function LineageTab({ kpiId }: { kpiId: string }) {
   );
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      <TabLoadError error={loadError} onRetry={reload} className="sm:col-span-2" />
       {col('Upstream (inputs)', up)}
       {col('Downstream (consumers)', down)}
     </div>
@@ -812,7 +843,7 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
 }
 
 function CascadeTab({ kpiId }: { kpiId: string }) {
-  const [edges, reload] = useAsync(() => listCascades(), [kpiId]);
+  const [edges, reload, loadError] = useAsync(() => listCascades(), [kpiId]);
   const [names] = useAsync(
     () => listKpis().then((ks) => Object.fromEntries(ks.map((k) => [k.id, k.name]))),
     [kpiId],
@@ -823,6 +854,7 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
   const totalWeight = children.reduce((s, c) => s + c.weight, 0);
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      <TabLoadError error={loadError} onRetry={reload} className="sm:col-span-2" />
       <UICard>
         <CardContent>
           <p className="kn-eyebrow mb-2">Rolls up into (parents)</p>
@@ -928,9 +960,10 @@ function AddChildForm({
 }
 
 function AuditTab({ kpiId }: { kpiId: string }) {
-  const [versions] = useAsync(() => getKpiVersions(kpiId), [kpiId]);
+  const [versions, reload, loadError] = useAsync(() => getKpiVersions(kpiId), [kpiId]);
   return (
     <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
     <UICard className="p-0">
       <Table>
         <TableHeader>
@@ -968,7 +1001,7 @@ function AuditTab({ kpiId }: { kpiId: string }) {
  * read. A snapshot is visible to the person who took it (and admins).
  */
 function SnapshotsCard({ kpiId }: { kpiId: string }) {
-  const [snapshots, reload] = useAsync(() => listKpiSnapshots(kpiId), [kpiId]);
+  const [snapshots, reload, loadError] = useAsync(() => listKpiSnapshots(kpiId), [kpiId]);
   const [reason, setReason] = useState('');
   const [open, setOpen] = useState<KpiSnapshot | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -1000,6 +1033,7 @@ function SnapshotsCard({ kpiId }: { kpiId: string }) {
   return (
     <UICard>
       <CardContent className="space-y-3">
+        <TabLoadError error={loadError} onRetry={reload} />
         <div>
           <h3 className="text-sm font-semibold text-content-strong">Snapshots</h3>
           <p className="text-xs text-content-muted">Freeze this KPI and the values you can see, for later reference. Only you (and admins) can open your snapshots.</p>

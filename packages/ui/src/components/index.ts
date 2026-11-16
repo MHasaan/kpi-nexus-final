@@ -57,3 +57,9 @@ export type { SegmentedProps, SegmentedOption } from './segmented.js';
 
 export { Sparkline } from './sparkline.js';
 export type { SparklineProps } from './sparkline.js';
+
+export { ConfirmDialog, isConfirmEnabled, trapFocusIndex } from './confirm-dialog.js';
+export type { ConfirmDialogProps } from './confirm-dialog.js';
+
+export { ToastViewport } from './toast.js';
+export type { ToastViewportProps, ToastItem, ToastTone } from './toast.js';

@@ -209,3 +209,57 @@ test('kpi detail: take a snapshot with a reason and open it', async ({ page }) =
   await page.getByTestId('snapshot-view').click();
   await expect(page.getByTestId('snapshot-detail')).toContainText(': 77');
 });
+
+test('kpi detail: a tab that fails to load says so and can be retried (X-02)', async ({ page }) => {
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  let reg: { accessToken: string; refreshToken: string };
+  try {
+    reg = (await (await anon.post('/auth/register', {
+      data: {
+        orgName: `TabErr E2E ${stamp}`,
+        slug: `taberr-${stamp}`,
+        adminEmail: `admin-${stamp}@taberr.test.local`,
+        adminPassword: 'correct-horse-battery-staple',
+        adminFullName: 'TabErr Admin',
+      },
+    })).json()) as { accessToken: string; refreshToken: string };
+  } catch {
+    test.skip(true, 'api not reachable');
+    return;
+  }
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${reg.accessToken}` } });
+  const kpi = (await (await api.post('/kpis', {
+    data: { name: `TabErr KPI ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' },
+  })).json()) as { id: string };
+  await api.post(`/kpis/${kpi.id}/targets`, { data: { type: 'STATIC', value: 42 } });
+
+  await page.goto('/');
+  await page.evaluate(
+    ([a, r]) => {
+      window.localStorage.setItem('kpi-nexus.access-token', a);
+      window.localStorage.setItem('kpi-nexus.refresh-token', r);
+    },
+    [reg.accessToken, reg.refreshToken] as const,
+  );
+  await page.goto(`/kpis/${kpi.id}`);
+  await expect(page.getByTestId('kpi-detail-name')).toContainText(`TabErr KPI ${stamp}`);
+
+  // The targets request fails: the tab must not look like "no targets".
+  const targetsUrl = `**/kpis/${kpi.id}/targets`;
+  await page.route(targetsUrl, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Targets are unavailable right now' }) })
+      : route.continue(),
+  );
+  await page.getByTestId('tab-targets').click();
+  const banner = page.getByTestId('tab-load-error');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Targets are unavailable right now');
+
+  // Retry once the API is back: the banner goes and the target shows.
+  await page.unroute(targetsUrl);
+  await banner.getByRole('button', { name: 'Retry' }).click();
+  await expect(banner).toBeHidden();
+  await expect(page.getByText('42').first()).toBeVisible();
+});

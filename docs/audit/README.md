@@ -272,6 +272,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | FE-024 no shared confirm dialog or toast: destructive actions had no confirmation or used `window.confirm`, and nothing could give feedback after an action that does not navigate (groundwork for X-01 / X-02; no page changed yet) | ✅ built | `669ed0f` | `packages/ui`: `confirm-dialog.spec.tsx` (15), `toast.spec.tsx` (5), `stories.spec.tsx` (stories render); `apps/web`: `use-confirm.spec.ts` (8), `use-toast.spec.ts` (5). Live in Storybook: focus starts on Cancel, Tab stays inside, Esc cancels and returns focus, Enter confirms |
 | FE-025 no shared words for enums: each page printed the API's values (`PER_UNIT`, `LOWER_IS_BETTER`, `no_bands`, "UPDATE kpi") or kept a private map (groundwork for X-03) | ✅ built; scope badge switched, other pages follow in X-03 | `d02dc75` | `apps/web/src/lib/labels.spec.ts` (7), `packages/ui` `scope-badge.spec.tsx` (2), `e2e/kpis-flow.spec.ts` (badge text). Live: `/kpis` badges read Organisation-wide / Per unit / Per user |
 | X-02 (part 1) KPI detail tabs swallowed load errors: a failed request left the tab looking empty (`kpis/[id]/page.tsx` `useAsync` → `catch(() => setData(null))`) | ✅ fixed for the KPI detail tabs; other swallowed errors stay open under X-02 | `65af457` | `e2e/kpi-detail.spec.ts` "a tab that fails to load says so and can be retried" (failed before the fix), `apps/web/src/lib/use-async-data.spec.ts` (7) |
+| UI-011 with an approval workflow active, saving a KPI edit navigated to `/kpis/undefined` and adding a target looked as if nothing happened (the 202 `APPROVAL_REQUIRED` body was treated as the saved row) | ✅ fixed | `f8955bc` | `e2e/kpi-approval-pending.spec.ts` (failed before the fix): notice shown on edit and on target add, URL stays valid, nothing applied until approved |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -289,7 +290,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | UI-008 approvers are bounced from `/approvals`; a new org cannot create its first workflow | High | ⬜ open | 4.3 |
 | UI-009 std-dev and rate-of-change alert rules never fire | High | ⬜ open | 4.5 |
 | UI-010 a user's manager, role and position cannot be changed after the invite | High | ⬜ open | 2.4, 2.5, 2.11 |
-| UI-011 KPI edit under an approval workflow goes to `/kpis/undefined`; target add looks like nothing happened | High | ⬜ open | 0.5, 4.4 |
 | UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |
 | UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |

@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { ApprovalPendingNotice } from '../../../components/approval-pending-notice';
 import { cn } from '../../../lib/cn';
+import { isApprovalPending } from '../../../lib/role-permissions';
 import { useAsyncData } from '../../../lib/use-async-data';
 
 import {
@@ -469,13 +471,17 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
   const [targets, reload, loadError] = useAsync(() => listTargets(kpiId), [kpiId]);
   const [value, setValue] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
+    setPending(false);
     try {
-      await createTarget(kpiId, { type: 'STATIC', value: Number(value) });
+      const created: unknown = await createTarget(kpiId, { type: 'STATIC', value: Number(value) });
       setValue('');
-      reload();
+      // 202: an active KPI_TARGET workflow queued the target instead of adding it.
+      if (isApprovalPending(created)) setPending(true);
+      else reload();
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Failed to add target');
     }
@@ -502,6 +508,11 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
               Add target
             </Button>
           </form>
+          {pending && (
+            <div className="mt-3">
+              <ApprovalPendingNotice what="This target" testId="target-approval-pending" />
+            </div>
+          )}
           {err && (
             <p role="alert" data-testid="target-error" className="mt-2 text-sm text-status-critical">
               {err}

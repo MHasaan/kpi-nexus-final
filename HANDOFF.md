@@ -32,10 +32,10 @@ This file lets a new Claude Code session, on any computer, carry on exactly wher
 | Layer | Detail |
 |---|---|
 | Monorepo | pnpm 9.15 + Turborepo |
-| `apps/web` | Next.js 15.5.27 (App Router) |
-| `apps/api` | NestJS 11 on Fastify 5, Prisma 6 |
+| `apps/web` | Next.js 16 + React 19 (App Router) |
+| `apps/api` | NestJS 12 on Fastify 5, Prisma 7 (`@prisma/adapter-pg`), Zod 4, TypeScript 6 |
 | Queue worker | Built from `apps/api` as `dist/worker.js`: the 10 BullMQ processors, no HTTP. The API runs them itself unless `RUN_QUEUE_WORKERS=false`; production runs the worker as its own process (OT-003). |
-| `apps/ml` | FastAPI on Python 3.12, venv via `uv` |
+| `apps/ml` | FastAPI on Python 3.14, venv via `uv` |
 | packages | `ai`, `contracts`, `db` (Prisma schema, seed, SQL), `formula` (empty stub), `ui`, `config` |
 | Infra (`infra/docker/docker-compose.yml`) | Postgres 16 + TimescaleDB (`timescaledb-ha`), Redis 7, MailHog, Jaeger, SeaweedFS (S3 on :9000; replaced MinIO) |
 
@@ -89,7 +89,7 @@ Secrets and the database are **not** in git. A fresh clone needs the steps below
    - **Never run `prisma migrate dev`.** The project is provisioned with `db push`, so `migrate dev` reports false drift and offers to wipe the DB.
 5. **ML venv:**
    ```bash
-   uv venv apps/ml/.venv --python 3.12 --python-preference only-managed
+   uv venv apps/ml/.venv --python 3.14 --python-preference only-managed
    uv pip install --python apps/ml/.venv/Scripts/python.exe -r apps/ml/requirements.txt
    ```
    An MSYS/MinGW `python` on PATH cannot install the numpy or prophet wheels. Use the uv-managed CPython.
@@ -227,17 +227,11 @@ Verified code main `be6cde1` passes CI41904500906 and Security41904501094. The s
 
 ### 5c. Dependabot
 
-The initial review set contains 21 Dependabot PRs (#1–#24). Live dispositions and merge evidence belong in the integration ledger. Several are majors that need separate migration work:
+The initial review set contained 21 Dependabot PRs (#1–#24). Live dispositions and merge evidence are in [the integration ledger](docs/audit/branch-review-2026-11-05.md) and the DEP-nnn rows of the fix log.
 
-- zod 3→4
-- eslint 9→10
-- TypeScript 5→6
-- vitest coverage 1→4
-- @types/node 20→25
-- numpy 1→2, pandas 2→3
-- python 3.12→3.14 (the ML venv is pinned `<3.13`)
+Every major once deferred here has since landed, each in its own PR: Zod 4 (DEP-009), ESLint 10 (DEP-007), TypeScript 6 (DEP-006), Vitest 4 (DEP-008), `@types/node` 22 to match the Node 22 runtime instead of 25 (DEP-005), NumPy 2 / pandas 3 (DEP-014), Python 3.14 (DEP-015), FastAPI 0.162 / Starlette 1.10 (DEP-001), plus Prisma 7, NestJS 12 and Next 16 / React 19 (DEP-010, DEP-012, DEP-013).
 
-The review integrated original #3/#10/#7 and handled checkout #5 with replacement #30. Superseded and deferred PRs remain open. FastAPI #11 was trialled but deferred: fresh resolution selects Starlette 1.10, and a previously accepted signed JSON request without Content-Type changes from 200 to 422. All 49 ML tests passed, and the normal API client supplies Content-Type, so this is a conservative framework/contract scope decision rather than a proven outage. A constrained compatibility alternative still needs a separate review.
+The original Dependabot PRs for those (#1, #2, #4, #5, #6, #15–#20) are still open because Dependabot PRs are never closed or deleted; they are superseded, not pending work.
 
 ---
 

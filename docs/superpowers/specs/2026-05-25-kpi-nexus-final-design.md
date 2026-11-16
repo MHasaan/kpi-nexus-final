@@ -18,6 +18,8 @@
 
 **Stack** (locked):
 
+> *Versions amended 2026-11-16:* the choices stand, but the majors have moved on in reviewed dependency PRs (DEP-nnn rows in `docs/audit/README.md`): Next.js 16 + React 19, NestJS 12, Prisma 7 (driver adapter), Zod 4, TypeScript 6, Vitest 4, Python 3.14. Hosting is amended by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md) (Appendix A #4).
+
 - **Monorepo**: pnpm + Turborepo
 - **Frontend**: Next.js 15 (App Router, RSC) → Vercel
 - **Backend API**: NestJS 11 on Fastify → Fly.io
@@ -1197,7 +1199,7 @@ Future "Claude Design" session produces:
 2. **Success target**: production-quality multi-tenant SaaS
 3. **AI provider**: Gemini default (free tier with key rotation) + multi-provider abstraction (Claude/OpenAI/Ollama pluggable) from day one
 4. **Deployment**: Docker locally for dev + Vercel (web) + Fly.io (api, worker, ml, postgres) + Upstash (redis) for prod. *Amended 2026-11-11 by [ADR-001](../../adrs/ADR-001-free-tier-hosting.md): Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM running api, worker, ml, Postgres, Redis and Caddy with Docker Compose; Oracle Object Storage, Brevo SMTP, DuckDNS, GHCR.*
-5. **Stack**: NestJS 11 (Fastify) API + Next.js 15 (App Router) web + Python FastAPI ML sidecar + Postgres 16 + TimescaleDB (self-hosted) + pgvector + Redis + Prisma 6 + Zod + Pino + OTel + Sentry
+5. **Stack**: NestJS 11 (Fastify) API + Next.js 15 (App Router) web + Python FastAPI ML sidecar + Postgres 16 + TimescaleDB (self-hosted) + pgvector + Redis + Prisma 6 + Zod + Pino + OTel + Sentry *Versions amended 2026-11-16: NestJS 12, Next.js 16 + React 19, Prisma 7, Zod 4, Python 3.14; same choices (DEP-nnn rows in `docs/audit/README.md`).*
 6. **Scope**: maximum — all current-app features + high-value additions + enterprise features (~30 module surfaces)
 7. **Permissions**: 18 canonical (locked). *Amended 2026-06-01 by the capability refinement in [the granular-access spec §5](./2026-06-01-granular-access-control-design.md) (titled "ADR-001" there; unrelated to `docs/adrs/ADR-001`): 7 refined keys added, 25 in all.*
 8. **Tenancy enforcement**: 3 layers (AsyncLocalStorage context + Prisma filter + Postgres RLS)

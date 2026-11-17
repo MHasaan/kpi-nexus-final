@@ -6,6 +6,7 @@ import { Check } from 'lucide-react';
 import { Button } from '../ui';
 import { cn } from '../../lib/cn';
 import { ApiError, updateRole, type RoleSummary } from '../../lib/api-client';
+import { ApprovalPendingNotice } from '../approval-pending-notice';
 import { PERMISSION_GROUPS, isApprovalPending, permissionToggleState } from '../../lib/role-permissions';
 import { usePermissions } from '../../lib/use-permissions';
 
@@ -25,7 +26,7 @@ export function RolePermissionMatrix({
   const { has } = usePermissions();
   const [draft, setDraft] = useState<string[]>(role.permissions);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string; pending?: boolean } | null>(null);
 
   // Re-sync the draft when the persisted permissions change (incl. after our own
   // save); clear feedback only when switching to another role, so "saved" stays.
@@ -53,7 +54,7 @@ export function RolePermissionMatrix({
       const res: unknown = await updateRole(role.id, { permissions: draft });
       if (isApprovalPending(res)) {
         setDraft(role.permissions);
-        setFeedback({ ok: true, msg: 'Change submitted for approval — it applies once approved.' });
+        setFeedback({ ok: true, pending: true, msg: `Your changes to ${role.name}` });
       } else {
         onSaved(res as RoleSummary);
         setFeedback({ ok: true, msg: 'Permissions saved.' });
@@ -133,7 +134,7 @@ export function RolePermissionMatrix({
               Reset
             </Button>
           )}
-          {feedback && (
+          {feedback && !feedback.pending && (
             <p
               role={feedback.ok ? 'status' : 'alert'}
               data-testid={`perm-feedback-${role.name}`}
@@ -142,6 +143,11 @@ export function RolePermissionMatrix({
               {feedback.msg}
             </p>
           )}
+        </div>
+      )}
+      {feedback?.pending && (
+        <div className="mt-3">
+          <ApprovalPendingNotice what={feedback.msg} plural testId={`perm-approval-pending-${role.name}`} />
         </div>
       )}
     </div>

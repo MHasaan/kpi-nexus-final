@@ -401,6 +401,32 @@ describe('P4 notifications — channel test-send (live API)', () => {
     expect(sent.body!.sent).toBe(true);
   });
 
+  test('an EMAIL channel with nobody to send to is refused when it is made', async () => {
+    if (!apiAvailable) return;
+    const admin = await registerOrg(suffix());
+    const res = await http<{ message?: string }>('/notification-channels', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({ name: 'Nobody', kind: 'EMAIL', config: { recipients: [] } }),
+    });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('at least one email address');
+  });
+
+  test('SMS test-send says it is not connected instead of claiming it sent', async () => {
+    if (!apiAvailable) return;
+    const admin = await registerOrg(suffix());
+    const channel = await http<{ id: string }>('/notification-channels', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({ name: 'Texts', kind: 'SMS', config: { fromNumber: '+15551234567' } }),
+    });
+    expect(channel.status).toBe(201);
+    const sent = await http<{ sent: boolean; error?: string }>(`/notification-channels/${channel.body!.id}/test`, { method: 'POST', token: admin.accessToken });
+    expect(sent.status).toBe(202);
+    expect(sent.body).toMatchObject({ sent: false, error: expect.stringContaining('SMS is not connected') });
+  });
+
   test('test-send on an unknown channel id → 404', async () => {
     if (!apiAvailable) return;
     const stamp = suffix();

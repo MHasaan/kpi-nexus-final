@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
-import { NotificationChannelsService, type PublicChannel } from './notification-channels.service.js';
+import { type ChannelTestResult, NotificationChannelsService, type PublicChannel } from './notification-channels.service.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
@@ -83,8 +83,7 @@ export class NotificationChannelsController {
   @Post(':id/test')
   @RequirePermissions(PermissionKey.ORG_SETTINGS)
   @HttpCode(HttpStatus.ACCEPTED)
-  async test(@Param('id') id: string): Promise<{ sent: boolean }> {
-    await this.channels.test(id);
-    return { sent: true };
+  test(@Param('id') id: string): Promise<ChannelTestResult> {
+    return this.channels.test(id);
   }
 }

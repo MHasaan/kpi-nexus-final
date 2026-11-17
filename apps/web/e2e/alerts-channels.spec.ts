@@ -87,17 +87,76 @@ test.describe('Notification channels UI', () => {
       // Row appears.
       const row = page.locator('[data-testid^="channel-row-"]').first();
       await expect(row).toBeVisible({ timeout: 10_000 });
-      await expect(row).toContainText('EMAIL');
+      await expect(row).toContainText('Email');
+      await expect(row).toContainText(`ops-${stamp}@channels.test.local`); // where it sends
 
-      // Test it → success status message.
+      // Test it → the banner says it was sent, and where.
       const testBtn = row.locator('[data-testid^="channel-test-"]');
       await testBtn.click();
-      await expect(page.getByTestId('channel-test-msg')).toBeVisible({ timeout: 10_000 });
+      const banner = page.getByTestId('channel-test-msg');
+      await expect(banner).toHaveAttribute('data-outcome', 'sent', { timeout: 10_000 });
+      await expect(banner).toContainText(`Sent to ops-${stamp}@channels.test.local.`);
 
-      // Delete it → table empties.
+      // Edit it: the kind is fixed, the name and the addresses change.
+      await row.locator('[data-testid^="channel-edit-"]').click();
+      await expect(page.getByTestId('channel-kind-fixed')).toHaveText('Email');
+      await expect(page.getByTestId('channel-recipients-input')).toHaveValue(`ops-${stamp}@channels.test.local`);
+      await page.getByTestId('channel-name-input').fill(`On call ${stamp}`);
+      await page.getByTestId('channel-recipients-input').fill('not-an-address');
+      await page.getByTestId('channel-create-submit').click();
+      await expect(page.getByTestId('channel-create-error')).toHaveText('"not-an-address" is not an email address.');
+      await page.getByTestId('channel-recipients-input').fill(`oncall-${stamp}@channels.test.local`);
+      await page.getByTestId('channel-create-submit').click();
+      await expect(row).toContainText(`On call ${stamp}`);
+      await expect(row).toContainText(`oncall-${stamp}@channels.test.local`);
+
+      // Delete asks first; keeping it keeps it.
       const delBtn = row.locator('[data-testid^="channel-delete-"]');
       await delBtn.click();
+      const dialog = page.getByTestId('channel-delete-confirm');
+      await expect(dialog).toContainText(`On call ${stamp}`);
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await expect(row).toBeVisible();
+      await delBtn.click();
+      await page.getByTestId('channel-delete-confirm-confirm').click();
       await expect(page.getByTestId('channels-empty')).toBeVisible({ timeout: 10_000 });
+    },
+  );
+
+  test(
+    'a test that cannot be delivered says so in red; an empty email channel cannot be added; SMS is not offered',
+    { tag: ['@channels'] },
+    async ({ page }) => {
+      test.skip(!apiAvailable, 'api not reachable');
+      const stamp = suffix();
+      const reg = await registerOrg(stamp);
+      await injectTokens(page, reg);
+      await page.goto('/alerts/channels');
+      await expect(page.getByTestId('channels-empty')).toBeVisible();
+
+      // SMS needs a paid provider: it is not among the kinds.
+      await expect(page.getByTestId('channel-kind-select').locator('option')).toHaveText(['Email', 'Slack', 'Microsoft Teams', 'Webhook', 'In the app']);
+
+      // No recipients → refused here, in words.
+      await page.getByTestId('channel-name-input').fill(`Empty ${stamp}`);
+      await page.getByTestId('channel-create-submit').click();
+      await expect(page.getByTestId('channel-create-error')).toHaveText('Add at least one email address.');
+
+      // A real channel, and a test the other side refuses. The refusal is the API's
+      // own answer shape (202 { sent: false, error }); it is given here rather than
+      // provoked, so the test calls no outside host.
+      await page.getByTestId('channel-recipients-input').fill(`ops-${stamp}@channels.test.local`);
+      await page.getByTestId('channel-create-submit').click();
+      const row = page.locator('[data-testid^="channel-row-"]').first();
+      await expect(row).toBeVisible();
+      await page.route('**/notification-channels/*/test', (route) =>
+        route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ sent: false, error: 'Delivery rejected with 404' }) }),
+      );
+      await row.locator('[data-testid^="channel-test-"]').click();
+      const banner = page.getByTestId('channel-test-msg');
+      await expect(banner).toHaveAttribute('data-outcome', 'failed');
+      await expect(banner).toHaveAttribute('role', 'alert');
+      await expect(banner).toContainText(`The test through “Empty ${stamp}” was not sent. Delivery rejected with 404`);
     },
   );
 

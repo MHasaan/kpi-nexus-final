@@ -1815,6 +1815,8 @@ export interface NotificationChannel {
   name: string;
   kind: 'EMAIL' | 'SLACK' | 'TEAMS' | 'SMS' | 'IN_APP' | 'WEBHOOK';
   isActive: boolean;
+  /** Where it sends, for display: email addresses, or only the host of a webhook URL. */
+  target?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1899,7 +1901,8 @@ export async function deleteNotificationChannel(id: string): Promise<void> {
   return api(`/notification-channels/${id}`, { method: 'DELETE' });
 }
 
-export async function testNotificationChannel(id: string): Promise<{ sent: boolean }> {
+/** "Send test": whether a message really left, and if not, why. A failure is an answer, not an error. */
+export async function testNotificationChannel(id: string): Promise<{ sent: boolean; error?: string }> {
   return api(`/notification-channels/${id}/test`, { method: 'POST' });
 }
 

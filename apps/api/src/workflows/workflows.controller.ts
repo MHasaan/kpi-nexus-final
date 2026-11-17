@@ -67,7 +67,7 @@ export class WorkflowsController {
   @Post(':id/trigger')
   @HttpCode(HttpStatus.OK)
   async trigger(@Param('id') id: string): Promise<{ ok: true }> {
-    await this.workflows.trigger(id, { kind: 'kpi_changed', kpiId: 'manual', value: 0 });
+    await this.workflows.trigger(id);
     return { ok: true };
   }
 }

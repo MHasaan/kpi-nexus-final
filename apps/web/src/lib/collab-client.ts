@@ -242,3 +242,13 @@ export function createWorkflow(body: {
 export function deleteWorkflow(id: string): Promise<void> {
   return api(`/workflows/${id}`, { method: 'DELETE' });
 }
+export function updateWorkflow(
+  id: string,
+  body: Partial<{ name: string; description: string; triggers: string[]; rule: unknown; action: unknown; isActive: boolean }>,
+): Promise<Workflow> {
+  return api(`/workflows/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+/** "Run now": do the automation's action once, whatever its condition says. */
+export function triggerWorkflow(id: string): Promise<{ ok: true }> {
+  return api(`/workflows/${id}/trigger`, { method: 'POST' });
+}

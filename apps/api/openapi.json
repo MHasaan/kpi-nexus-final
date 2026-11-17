@@ -18275,11 +18275,115 @@
                   "rule": {
                     "anyOf": [
                       {
-                        "type": "object",
-                        "propertyNames": {
-                          "type": "string"
-                        },
-                        "additionalProperties": {}
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "kpi_value"
+                              },
+                              "kpiId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "kpiId",
+                              "operator",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "kpi_change_pct"
+                              },
+                              "kpiId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "windowDays": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "kpiId",
+                              "operator",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "alert_severity"
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "severity": {
+                                "type": "string",
+                                "enum": [
+                                  "LOW",
+                                  "MEDIUM",
+                                  "HIGH"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "operator",
+                              "severity"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -18287,11 +18391,91 @@
                     ]
                   },
                   "action": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "create_task"
+                          },
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "assigneeUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dueAtRelativeHours": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8760
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "LOW",
+                              "MEDIUM",
+                              "HIGH",
+                              "URGENT"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "post_webhook"
+                          },
+                          "subscriptionId": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "subscriptionId"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "send_notification"
+                          },
+                          "channelId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "message": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "channelId",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
                   },
                   "isActive": {
                     "type": "boolean"
@@ -18459,11 +18643,115 @@
                   "rule": {
                     "anyOf": [
                       {
-                        "type": "object",
-                        "propertyNames": {
-                          "type": "string"
-                        },
-                        "additionalProperties": {}
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "kpi_value"
+                              },
+                              "kpiId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "kpiId",
+                              "operator",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "kpi_change_pct"
+                              },
+                              "kpiId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "value": {
+                                "type": "number"
+                              },
+                              "windowDays": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 365
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "kpiId",
+                              "operator",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "alert_severity"
+                              },
+                              "operator": {
+                                "type": "string",
+                                "enum": [
+                                  ">",
+                                  "<",
+                                  ">=",
+                                  "<=",
+                                  "==",
+                                  "!="
+                                ]
+                              },
+                              "severity": {
+                                "type": "string",
+                                "enum": [
+                                  "LOW",
+                                  "MEDIUM",
+                                  "HIGH"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "operator",
+                              "severity"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -18471,11 +18759,91 @@
                     ]
                   },
                   "action": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "create_task"
+                          },
+                          "title": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "assigneeUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "dueAtRelativeHours": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8760
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "LOW",
+                              "MEDIUM",
+                              "HIGH",
+                              "URGENT"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "title"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "post_webhook"
+                          },
+                          "subscriptionId": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "subscriptionId"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "send_notification"
+                          },
+                          "channelId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "message": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "channelId",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
                   },
                   "isActive": {
                     "type": "boolean"

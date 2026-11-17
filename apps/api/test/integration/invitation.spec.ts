@@ -243,6 +243,32 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
     expect(byAdmin.status).toBe(201);
   });
 
+  test('an invitee archived or suspended before accepting cannot use the link (BE-046)', async () => {
+    if (!apiAvailable) return;
+    const admin = await registerAdminOrg();
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    for (const action of ['offboard', 'suspend']) {
+      const invite = await http<{ user: { id: string }; inviteToken: string }>('/users', {
+        method: 'POST',
+        token: admin.token,
+        body: JSON.stringify({ email: `${action}-${stamp}@invite.test.local`, fullName: `Withdrawn ${action}` }),
+      });
+      expect(invite.status).toBe(201);
+      const id = invite.body!.user.id;
+      const done = await http(`/users/${id}/${action}`, { method: 'POST', token: admin.token, body: JSON.stringify({}) });
+      expect(done.status, action).toBe(200);
+
+      const accept = await http<{ code: string }>('/auth/accept-invitation', {
+        method: 'POST',
+        body: JSON.stringify({ token: invite.body!.inviteToken, password: 'withdrawn-pw-1' }),
+      });
+      expect(accept.status, action).toBe(401);
+      const after = await http<{ status: string }>(`/users/${id}`, { token: admin.token });
+      expect(after.body?.status, action).not.toBe('ACTIVE');
+    }
+  });
+
   test('refuse duplicate invite email within org', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();

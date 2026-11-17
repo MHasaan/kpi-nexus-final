@@ -19,13 +19,35 @@ export type WizardStepId = WizardStep['id'];
 
 const FIRST: WizardStepId = 'organization';
 
+/**
+ * Quick start is two steps — name the organisation, create the account — with
+ * the four in between there but optional. Full setup (and a template, which
+ * has already filled them) walks through all six.
+ */
+export type WizardMode = 'quick' | 'full';
+
+export function wizardMode(entryMode: string | null | undefined): WizardMode {
+  return entryMode === 'quick' ? 'quick' : 'full';
+}
+
+/** Whether a step can be skipped in this mode. */
+export function isOptionalStep(id: WizardStepId, mode: WizardMode): boolean {
+  return mode === 'quick' && id !== 'organization' && id !== 'review';
+}
+
 /** The step a `?step=` value names; anything else is the first step. */
 export function stepFromParam(param: string | null | undefined): WizardStepId {
   return WIZARD_STEPS.find((s) => s.id === param)?.id ?? FIRST;
 }
 
-/** The steps before and after this one (null at either end). */
-export function stepNeighbours(id: WizardStepId): { prev: WizardStepId | null; next: WizardStepId | null } {
+/**
+ * The steps before and after this one (null at either end). In quick mode the
+ * first step leads straight to the last and back; an optional step someone
+ * chose to open still leads on in order.
+ */
+export function stepNeighbours(id: WizardStepId, mode: WizardMode = 'full'): { prev: WizardStepId | null; next: WizardStepId | null } {
+  if (mode === 'quick' && id === 'organization') return { prev: null, next: 'review' };
+  if (mode === 'quick' && id === 'review') return { prev: 'organization', next: null };
   const index = WIZARD_STEPS.findIndex((s) => s.id === id);
   return {
     prev: index > 0 ? WIZARD_STEPS[index - 1]!.id : null,

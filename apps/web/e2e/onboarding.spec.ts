@@ -507,3 +507,33 @@ test('onboarding: applying a template keeps the name the organisation was starte
   expect(done.status()).toBe(201);
   expect(((await done.json()) as { organization: { name: string } }).organization.name).toBe(`Onb ${stamp}`);
 });
+
+// ---- Plan 3.7: a quick start can be finished as it stands ------------------
+
+test('onboarding: a quick-start session begins with the standard roles; a full one begins empty', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const begin = async (entryMode: string) => {
+    const started = (await (await anon.post('/onboarding/start', {
+      data: { email: `admin-${entryMode}-${stamp}@onb.test.local`, organizationName: `Onb ${entryMode} ${stamp}`, entryMode },
+    })).json()) as Start;
+    const hdr = { 'x-draft-token': started.draftToken };
+    const draft = (await (await anon.get(`/onboarding/${started.sessionId}`, { headers: hdr })).json()) as { payload: { roles?: Array<{ name: string; isAdmin: boolean }> } };
+    const { problems } = (await (await anon.get(`/onboarding/${started.sessionId}/validate`, { headers: hdr })).json()) as { problems: Problem[] };
+    return { roles: draft.payload.roles ?? [], problems, started, hdr };
+  };
+
+  const quick = await begin('quick');
+  expect(quick.roles.map((r) => r.name)).toEqual(['Admin', 'Manager', 'Employee', 'Viewer']);
+  expect(quick.problems).toEqual([]);
+  const done = await anon.post(`/onboarding/${quick.started.sessionId}/complete`, {
+    headers: quick.hdr,
+    data: { adminEmail: `admin-quick-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-quick-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+
+  const full = await begin('full');
+  expect(full.roles).toEqual([]);
+  expect(full.problems).toEqual([expect.objectContaining({ section: 'roles' })]);
+});

@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  DEFAULT_ROLES,
   type DraftTeamMember,
   type OnboardingDraft,
   OnboardingDraftPatchSchema,
@@ -120,7 +121,23 @@ export class OnboardingService {
           organizationName: input.organizationName,
           userEmail: input.email,
           entryMode: input.entryMode ?? 'full',
-          payload: { organization: { name: input.organizationName } } as unknown as object,
+          payload: {
+            organization: { name: input.organizationName },
+            // A quick start is "name it and go": it begins with the four roles a
+            // plain registration creates, so it can be finished as it stands. A
+            // full setup begins empty and builds its own (plan 3.7).
+            ...(input.entryMode === 'quick'
+              ? {
+                  roles: DEFAULT_ROLES.map((r) => ({
+                    name: r.name,
+                    isAdmin: r.isAdmin,
+                    level: r.level,
+                    color: r.color,
+                    permissions: [...r.permissions],
+                  })),
+                }
+              : {}),
+          } as unknown as object,
         },
       });
       const draftToken = deriveDraftToken(session.id, draftSecret());

@@ -126,6 +126,12 @@ describe('visibleNavItems', () => {
     expect(visible).not.toContain('/billing');
   });
 
+  // UI-013: the link follows the key the page's API checks.
+  test('Ask is for those who hold INSIGHTS_VIEW — the key its API asks for', () => {
+    expect(hrefs(visibleNavItems(['INSIGHTS_VIEW']))).toContain('/ask');
+    expect(hrefs(visibleNavItems(['ANALYTICS_VIEW']))).not.toContain('/ask');
+  });
+
   // UI-012: these pages existed and nothing led to them.
   test('every page that used to have no link is in the navigation', () => {
     const all = hrefs(NAV_ITEMS);
@@ -190,7 +196,7 @@ describe('filterNavGroups', () => {
     expect(names).toContain('Workspace');
     expect(names).toContain('Measure');
     expect(names).toContain('Execute'); // OKRs/Tasks/Approvals are public
-    expect(names).not.toContain('Intelligence'); // all items need INSIGHTS_VIEW/ANALYTICS_VIEW
+    expect(names).not.toContain('Intelligence'); // all items need INSIGHTS_VIEW
   });
 
   test('while not ready, only groups with at least one public item survive', () => {

@@ -139,7 +139,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/insights', label: 'Insights', icon: Lightbulb, permission: 'INSIGHTS_VIEW' },
       { href: '/recommendations', label: 'Recommendations', icon: Sparkles, permission: 'INSIGHTS_VIEW' },
-      { href: '/ask', label: 'Ask', icon: Bot, permission: 'ANALYTICS_VIEW' },
+      { href: '/ask', label: 'Ask', icon: Bot, permission: 'INSIGHTS_VIEW' },
     ],
   },
   {

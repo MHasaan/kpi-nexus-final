@@ -262,6 +262,100 @@ describe('P4 alerting — STATIC_THRESHOLD breach → alert (live API)', () => {
   });
 });
 
+// UI-009: these rule types were accepted and saved, and never fired.
+describe('alert rule types that look back — std-dev and composite (live API)', () => {
+  /** Record one value per month of 2026, in order, waiting for each write. */
+  async function recordMonths(token: string, kpiId: string, values: number[]): Promise<void> {
+    for (const [i, value] of values.entries()) {
+      const month = String(i + 1).padStart(2, '0');
+      const res = await http(`/kpis/${kpiId}/data`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ value, periodStart: `2026-${month}-01`, periodEnd: `2026-${month}-28` }),
+      });
+      expect(res.status).toBe(201);
+    }
+  }
+
+  async function setUp(stamp: string, rule: Record<string, unknown>) {
+    const admin = await registerOrg(stamp);
+    const kpi = await http<{ id: string }>('/kpis', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({ name: `Lookback ${stamp}`, scope: 'ORG_WIDE' }),
+    });
+    const kpiId = kpi.body!.id;
+    const created = await http('/alert-rules', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({ kpiId, name: `Lookback rule ${stamp}`, severity: 'HIGH', ...rule }),
+    });
+    expect(created.status).toBe(201);
+    return { token: admin.accessToken, kpiId };
+  }
+
+  test('DYNAMIC_STDDEV: steady values raise nothing; one far outside them raises an alert', async () => {
+    if (!apiAvailable) return;
+    const { token, kpiId } = await setUp(suffix(), { ruleType: 'DYNAMIC_STDDEV', config: { sigmas: 3, windowSize: 6 } });
+
+    await recordMonths(token, kpiId, [98, 102, 98, 102, 98, 102]);
+    await new Promise((r) => setTimeout(r, 2_000));
+    expect((await http<unknown[]>(`/alerts?kpiId=${kpiId}`, { token })).body).toHaveLength(0);
+
+    await http(`/kpis/${kpiId}/data`, { method: 'POST', token, body: JSON.stringify({ value: 140, periodStart: '2026-07-01', periodEnd: '2026-07-28' }) });
+    const alerts = await poll(async () => {
+      const list = await http<Array<{ message: string }>>(`/alerts?kpiId=${kpiId}`, { token });
+      return list.body && list.body.length > 0 ? list.body : null;
+    });
+    expect(alerts).toHaveLength(1);
+    expect(alerts![0]!.message).toMatch(/Value 140 is \d+(\.\d+)? standard deviations above the average of the last 6 values \(100\)/);
+  }, 40_000);
+
+  test('COMPOSITE (AND): fires only when the value is both over the line and unusual', async () => {
+    if (!apiAvailable) return;
+    const { token, kpiId } = await setUp(suffix(), {
+      ruleType: 'COMPOSITE',
+      config: {
+        operator: 'AND',
+        rules: [
+          { ruleType: 'STATIC_THRESHOLD', config: { operator: '>', value: 120 } },
+          { ruleType: 'DYNAMIC_STDDEV', config: { sigmas: 3, windowSize: 6 } },
+        ],
+      },
+    });
+
+    // 110 is unusual (5σ) but not over 120: one part only → nothing.
+    await recordMonths(token, kpiId, [98, 102, 98, 102, 98, 102, 110]);
+    await new Promise((r) => setTimeout(r, 2_000));
+    expect((await http<unknown[]>(`/alerts?kpiId=${kpiId}`, { token })).body).toHaveLength(0);
+
+    await http(`/kpis/${kpiId}/data`, { method: 'POST', token, body: JSON.stringify({ value: 200, periodStart: '2026-08-01', periodEnd: '2026-08-28' }) });
+    const alerts = await poll(async () => {
+      const list = await http<Array<{ message: string }>>(`/alerts?kpiId=${kpiId}`, { token });
+      return list.body && list.body.length > 0 ? list.body : null;
+    });
+    expect(alerts).toHaveLength(1);
+    expect(alerts![0]!.message).toContain('Value 200 > threshold 120 and Value 200 is');
+  }, 40_000);
+
+  test('a composite part that could never hold is refused when the rule is made', async () => {
+    if (!apiAvailable) return;
+    const admin = await registerOrg(suffix());
+    const kpi = await http<{ id: string }>('/kpis', { method: 'POST', token: admin.accessToken, body: JSON.stringify({ name: 'Refused', scope: 'ORG_WIDE' }) });
+    const res = await http('/alert-rules', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({
+        kpiId: kpi.body!.id,
+        name: 'Never fires',
+        ruleType: 'COMPOSITE',
+        config: { operator: 'AND', rules: [{ ruleType: 'NO_DATA', config: { maxStaleMinutes: 60 } }] },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('P4 notifications — channel test-send (live API)', () => {
   test('IN_APP channel test-send → 202 { sent: true }', async () => {
     if (!apiAvailable) return;

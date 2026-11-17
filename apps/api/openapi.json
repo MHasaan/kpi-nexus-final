@@ -974,7 +974,7 @@
                           "windowMinutes": {
                             "type": "integer",
                             "minimum": 1,
-                            "maximum": 9007199254740991
+                            "maximum": 525600
                           },
                           "cooldownMinutes": {
                             "type": "integer",
@@ -1194,30 +1194,126 @@
                             "maxItems": 10,
                             "type": "array",
                             "items": {
-                              "type": "object",
-                              "properties": {
-                                "ruleType": {
-                                  "type": "string",
-                                  "enum": [
-                                    "STATIC_THRESHOLD",
-                                    "DYNAMIC_STDDEV",
-                                    "RATE_OF_CHANGE",
-                                    "NO_DATA"
-                                  ]
-                                },
-                                "config": {
+                              "oneOf": [
+                                {
                                   "type": "object",
-                                  "propertyNames": {
-                                    "type": "string"
+                                  "properties": {
+                                    "ruleType": {
+                                      "type": "string",
+                                      "const": "STATIC_THRESHOLD"
+                                    },
+                                    "config": {
+                                      "type": "object",
+                                      "properties": {
+                                        "operator": {
+                                          "type": "string",
+                                          "enum": [
+                                            ">",
+                                            "<",
+                                            ">=",
+                                            "<=",
+                                            "=="
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "number"
+                                        },
+                                        "cooldownMinutes": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 10080
+                                        }
+                                      },
+                                      "required": [
+                                        "operator",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
                                   },
-                                  "additionalProperties": {}
+                                  "required": [
+                                    "ruleType",
+                                    "config"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "ruleType": {
+                                      "type": "string",
+                                      "const": "DYNAMIC_STDDEV"
+                                    },
+                                    "config": {
+                                      "type": "object",
+                                      "properties": {
+                                        "sigmas": {
+                                          "type": "number",
+                                          "exclusiveMinimum": 0,
+                                          "maximum": 10
+                                        },
+                                        "windowSize": {
+                                          "type": "integer",
+                                          "minimum": 2,
+                                          "maximum": 1000
+                                        },
+                                        "cooldownMinutes": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 10080
+                                        }
+                                      },
+                                      "required": [
+                                        "sigmas",
+                                        "windowSize"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "ruleType",
+                                    "config"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "ruleType": {
+                                      "type": "string",
+                                      "const": "RATE_OF_CHANGE"
+                                    },
+                                    "config": {
+                                      "type": "object",
+                                      "properties": {
+                                        "pctChange": {
+                                          "type": "number"
+                                        },
+                                        "windowMinutes": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 525600
+                                        },
+                                        "cooldownMinutes": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "maximum": 10080
+                                        }
+                                      },
+                                      "required": [
+                                        "pctChange",
+                                        "windowMinutes"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "ruleType",
+                                    "config"
+                                  ],
+                                  "additionalProperties": false
                                 }
-                              },
-                              "required": [
-                                "ruleType",
-                                "config"
-                              ],
-                              "additionalProperties": false
+                              ]
                             }
                           },
                           "cooldownMinutes": {

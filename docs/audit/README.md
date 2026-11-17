@@ -322,6 +322,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-007 'Create automation' always failed (400), the API took any JSON as a rule, and 'Run now' did nothing | ✅ Fixed — typed rule and action, references checked, a real Run now; the page creates, pauses, runs, edits and deletes | `152848d` | `e2e/automations.spec.ts` (made on the page → a recorded value creates the task; paused → none; Run now; edit; confirmed delete), `workflow.dto.spec.ts` (16), `workflows.service.spec.ts` (+10), `workflow-form.spec.ts` (9) |
 | UI-008 approvers were bounced from `/approvals`, a new organisation could not create its first workflow, and Approve / Reject were offered to everyone | ✅ Fixed — the inbox loads on its own for everyone; each request says who asked, what it is about and whether the viewer can decide; all three kinds can be set up from the page with several approver roles | `0b01d4c` | `e2e/approvals.spec.ts` (set up on the page → an editor's change waits → the editor sees it with Cancel and no Approve → the administrator approves → applied), `approval-view.spec.ts`, `approvals-view.spec.ts`
 | Plan 4.4: a role permission change (or preset) queued for approval looked like a plain 'saved' line with no way to the request | ✅ Fixed — the Roles page shows the same pending notice as a KPI edit, with a link to `/approvals` | `99accf1` | `e2e/role-approval-pending.spec.ts` (failed before the fix): notice shown, role unchanged, the link opens the request named for the role
+| UI-009 std-dev, rate-of-change and composite alert rules could be created and never fired | ✅ Fixed — three evaluators behind one dispatcher; history loaded once per KPI from the same series; composite parts typed, 'no data' refused as a part, zero percent refused | `95bf739` | `dynamic-stddev.spec.ts`, `rate-of-change.spec.ts`, `evaluate-rule.spec.ts`, `alert-engine.service.spec.ts` (each type, per-unit isolation, one history read), `alert-rule.dto.spec.ts`, `test/integration/alerting.spec.ts` (std-dev and composite fire through the live queue)
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -330,7 +331,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | UI-007 (remainder) the Automations page has no link in the navigation | High | ⬜ open | 5.1 |
-| UI-009 std-dev and rate-of-change alert rules never fire | High | ⬜ open | 4.5 |
 | UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |
 | UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |

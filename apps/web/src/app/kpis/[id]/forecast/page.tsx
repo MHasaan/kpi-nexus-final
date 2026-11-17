@@ -29,6 +29,7 @@ import {
 } from '../../../../components/ui';
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { horizonProblem } from '../../../../lib/form-checks';
 import { FORECAST_MODELS, forecastFallbackNotice, forecastModelLabel } from '../../../../lib/forecast-model';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
@@ -118,7 +119,10 @@ export default function ForecastPage() {
   }, [loadHistory, router]);
 
   const run = async () => {
-    setError(null);
+    // Say what is wrong before asking for anything (plan 7.4).
+    const problem = horizonProblem(horizon);
+    setError(problem);
+    if (problem) return;
     setBusy(true);
     try {
       const res = await api<Forecast>(`/kpis/${id}/forecasts`, {

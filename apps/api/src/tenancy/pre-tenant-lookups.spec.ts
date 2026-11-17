@@ -46,7 +46,7 @@ describe('pre-tenant entry points establish a tenancy context (OT-014)', () => {
         update: spy({}),
       },
     };
-    const service = new ApiKeysService(prisma as unknown as PrismaService, {} as AuditService);
+    const service = new ApiKeysService(prisma as unknown as PrismaService, {} as AuditService, {} as never);
     await expect(service.verify('kpinx_abc')).resolves.toMatchObject({ organizationId: 'org_a' });
     await Promise.resolve(); // let the fire-and-forget lastUsedAt bump run
     expect(seen.length).toBeGreaterThanOrEqual(1);

@@ -89,6 +89,7 @@ function makeService() {
   const service = new ApiKeysService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
+    { assertFeature: async () => undefined } as never,
   );
   return { service, prisma };
 }

@@ -25,6 +25,7 @@ function make(visible: string[]) {
     service as unknown as InsightsService,
     {} as InsightsProducer,
     access as unknown as AccessContextService,
+    { assertFeature: async () => undefined } as never,
   );
   return { controller, service };
 }

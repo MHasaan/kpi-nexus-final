@@ -38,6 +38,19 @@ function quotasOf(key: string, stored: unknown): Record<string, number> {
 /** The quota keys whose usage is counted from live rows. Others are not shown: nothing counts them. */
 const COUNTED_QUOTAS = ['kpis', 'dashboards', 'users'] as const;
 
+/** The features a plan can include. */
+export type PlanFeature = 'ai_insights' | 'webhooks' | 'scheduled_reports' | 'sso' | 'custom_domain' | 'api_keys';
+
+/** How a feature is named in a message to a person (plural, sentence start). */
+const FEATURE_NOUNS: Record<PlanFeature, string> = {
+  ai_insights: 'AI insights',
+  webhooks: 'Webhooks',
+  scheduled_reports: 'Scheduled reports',
+  sso: 'Single sign-on settings',
+  custom_domain: 'Custom domains',
+  api_keys: 'API keys',
+};
+
 /** How a quota is named in a message to a person. */
 const QUOTA_NOUNS: Record<string, string> = { kpis: 'KPIs', dashboards: 'dashboards', users: 'people' };
 
@@ -142,6 +155,11 @@ export class BillingService {
     }
   }
 
+  /** The feature keys of a plan. The built-in catalog is the source: a stored catalog may describe features in words. */
+  private featureKeys(plan: BuiltinPlan): string[] {
+    return BUILTIN_PLANS.find((p) => p.key === plan.key)?.features ?? plan.features;
+  }
+
   /** Whether the org's plan (or an explicit feature flag) enables a feature. */
   async hasFeature(key: string): Promise<boolean> {
     const ctx = RequestContextStore.require();
@@ -150,8 +168,21 @@ export class BillingService {
       select: { enabled: true },
     });
     if (flag?.enabled) return true;
+    return this.featureKeys(await this.planForOrg()).includes(key);
+  }
+
+  /** Throws 402 FEATURE_NOT_IN_PLAN when the organisation's plan does not include `key`. */
+  async assertFeature(key: PlanFeature): Promise<void> {
+    if (await this.hasFeature(key)) return;
     const plan = await this.planForOrg();
-    return plan.features.includes(key);
+    throw new HttpException(
+      {
+        code: 'FEATURE_NOT_IN_PLAN',
+        message: `${FEATURE_NOUNS[key]} are not part of the ${plan.displayName} plan. Choose a plan that includes them on the Billing page.`,
+        details: { feature: key, plan: plan.key },
+      },
+      HttpStatus.PAYMENT_REQUIRED,
+    );
   }
 
   async getStatus(): Promise<BillingStatus> {
@@ -163,7 +194,7 @@ export class BillingService {
         current: await this.currentUsage(key),
       })),
     );
-    return { planKey: plan.key, displayName: plan.displayName, features: plan.features, quotas };
+    return { planKey: plan.key, displayName: plan.displayName, features: this.featureKeys(plan), quotas };
   }
 
   /** The plans an organisation can be put on, cheapest first. */
@@ -174,7 +205,8 @@ export class BillingService {
       const all = quotasOf(row.key, row.quotas);
       const quotas: Record<string, number> = {};
       for (const key of COUNTED_QUOTAS) if (key in all) quotas[key] = resolveLimit(all, key);
-      return { key: row.key, displayName: row.displayName, monthlyPriceUsd: row.monthlyPriceUsd, features: row.features, quotas };
+      const features = BUILTIN_PLANS.find((p) => p.key === row.key)?.features ?? row.features;
+      return { key: row.key, displayName: row.displayName, monthlyPriceUsd: row.monthlyPriceUsd, features, quotas };
     });
   }
 

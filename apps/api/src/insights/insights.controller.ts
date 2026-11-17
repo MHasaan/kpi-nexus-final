@@ -1,3 +1,4 @@
+import { BillingService } from '../billing/billing.service.js';
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { KPIInsight } from '@kpi-nexus/db';
@@ -23,6 +24,7 @@ export class InsightsController {
     private readonly insights: InsightsService,
     private readonly producer: InsightsProducer,
     private readonly accessContext: AccessContextService,
+    private readonly billing: BillingService,
   ) {}
 
   @Get()
@@ -47,6 +49,8 @@ export class InsightsController {
   async generate(@Body() body: unknown): Promise<{ insight: KPIInsight | null }> {
     const parsed = GenerateSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'kpiId is required' });
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('ai_insights');
     // Only for a KPI the caller can see — same rule as GET /kpis (BE-004). Also
     // turns another tenant's KPI id into a clean 404 (BE-025).
     if (!(await this.accessContext.isKpiVisible(parsed.data.kpiId))) {
@@ -61,6 +65,8 @@ export class InsightsController {
   async generateBatch(@Body() body: unknown): Promise<{ insights: KPIInsight[] }> {
     const parsed = BatchSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid batch request', details: parsed.error.flatten() });
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('ai_insights');
     const insights = await this.insights.generateBatch(parsed.data);
     // The batch scans the whole org; return only insights about KPIs the caller can see (BE-004).
     const visible = await this.accessContext.visibleKpiIds();

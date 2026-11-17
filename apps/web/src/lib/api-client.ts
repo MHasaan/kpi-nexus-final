@@ -2419,6 +2419,48 @@ export async function recordMyKpiData(assignmentId: string, value: number, perio
   return api(`/user-kpis/my-kpis/${assignmentId}/data`, { method: 'POST', body: JSON.stringify({ value, periodStart, periodEnd }) });
 }
 
+export interface UnitAssignmentRow {
+  assignmentId: string;
+  orgUnitId: string;
+  name: string;
+  inherited: boolean;
+  inheritedFromUnitId: string | null;
+  targetValue: number | null;
+  currentValue: number | null;
+  status: string | null;
+}
+
+export interface UserAssignmentRow {
+  assignmentId: string;
+  userId: string;
+  name: string;
+  targetValue: number | null;
+  currentValue: number | null;
+  status: string | null;
+}
+
+export interface KpiAssignments {
+  scope: string;
+  units: UnitAssignmentRow[];
+  users: UserAssignmentRow[];
+}
+
+/** Which units or people hold this KPI, with what each has recorded. */
+export async function listKpiAssignments(kpiId: string): Promise<KpiAssignments> {
+  return api(`/kpis/${kpiId}/assignments`);
+}
+
+/** Record a value for one unit's assignment of a PER_UNIT KPI. */
+export async function recordUnitKpiData(
+  assignmentId: string,
+  body: { value: number; periodStart: string; periodEnd: string; note?: string },
+): Promise<DataPoint> {
+  return api(`/org-units/kpi-assignments/${assignmentId}/data`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export interface KpiVersion {
   id: string;
   version: number;

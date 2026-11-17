@@ -24,6 +24,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import type { CreateKpiDto, UpdateKpiDto } from './dto/create-kpi.dto.js';
 import { KpiWatchProducer } from '../kpi-watches/kpi-watch.producer.js';
 import { type KpiStatus, canTransition } from './kpi-status.js';
+import { OrgUnitKpisService } from '../org-unit-kpis/org-unit-kpis.service.js';
 
 const kpiSelect = {
   id: true,
@@ -74,6 +75,8 @@ export class KpisService {
     @Optional() private readonly approvalGate?: ApprovalGateService,
     @Optional() private readonly reembedProducer?: ReembedProducer,
     @Optional() private readonly watches?: KpiWatchProducer,
+    // Last on purpose: specs construct this service positionally.
+    @Optional() private readonly orgUnitKpis?: OrgUnitKpisService,
   ) {}
 
   async list(): Promise<PublicKpi[]> {
@@ -167,6 +170,9 @@ export class KpisService {
     }
 
     try {
+      // Set inside the transaction when PER_UNIT units were assigned, so the
+      // inherited rows can be rebuilt once the KPI exists.
+      let cascadeUnitsFor: string | null = null;
       const created = await this.prisma.$transaction(async (tx) => {
         const kpi = await tx.kPI.create({
           data: {
@@ -200,6 +206,7 @@ export class KpisService {
               orgUnitId,
             })),
           });
+          cascadeUnitsFor = kpi.id;
         }
         if (dto.scope === 'PER_USER' && dto.userIds) {
           await tx.kPIAssignmentUser.createMany({
@@ -233,6 +240,13 @@ export class KpisService {
         entityId: created.id,
         metadata: { name: created.name, scope: created.scope },
       });
+
+      // Assigning at creation must cascade to child units, exactly as
+      // POST /org-units/:id/kpis does — otherwise the same assignment behaves
+      // differently depending on how it was made (2.3).
+      if (cascadeUnitsFor && this.orgUnitKpis) {
+        await this.orgUnitKpis.recomputeInheritance(cascadeUnitsFor);
+      }
 
       // Fire-and-forget: errors must not fail the KPI write.
       if (this.reembedProducer) {

@@ -134,7 +134,12 @@ export class OrgUnitKpisService {
    * delete all inherited rows, then recreate them from the nearest-direct-
    * ancestor mapping. Idempotent and robust to assign/override/unassign.
    */
-  private async recomputeInheritance(kpiId: string): Promise<void> {
+  /**
+   * Rebuild the inherited rows for a KPI: every descendant of a directly
+   * assigned unit holds it too. Public so KPI creation can cascade the units
+   * it was given, the same way `POST /org-units/:id/kpis` does.
+   */
+  async recomputeInheritance(kpiId: string): Promise<void> {
     const ctx = RequestContextStore.require();
     const units = await this.prisma.orgUnit.findMany({
       where: { organizationId: ctx.organizationId },

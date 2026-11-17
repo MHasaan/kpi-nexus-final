@@ -12,6 +12,8 @@ import {
   type KpiSummary,
 } from '../../lib/api-client';
 
+import { useDashboardData } from '../dashboard-grid/dashboard-data';
+
 import { ActivityWidget } from './ActivityWidget';
 import { BarChartWidget } from './BarChartWidget';
 import { GaugeWidget } from './GaugeWidget';
@@ -30,6 +32,8 @@ interface WidgetRendererProps {
 
 export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
   const kpiId = widget.config['kpiId'] as string | undefined;
+  // Inside a dashboard the KPI list and summary are loaded once for the board.
+  const shared = useDashboardData();
 
   const [kpi, setKpi] = useState<KpiSummary | null>(null);
   const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
@@ -59,15 +63,16 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     async function load() {
       try {
         if (needsSummary) {
-          const rows = await getDashboardSummary(dateRange);
+          // The dashboard already loaded the summary; only a lone preview fetches it.
+          const rows = shared ? [...shared.rows.values()] : await getDashboardSummary(dateRange);
           if (!cancelled) setSummaryRows(rows);
         } else if (kpiId) {
-          const [allKpis, points] = await Promise.all([
-            listKpis(),
+          const [kpiDefinition, points] = await Promise.all([
+            shared ? Promise.resolve(shared.kpis.get(kpiId) ?? null) : listKpis().then((all) => all.find((k) => k.id === kpiId) ?? null),
             listKpiDataPoints(kpiId, dateRange),
           ]);
           if (!cancelled) {
-            setKpi(allKpis.find((k) => k.id === kpiId) ?? null);
+            setKpi(kpiDefinition);
             setDataPoints(points);
           }
         }
@@ -82,7 +87,7 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     return () => {
       cancelled = true;
     };
-  }, [kpiId, needsKpiData, needsSummary, dateRange?.from, dateRange?.to]);
+  }, [kpiId, needsKpiData, needsSummary, dateRange?.from, dateRange?.to, shared]);
 
   if (loading) {
     return (
@@ -109,7 +114,7 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
 
   switch (widget.widgetType) {
     case 'kpi_card':
-      return <KpiCard widget={widget} kpi={kpi} dataPoints={dataPoints} />;
+      return <KpiCard widget={widget} kpi={kpi} dataPoints={dataPoints} status={kpiId ? (shared?.rows.get(kpiId)?.status ?? null) : null} />;
     case 'line':
       return <LineChartWidget widget={widget} dataPoints={dataPoints} />;
     case 'bar':

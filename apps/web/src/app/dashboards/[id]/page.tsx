@@ -24,6 +24,7 @@ import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
 import {
   useTerminology,
 } from '../../../lib/terminology-context';
+import { DashboardDataProvider } from '../../../components/dashboard-grid/dashboard-data';
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
 import { DashboardSettingsForm } from '../../../components/dashboard-grid/settings-form';
 import { AppShell } from '../../../components/app-shell';
@@ -555,7 +556,8 @@ function DashboardDetailInner() {
               </div>
             )}
 
-            {/* Widget grid */}
+            {/* Widget grid — one KPI + summary load for the whole board. */}
+            <DashboardDataProvider dateRange={dateRange}>
             <DashboardGrid
               dashboardId={dashboardId}
               widgets={dashboard.widgets}
@@ -568,6 +570,7 @@ function DashboardDetailInner() {
               }}
               onLayoutSaved={refresh}
             />
+            </DashboardDataProvider>
           </div>
         </>
       )}

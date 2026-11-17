@@ -7,28 +7,40 @@ import {
   Tooltip,
 } from 'recharts';
 
-import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import type { BoardPackStatus, DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
 import { latestPoint, toSeries } from './series';
 
 interface KpiCardProps {
   widget: DashboardWidget;
   kpi?: KpiSummary | null;
   dataPoints?: DataPoint[];
+  /** The server's direction-aware health for this KPI, when the board loaded it. */
+  status?: BoardPackStatus | null;
 }
 
-function getStatusColor(
-  value: number | null,
-  kpi: KpiSummary | null | undefined,
-): string {
-  if (value === null || !kpi) return 'text-content-strong';
-  if (kpi.criticalThreshold !== null && value <= kpi.criticalThreshold)
-    return 'text-status-critical';
-  if (kpi.warningThreshold !== null && value <= kpi.warningThreshold)
-    return 'text-status-warning';
-  return 'text-status-success';
+/**
+ * The colour of the value.
+ *
+ * Whether a number is good depends on the KPI's direction, so this reads the
+ * server's status (bands → thresholds → direction-aware target) rather than
+ * comparing the value with a threshold itself. Comparing `value <= critical`
+ * painted every healthy lower-is-better KPI red (X-08).
+ */
+function statusColor(status: BoardPackStatus | null | undefined): string {
+  switch (status) {
+    case 'ON_TRACK':
+      return 'text-status-success';
+    case 'AT_RISK':
+      return 'text-status-warning';
+    case 'OFF_TRACK':
+      return 'text-status-critical';
+    default:
+      // NO_TARGET / NO_DATA, or a board that did not load the summary.
+      return 'text-content-strong';
+  }
 }
 
-export function KpiCard({ widget, kpi, dataPoints = [] }: KpiCardProps) {
+export function KpiCard({ widget, kpi, dataPoints = [], status = null }: KpiCardProps) {
   const title = widget.title ?? kpi?.name ?? 'KPI';
   const latest = latestPoint(dataPoints);
   const latestValue = latest?.value ?? null;
@@ -38,7 +50,7 @@ export function KpiCard({ widget, kpi, dataPoints = [] }: KpiCardProps) {
     v: dp.value,
   }));
 
-  const statusColor = getStatusColor(latestValue, kpi);
+  const valueColor = statusColor(status);
 
   return (
     <div
@@ -50,7 +62,7 @@ export function KpiCard({ widget, kpi, dataPoints = [] }: KpiCardProps) {
           {title}
         </p>
         {latestValue !== null ? (
-          <p className={`mt-1 text-3xl font-bold ${statusColor}`}>
+          <p className={`mt-1 text-3xl font-bold ${valueColor}`}>
             {latestValue.toLocaleString()}
             {unit && (
               <span className="ml-1 text-base font-normal text-content-muted">

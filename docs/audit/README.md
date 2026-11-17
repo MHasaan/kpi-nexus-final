@@ -277,6 +277,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-002 a read window required the whole period inside it, so a monthly KPI vanished from any range shorter than two months and the current period was never in range — the seeded demo dashboard read "No data" on every card at its default 30 days | ✅ fixed | `a7854f1` | `period-window.spec.ts` (9), `kpi-data.service.spec.ts` window cases (2), `test/integration/kpi-dashboard-summary.spec.ts` "a period that straddles the window, and the current unfinished one" — verified failing on the pre-fix build (`pointCount` 0) and passing after |
 | X-08 the scorecard and the board pack assumed higher is better: a lower-is-better KPI comfortably under its target read "Below", and a rise in churn was coloured green as a win | ✅ fixed for the scorecard and board pack (the KPI card colour follows in 1.3) | `0633f2f` | `apps/web/src/lib/kpi-health.spec.ts` (11), `e2e/direction-aware-status.spec.ts` — verified failing on the pre-fix build (churn 3.5 / 4 read "Below") and passing after |
 | UI-001 every dashboard widget read `.at(-1)` as the latest value, which is the OLDEST point in a newest-first response, and charts plotted the array as given so time ran right to left; chart labels used `recordedAt`, so days entered in one sitting all read as today | ✅ fixed | `a097295` | `components/widgets/series.spec.ts` (12), `e2e/dashboard-widgets.spec.ts` — verified failing on the pre-fix build (card read `100`, the oldest of three days) and passing after. 17 dashboard browser tests green |
+| UI-001 / X-08 (remainder) every widget called `listKpis()` for itself, so a twelve-widget board downloaded the whole catalogue twelve times; the KPI card coloured its value by `value <= criticalThreshold`, painting a healthy lower-is-better KPI red | ✅ fixed | `a6bee8b` | `e2e/dashboard-one-load.spec.ts` — verified failing on the pre-fix build (3 catalogue reads for 3 widgets) and passing after (1); the card's value carries `text-status-success` for churn 3.5 against a 4 ceiling. 18 dashboard browser tests green |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -285,7 +286,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | UI-001 dashboard widgets show an old value as "latest" and plot newest → oldest | Critical | ⬜ open | 1.2, 1.3 |
-| UI-001 (remainder) one data load per dashboard instead of one per widget; KPI card colour still ignores direction | Medium | ⬜ open | 1.3 |
 | UI-002 dashboard date range drops any period not wholly inside it (default 30d shows "No data") | Critical | ⬜ open | 1.1 |
 | UI-003 per-unit KPI values cannot be recorded in the web app | Critical | ⬜ open | 2.1, 2.2, 2.7, 2.8 |
 | UI-004 no UI assigns a KPI to a unit or user after creation | Critical | ⬜ open | 2.6, 2.8–2.10 |
@@ -307,7 +307,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-05 pages that need `GET /users` show "—", "Unassigned", "Unknown user" for contributors | Medium | ⬜ open | 5.3 |
 | X-06 forms: no busy state, blank saved as 0, fields that cannot be cleared, typed ids | Medium | ⬜ open | 7.4 |
 | X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
-| X-08 (remainder) the dashboard KPI card still colours its value by `value <= threshold`, ignoring direction | Medium | ⬜ open | 1.3 |
 | X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
 | X-10 hidden duplicate controls and dead files kept for tests | Low | ⬜ open | 7.6 |
 

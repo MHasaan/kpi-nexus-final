@@ -49,6 +49,7 @@ export interface Comment {
   body: string;
   mentionedUserIds: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export function listComments(entityType: CommentEntityType, entityId: string): Promise<Comment[]> {
@@ -61,6 +62,14 @@ export function createComment(body: {
   mentionedUserIds?: string[];
 }): Promise<Comment> {
   return api('/comments', { method: 'POST', body: JSON.stringify(body) });
+}
+/** Change the text of one's own comment. */
+export function updateComment(id: string, body: { body: string; mentionedUserIds?: string[] }): Promise<Comment> {
+  return api(`/comments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+/** Delete one's own comment. */
+export function deleteComment(id: string): Promise<void> {
+  return api(`/comments/${id}`, { method: 'DELETE' });
 }
 
 export interface Mention {

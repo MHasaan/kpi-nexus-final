@@ -28,6 +28,22 @@ interface FakeWorkflow {
 class FakePrisma {
   private n = 1;
   workflows: FakeWorkflow[] = [];
+  /** What exists in each organisation, for the "does this id belong here" checks. */
+  kpis = [{ id: 'mrr', organizationId: 'org_alpha' }, { id: 'theirs', organizationId: 'other' }];
+  people = [{ id: 'sara', organizationId: 'org_alpha' }];
+  channels = [{ id: 'email-1', organizationId: 'org_alpha' }];
+  webhooks = [{ id: 'hook-1', organizationId: 'org_alpha' }];
+  latest: { value: number } | null = null;
+
+  private inOrg = (rows: Array<{ id: string; organizationId: string }>) =>
+    vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+      rows.find((r) => r.id === where.id && r.organizationId === where.organizationId) ?? null,
+    );
+  kPI = { findFirst: this.inOrg(this.kpis) };
+  user = { findFirst: this.inOrg(this.people) };
+  notificationChannel = { findFirst: this.inOrg(this.channels) };
+  webhookSubscription = { findFirst: this.inOrg(this.webhooks) };
+  kPIDataPoint = { findFirst: vi.fn(async () => this.latest) };
 
   workflow = {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
@@ -84,7 +100,7 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 
 function makeService() {
   const prisma = new FakePrisma();
-  const dispatcher = { dispatch: vi.fn(async () => {}) };
+  const dispatcher = { dispatch: vi.fn(async () => {}), run: vi.fn(async () => {}) };
   const audit = { record: vi.fn(async () => {}) };
   const service = new WorkflowsService(
     prisma as unknown as PrismaService,
@@ -164,5 +180,81 @@ describe('WorkflowsService.runEvent', () => {
     await expect(
       withCtx({}, () => service.runEvent('kpi_changed', { kind: 'kpi_changed', kpiId: 'k', value: 1 })),
     ).resolves.toBeUndefined();
+  });
+});
+
+// UI-007: what a workflow names by id has to exist here, or it never fires.
+describe('WorkflowsService — references belong to the organisation', () => {
+  const base = { name: 'Rule', triggers: ['kpi_changed' as const], action: { kind: 'create_task' as const, title: 'Follow up' } };
+
+  test.each([
+    ['a KPI that does not exist', { rule: { kind: 'kpi_value' as const, kpiId: 'nope', operator: '>' as const, value: 1 } }],
+    ['a KPI in another organisation', { rule: { kind: 'kpi_value' as const, kpiId: 'theirs', operator: '>' as const, value: 1 } }],
+    ['a person who is not here', { action: { kind: 'create_task' as const, title: 'X', assigneeUserId: 'ghost' } }],
+    ['a channel that is not here', { action: { kind: 'send_notification' as const, channelId: 'nope', message: 'hi' } }],
+    ['a webhook that is not here', { action: { kind: 'post_webhook' as const, subscriptionId: 'nope' } }],
+  ])('create refuses %s, and stores nothing', async (_label, change) => {
+    const { service, prisma } = makeService();
+    await expect(withCtx({}, () => service.create({ ...base, ...change }))).rejects.toMatchObject({ status: 400 });
+    expect(prisma.workflows).toHaveLength(0);
+  });
+
+  test('ids that are here are accepted', async () => {
+    const { service } = makeService();
+    await withCtx({}, () =>
+      service.create({
+        ...base,
+        rule: { kind: 'kpi_value', kpiId: 'mrr', operator: '>', value: 1 },
+        action: { kind: 'create_task', title: 'X', assigneeUserId: 'sara' },
+      }),
+    );
+    await withCtx({}, () => service.create({ ...base, action: { kind: 'send_notification', channelId: 'email-1', message: 'hi' } }));
+    await withCtx({}, () => service.create({ ...base, action: { kind: 'post_webhook', subscriptionId: 'hook-1' } }));
+  });
+
+  test('an update is checked the same way', async () => {
+    const { service } = makeService();
+    const wf = await withCtx({}, () => service.create(base));
+    await expect(
+      withCtx({}, () => service.update(wf.id, { rule: { kind: 'kpi_value', kpiId: 'theirs', operator: '>', value: 1 } })),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('WorkflowsService.trigger — "Run now"', () => {
+  const celebrate = {
+    name: 'celebrate',
+    triggers: ['kpi_changed' as const],
+    rule: { kind: 'kpi_value' as const, kpiId: 'mrr', operator: '>' as const, value: 100000 },
+    action: { kind: 'create_task' as const, title: 'Celebrate!' },
+  };
+
+  test('does the action whatever the condition says, for the rule\'s KPI at its latest value', async () => {
+    const { service, prisma, dispatcher } = makeService();
+    prisma.latest = { value: 42 }; // far below the rule's 100000: a manual run does not care
+    const wf = await withCtx({}, () => service.create(celebrate));
+    await withCtx({}, () => service.trigger(wf.id));
+    expect(dispatcher.run).toHaveBeenCalledWith(celebrate.action, { kind: 'kpi_changed', kpiId: 'mrr', value: 42 });
+    expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
+  });
+
+  test('a failure is reported to whoever pressed the button, and the run is not recorded', async () => {
+    const { service, prisma, dispatcher } = makeService();
+    dispatcher.run = vi.fn(async (): Promise<void> => {
+      throw new Error('The notification channel no longer exists or is switched off');
+    });
+    const wf = await withCtx({}, () => service.create(celebrate));
+    await expect(withCtx({}, () => service.trigger(wf.id))).rejects.toMatchObject({
+      status: 422,
+      response: { code: 'WORKFLOW_ACTION_FAILED', message: expect.stringContaining('no longer exists') },
+    });
+    expect(prisma.workflows[0]!.lastRunAt).toBeNull();
+  });
+
+  test('a workflow in another organisation cannot be run', async () => {
+    const { service, dispatcher } = makeService();
+    const wf = await withCtx({}, () => service.create(celebrate));
+    await expect(withCtx({ organizationId: 'other' }, () => service.trigger(wf.id))).rejects.toMatchObject({ status: 404 });
+    expect(dispatcher.run).not.toHaveBeenCalled();
   });
 });

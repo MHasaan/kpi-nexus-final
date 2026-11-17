@@ -292,6 +292,14 @@ export class AuthService {
           message: 'User is already active',
         });
       }
+      // An invitation withdrawn by archiving or suspending the person is dead,
+      // even though its token has not expired (BE-046). Same answer as a bad token.
+      if (isWithdrawnInvitee(user.status)) {
+        throw new UnauthorizedException({
+          code: 'UNAUTHENTICATED',
+          message: 'Invalid or expired invitation token',
+        });
+      }
 
       // Apply per-org password policy
       const { checkPasswordPolicy, resolvePasswordPolicy } = await import(
@@ -507,4 +515,9 @@ export class AuthService {
     }
     return false;
   }
+}
+
+/** Whether a person's status means their pending invitation no longer stands. */
+export function isWithdrawnInvitee(status: string): boolean {
+  return status === 'SUSPENDED' || status === 'ARCHIVED' || status === 'DELETED' || status === 'PURGED';
 }

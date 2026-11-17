@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 
-import { MentionsService, type PublicMention } from './mentions.service.js';
+import { type MentionView, MentionsService, type PublicMention } from './mentions.service.js';
 
 /** Per-user mention inbox — authenticated (any role); a user only ever sees
  * their own mentions, enforced in the service via the request context. */
@@ -12,7 +12,7 @@ export class MentionsController {
   list(
     @Query('unreadOnly') unreadOnly?: string,
     @Query('limit') limit?: string,
-  ): Promise<PublicMention[]> {
+  ): Promise<MentionView[]> {
     return this.mentions.list({
       unreadOnly: unreadOnly === 'true' || unreadOnly === '1',
       limit: limit ? Math.min(200, Math.max(1, Number(limit) || 50)) : undefined,

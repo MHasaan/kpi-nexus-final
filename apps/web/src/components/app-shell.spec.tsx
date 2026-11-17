@@ -56,7 +56,7 @@ function hrefs(items: { href: string }[]): string[] {
 }
 
 // Items that have no required permission and are therefore always visible.
-const PUBLIC_HREFS = ['/dashboard', '/okrs', '/tasks', '/approvals', '/activity'];
+const PUBLIC_HREFS = ['/dashboard', '/my-kpis', '/team', '/okrs', '/tasks', '/approvals', '/activity'];
 
 describe('NAV config', () => {
   test('groups are the four design sections plus the top Workspace entry', () => {
@@ -120,6 +120,26 @@ describe('visibleNavItems', () => {
     expect(visible).not.toContain('/positions');
     expect(visible).not.toContain('/settings/audit');
     expect(visible).not.toContain('/integrations');
+    expect(visible).not.toContain('/workflows');
+    expect(visible).not.toContain('/connectors');
+    expect(visible).not.toContain('/plugins');
+    expect(visible).not.toContain('/billing');
+  });
+
+  // UI-012: these pages existed and nothing led to them.
+  test('every page that used to have no link is in the navigation', () => {
+    const all = hrefs(NAV_ITEMS);
+    for (const href of ['/my-kpis', '/team', '/workflows', '/connectors', '/plugins', '/billing']) expect(all).toContain(href);
+  });
+
+  test('each link asks for what its page asks for', () => {
+    // Automations, Plugins and Billing are administrator pages.
+    expect(hrefs(visibleNavItems(['ORG_SETTINGS']))).toEqual(expect.arrayContaining(['/workflows', '/plugins', '/billing', '/connectors']));
+    // Connectors opens with either key, like its page.
+    expect(hrefs(visibleNavItems(['INTEGRATIONS_MANAGE']))).toContain('/connectors');
+    expect(hrefs(visibleNavItems(['INTEGRATIONS_MANAGE']))).not.toContain('/workflows');
+    // My KPIs and Team are everyone's.
+    expect(hrefs(visibleNavItems([]))).toEqual(expect.arrayContaining(['/my-kpis', '/team']));
   });
 
   test('empty permission set still shows the no-permission items', () => {

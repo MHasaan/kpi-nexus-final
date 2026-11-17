@@ -121,7 +121,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(
       nav.getByRole('link', { name: 'Dashboard', exact: true }),
     ).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'KPIs', exact: true })).toBeVisible(); // not "My KPIs"
     // Admin-only entries present:
     await expect(nav.getByRole('link', { name: 'Roles' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Settings' })).toBeVisible();
@@ -199,7 +199,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(
       nav.getByRole('link', { name: 'Dashboard', exact: true }),
     ).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'KPIs' })).toBeVisible(); // KPI_VIEW
+    await expect(nav.getByRole('link', { name: 'KPIs', exact: true })).toBeVisible(); // not "My KPIs" // KPI_VIEW
     await expect(nav.getByRole('link', { name: 'Alerts' })).toBeVisible(); // ALERTS_VIEW
 
     // … but the entries the Employee lacks must be hidden.

@@ -28,6 +28,7 @@ import {
   Skeleton,
   type BadgeTone,
 } from '../../components/ui';
+import { useKpiNames } from '../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Status → Badge tone (icon/label keeps it readable; never colour-only).
@@ -67,6 +68,7 @@ type SortKey = 'priority' | 'recency';
 
 export default function RecommendationsPage() {
   const canAct = usePermissions().has('KPI_EDIT');
+  const { nameOf } = useKpiNames();
   const router = useRouter();
   const [rows, setRows] = useState<Recommendation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export default function RecommendationsPage() {
                     {r.kpiId && (
                       <Link href={`/kpis/${r.kpiId}`} data-testid={`rec-kpi-${r.id}`}>
                         <Badge tone="info" className="transition-colors hover:brightness-95">
-                          KPI {r.kpiId.slice(0, 8)}…
+                          {nameOf(r.kpiId)}
                         </Badge>
                       </Link>
                     )}

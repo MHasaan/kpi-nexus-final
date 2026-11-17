@@ -35,6 +35,7 @@ import {
   type AlertSeverity,
   type AlertStatus,
 } from '../../lib/api-client';
+import { ALERT_STATUS_LABELS, labelFor } from '../../lib/labels';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
@@ -281,7 +282,7 @@ export default function AlertsPage() {
                     </Link>
                   </TableCell>
                   <TableCell data-testid={`alert-status-${a.id}`}>
-                    <Badge tone={STATUS_TONE[a.status]}>{a.status}</Badge>
+                    <Badge tone={STATUS_TONE[a.status]}>{labelFor(ALERT_STATUS_LABELS, a.status)}</Badge>
                   </TableCell>
                   <TableCell className="tabular-nums text-content-muted">
                     {new Date(a.createdAt).toLocaleString()}

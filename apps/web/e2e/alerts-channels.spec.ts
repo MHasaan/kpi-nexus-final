@@ -198,10 +198,10 @@ test.describe('Notification channels UI', () => {
       await injectTokens(page, reg);
       await page.goto(`/alerts/${alertId}`);
       await expect(page.getByTestId('alert-detail-message')).toContainText('150');
-      await expect(page.getByTestId('alert-detail-status')).toContainText('OPEN');
+      await expect(page.getByTestId('alert-detail-status')).toContainText('Open');
 
       await page.getByTestId('alert-detail-ack').click();
-      await expect(page.getByTestId('alert-detail-status')).toContainText('ACKNOWLEDGED', { timeout: 10_000 });
+      await expect(page.getByTestId('alert-detail-status')).toContainText('Acknowledged', { timeout: 10_000 });
     },
   );
 });

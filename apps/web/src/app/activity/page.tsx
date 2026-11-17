@@ -9,6 +9,7 @@ import { type ActivityItem, listActivity } from '../../lib/polish-client';
 import { AppShell } from '../../components/app-shell';
 import { PageHeader, Card, CardContent, Select, Avatar, Button, EmptyState, Skeleton } from '../../components/ui';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { activityLabel } from '../../lib/labels';
 
 export default function ActivityPage() {
   const router = useRouter();
@@ -99,10 +100,7 @@ export default function ActivityPage() {
                     <Avatar name={ev.userName ?? 'Someone'} size="sm" />
                     <div className="min-w-0 flex-1 text-sm text-content">
                       <span className="font-semibold text-content-strong">{ev.userName ?? 'Someone'}</span>{' '}
-                      <span className="text-content-muted">{ev.action}</span>{' '}
-                      {ev.entityType && (
-                        <span className="font-medium text-accent-primary">{ev.entityType}</span>
-                      )}
+                      <span className="text-content-muted">{activityLabel(ev.action, ev.entityType)}</span>
                     </div>
                     <span className="shrink-0 text-xs tabular-nums text-content-muted">
                       {new Date(ev.createdAt).toLocaleString()}

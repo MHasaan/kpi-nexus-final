@@ -93,7 +93,7 @@ import {
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
-import { ASSIGNMENT_STATUS_LABELS, labelFor } from '../../../lib/labels';
+import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
@@ -181,10 +181,10 @@ export default function KpiDetailPage() {
           <h1 className="text-2xl font-bold tracking-tight text-content-strong" data-testid="kpi-detail-name">
             {kpi.name}
           </h1>
-          <Badge tone="neutral">{kpi.status}</Badge>
+          <Badge tone="neutral">{labelFor(KPI_STATUS_LABELS, kpi.status)}</Badge>
           <ScopeBadge scope={kpi.scope} />
           <span className="text-xs tabular-nums text-content-muted">
-            v{kpi.version} · {kpi.type}
+            v{kpi.version} · {labelFor(KPI_TYPE_LABELS, kpi.type)}
           </span>
           <span className="ml-auto flex flex-wrap items-center gap-2">
             <WatchButton kpiId={kpiId} />
@@ -324,8 +324,8 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
         <UICard>
           <CardContent>
             <p className="kn-eyebrow">Direction · Frequency</p>
-            <p className="mt-1 text-sm text-content-strong">{kpi.direction}</p>
-            <p className="text-sm text-content-muted">{kpi.frequency}</p>
+            <p className="mt-1 text-sm text-content-strong">{labelFor(DIRECTION_LABELS, kpi.direction)}</p>
+            <p className="text-sm text-content-muted">{labelFor(FREQUENCY_LABELS, kpi.frequency)}</p>
           </CardContent>
         </UICard>
       </div>

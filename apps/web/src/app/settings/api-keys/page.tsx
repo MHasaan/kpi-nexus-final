@@ -17,6 +17,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useAllowed } from '../../../lib/use-allowed';
 
 // Curated scope choices (subset of the canonical permissions in @kpi-nexus/contracts).
 const SCOPE_CHOICES = [
@@ -55,13 +56,17 @@ export default function ApiKeysPage() {
     }
   }, [router]);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('ORG_SETTINGS');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void refresh();
-  }, [router, refresh]);
+  }, [router, refresh, allowed]);
 
   function toggleScope(s: string) {
     setScopes((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));

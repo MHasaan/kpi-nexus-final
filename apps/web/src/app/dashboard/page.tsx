@@ -366,9 +366,12 @@ export default function DashboardPage() {
         .catch(() => !cancelled && setInsights([]));
     }
     // Approvals: surfaced for approvers; best-effort, hidden when empty/forbidden.
-    listApprovalRequests({ status: 'PENDING' })
-      .then((rows) => !cancelled && setPendingApprovals(rows))
-      .catch(() => !cancelled && setPendingApprovals([]));
+    // Not asked for when signed out: the page is about to go to the sign-in page.
+    if (getAccessToken()) {
+      listApprovalRequests({ status: 'PENDING' })
+        .then((rows) => !cancelled && setPendingApprovals(rows))
+        .catch(() => !cancelled && setPendingApprovals([]));
+    }
     return () => {
       cancelled = true;
     };

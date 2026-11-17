@@ -35,6 +35,7 @@ import {
   TableCell,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useAllowed } from '../../../lib/use-allowed';
 
 interface Budget {
   dailySpend: number;
@@ -292,13 +293,17 @@ export default function AiSettingsPage() {
       .catch((e) => setError(e instanceof ApiError ? `Your provider keys could not be loaded: ${e.message}` : 'Your provider keys could not be loaded.'));
   }, []);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('ORG_SETTINGS');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   const saveCap = async () => {
     setError(null);

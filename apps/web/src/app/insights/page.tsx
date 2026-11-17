@@ -29,6 +29,7 @@ import {
 } from '../../components/ui';
 import { useKpiNames } from '../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAllowed } from '../../lib/use-allowed';
 
 type SortKey = 'confidence' | 'recency';
 
@@ -55,13 +56,17 @@ export default function InsightsPage() {
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
   }, []);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('INSIGHTS_VIEW');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   const generate = async () => {
     setError(null);

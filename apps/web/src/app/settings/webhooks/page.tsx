@@ -21,6 +21,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useAllowed } from '../../../lib/use-allowed';
 
 // Fallback catalog used only if the live /webhooks/events fetch fails.
 const FALLBACK_EVENT_CHOICES = [
@@ -62,11 +63,15 @@ export default function WebhooksPage() {
     }
   }, [router]);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('ORG_SETTINGS');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void refresh();
     void listWebhookEvents()
       .then((res) => {
@@ -75,7 +80,7 @@ export default function WebhooksPage() {
       .catch(() => {
         // Keep the fallback catalog if the events endpoint is unavailable.
       });
-  }, [router, refresh]);
+  }, [router, refresh, allowed]);
 
   function toggleEvent(e: string) {
     setEvents((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));

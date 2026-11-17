@@ -30,6 +30,7 @@ import {
 } from '../../../../components/ui';
 import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { useAllowed } from '../../../../lib/use-allowed';
 
 function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
@@ -59,13 +60,17 @@ export default function DashboardSharePage() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('DASHBOARD_MANAGE');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void refresh();
-  }, [router, dashboardId]);
+  }, [router, dashboardId, allowed]);
 
   async function refresh() {
     setLoadError(null);

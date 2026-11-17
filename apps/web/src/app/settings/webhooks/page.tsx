@@ -19,6 +19,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // Fallback catalog used only if the live /webhooks/events fetch fails.
@@ -33,6 +34,7 @@ const FALLBACK_EVENT_CHOICES = [
 
 export default function WebhooksPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [hooks, setHooks] = useState<WebhookSubscription[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [eventChoices, setEventChoices] = useState<string[]>(FALLBACK_EVENT_CHOICES);
@@ -185,7 +187,7 @@ export default function WebhooksPage() {
                       <button type="button" onClick={() => void withBusy(h.id, async () => { await testWebhook(h.id); setStatusMsg('Test delivery queued.'); })} disabled={busyId === h.id} data-testid={`webhook-test-${h.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Test</button>
                       <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { const r = await rotateWebhookSecret(h.id); setSecret(r.secret); })} disabled={busyId === h.id} data-testid={`webhook-rotate-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Rotate</button></PermissionGuard>
                       <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { await setWebhookActive(h.id, !h.isActive); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-toggle-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">{h.isActive ? 'Disable' : 'Enable'}</button></PermissionGuard>
-                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { await deleteWebhook(h.id); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-delete-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button></PermissionGuard>
+                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void confirm({ title: `Delete the webhook “${h.name}”?`, description: 'Events stop being sent to it. This cannot be undone.', confirmLabel: 'Delete webhook', tone: 'danger', testId: 'webhook-delete-confirm', action: async () => { await deleteWebhook(h.id); await refresh(); } })} disabled={busyId === h.id} data-testid={`webhook-delete-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button></PermissionGuard>
                     </td>
                   </tr>
                 ))}

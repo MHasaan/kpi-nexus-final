@@ -16,12 +16,14 @@ import {
   listConnectors,
   runConnector,
 } from '../../lib/integrations-client';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { RequireAnyPermission } from '../../components/auth/require-permission';
 import { usePermissions } from '../../lib/use-permissions';
 
 export default function ConnectorsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -86,6 +88,14 @@ export default function ConnectorsPage() {
   };
 
   const remove = async (id: string) => {
+    const ok = await confirm({
+      title: `Delete the connector “${connectors.find((c) => c.id === id)?.name ?? 'this connector'}”?`,
+      description: 'It stops bringing values in. Values it already recorded are kept.',
+      confirmLabel: 'Delete connector',
+      tone: 'danger',
+      testId: 'connector-delete-confirm',
+    });
+    if (!ok) return;
     try {
       await deleteConnector(id);
       await load();

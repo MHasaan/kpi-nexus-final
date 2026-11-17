@@ -37,6 +37,7 @@ import {
   Textarea,
   type BadgeTone,
 } from '../../components/ui';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -161,6 +162,7 @@ interface EditState {
 
 export default function TasksPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,6 +292,14 @@ export default function TasksPage() {
   };
 
   const removeTask = async (taskId: string) => {
+    const ok = await confirm({
+      title: `Delete the task “${tasks.find((t) => t.id === taskId)?.title ?? 'this task'}”?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete task',
+      tone: 'danger',
+      testId: 'task-delete-confirm',
+    });
+    if (!ok) return;
     try {
       await deleteTask(taskId);
       await load();
@@ -553,7 +563,7 @@ export default function TasksPage() {
                               e.stopPropagation();
                               void removeTask(task.id);
                             }}
-                            className="shrink-0 rounded p-0.5 text-content-muted opacity-0 transition-opacity hover:text-status-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                            className="shrink-0 rounded p-0.5 text-content-muted opacity-60 transition-opacity hover:text-status-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:opacity-100 focus-visible:opacity-100"
                             aria-label="Delete task"
                           >
                             <X className="h-3.5 w-3.5" aria-hidden />

@@ -46,6 +46,7 @@ import {
   pluralize,
   useTerminology,
 } from '../../lib/terminology-context';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { ApprovalPendingNotice } from '../../components/approval-pending-notice';
 import { isApprovalPending } from '../../lib/role-permissions';
@@ -90,6 +91,7 @@ export default function RolesPage() {
 function RolesPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
+  const confirm = useConfirm();
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -182,6 +184,14 @@ function RolesPageInner() {
   }
 
   async function handleDelete(role: RoleSummary) {
+    const ok = await confirm({
+      title: `Delete the role “${role.name}”?`,
+      description: 'People who hold it must be given another role first. This cannot be undone.',
+      confirmLabel: 'Delete role',
+      tone: 'danger',
+      testId: 'role-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(role.id);
     setDeleteError(null);
     try {

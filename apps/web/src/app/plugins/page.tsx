@@ -12,6 +12,7 @@ import {
   listPlugins,
   setPluginEnabled,
 } from '../../lib/integrations-client';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
@@ -19,6 +20,7 @@ import { usePermissions } from '../../lib/use-permissions';
 
 export default function PluginsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +72,14 @@ export default function PluginsPage() {
   };
 
   const remove = async (id: string) => {
+    const ok = await confirm({
+      title: `Uninstall “${plugins.find((p) => p.id === id)?.name ?? 'this plugin'}”?`,
+      description: 'Whatever it added stops being available.',
+      confirmLabel: 'Uninstall',
+      tone: 'danger',
+      testId: 'plugin-delete-confirm',
+    });
+    if (!ok) return;
     try {
       await deletePlugin(id);
       await load();

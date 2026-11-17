@@ -248,3 +248,26 @@ describe('AlertsService — personal notices (KPI watch)', () => {
     expect(ids).toEqual(['peer']);
   });
 });
+
+// Plan 7.5: the list stopped at its first hundred alerts with no way to the rest.
+describe('AlertsService.list — older alerts', () => {
+  test('before=<id> asks for the alerts older than that one, newest first, ties broken by id', async () => {
+    const { service, prisma } = makeService({ isAdmin: true });
+    const createdAt = new Date('2026-11-01T10:00:00.000Z');
+    prisma.alerts.push(mkAlert({ id: 'a_last', createdAt }));
+    await withCtx({ userId: 'me' }, () => service.list({ before: 'a_last', limit: 50 }));
+
+    const call = prisma.alert.findMany.mock.calls.at(-1)![0] as unknown as { where: { AND: unknown[] }; orderBy: unknown; take: number };
+    expect(call.where.AND[1]).toEqual({ OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: 'a_last' } }] });
+    expect(call.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+    expect(call.take).toBe(50);
+  });
+
+  test('a cursor the caller cannot see — or that does not exist — pages from nowhere', async () => {
+    const { service, prisma } = makeService({ isAdmin: true });
+    prisma.alerts.push(mkAlert({ id: 'a_theirs', organizationId: 'org_other' }));
+    expect(await withCtx({ userId: 'me' }, () => service.list({ before: 'a_theirs' }))).toEqual([]);
+    expect(await withCtx({ userId: 'me' }, () => service.list({ before: 'nope' }))).toEqual([]);
+    expect(prisma.alert.findMany).not.toHaveBeenCalled();
+  });
+});

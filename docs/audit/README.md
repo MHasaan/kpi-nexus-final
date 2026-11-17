@@ -274,6 +274,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | X-02 (part 1) KPI detail tabs swallowed load errors: a failed request left the tab looking empty (`kpis/[id]/page.tsx` `useAsync` → `catch(() => setData(null))`) | ✅ fixed for the KPI detail tabs; other swallowed errors stay open under X-02 | `65af457` | `e2e/kpi-detail.spec.ts` "a tab that fails to load says so and can be retried" (failed before the fix), `apps/web/src/lib/use-async-data.spec.ts` (7) |
 | UI-011 with an approval workflow active, saving a KPI edit navigated to `/kpis/undefined` and adding a target looked as if nothing happened (the 202 `APPROVAL_REQUIRED` body was treated as the saved row) | ✅ fixed | `f8955bc` | `e2e/kpi-approval-pending.spec.ts` (failed before the fix): notice shown on edit and on target add, URL stays valid, nothing applied until approved |
 | OT-020 seven browser specs drove the `/register` form only to get an admin session, coupling them to that page and re-testing sign-up on every run (groundwork for the per-page click-through specs) | ✅ done | `03a6936` | `e2e/helpers/org.ts` `registerOrgViaApi()`; 11 call sites moved in `me-sessions`, `help-drawer`, `settings-flow`, `permission-nav`, `settings-pages`, `status`, `roles-flow`. The form itself stays covered by `auth-flow.spec.ts` (UC-01). 29 tests pass |
+| UI-002 a read window required the whole period inside it, so a monthly KPI vanished from any range shorter than two months and the current period was never in range — the seeded demo dashboard read "No data" on every card at its default 30 days | ✅ fixed | `a7854f1` | `period-window.spec.ts` (9), `kpi-data.service.spec.ts` window cases (2), `test/integration/kpi-dashboard-summary.spec.ts` "a period that straddles the window, and the current unfinished one" — verified failing on the pre-fix build (`pointCount` 0) and passing after |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -282,7 +283,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | UI-001 dashboard widgets show an old value as "latest" and plot newest → oldest | Critical | ⬜ open | 1.2, 1.3 |
-| UI-002 dashboard date range drops any period not wholly inside it (default 30d shows "No data") | Critical | ⬜ open | 1.1 |
 | UI-003 per-unit KPI values cannot be recorded in the web app | Critical | ⬜ open | 2.1, 2.2, 2.7, 2.8 |
 | UI-004 no UI assigns a KPI to a unit or user after creation | Critical | ⬜ open | 2.6, 2.8–2.10 |
 | UI-005 setup wizard is one screen; only the AI co-pilot can add roles, units and KPIs | Critical | ⬜ open | 3.1–3.9 |

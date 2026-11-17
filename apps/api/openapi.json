@@ -2854,6 +2854,37 @@
         }
       }
     },
+    "/billing/plans": {
+      "get": {
+        "operationId": "BillingController_plans",
+        "tags": [
+          "Billing"
+        ],
+        "summary": "GET /billing/plans",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "any": [
+            "BILLING_MANAGE",
+            "ORG_SETTINGS"
+          ]
+        }
+      }
+    },
     "/comments": {
       "get": {
         "operationId": "CommentsController_list",

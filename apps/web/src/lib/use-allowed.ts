@@ -13,3 +13,9 @@ export function useAllowed(permission: string): boolean {
   const { ready, has } = usePermissions();
   return ready && has(permission);
 }
+
+/** True once the person's permissions are known and include at least one of `permissions`. */
+export function useAllowedAny(permissions: readonly string[]): boolean {
+  const { ready, hasAny } = usePermissions();
+  return ready && hasAny([...permissions]);
+}

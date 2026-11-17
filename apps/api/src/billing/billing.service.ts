@@ -13,19 +13,39 @@ interface BuiltinPlan {
 }
 
 // Builtin plan catalog (global, seeded lazily). quota 0 = unlimited.
+// For these three keys the limits here are the ones in force, whatever a stored
+// catalog row says: a catalog written before a limit existed would otherwise
+// never get it (the catalog is only written when empty).
 const BUILTIN_PLANS: BuiltinPlan[] = [
-  { key: 'FREE', displayName: 'Free', monthlyPriceUsd: 0, features: [], quotas: { kpis: 10, dashboards: 2 } },
+  { key: 'FREE', displayName: 'Free', monthlyPriceUsd: 0, features: [], quotas: { kpis: 10, dashboards: 3, users: 5 } },
   {
     key: 'PRO', displayName: 'Pro', monthlyPriceUsd: 49,
     features: ['ai_insights', 'webhooks', 'scheduled_reports'],
-    quotas: { kpis: 200, dashboards: 50 },
+    quotas: { kpis: 200, dashboards: 50, users: 50 },
   },
   {
     key: 'ENTERPRISE', displayName: 'Enterprise', monthlyPriceUsd: 0,
     features: ['ai_insights', 'webhooks', 'scheduled_reports', 'sso', 'custom_domain', 'api_keys'],
-    quotas: { kpis: 0, dashboards: 0 },
+    quotas: { kpis: 0, dashboards: 0, users: 0 },
   },
 ];
+
+/** The limits of a plan: the built-in ones for a built-in key, the stored ones otherwise. */
+function quotasOf(key: string, stored: unknown): Record<string, number> {
+  return BUILTIN_PLANS.find((p) => p.key === key)?.quotas ?? ((stored as Record<string, number> | null) ?? {});
+}
+
+/** The quota keys whose usage is counted from live rows. Others are not shown: nothing counts them. */
+const COUNTED_QUOTAS = ['kpis', 'dashboards', 'users'] as const;
+
+/** One plan an organisation can be on. */
+export interface BillingPlan {
+  key: string;
+  displayName: string;
+  monthlyPriceUsd: number;
+  features: string[];
+  quotas: Record<string, number>;
+}
 
 export interface BillingStatus {
   planKey: string;
@@ -72,7 +92,7 @@ export class BillingService {
         displayName: plan.displayName,
         monthlyPriceUsd: plan.monthlyPriceUsd,
         features: plan.features,
-        quotas: (plan.quotas as Record<string, number>) ?? {},
+        quotas: quotasOf(plan.key, plan.quotas),
       };
     }
     // Unknown planKey → treat as unlimited enterprise.
@@ -87,6 +107,12 @@ export class BillingService {
     }
     if (key === 'dashboards') {
       return this.prisma.dashboard.count({ where: { organizationId: ctx.organizationId, deletedAt: null } });
+    }
+    if (key === 'users') {
+      // People who hold a place in the organisation: everyone not archived or deleted.
+      return this.prisma.user.count({
+        where: { organizationId: ctx.organizationId, status: { notIn: ['ARCHIVED', 'DELETED', 'PURGED'] } },
+      });
     }
     const row = await this.prisma.tenantQuota.findUnique({
       where: { organizationId_key: { organizationId: ctx.organizationId, key } },
@@ -128,7 +154,7 @@ export class BillingService {
   async getStatus(): Promise<BillingStatus> {
     const plan = await this.planForOrg();
     const quotas = await Promise.all(
-      Object.keys(plan.quotas).map(async (key) => ({
+      COUNTED_QUOTAS.filter((key) => key in plan.quotas).map(async (key) => ({
         key,
         limit: resolveLimit(plan.quotas, key),
         current: await this.currentUsage(key),
@@ -137,11 +163,23 @@ export class BillingService {
     return { planKey: plan.key, displayName: plan.displayName, features: plan.features, quotas };
   }
 
+  /** The plans an organisation can be put on, cheapest first. */
+  async listPlans(): Promise<BillingPlan[]> {
+    await this.seedIfEmpty();
+    const rows = await this.prisma.plan.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+    return rows.map((row) => {
+      const all = quotasOf(row.key, row.quotas);
+      const quotas: Record<string, number> = {};
+      for (const key of COUNTED_QUOTAS) if (key in all) quotas[key] = resolveLimit(all, key);
+      return { key: row.key, displayName: row.displayName, monthlyPriceUsd: row.monthlyPriceUsd, features: row.features, quotas };
+    });
+  }
+
   async setPlan(planKey: string): Promise<BillingStatus> {
     await this.seedIfEmpty();
     const ctx = RequestContextStore.require();
-    const plan = await this.prisma.plan.findUnique({ where: { key: planKey }, select: { key: true } });
-    if (!plan) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `Unknown plan '${planKey}'` });
+    const plan = await this.prisma.plan.findUnique({ where: { key: planKey }, select: { key: true, isActive: true } });
+    if (!plan || !plan.isActive) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `Unknown plan '${planKey}'` });
     await this.prisma.organization.update({ where: { id: ctx.organizationId }, data: { planKey } });
     return this.getStatus();
   }

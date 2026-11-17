@@ -2695,6 +2695,24 @@ export async function getBilling(): Promise<BillingStatus> {
   return api('/billing');
 }
 
+export interface BillingPlan {
+  key: string;
+  displayName: string;
+  monthlyPriceUsd: number;
+  features: string[];
+  quotas: Record<string, number>;
+}
+
+/** The plans the organisation can be put on, cheapest first. */
+export async function listBillingPlans(): Promise<BillingPlan[]> {
+  return api('/billing/plans');
+}
+
+/** Put the organisation on a plan. No payment is involved in this deployment. */
+export async function setBillingPlan(planKey: string): Promise<BillingStatus> {
+  return api('/billing/plan', { method: 'POST', body: JSON.stringify({ planKey }) });
+}
+
 // =============================================================================
 // Custom domains (P9 — /custom-domains)
 // =============================================================================

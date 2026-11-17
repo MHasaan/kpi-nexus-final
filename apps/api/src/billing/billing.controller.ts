@@ -3,7 +3,7 @@ import { PermissionKey } from '@kpi-nexus/contracts';
 import { z } from 'zod';
 
 import { RequireAnyPermission } from '../rbac/decorators/require-permissions.decorator.js';
-import { BillingService, type BillingStatus } from './billing.service.js';
+import { BillingService, type BillingPlan, type BillingStatus } from './billing.service.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const SetPlanSchema = z.object({ planKey: z.string().trim().min(1) }).strict();
@@ -16,6 +16,12 @@ export class BillingController {
   @RequireAnyPermission(PermissionKey.BILLING_MANAGE, PermissionKey.ORG_SETTINGS)
   status(): Promise<BillingStatus> {
     return this.billing.getStatus();
+  }
+
+  @Get('plans')
+  @RequireAnyPermission(PermissionKey.BILLING_MANAGE, PermissionKey.ORG_SETTINGS)
+  plans(): Promise<BillingPlan[]> {
+    return this.billing.listPlans();
   }
 
   @Post('plan')

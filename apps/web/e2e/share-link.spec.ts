@@ -148,11 +148,16 @@ test.describe('Share link — public dashboard access', () => {
       expect(activeLink).toBeDefined();
       const linkId = activeLink!.id;
 
-      // 9. Revoke the link via UI — handle the window.confirm dialog
-      page.on('dialog', (dialog) => void dialog.accept());
+      // 9. Revoke the link via UI. It asks first: keeping it keeps it, confirming revokes.
       const revokeButton = page.getByTestId(`share-revoke-${linkId}`);
       await expect(revokeButton).toBeVisible();
       await revokeButton.click();
+      const dialog = page.getByTestId('share-revoke-confirm');
+      await expect(dialog).toContainText('Revoke this share link?');
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await expect(revokeButton).toBeVisible();
+      await revokeButton.click();
+      await page.getByTestId('share-revoke-confirm-confirm').click();
 
       // After revoke the active-links list should show "No active share links"
       await expect(page.getByTestId('share-links-empty')).toBeVisible({

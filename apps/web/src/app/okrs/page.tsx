@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Flag, Pencil, Trash2, X } from 'lucide-react';
 
-import { ApiError, type UserSummary, getAccessToken, listUsers, meRequest } from '../../lib/api-client';
+import { ApiError, getAccessToken, meRequest } from '../../lib/api-client';
+import { usePeople } from '../../lib/use-people';
 import {
   type Objective,
   type ObjectiveStatus,
@@ -89,7 +90,8 @@ interface EditState {
 export default function OkrsPage() {
   const router = useRouter();
   const [objectives, setObjectives] = useState<Objective[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
+  // Owners' names, without asking for the people list on behalf of someone who may not have it (X-05).
+  const users = usePeople(objectives.map((o) => o.ownerUserId));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState('');
@@ -119,9 +121,7 @@ export default function OkrsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [objs, us] = await Promise.all([listObjectives(), listUsers().catch(() => [] as UserSummary[])]);
-      setObjectives(objs);
-      setUsers(us);
+      setObjectives(await listObjectives());
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load objectives');

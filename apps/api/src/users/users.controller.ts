@@ -20,6 +20,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { InviteUserDtoSchema } from './dto/invite-user.dto.js';
 import { OffboardDtoSchema } from './dto/offboard.dto.js';
 import { UpdateUserDtoSchema } from './dto/update-user.dto.js';
+import { UserNamesDtoSchema } from './dto/user-names.dto.js';
 import {
   type InviteResult,
   type PublicAccessOverride,
@@ -103,6 +104,18 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteAccessOverride(@Param('id') id: string): Promise<void> {
     return this.users.deleteAccessOverride(id);
+  }
+
+  /**
+   * Names for ids the caller already holds (an assignee, an owner, a comment's
+   * author). Any member; not a listing — see `UsersService.names`. POST so the
+   * ids travel in the body, not in a URL that is logged.
+   */
+  @Post('names')
+  @HttpCode(HttpStatus.OK)
+  @ApiBody(UserNamesDtoSchema)
+  names(@Body() body: unknown): Promise<Array<{ id: string; fullName: string }>> {
+    return this.users.names(parse(UserNamesDtoSchema, body).ids);
   }
 
   /** Invite a user. Creates an INVITED User + EmailVerificationToken. */

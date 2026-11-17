@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 
-import { ApiError, type UserSummary, listUsers } from '../lib/api-client';
+import { ApiError } from '../lib/api-client';
+import { usePeople } from '../lib/use-people';
 import {
   type Comment,
   type CommentEntityType,
@@ -26,7 +27,8 @@ export function CommentsDrawer({
 }) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
+  // Authors' names, without asking for the people list on behalf of someone who may not have it (X-05).
+  const users = usePeople(open ? comments.map((c) => c.authorId) : []);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -35,9 +37,7 @@ export function CommentsDrawer({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [cs, us] = await Promise.all([listComments(entityType, entityId), listUsers().catch(() => [])]);
-      setComments(cs);
-      setUsers(us);
+      setComments(await listComments(entityType, entityId));
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load comments');
@@ -67,7 +67,8 @@ export function CommentsDrawer({
     for (const h of handles) {
       if (!h) continue;
       const match = users.find(
-        (u) => u.email.split('@')[0]?.toLowerCase() === h || u.fullName.toLowerCase().replace(/\s+/g, '') === h,
+        // The email handle is known only to readers who may list people; a name always works.
+        (u) => u.email?.split('@')[0]?.toLowerCase() === h || u.fullName.toLowerCase().replace(/\s+/g, '') === h,
       );
       if (match) ids.add(match.id);
     }

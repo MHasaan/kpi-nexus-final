@@ -422,6 +422,22 @@ export interface InviteResult {
   emailSent?: boolean;
 }
 
+/** A person as most pages need them: an id and a name. */
+export type PersonLite = Pick<UserSummary, 'id' | 'fullName'>;
+
+/**
+ * Names for people the page already holds ids for (an assignee, an owner, a
+ * comment's author). Open to every member; it is not a list of the organisation.
+ */
+export async function userNames(ids: readonly string[]): Promise<PersonLite[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return [];
+  // The API takes at most 200 ids a call.
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 200) chunks.push(unique.slice(i, i + 200));
+  return (await Promise.all(chunks.map((chunk) => api<PersonLite[]>('/users/names', { method: 'POST', body: JSON.stringify({ ids: chunk }) })))).flat();
+}
+
 export async function listUsers(): Promise<UserSummary[]> {
   return api('/users');
 }

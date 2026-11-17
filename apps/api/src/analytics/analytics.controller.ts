@@ -54,7 +54,7 @@ export class AnalyticsController {
   ) {}
 
   @Get('anomalies')
-  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @RequirePermissions(PermissionKey.ANALYTICS_VIEW)
   listAnomalies(
     @Param('kpiId') kpiId: string,
     @Query('from') from?: string,
@@ -69,7 +69,7 @@ export class AnalyticsController {
   }
 
   @Post('anomalies/detect')
-  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @RequirePermissions(PermissionKey.ANALYTICS_VIEW)
   @ApiBody(DetectSchema)
   detect(@Param('kpiId') kpiId: string, @Body() body: unknown) {
     const parsed = DetectSchema.safeParse(body ?? {});

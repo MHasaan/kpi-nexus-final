@@ -511,7 +511,7 @@ export async function acceptInvitation(body: {
 /** Public preview of an invitation (invitee email + org name) by token, for /accept-invitation. */
 export async function previewInvitation(
   token: string,
-): Promise<{ email: string; organizationName: string; expiresAt: string | null }> {
+): Promise<{ email: string; organizationName: string; expiresAt: string | null; passwordRules?: string[] }> {
   return api('/auth/invitation-preview', {
     method: 'POST',
     body: JSON.stringify({ token }),

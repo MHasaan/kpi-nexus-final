@@ -11,11 +11,14 @@ import {
   previewInvitation,
   setTokens,
 } from '../../../lib/api-client';
+import { passwordRefusal } from '../../../lib/password-rules';
 
 type InvitePreview = {
   email: string;
   organizationName: string;
   expiresAt: string | null;
+  /** What the organisation's password policy asks for, in words. */
+  passwordRules?: string[];
 };
 
 export default function AcceptInvitationPage() {
@@ -75,17 +78,14 @@ function AcceptInvitationInner() {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
+    // The organisation's own rules decide (its minimum may be shorter or longer than 8); the API names any that are broken.
     setSubmitting(true);
     try {
       const res = await acceptInvitation({ token, password });
       setTokens(res.accessToken, res.refreshToken);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not accept invitation.');
+      setError(passwordRefusal(err, 'Could not accept invitation.'));
     } finally {
       setSubmitting(false);
     }
@@ -168,11 +168,10 @@ function AcceptInvitationInner() {
           type="password"
           autoComplete="new-password"
           required
-          minLength={8}
           value={password}
           onChange={setPassword}
           disabled={submitting}
-          helperText="At least 8 characters."
+          helperText={preview?.passwordRules?.length ? `Needs ${preview.passwordRules.join(', ')}.` : undefined}
           testId="invite-password"
         />
         <Field

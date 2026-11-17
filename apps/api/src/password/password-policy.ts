@@ -61,6 +61,17 @@ export function checkPasswordPolicy(
   return violations;
 }
 
+/** What a password needs under `policy`, in words — for a page to show before a password is typed. */
+export function describePasswordPolicy(policy: PasswordPolicy): string[] {
+  return [
+    `at least ${policy.minLength} characters`,
+    ...(policy.requireUppercase ? ['an uppercase letter'] : []),
+    ...(policy.requireLowercase ? ['a lowercase letter'] : []),
+    ...(policy.requireDigit ? ['a digit'] : []),
+    ...(policy.requireSpecial ? ['a special character'] : []),
+  ];
+}
+
 /**
  * Whether a password set at `changedAt` is older than the policy allows.
  * A maximum age of 0 means passwords do not expire; a password with no

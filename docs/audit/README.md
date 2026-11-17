@@ -342,6 +342,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-013 (alerts bell) the top bar's bell asked `GET /alerts/unread-count` for everyone and was refused, on every page and every 30 s, for anyone without ALERTS_VIEW | ✅ Fixed — the bell is shown and polls only with ALERTS_VIEW | #206 | `e2e/alerts-bell-permission.spec.ts` (failed before): no bell and no refused alerts call across three pages for a role without the key; the bell is there for one with it
 | UI-013 (Alerts / AI) `/alerts/new` opened with ALERTS_VIEW and refused its own Save (KPI_EDIT); a recommendation's Actioned / Dismiss were offered to every reader and refused | ✅ Fixed — the form is gated KPI_EDIT; the two buttons are shown only with KPI_EDIT | #207 | `e2e/alerts-ai-reader-buttons.spec.ts` (an editor sees the form and the buttons; a reader sees the recommendation without them, is turned away from the form, can still read rules, and is refused nothing)
 | UI-013 (OKRs) Edit on the objectives list was behind KPI_CREATE though saving needs KPI_EDIT; Sync from linked KPIs was shown to everyone and refused without KPI_EDIT | ✅ Fixed — both behind KPI_EDIT | #208 | `e2e/okr-buttons-permission.spec.ts` (failed before): a role that may edit but not create has Edit and Sync and is refused nothing; one that may create but not edit has neither
+| UI-013 (KPI pages) import opened with KPI_VIEW and refused the upload; category add / delete asked for KPI_EDIT though the API asks for KPI_CREATE / KPI_DELETE; Restore, Purge and Use template were offered to every reader | ✅ Fixed — each action behind the key its API route asks for | #209 | `e2e/kpi-pages-permission.spec.ts`: four narrow roles (read, create, edit, delete) are each offered exactly their own actions across categories, archive, templates and import
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -349,7 +350,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-013 page and API disagree on the permission needed (Ask, Dashboards, the alerts bell, Alerts / AI and OKRs are done; KPI pages and the admin pages are left). Three of the groups change an API permission and wait for the owner's sign-off: forecast / what-if, anomalies, reports | High | 🟡 partly | 5.2 |
+| UI-013 page and API disagree on the permission needed (Ask, Dashboards, the alerts bell, Alerts / AI, OKRs and the KPI side pages are done; the KPI detail tabs and the admin pages are left). Three of the groups change an API permission and wait for the owner's sign-off: forecast / what-if, anomalies, reports | High | 🟡 partly | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
 | X-01 deletes with no confirmation; `window.confirm` still in five places (the `/users` list is done) | Medium | 🟡 partly | 7.1 |

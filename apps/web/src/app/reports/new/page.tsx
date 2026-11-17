@@ -28,6 +28,7 @@ import {
   Select,
   Textarea,
 } from '../../../components/ui';
+import { cronProblem, recipientsProblem } from '../../../lib/form-checks';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'New' }];
@@ -95,11 +96,17 @@ export default function NewReportPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSubmitting(true);
     setSubmitError(null);
 
     const cron = cronPreset === 'custom' ? customCron.trim() : cronPreset;
     const validRecipients = recipients.map((r) => r.trim()).filter(Boolean);
+    // Say what is wrong before sending anything (plan 7.4).
+    const problem = (name.trim().length < 2 ? 'Give the report a name.' : null) ?? (cronPreset === 'custom' ? cronProblem(customCron) : null) ?? recipientsProblem(recipients);
+    if (problem) {
+      setSubmitError(problem);
+      return;
+    }
+    setSubmitting(true);
 
     try {
       await createScheduledReport({
@@ -139,7 +146,7 @@ export default function NewReportPage() {
           </p>
         </header>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
+        <form onSubmit={(e) => void handleSubmit(e)} noValidate className="space-y-5">
           {/* Details */}
           <Card>
             <CardHeader>

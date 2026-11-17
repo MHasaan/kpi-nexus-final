@@ -2245,6 +2245,40 @@
         }
       }
     },
+    "/audit/export": {
+      "get": {
+        "operationId": "AuditController_export",
+        "tags": [
+          "Audit"
+        ],
+        "summary": "GET /audit/export",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "EXPORTS"
+          ],
+          "any": [
+            "AUDIT_VIEW",
+            "ORG_SETTINGS"
+          ]
+        }
+      }
+    },
     "/auth/accept-invitation": {
       "post": {
         "operationId": "AuthController_acceptInvitation",

@@ -19,6 +19,15 @@ export interface AuditRecordInput {
   userId?: string;
 }
 
+/** The most rows one export holds. */
+export const AUDIT_EXPORT_MAX_ROWS = 5000;
+
+/** One CSV cell: quoted when needed, and made plain text when a spreadsheet would run it as a formula. */
+function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
 export interface AuditListFilters {
   entityType?: string;
   entityId?: string;
@@ -26,6 +35,10 @@ export interface AuditListFilters {
   action?: AuditAction;
   limit?: number;
   cursor?: string;
+  /** Only rows written at or after this moment. */
+  from?: Date;
+  /** Only rows written at or before this moment. */
+  to?: Date;
 }
 
 export interface PublicAuditLog {
@@ -120,8 +133,16 @@ export class AuditService {
   }
 
   list(filters: AuditListFilters = {}): Promise<PublicAuditLog[]> {
+    return this.find(filters, Math.min(filters.limit ?? 100, 500));
+  }
+
+  /** The rows of `list`, newest first; `id` breaks ties so paging by cursor never skips or repeats a row. */
+  private find(filters: AuditListFilters, take: number): Promise<PublicAuditLog[]> {
     const ctx = RequestContextStore.require();
-    const limit = Math.min(filters.limit ?? 100, 500);
+    const createdAt =
+      filters.from || filters.to
+        ? { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) }
+        : undefined;
     return this.prisma.auditLog.findMany({
       where: {
         organizationId: ctx.organizationId,
@@ -129,12 +150,33 @@ export class AuditService {
         entityId: filters.entityId,
         userId: filters.userId,
         action: filters.action,
+        createdAt,
       },
       select: auditSelect,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take,
       ...(filters.cursor && { cursor: { id: filters.cursor }, skip: 1 }),
     });
+  }
+
+  /**
+   * The same rows as a CSV file, up to {@link AUDIT_EXPORT_MAX_ROWS}. Changes and
+   * metadata are left out: they are nested and already redacted in the list.
+   */
+  async exportCsv(filters: Omit<AuditListFilters, 'limit' | 'cursor'> = {}): Promise<string> {
+    const rows = await this.find(filters, AUDIT_EXPORT_MAX_ROWS);
+    const lines = [
+      ['Time (UTC)', 'Action', 'Entity type', 'Entity id', 'Person', 'Redacted fields'],
+      ...rows.map((r) => [
+        r.createdAt.toISOString(),
+        r.action,
+        r.entityType ?? '',
+        r.entityId ?? '',
+        r.userEmail ?? r.userId ?? '',
+        r.redactedKeys.join(' '),
+      ]),
+    ];
+    return lines.map((cells) => cells.map(csvCell).join(',')).join('\r\n') + '\r\n';
   }
 
   /** Strip sensitive keys (and any caller-supplied extras) from a change object. */

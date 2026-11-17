@@ -141,9 +141,15 @@ export class SnapshotService {
           }
         }
 
+        // Organisation-level rows only (BE-048). A snapshot is read later by
+        // everyone who can open the dashboard, whatever they may see of units
+        // and people — so it must not freeze whichever unit's or person's
+        // value the person taking it happened to be able to see.
         const where: Prisma.KPIDataPointWhereInput = {
           organizationId: ctx.organizationId,
           kpiId,
+          orgUnitId: null,
+          userId: null,
         };
         // Apply the history-window lower bound only when a limit is set; a point
         // older than the window is omitted (latestValue becomes null/absent).

@@ -45,6 +45,8 @@ export interface RouterDeps {
   };
   callLog: { record(entry: RouterCallLogEntry): Promise<void> | void };
   resolveConfig(feature: AiFeature): Promise<FeatureRoute> | FeatureRoute;
+  /** What `feature` has spent so far in the current UTC day, in USD. Asked only for a feature with a cap of its own. */
+  featureSpendToday?(feature: AiFeature): Promise<number> | number;
 }
 
 const logger = new Logger('AiRouter');
@@ -73,6 +75,11 @@ export class AiRouterService {
 
   async complete(feature: AiFeature, request: AiCompletionRequest): Promise<AiCompletionResult> {
     const config = await this.deps.resolveConfig(feature);
+    // The feature's own daily cap: once spent, the feature stops for the day — whatever the organisation's caps allow.
+    if (config.perFeatureCapUsd && config.perFeatureCapUsd > 0 && this.deps.featureSpendToday) {
+      const spent = await this.deps.featureSpendToday(feature);
+      if (spent >= config.perFeatureCapUsd) throw new AiBudgetExceededError('FEATURE_CAP');
+    }
     const candidates: Array<{ provider: AiProviderKey; model: string }> = [
       { provider: config.provider, model: config.model },
       ...(config.fallback ? [config.fallback] : []),

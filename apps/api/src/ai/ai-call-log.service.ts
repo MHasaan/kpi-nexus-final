@@ -15,6 +15,18 @@ export class AiCallLogService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** What one feature has spent since the start of the current UTC day, in USD. */
+  async featureSpendToday(feature: string): Promise<number> {
+    const ctx = RequestContextStore.require();
+    const now = new Date();
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const sum = await this.prisma.aiCallLog.aggregate({
+      where: { organizationId: ctx.organizationId, feature, createdAt: { gte: dayStart } },
+      _sum: { costUsd: true },
+    });
+    return sum._sum.costUsd ?? 0;
+  }
+
   async record(entry: RouterCallLogEntry): Promise<void> {
     try {
       const ctx = RequestContextStore.require();

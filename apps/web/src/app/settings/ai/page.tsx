@@ -151,28 +151,34 @@ function RoutingRow({
   onReset,
 }: {
   config: AiFeatureConfig;
-  onSave: (feature: string, provider: AiProviderKey, model: string) => Promise<void>;
+  onSave: (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined) => Promise<void>;
   onReset: (feature: string) => Promise<void>;
 }) {
   const [provider, setProvider] = useState<AiProviderKey>(config.provider);
   const [model, setModel] = useState(config.model);
+  // The feature's own daily cap, as typed. Blank: no cap of its own.
+  const savedCap = config.perFeatureCapUsd ? String(config.perFeatureCapUsd) : '';
+  const [cap, setCap] = useState(savedCap);
   const [busy, setBusy] = useState(false);
 
   // Re-sync local state when the row's effective config changes after a reload.
   useEffect(() => {
     setProvider(config.provider);
     setModel(config.model);
-  }, [config.provider, config.model]);
+    setCap(savedCap);
+  }, [config.provider, config.model, savedCap]);
 
-  const dirty = provider !== config.provider || model.trim() !== config.model;
-  const canSave = dirty && model.trim().length > 0 && !busy;
+  const capValue = cap.trim() === '' ? undefined : Number(cap);
+  const capInvalid = capValue !== undefined && (!Number.isFinite(capValue) || capValue < 0);
+  const dirty = provider !== config.provider || model.trim() !== config.model || cap.trim() !== savedCap;
+  const canSave = dirty && model.trim().length > 0 && !capInvalid && !busy;
   const listId = `ai-models-${config.feature}`;
 
   const save = async () => {
     if (!canSave) return;
     setBusy(true);
     try {
-      await onSave(config.feature, provider, model.trim());
+      await onSave(config, provider, model.trim(), capValue || undefined);
     } finally {
       setBusy(false);
     }
@@ -220,6 +226,19 @@ function RoutingRow({
             <option key={m} value={m} />
           ))}
         </datalist>
+      </TableCell>
+      <TableCell>
+        <Input
+          aria-label={`Daily cap in dollars for ${config.feature}`}
+          aria-invalid={capInvalid || undefined}
+          data-testid={`ai-config-${config.feature}-cap`}
+          inputMode="decimal"
+          placeholder="No cap"
+          className="w-24"
+          value={cap}
+          disabled={busy}
+          onChange={(e) => setCap(e.target.value)}
+        />
       </TableCell>
       <TableCell className="align-top">
         <Badge tone={config.isOverride ? 'info' : 'neutral'}>
@@ -340,11 +359,18 @@ export default function AiSettingsPage() {
     }
   };
 
-  const saveConfig = async (feature: string, provider: AiProviderKey, model: string) => {
+  const saveConfig = async (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined) => {
     setError(null);
     try {
-      await updateAiFeatureConfig(feature, { providerId: provider, model });
-      flash(`${feature} now routes to ${provider} / ${model}.`);
+      // The save replaces the whole row, so a fallback already set on it is sent back with it.
+      const fallback = config.isOverride ? config.fallback : undefined;
+      await updateAiFeatureConfig(config.feature, {
+        providerId: provider,
+        model,
+        ...(fallback && { fallbackProviderId: fallback.provider, fallbackModel: fallback.model }),
+        ...(capUsd !== undefined && { perFeatureCapUsd: capUsd }),
+      });
+      flash(`${config.feature} now routes to ${provider} / ${model}${capUsd !== undefined ? `, up to $${capUsd} a day` : ''}.`);
       load();
     } catch (e) {
       setSuccess(null);
@@ -529,6 +555,7 @@ export default function AiSettingsPage() {
                   <TableHead>Feature</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Model</TableHead>
+                  <TableHead>Daily cap (USD)</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>

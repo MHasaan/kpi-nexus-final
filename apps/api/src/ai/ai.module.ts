@@ -41,6 +41,7 @@ import { ByoKeyService } from './byo/byo-key.service.js';
           budget: { evaluate: (c) => budget.evaluate(c), debit: (c) => budget.debit(c) },
           callLog: { record: (e) => callLog.record(e) },
           resolveConfig: (f) => configs.resolve(f),
+          featureSpendToday: (f) => callLog.featureSpendToday(f),
         }),
       inject: [AiProviderRegistry, AiBudgetService, AiCallLogService, AiConfigsService],
     },

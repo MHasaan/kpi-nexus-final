@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../../lib/api-client';
 import { type SsoConfig, getSsoConfig, upsertSsoConfig } from '../../../lib/polish-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { usePermissions } from '../../../lib/use-permissions';
 
@@ -69,16 +69,10 @@ export default function SsoSettingsPage() {
 
   // FE-014: same permission the page's API enforces — no broken 403 screens.
   return (
+    <AppShell title="Single sign-on" crumbs={[{ label: 'Settings', href: '/settings' }, { label: 'Single sign-on' }]}>
     <RequirePermission permission="ORG_SETTINGS">
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-2xl items-center gap-6 px-6 py-4">
-          <Link href="/settings" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Single sign-on</span>
-        </div>
-      </header>
 
-      <div className="mx-auto max-w-2xl px-6 py-8">
+      <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-content-strong">Single sign-on</h1>
         <p className="mt-1 text-sm text-content-muted">Configure SAML/OIDC. Users authenticate at your IdP; JIT provisioning auto-creates accounts on first login.</p>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="sso-error">{error}</p>}
@@ -106,7 +100,7 @@ export default function SsoSettingsPage() {
           <button type="button" data-testid="sso-save" onClick={save} className="rounded bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90">Save SSO config</button>
         </div>
       </div>
-    </main>
     </RequirePermission>
+    </AppShell>
   );
 }

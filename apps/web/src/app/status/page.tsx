@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken, getHealthDetails, type HealthDetails } from '../../lib/api-client';
+import { AppShell } from '../../components/app-shell';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const REFRESH_INTERVAL_MS = 10_000;
@@ -59,17 +59,9 @@ export default function StatusPage() {
   }, [load, router]);
 
   return (
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
-            KPI Nexus
-          </Link>
-          <span className="text-sm text-content-muted">System Status</span>
-        </div>
-      </header>
+    <AppShell title="System status" crumbs={[{ label: 'System status' }]}>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-content-strong" data-testid="status-heading">
             System Status
@@ -165,6 +157,6 @@ export default function StatusPage() {
           </>
         )}
       </div>
-    </main>
+    </AppShell>
   );
 }

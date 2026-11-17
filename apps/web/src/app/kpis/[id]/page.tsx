@@ -12,10 +12,15 @@ import { useAsyncData } from '../../../lib/use-async-data';
 import {
   ApiError,
   attachCascade,
+  type Benchmark,
+  type Cascade,
   computeBenchmark,
+  correctDataPoint,
   createBenchmark,
   createTarget,
   createThresholdBand,
+  type DataPoint,
+  type DataPointCorrection,
   deleteBenchmark,
   deleteCascade,
   deleteFormula,
@@ -24,33 +29,31 @@ import {
   getAccessToken,
   getFormula,
   getKpi,
+  getKpiSnapshot,
   getKpiVersions,
   getLineageDownstream,
   getLineageUpstream,
   getThresholdStatus,
-  listBenchmarks,
-  listCascades,
-  correctDataPoint,
-  listDataPointHistory,
-  getKpiSnapshot,
-  listKpiSnapshots,
-  takeKpiSnapshot,
   type KpiSnapshot,
   type KpiSnapshotSummary,
-  listKpiDataPoints,
-  listKpis,
-  listTargets,
-  listThresholdBands,
-  putFormula,
-  recordOrgWideDataPoint,
-  type Benchmark,
-  type Cascade,
-  type DataPoint,
-  type DataPointCorrection,
   type KpiSummary,
   type KpiTarget,
   type KpiVersion,
   type LineageHop,
+  listBenchmarks,
+  listCascades,
+  listDataPointHistory,
+  listKpiAssignments,
+  listKpiDataPoints,
+  listKpis,
+  listKpiSnapshots,
+  listTargets,
+  listThresholdBands,
+  putFormula,
+  recordMyKpiData,
+  recordOrgWideDataPoint,
+  recordUnitKpiData,
+  takeKpiSnapshot,
   type ThresholdBand,
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
@@ -81,6 +84,7 @@ import {
 } from '../../../components/ui';
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { RecordValueForm } from '../../../components/kpis/record-value-form';
 
 const TABS = ['Overview', 'Data', 'Formula', 'Cascade', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage', 'Audit'] as const;
 type Tab = (typeof TABS)[number];
@@ -285,59 +289,102 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
 
 function DataTab({ kpi }: { kpi: KpiSummary }) {
   const [points, reload, loadError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
-  const [value, setValue] = useState('');
-  const [err, setErr] = useState<string | null>(null);
+  const [assignments, reloadAssignments, assignmentsError] = useAsync(
+    () => (kpi.scope === 'ORG_WIDE' ? Promise.resolve(null) : listKpiAssignments(kpi.id)),
+    [kpi.id, kpi.scope],
+  );
+  const [assignmentId, setAssignmentId] = useState('');
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    const now = new Date().toISOString();
-    try {
-      if (kpi.scope !== 'ORG_WIDE') {
-        setErr(`This KPI is ${kpi.scope}; record via its scope-specific endpoint.`);
-        return;
-      }
-      await recordOrgWideDataPoint(kpi.id, { value: Number(value), periodStart: now, periodEnd: now });
-      setValue('');
-      reload();
-    } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Failed to record');
-    }
+  const units = assignments?.units ?? [];
+  const mine = assignments?.users ?? [];
+  // A unit that inherits a KPI records through its own assignment row.
+  const selected = assignmentId || units[0]?.assignmentId || mine[0]?.assignmentId || '';
+
+  const afterRecord = () => {
+    reload();
+    reloadAssignments();
   };
 
   return (
     <div className="space-y-4">
-      <TabLoadError error={loadError} onRetry={reload} />
-      {kpi.scope === 'ORG_WIDE' && (
+      <TabLoadError error={loadError ?? assignmentsError} onRetry={reload} />
+
+      <PermissionGuard permission="KPI_DATA_ENTRY">
         <UICard>
           <CardContent>
-            <form onSubmit={submit} className="flex items-end gap-3">
-              <div className="flex flex-1 flex-col gap-1.5">
-                <Label htmlFor="data-value-input">New value</Label>
-                <Input
-                  id="data-value-input"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  type="number"
-                  step="any"
-                  required
-                  data-testid="data-value"
-                />
-              </div>
-              <Button type="submit" data-testid="data-record">
-                Record
-              </Button>
-            </form>
-            {err && <p className="mt-2 text-sm text-status-critical">{err}</p>}
+            {kpi.scope === 'ORG_WIDE' && (
+              <RecordValueForm
+                frequency={kpi.frequency}
+                unit={kpi.unit}
+                onRecord={(body) => recordOrgWideDataPoint(kpi.id, body)}
+                onRecorded={afterRecord}
+              />
+            )}
+
+            {kpi.scope === 'PER_UNIT' &&
+              (units.length === 0 ? (
+                <p className="text-sm text-content-muted" data-testid="data-no-unit">
+                  This KPI is recorded per unit, and you do not hold it for any unit you can record
+                  for. An administrator can assign it on the Assignments tab.
+                </p>
+              ) : (
+                <RecordValueForm
+                  key={selected}
+                  frequency={kpi.frequency}
+                  unit={kpi.unit}
+                  onRecord={(body) => recordUnitKpiData(selected, body)}
+                  onRecorded={afterRecord}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="data-unit-select">Unit</Label>
+                    <Select
+                      id="data-unit-select"
+                      value={selected}
+                      onChange={(e) => setAssignmentId(e.target.value)}
+                      data-testid="data-unit"
+                    >
+                      {units.map((u) => (
+                        <option key={u.assignmentId} value={u.assignmentId}>
+                          {u.name}
+                          {u.inherited ? ' (inherited)' : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </RecordValueForm>
+              ))}
+
+            {kpi.scope === 'PER_USER' &&
+              (mine.length === 0 ? (
+                <p className="text-sm text-content-muted" data-testid="data-no-assignment">
+                  This KPI is recorded per person. You do not hold it, so there is nothing for you
+                  to record here.
+                </p>
+              ) : (
+                <RecordValueForm
+                  frequency={kpi.frequency}
+                  unit={kpi.unit}
+                  onRecord={(body) =>
+                    recordMyKpiData(mine[0]!.assignmentId, body.value, body.periodStart, body.periodEnd)
+                  }
+                  onRecorded={afterRecord}
+                >
+                  <p className="self-center text-sm text-content-muted">
+                    Recording your own value for this KPI.
+                  </p>
+                </RecordValueForm>
+              ))}
           </CardContent>
         </UICard>
-      )}
+      </PermissionGuard>
+
       <UICard className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Value</TableHead>
               <TableHead>Period</TableHead>
+              {kpi.scope !== 'ORG_WIDE' && <TableHead>{kpi.scope === 'PER_UNIT' ? 'Unit' : 'Person'}</TableHead>}
               <TableHead>Recorded</TableHead>
               <TableHead>Flags</TableHead>
               <TableHead className="sr-only">Actions</TableHead>
@@ -345,11 +392,23 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
           </TableHeader>
           <TableBody>
             {(points ?? []).map((p: DataPoint) => (
-              <DataPointRow key={p.id} kpi={kpi} point={p} onChanged={reload} />
+              <DataPointRow
+                key={p.id}
+                kpi={kpi}
+                point={p}
+                onChanged={afterRecord}
+                owner={
+                  kpi.scope === 'PER_UNIT'
+                    ? (units.find((u) => u.orgUnitId === p.orgUnitId)?.name ?? null)
+                    : kpi.scope === 'PER_USER'
+                      ? (mine.find((m) => m.userId === p.userId)?.name ?? null)
+                      : null
+                }
+              />
             ))}
             {points && points.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-4 text-center text-content-muted">
+                <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="py-4 text-center text-content-muted">
                   No data points yet.
                 </TableCell>
               </TableRow>
@@ -366,7 +425,18 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
  * correction history. The server allows a correction only by the person who
  * recorded the value or a KPI editor, and never on calculated values.
  */
-function DataPointRow({ kpi, point: p, onChanged }: { kpi: KpiSummary; point: DataPoint; onChanged: () => void }) {
+function DataPointRow({
+  kpi,
+  point: p,
+  onChanged,
+  owner = null,
+}: {
+  kpi: KpiSummary;
+  point: DataPoint;
+  onChanged: () => void;
+  /** The unit or person this value belongs to, for a scoped KPI. */
+  owner?: string | null;
+}) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(p.value));
   const [reason, setReason] = useState('');
@@ -407,6 +477,11 @@ function DataPointRow({ kpi, point: p, onChanged }: { kpi: KpiSummary; point: Da
                   {kpi.unit ? ` ${kpi.unit}` : ''}
                 </TableCell>
                 <TableCell className="text-content-muted">{new Date(p.periodStart).toLocaleDateString()}</TableCell>
+                {kpi.scope !== 'ORG_WIDE' && (
+                  <TableCell className="text-content-muted" data-testid="data-point-owner">
+                    {owner ?? '—'}
+                  </TableCell>
+                )}
                 <TableCell className="text-content-muted">{new Date(p.recordedAt).toLocaleDateString()}</TableCell>
                 <TableCell>
                   {(p as DataPoint & { isOutlier?: boolean }).isOutlier ? (
@@ -432,7 +507,7 @@ function DataPointRow({ kpi, point: p, onChanged }: { kpi: KpiSummary; point: Da
       </TableRow>
       {(editing || err || history) && (
         <TableRow>
-          <TableCell colSpan={5} className="bg-surface-bg">
+          <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="bg-surface-bg">
             {editing && (
               <form onSubmit={save} className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">

@@ -44,14 +44,16 @@ function make(callerIsAdmin: boolean) {
     $transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   };
   const accessContext = { resolveForCurrentPrincipal: vi.fn(async () => ({ isAdmin: callerIsAdmin })) };
+  const billing = { assertWithinQuota: vi.fn(async (_key: string, _increment?: number) => undefined) };
   const service = new UsersService(
     prisma as unknown as PrismaService,
     { record: vi.fn(async () => undefined) } as unknown as AuditService,
     {} as PermissionResolverService,
     accessContext as unknown as AccessContextService,
     { send: vi.fn(async () => undefined) } as never,
+    billing as never,
   );
-  return { service, created };
+  return { service, created, billing };
 }
 
 const invite = async (service: UsersService, roleId?: string) =>
@@ -79,5 +81,16 @@ describe('UsersService.invite — administrator role', () => {
     const { service, created } = make(true);
     await invite(service, 'role-admin');
     expect(created[0]?.roleId).toBe('role-admin');
+  });
+});
+
+describe("UsersService.invite — the plan's people limit (plan 6.11)", () => {
+  test('an invitation past the limit is refused and nobody is created', async () => {
+    const { service, created, billing } = make(true);
+    const over = new Error('QUOTA_EXCEEDED');
+    billing.assertWithinQuota.mockRejectedValueOnce(over);
+    await expect(invite(service)).rejects.toBe(over);
+    expect(billing.assertWithinQuota).toHaveBeenCalledWith('users', 1);
+    expect(created).toHaveLength(0);
   });
 });

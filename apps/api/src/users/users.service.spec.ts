@@ -151,6 +151,7 @@ function makeService() {
     resolver as unknown as import('../rbac/services/permission-resolver.service.js').PermissionResolverService,
     accessContext as unknown as import('../rbac/services/access-context.service.js').AccessContextService,
     { send: async () => undefined } as never,
+    { assertWithinQuota: async () => undefined } as never,
   );
   return { service, prisma, audit, resolver, accessContext };
 }

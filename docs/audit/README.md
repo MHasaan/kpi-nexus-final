@@ -326,6 +326,36 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
 | X-10 hidden duplicate controls and dead files kept for tests | Low | ⬜ open | 7.6 |
 
+### Second QA pass — 2026-11-17
+
+A separate hands-on pass ran the same build independently: 84 routes as three roles, 129 GET sweeps as four personas, 294 write checks and a set of manual flows. Its report is [qa-report-2026-11-17.md](./qa-report-2026-11-17.md). It confirmed the UI-round findings above (its H-1 is UI-001 and UI-002, H-2 is UI-008, M-3 is X-05, M-7 and L-2 are X-03, L-5 is 3.10, L-6 is UI-005, L-7 is UI-012, L-11 is 6.1) and added the ones below. "Plan" is the work item in [2026-11-16-ui-completion.md](../superpowers/plans/2026-11-16-ui-completion.md); a `new` item is one this pass added.
+
+| Finding | Severity | Status | Plan |
+|---|---|---|---|
+| QA-H3 KPI health is computed two ways that disagree: `kpi-health.ts` (home, scorecard, summary) falls back to the KPI's own `warningThreshold` / `criticalThreshold`, while `GET /kpis/:id/threshold-bands/status` (the KPI page) reads only ThresholdBand rows — and the KPI form writes the first, never the second. The same KPI reads "At risk, 72%" on the home page and `no_bands` on its own page | High | ⬜ open | new 1.6 |
+| QA-M1 choosing a template overwrites the organisation name the user typed, in the wizard and afterwards in Settings | Medium | ⬜ open | 3.8, 3.9 |
+| QA-M2 contributors cannot create tasks in the UI although `POST /tasks` only needs KPI_VIEW (the New task button is gated on KPI_CREATE) | Medium | ⬜ open | 5.2 |
+| QA-M4 Department Manager sees fewer OKRs than Contributor, because the seeded role sets an OKR scope of "their units" while Contributor has no override | Medium | ⬜ open | new 5.6 |
+| QA-M5 Billing shows "Users 0 / ∞" with active users: only KPIs and dashboards are counted live | Medium | ⬜ open | 6.11 |
+| QA-M6 insights pile up as duplicates — 52 insights for 22 KPIs, up to 5 near-identical per KPI; "Generate" never replaces the old ones | Medium | ⬜ open | new 4.8 |
+| QA-M9 choosing Prophet silently returns a NAIVE forecast when the sidecar's Stan backend fails; the page does not say which model ran | Medium | ⬜ open | new 4.9 |
+| QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
+| QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them | Low | ⬜ open | 3.2b |
+| QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
+| QA-L10 settings errors are generic ("Invalid request body") and name no field | Low | ⬜ open | 7.4 |
+| QA-L13 the public KPI embed shows "No data" next to a valid latest value | Low | ⬜ open | 4.6 |
+| QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |
+| QA-L15 ⌘K search keeps the previous query after closing, so typing again appends to it | Low | ⬜ open | 5.1 |
+| QA-L16 lowercased terminology in copy ("your kpi data", "Search kpis…") | Low | ⬜ open | 7.3 |
+| QA-L17 the Kanban board is cramped at laptop width: cards wrap one word per line and the Cancelled column is cut off | Low | ⬜ open | 7.7 |
+| QA-T1 `prod-compose.spec.ts` fails on Windows because it splits on `\n` and the checkout has CRLF endings | Low | ⬜ open | new 0.7 |
+| QA-T3 `pnpm dev` API restart loop: `nest start --watch` restarts repeatedly and the API refuses connections while it does | Low | ⬜ open | new 0.7 |
+| QA-T5 `pnpm dev` does not start the ML sidecar, so forecast / anomaly / seasonality return 503 until `pnpm ml:dev` runs | Low | ⬜ open | new 0.7 |
+
+**New plan items this pass adds:** 1.6 (one KPI health rule, and the KPI form writing threshold bands), 4.8 (insights replace rather than accumulate), 4.9 (a forecast says which model actually ran), 5.6 (seeded role scopes reviewed so a manager never sees less than a contributor), 0.7 (the developer-experience items: CRLF-safe specs, a stable `pnpm dev`, the ML sidecar started with it).
+
+**Note on where that pass ran:** it exercised the main development stack and left records in the `helios` demo org (a dashboard, an alert rule, an objective, a task, a report, a KPI, an invited user, extra insights and an MRR point for Nov 2026). Re-run the seed to restore the demo. The UI-round work in this document runs only on the throwaway `kpi-uiwalk` stack.
+
 ## Cleanup performed
 
 - Deleted 277 test orgs (audit + E2E runs, incl. 3 from June) and 68 unclaimed onboarding drafts; removed the orphan rows they left in 31 FK-less tables (OT-016); reseeded `helios`.

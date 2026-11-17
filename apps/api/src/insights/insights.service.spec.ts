@@ -47,6 +47,9 @@ class FakePrisma {
   dataPoints: Record<string, number[]> = {};
   private insightSeq = 0;
 
+  /** Both writes or neither, as Prisma's array form does. */
+  $transaction = vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
+
   kPI = {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       const row = this.kpis.find(
@@ -85,15 +88,21 @@ class FakePrisma {
       return row ? { ...row } : null;
     }),
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
-      const status = where.status as { not?: string } | undefined;
+      const status = where.status as string | { not?: string } | undefined;
       return this.insights
         .filter((i) => i.organizationId === where.organizationId)
-        .filter((i) => (status?.not ? i.status !== status.not : true))
+        .filter((i) => (status === undefined ? true : typeof status === 'string' ? i.status === status : i.status !== status.not))
+        .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime())
         .filter((i) => {
           const k = where.kpiId as string | { in: string[] } | undefined;
           return k === undefined ? true : typeof k === 'string' ? i.kpiId === k : k.in.includes(i.kpiId);
         })
         .map((i) => ({ ...i }));
+    }),
+    updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Partial<FakeInsight> }) => {
+      const rows = this.insights.filter((i) => i.organizationId === where.organizationId && i.kpiId === where.kpiId && i.status === where.status);
+      rows.forEach((row) => Object.assign(row, data));
+      return { count: rows.length };
     }),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
       const row: FakeInsight = {
@@ -259,6 +268,71 @@ describe('InsightsService.list', () => {
     const rows = await withCtx({}, () => service.list({ includeDismissed: true }));
 
     expect(rows.map((r) => r.id).sort()).toEqual(['active_1', 'dismissed_1']);
+  });
+});
+
+// QA-M6 (plan 4.8): every "Generate" added a row and nothing retired the old
+// ones — 52 insights for 22 KPIs, up to five near-identical per KPI.
+describe('InsightsService — one current insight per KPI', () => {
+  const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000);
+
+  test('generating again replaces the KPI\'s current insight; the old one is kept as history', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedKpi('kpi_r', ORG, [100, 120]);
+
+    const first = await withCtx({}, () => service.generate('kpi_r'));
+    const second = await withCtx({}, () => service.generate('kpi_r'));
+
+    const listed = await withCtx({}, () => service.list({}));
+    expect(listed.map((r) => r.id)).toEqual([second!.id]);
+    expect(prisma.insights.find((i) => i.id === first!.id)!.status).toBe('SUPERSEDED');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2); // retire + create go together
+  });
+
+  test('another KPI\'s insight is left alone, and so is a dismissed one', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedKpi('kpi_a', ORG, [100, 120]);
+    prisma.seed({ id: 'other_kpi', organizationId: ORG, kpiId: 'kpi_b', status: 'ACTIVE' });
+    prisma.seed({ id: 'dismissed', organizationId: ORG, kpiId: 'kpi_a', status: 'DISMISSED' });
+
+    await withCtx({}, () => service.generate('kpi_a'));
+
+    expect(prisma.insights.find((i) => i.id === 'other_kpi')!.status).toBe('ACTIVE');
+    expect(prisma.insights.find((i) => i.id === 'dismissed')!.status).toBe('DISMISSED');
+  });
+
+  test('duplicates made before this rule are shown once: the newest per KPI', async () => {
+    const { service, prisma } = makeService();
+    prisma.seed({ id: 'a_old', organizationId: ORG, kpiId: 'kpi_a', status: 'ACTIVE', generatedAt: at(30) });
+    prisma.seed({ id: 'a_new', organizationId: ORG, kpiId: 'kpi_a', status: 'ACTIVE', generatedAt: at(1) });
+    prisma.seed({ id: 'a_mid', organizationId: ORG, kpiId: 'kpi_a', status: 'ACTIVE', generatedAt: at(10) });
+    prisma.seed({ id: 'b_only', organizationId: ORG, kpiId: 'kpi_b', status: 'ACTIVE', generatedAt: at(5) });
+
+    const listed = await withCtx({}, () => service.list({}));
+
+    expect(listed.map((r) => r.id)).toEqual(['a_new', 'b_only']);
+  });
+
+  test('the history view still returns everything, newest first', async () => {
+    const { service, prisma } = makeService();
+    prisma.seed({ id: 'old', organizationId: ORG, kpiId: 'kpi_a', status: 'SUPERSEDED', generatedAt: at(30) });
+    prisma.seed({ id: 'current', organizationId: ORG, kpiId: 'kpi_a', status: 'ACTIVE', generatedAt: at(1) });
+    prisma.seed({ id: 'gone', organizationId: ORG, kpiId: 'kpi_a', status: 'DISMISSED', generatedAt: at(10) });
+
+    const listed = await withCtx({}, () => service.list({ kpiId: 'kpi_a', includeDismissed: true }));
+
+    expect(listed.map((r) => r.id)).toEqual(['current', 'gone', 'old']);
+  });
+
+  test('a failed generation retires nothing', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_f', ORG, [100, 120]);
+    prisma.seed({ id: 'keeps', organizationId: ORG, kpiId: 'kpi_f', status: 'ACTIVE' });
+    vi.mocked(aiRouter.complete).mockRejectedValueOnce(new Error('provider down'));
+
+    await expect(withCtx({}, () => service.generate('kpi_f'))).rejects.toThrow('provider down');
+
+    expect(prisma.insights.find((i) => i.id === 'keeps')!.status).toBe('ACTIVE');
   });
 });
 

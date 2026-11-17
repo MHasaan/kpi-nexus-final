@@ -13,6 +13,8 @@
  */
 import { expect, test } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiWithDetailsUp(): Promise<boolean> {
@@ -53,21 +55,13 @@ test.describe('System Status page (/status)', () => {
     const adminPassword = 'correct-horse-battery-staple';
 
     // 1. Register a fresh org → lands on /dashboard
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await expect(page.getByLabel('URL slug')).toHaveValue(slug);
-    await page.getByLabel('Your full name').fill('Status Admin');
-    await page.getByLabel('Your email').fill(`${stamp}@status.test.local`);
-    await page.getByLabel('Password').fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    const resp = await registerResp;
-    expect(resp.status()).toBe(201);
-
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: slug,
+      adminFullName: 'Status Admin',
+      adminEmail: `${stamp}@status.test.local`,
+      adminPassword: adminPassword,
+    });
 
     // 2. Navigate to /status
     await page.goto('/status');

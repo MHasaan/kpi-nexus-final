@@ -11,6 +11,8 @@
  */
 import { expect, test } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiUp(): Promise<boolean> {
@@ -51,21 +53,13 @@ test.describe('Active sessions page (/me/sessions)', () => {
     const adminPassword = 'correct-horse-battery-staple';
 
     // 1. Register a fresh org → lands on /dashboard
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await expect(page.getByLabel('URL slug')).toHaveValue(slug);
-    await page.getByLabel('Your full name').fill(adminFullName);
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    const resp = await registerResp;
-    expect(resp.status()).toBe(201);
-
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: slug,
+      adminFullName: adminFullName,
+      adminEmail: adminEmail,
+      adminPassword: adminPassword,
+    });
 
     // 2. Navigate to /me/sessions
     await page.goto('/me/sessions');
@@ -103,19 +97,13 @@ test.describe('Active sessions page (/me/sessions)', () => {
     const orgName = `e2e-sessions-link-${stamp}`;
     const slug = orgName;
 
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await expect(page.getByLabel('URL slug')).toHaveValue(slug);
-    await page.getByLabel('Your full name').fill('Sessions Link Admin');
-    await page.getByLabel('Your email').fill(`${stamp}@sessions-link.test.local`);
-    await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple');
-
-    const registerResp = page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    await registerResp;
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: slug,
+      adminFullName: 'Sessions Link Admin',
+      adminEmail: `${stamp}@sessions-link.test.local`,
+      adminPassword: 'correct-horse-battery-staple',
+    });
 
     await page.goto('/profile');
     // The sessions section (and its "full session manager" link) lives under the

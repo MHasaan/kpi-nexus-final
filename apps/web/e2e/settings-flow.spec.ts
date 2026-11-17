@@ -10,6 +10,8 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiUp(): Promise<boolean> {
@@ -39,19 +41,13 @@ async function registerAndLand(page: Page): Promise<void> {
   const email = `${stamp}@uc11.test.local`;
   const password = 'correct-horse-battery-staple';
 
-  await page.goto('/register');
-  await page.getByLabel('Organization name').fill(`uc11-${stamp}`);
-  await page.getByLabel('URL slug').fill(slug);
-  await page.getByLabel('Your full name').fill('UC-11 Admin');
-  await page.getByLabel('Your email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    ),
-    page.getByRole('button', { name: /create organization/i }).click(),
-  ]);
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await registerOrgViaApi(page, {
+    orgName: `uc11-${stamp}`,
+    slug: slug,
+    adminFullName: 'UC-11 Admin',
+    adminEmail: email,
+    adminPassword: password,
+  });
 }
 
 test.describe('UC-11: Manage Organization Settings happy-path', () => {

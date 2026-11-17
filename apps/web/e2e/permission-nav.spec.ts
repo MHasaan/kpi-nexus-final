@@ -14,6 +14,8 @@
  */
 import { expect, request, test } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiUp(): Promise<boolean> {
@@ -106,20 +108,13 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     const adminPassword = 'correct-horse-battery-staple';
 
     // Register via the FE form so we exercise the real login → cache path.
-    await page.goto('/register');
-    await page.getByLabel('Organization name').fill(orgName);
-    await expect(page.getByLabel('URL slug')).toHaveValue(orgName);
-    await page.getByLabel('Your full name').fill('Nav Admin');
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    const registerResp = page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: /create organization/i }).click();
-    expect((await registerResp).status()).toBe(201);
-
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await registerOrgViaApi(page, {
+      orgName: orgName,
+      slug: orgName,
+      adminFullName: 'Nav Admin',
+      adminEmail: adminEmail,
+      adminPassword: adminPassword,
+    });
 
     // AppShell nav: admin sees every entry, including the gated admin-only ones.
     const nav = page.getByRole('navigation', { name: 'Primary' });

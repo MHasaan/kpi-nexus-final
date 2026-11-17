@@ -31,6 +31,8 @@ export interface ListAlertsFilter {
   severity?: 'LOW' | 'MEDIUM' | 'HIGH';
   kpiId?: string;
   limit?: number;
+  /** The id of the last alert already shown: return the ones older than it. */
+  before?: string;
 }
 
 @Injectable()
@@ -97,10 +99,25 @@ export class AlertsService {
     if (filter.severity) where.severity = filter.severity;
     if (filter.kpiId) where.kpiId = filter.kpiId;
     where = await this.applyVisibility(where);
+    // "Load more": the alerts older than the last one shown. The list used to
+    // stop at its first hundred with no way to reach the rest (plan 7.5). The
+    // cursor is looked up under the same visibility, so an id the caller may
+    // not see pages from nowhere.
+    if (filter.before) {
+      const last = await this.prisma.alert.findFirst({
+        where: { AND: [where, { id: filter.before }] },
+        select: { id: true, createdAt: true },
+      });
+      if (!last) return [];
+      where = {
+        AND: [where, { OR: [{ createdAt: { lt: last.createdAt } }, { createdAt: last.createdAt, id: { lt: last.id } }] }],
+      };
+    }
     return this.prisma.alert.findMany({
       where,
       select: alertSelect,
-      orderBy: [{ createdAt: 'desc' }],
+      // Newest first; the id breaks ties so paging never repeats or skips a row.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: Math.min(filter.limit ?? 100, 500),
     });
   }

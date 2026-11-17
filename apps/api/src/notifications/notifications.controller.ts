@@ -19,9 +19,11 @@ export class NotificationsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('limit') limit?: string,
+    @Query('alertId') alertId?: string,
   ): Promise<PublicDelivery[]> {
     return this.deliveries.list({
       status,
+      alertId: alertId || undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       limit: limit ? Number.parseInt(limit, 10) : undefined,

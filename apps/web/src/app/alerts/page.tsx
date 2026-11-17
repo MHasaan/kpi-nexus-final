@@ -64,6 +64,9 @@ const SEVERITY_FILTERS = [
   { label: 'Low', value: 'LOW' as const },
 ];
 
+/** Alerts are fetched this many at a time; "Load older alerts" fetches the next lot. */
+const PAGE_SIZE = 50;
+
 type FilterValue = AlertStatus | 'ALL';
 type SeverityFilterValue = AlertSeverity | 'ALL';
 
@@ -85,6 +88,29 @@ export default function AlertsPage() {
   const [statusFilter, setStatusFilter] = useState<FilterValue>('OPEN');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilterValue>('ALL');
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Whether there may be older alerts than the ones shown, and whether they are being fetched.
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadOlder() {
+    const last = alerts?.at(-1);
+    if (!last) return;
+    setLoadingMore(true);
+    try {
+      const older = await listAlerts({
+        ...(statusFilter === 'ALL' ? {} : { status: statusFilter }),
+        ...(severityFilter === 'ALL' ? {} : { severity: severityFilter }),
+        limit: PAGE_SIZE,
+        before: last.id,
+      });
+      setAlerts((shown) => [...(shown ?? []), ...older]);
+      setHasMore(older.length === PAGE_SIZE);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'Older alerts could not be loaded');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -92,8 +118,10 @@ export default function AlertsPage() {
       const data = await listAlerts({
         ...(statusFilter === 'ALL' ? {} : { status: statusFilter }),
         ...(severityFilter === 'ALL' ? {} : { severity: severityFilter }),
+        limit: PAGE_SIZE,
       });
       setAlerts(data);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -319,6 +347,13 @@ export default function AlertsPage() {
             </TableBody>
           </Table>
         </Card>
+      )}
+      {alerts && alerts.length > 0 && hasMore && (
+        <div className="mt-4 text-center">
+          <Button variant="secondary" isLoading={loadingMore} onClick={() => void loadOlder()} data-testid="alerts-load-more">
+            Load older alerts
+          </Button>
+        </div>
       )}
       </RequirePermission>
     </AppShell>

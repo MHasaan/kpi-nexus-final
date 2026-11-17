@@ -264,16 +264,19 @@ function makeService(): {
   prisma: FakePrisma;
   audit: FakeAudit;
   accessContext: FakeAccessContext;
+  billing: { assertWithinQuota: ReturnType<typeof vi.fn> };
 } {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
   const accessContext = new FakeAccessContext();
+  const billing = { assertWithinQuota: vi.fn(async (_key: string, _increment?: number) => undefined) };
   const service = new DashboardsService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     accessContext as unknown as AccessContextService,
+    billing as never,
   );
-  return { service, prisma, audit, accessContext };
+  return { service, prisma, audit, accessContext, billing };
 }
 
 describe('parseIfMatch', () => {
@@ -508,6 +511,19 @@ describe('DashboardsService.create', () => {
     expect(created.ownerUserId).toBe('u1');
     expect(audit.records).toHaveLength(1);
     expect(audit.records[0]).toMatchObject({ action: 'CREATE', entityType: 'Dashboard' });
+  });
+
+  test("is refused past the plan's dashboards limit, and nothing is stored (plan 6.11)", async () => {
+    const { service, prisma, billing } = makeService();
+    const over = new Error('QUOTA_EXCEEDED');
+    billing.assertWithinQuota.mockRejectedValueOnce(over);
+    await expect(
+      withCtx({ userId: 'u1' }, () =>
+        service.create({ name: 'One too many', isShared: false, tags: [] } as unknown as Parameters<DashboardsService['create']>[0]),
+      ),
+    ).rejects.toBe(over);
+    expect(billing.assertWithinQuota).toHaveBeenCalledWith('dashboards', 1);
+    expect(prisma.store).toHaveLength(0);
   });
 });
 

@@ -38,6 +38,9 @@ function quotasOf(key: string, stored: unknown): Record<string, number> {
 /** The quota keys whose usage is counted from live rows. Others are not shown: nothing counts them. */
 const COUNTED_QUOTAS = ['kpis', 'dashboards', 'users'] as const;
 
+/** How a quota is named in a message to a person. */
+const QUOTA_NOUNS: Record<string, string> = { kpis: 'KPIs', dashboards: 'dashboards', users: 'people' };
+
 /** One plan an organisation can be on. */
 export interface BillingPlan {
   key: string;
@@ -131,7 +134,7 @@ export class BillingService {
       throw new HttpException(
         {
           code: 'QUOTA_EXCEEDED',
-          message: `Plan '${plan.key}' allows ${limit} ${key}; you are at ${current}. Upgrade to add more.`,
+          message: `The ${plan.displayName} plan allows ${limit} ${QUOTA_NOUNS[key] ?? key}; the organisation has ${current}. Choose a larger plan on the Billing page to add more.`,
           details: { key, limit, current },
         },
         HttpStatus.PAYMENT_REQUIRED,

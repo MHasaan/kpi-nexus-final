@@ -93,6 +93,7 @@ function make(rows: Array<Partial<Row> & { id: string }>, visible: string[] | nu
         sent.push(to);
       }),
     } as never,
+    { assertWithinQuota: async () => undefined } as never,
   );
   return { service, users, tokens, sent };
 }

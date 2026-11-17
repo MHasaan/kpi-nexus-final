@@ -25,6 +25,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { EmailService } from '../email/email.service.js';
 import { escapeHtml } from '../email/escape-html.js';
 import { webAppUrl } from '../email/web-app-url.js';
+import { BillingService } from '../billing/billing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
@@ -114,6 +115,7 @@ export class UsersService {
     private readonly resolver: PermissionResolverService,
     private readonly accessContext: AccessContextService,
     private readonly email: EmailService,
+    private readonly billing: BillingService,
   ) {}
 
   /** People the caller may see (PEOPLE scope, BE-004); everyone at the ORG default. */
@@ -510,6 +512,9 @@ export class UsersService {
         message: 'A user with this email already exists in this organization',
       });
     }
+
+    // The plan's people limit: 402 QUOTA_EXCEEDED past it (the Billing page shows the limit).
+    await this.billing.assertWithinQuota('users', 1);
 
     const plaintext = randomBytes(32).toString('base64url');
     const hashedToken = this.hash(plaintext);

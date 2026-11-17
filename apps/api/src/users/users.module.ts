@@ -1,3 +1,4 @@
+import { BillingModule } from '../billing/billing.module.js';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -9,7 +10,7 @@ import { OffboardingService } from './services/offboarding.service.js';
 import { UserUpdateService } from './services/user-update.service.js';
 
 @Module({
-  imports: [EmailModule],
+  imports: [EmailModule, BillingModule],
   controllers: [UsersController],
   providers: [
     UsersService,

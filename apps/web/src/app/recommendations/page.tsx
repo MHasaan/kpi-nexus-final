@@ -15,6 +15,7 @@ import {
 } from '../../lib/api-client';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
+import { usePermissions } from '../../lib/use-permissions';
 import {
   PageHeader,
   Card,
@@ -65,6 +66,7 @@ function topPriorityRank(r: Recommendation): number {
 type SortKey = 'priority' | 'recency';
 
 export default function RecommendationsPage() {
+  const canAct = usePermissions().has('KPI_EDIT');
   const router = useRouter();
   const [rows, setRows] = useState<Recommendation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -229,7 +231,8 @@ export default function RecommendationsPage() {
                       </Link>
                     )}
                   </div>
-                  {r.status === 'PENDING' && (
+                  {/* Marking a recommendation is KPI_EDIT on the API; a reader is not shown buttons that would be refused (UI-013). */}
+                  {r.status === 'PENDING' && canAct && (
                     <div className="flex gap-2">
                       <Button
                         type="button"

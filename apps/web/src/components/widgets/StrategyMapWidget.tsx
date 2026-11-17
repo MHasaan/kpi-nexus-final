@@ -1,68 +1,54 @@
 'use client';
 
-import type { DashboardWidget } from '../../lib/api-client';
+import Link from 'next/link';
+
+import type { DashboardSummaryRow, DashboardWidget } from '../../lib/api-client';
+import { QUADRANT_LABELS, labelFor } from '../../lib/labels';
+
+import { type PerspectiveTally, kpiCount, strategyMapTally, tallyWords } from './strategy-map';
 
 interface StrategyMapWidgetProps {
   widget: DashboardWidget;
+  summaryRows?: DashboardSummaryRow[];
 }
 
-const QUADRANTS = [
-  {
-    label: 'Financial',
-    icon: '💰',
-    description: 'Revenue, profitability, cost efficiency',
-    color: 'border-accent-primary/30 bg-accent-primary/5',
-  },
-  {
-    label: 'Customer',
-    icon: '👥',
-    description: 'Satisfaction, retention, NPS',
-    color: 'border-status-success/30 bg-status-success/5',
-  },
-  {
-    label: 'Internal',
-    icon: '⚙️',
-    description: 'Process quality, cycle time, capacity',
-    color: 'border-status-warning/30 bg-status-warning/5',
-  },
-  {
-    label: 'Learning',
-    icon: '📚',
-    description: 'Employee growth, innovation, culture',
-    color: 'border-status-info/30 bg-status-info/5',
-  },
-];
+// A tile takes the colour of the worst KPI in it.
+const TILE_TONE: Record<PerspectiveTally['worst'], string> = {
+  OFF_TRACK: 'border-status-critical/40 bg-status-critical-bg',
+  AT_RISK: 'border-status-warning/40 bg-status-warning/10',
+  ON_TRACK: 'border-status-success/40 bg-status-success/10',
+  NONE: 'border-border bg-surface-bg',
+};
 
-export function StrategyMapWidget({ widget }: StrategyMapWidgetProps) {
-  const title = widget.title ?? 'Strategy Map';
+/** The four balanced-scorecard perspectives, each with how many of its KPIs are on track, at risk and off track. */
+export function StrategyMapWidget({ widget, summaryRows = [] }: StrategyMapWidgetProps) {
+  const title = widget.title ?? 'Strategy map';
+  const tally = strategyMapTally(summaryRows);
 
   return (
-    <div
-      className="flex h-full flex-col p-4"
-      data-testid={`widget-render-${widget.id}`}
-    >
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-content-muted">
-        {title}
-      </p>
-      <p className="mb-2 text-xs text-content-muted">
-        Balanced Scorecard — read-only overview
-      </p>
+    <div className="flex h-full flex-col p-4" data-testid={`widget-render-${widget.id}`}>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-content-muted">{title}</p>
+        <Link href="/kpis/scorecard" className="text-xs font-medium text-accent-primary hover:underline">
+          Open the scorecard
+        </Link>
+      </div>
       <div className="grid flex-1 grid-cols-2 gap-2">
-        {QUADRANTS.map((q) => (
-          <div
-            key={q.label}
-            className={`flex flex-col rounded-md border p-2 ${q.color}`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span aria-hidden="true">{q.icon}</span>
-              <span className="text-xs font-semibold text-content-strong">
-                {q.label}
-              </span>
+        {tally.perspectives.map((p) => (
+          <div key={p.perspective} data-testid={`perspective-${p.perspective}`} className={`flex flex-col justify-between rounded-md border p-2 ${TILE_TONE[p.worst]}`}>
+            <span className="text-xs font-semibold text-content-strong">{labelFor(QUADRANT_LABELS, p.perspective)}</span>
+            <div>
+              <p className="text-lg font-bold tabular-nums text-content-strong">{kpiCount(p.total)}</p>
+              {p.total > 0 && <p className="text-xs text-content-muted">{tallyWords(p)}</p>}
             </div>
-            <p className="mt-1 text-xs text-content-muted">{q.description}</p>
           </div>
         ))}
       </div>
+      {tally.unassigned > 0 && (
+        <p className="mt-2 text-xs text-content-muted" data-testid="strategy-unassigned">
+          {tally.unassigned === 1 ? '1 KPI has no perspective and is not counted above.' : `${tally.unassigned} KPIs have no perspective and are not counted above.`} Choose one on the KPI’s edit page.
+        </p>
+      )}
     </div>
   );
 }

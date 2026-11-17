@@ -1496,6 +1496,42 @@ export interface PublicDashboardPayload {
   widgets: PublicWidget[];
   /** Object map keyed by kpiId — NOT an array. */
   kpiValues: Record<string, PublicKpiValue>;
+  /** The KPIs the widgets point at, with a short history. Absent from an older API. */
+  kpis?: Record<string, PublicKpiView>;
+  /** The rows the list widgets show; absent when the dashboard has none. */
+  listRows?: PublicListRow[];
+  /** Strategy-map counts; absent when the dashboard has no strategy map. */
+  perspectives?: PublicPerspectiveCount[];
+}
+
+export interface PublicKpiView {
+  name: string;
+  unit: string | null;
+  direction: string;
+  targetValue: number | null;
+  warningThreshold: number | null;
+  criticalThreshold: number | null;
+  /** Null for a per-unit or per-person KPI: their values are never public. */
+  status: BoardPackStatus | null;
+  /** Oldest first; empty for a per-unit or per-person KPI. */
+  series: Array<{ periodStart: string; recordedAt: string; value: number }>;
+}
+
+export interface PublicListRow {
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  latestValue: number | null;
+  status: BoardPackStatus;
+  attainmentPct: number | null;
+}
+
+export interface PublicPerspectiveCount {
+  perspective: string;
+  total: number;
+  onTrack: number;
+  atRisk: number;
+  offTrack: number;
 }
 
 export interface SparklinePoint {

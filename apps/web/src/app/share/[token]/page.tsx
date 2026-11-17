@@ -2,18 +2,27 @@
 
 import { Eye } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 
-import { BarChart } from '../../../components/charts';
-
+import { BarChartWidget } from '../../../components/widgets/BarChartWidget';
+import { GaugeWidget } from '../../../components/widgets/GaugeWidget';
+import { KpiCard } from '../../../components/widgets/KpiCard';
+import { LineChartWidget } from '../../../components/widgets/LineChartWidget';
+import { ListWidget } from '../../../components/widgets/ListWidget';
+import { NumberWidget } from '../../../components/widgets/NumberWidget';
+import { PieChartWidget } from '../../../components/widgets/PieChartWidget';
+import { StrategyMapWidget } from '../../../components/widgets/StrategyMapWidget';
+import { tallyFromCounts } from '../../../components/widgets/strategy-map';
+import { TrendWidget } from '../../../components/widgets/TrendWidget';
 import {
   ApiError,
   getPublicDashboard,
   submitPublicDashboardPassword,
   type PublicDashboardPayload,
-  type PublicKpiValue,
   type PublicWidget,
 } from '../../../lib/api-client';
+import { WIDGET_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { readingOrder, shareCell, shareKpi, shareWidget } from '../../../lib/share-view';
 
 type PageState =
   | { kind: 'loading' }
@@ -23,84 +32,80 @@ type PageState =
   | { kind: 'expired' }
   | { kind: 'error'; message: string };
 
-/**
- * Resolve the captured KPI value a widget points at, if any.
- *
- * The public payload carries `kpiValues` as an object map keyed by `kpiId`
- * (`Record<string, { latestValue, latestRecordedAt }>`). A widget's `config`
- * may hold `{ kpiId }` (see the dashboard add-widget form); we look the
- * captured value up directly. Returns `null` when the widget has no kpiId or
- * no captured value exists for it.
- */
-function resolveWidgetValue(
-  widget: PublicWidget,
-  kpiValues: Record<string, PublicKpiValue>,
-): PublicKpiValue | null {
-  const kpiId = widget.config?.['kpiId'];
-  if (typeof kpiId !== 'string') return null;
-  return kpiValues[kpiId] ?? null;
+/** A human label for a widget when it has no title of its own. */
+function widgetLabel(widget: PublicWidget, kpiName: string | undefined): string {
+  return widget.title ?? kpiName ?? labelFor(WIDGET_TYPE_LABELS, widget.widgetType);
 }
 
-/** Derive a human label for a widget from its title/config (no per-KPI name in payload). */
-function widgetLabel(widget: PublicWidget): string {
-  if (widget.title) return widget.title;
-  const cfgLabel = widget.config?.['label'] ?? widget.config?.['kpiName'];
-  if (typeof cfgLabel === 'string' && cfgLabel.length > 0) return cfgLabel;
-  return widget.widgetType.replace(/_/g, ' ');
-}
-
-function ShareWidgetCard({
-  widget,
-  kpiValues,
-}: {
-  widget: PublicWidget;
-  kpiValues: Record<string, PublicKpiValue>;
-}) {
-  const kv = resolveWidgetValue(widget, kpiValues);
-  const value = kv?.latestValue ?? null;
-  const typeLabel = widget.widgetType.replace(/_/g, ' ');
-  const label = widgetLabel(widget);
-
+function Note({ id, title, children }: { id: string; title: string; children: string }) {
   return (
-    <div
-      className="rounded-lg border border-border bg-surface-1 p-4"
-      data-testid={`share-widget-${widget.id}`}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-content-default">{label}</p>
-        <p className="text-xs text-content-muted capitalize">{typeLabel}</p>
+    <div className="flex h-full flex-col p-4" data-testid={`widget-render-${id}`}>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-content-muted">{title}</p>
+      <div className="flex flex-1 items-center justify-center text-center">
+        <p className="text-sm text-content-muted">{children}</p>
       </div>
-
-      {value !== null ? (
-        <>
-          {/* A single captured value: render a number for most types, and a
-              minimal single-bar visual for bar/line/trend types. */}
-          {widget.widgetType === 'bar' ||
-          widget.widgetType === 'line' ||
-          widget.widgetType === 'trend' ? (
-            <div className="mt-3">
-              <BarChart
-                data={[{ label, value }]}
-                width={240}
-                height={64}
-                aria-label={`${label}: ${value}`}
-              />
-            </div>
-          ) : null}
-          <p className="mt-2 text-2xl font-bold tabular-nums text-content-strong">
-            {value.toLocaleString()}
-          </p>
-          {kv?.latestRecordedAt && (
-            <p className="mt-1 text-xs text-content-muted">
-              {new Date(kv.latestRecordedAt).toLocaleDateString()}
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="mt-2 text-sm text-content-muted">No data</p>
-      )}
     </div>
   );
+}
+
+/**
+ * One widget, drawn by the same component the signed-in dashboard uses, from
+ * what the link is allowed to carry. A widget whose data was withheld says so
+ * instead of drawing an empty chart that looks like "no data yet".
+ */
+function ShareWidget({ widget, payload }: { widget: PublicWidget; payload: PublicDashboardPayload }) {
+  const shaped = shareWidget(widget);
+  const view = shareKpi(widget, payload);
+  const title = widgetLabel(widget, view?.name);
+  if (!shaped) return <Note id={widget.id} title={title}>This kind of widget cannot be shown on a shared link.</Note>;
+  const titled = { ...shaped, title };
+
+  switch (shaped.widgetType) {
+    case 'activity':
+      return <Note id={widget.id} title={title}>Activity names people, so it is not shown on a shared link.</Note>;
+    case 'list':
+      return <ListWidget widget={titled} summaryRows={payload.listRows ?? []} />;
+    case 'strategy_map':
+      return <StrategyMapWidget widget={titled} tally={tallyFromCounts(payload.perspectives ?? [])} linked={false} />;
+    default:
+      break;
+  }
+
+  if (!view) {
+    // No KPI chosen, a KPI the link's creator may not share, or an older API: fall back to the bare value.
+    const kpiId = widget.config?.['kpiId'];
+    const captured = typeof kpiId === 'string' ? payload.kpiValues[kpiId] : undefined;
+    if (captured?.latestValue === null || captured?.latestValue === undefined) {
+      return <Note id={widget.id} title={title}>{typeof kpiId === 'string' ? 'This KPI is not shared on this link.' : 'No KPI chosen for this widget.'}</Note>;
+    }
+    return (
+      <div className="flex h-full flex-col p-4" data-testid={`widget-render-${widget.id}`}>
+        <p className="text-xs font-medium uppercase tracking-wide text-content-muted">{title}</p>
+        <p className="mt-2 text-3xl font-bold tabular-nums text-content-strong">{captured.latestValue.toLocaleString()}</p>
+      </div>
+    );
+  }
+  if (view.series.length === 0 && view.status === null) {
+    return <Note id={widget.id} title={title}>This KPI is recorded per team or per person, so its values are not shown on a shared link.</Note>;
+  }
+
+  const points = view.series;
+  switch (shaped.widgetType) {
+    case 'kpi_card':
+      return <KpiCard widget={titled} kpi={view} dataPoints={points} status={view.status} />;
+    case 'line':
+      return <LineChartWidget widget={titled} dataPoints={points} />;
+    case 'bar':
+      return <BarChartWidget widget={titled} dataPoints={points} />;
+    case 'pie':
+      return <PieChartWidget widget={titled} kpi={view} dataPoints={points} />;
+    case 'gauge':
+      return <GaugeWidget widget={titled} kpi={view} dataPoints={points} />;
+    case 'number':
+      return <NumberWidget widget={titled} kpi={view} dataPoints={points} />;
+    case 'trend':
+      return <TrendWidget widget={titled} dataPoints={points} />;
+  }
 }
 
 export default function PublicSharePage() {
@@ -297,15 +302,22 @@ export default function PublicSharePage() {
             No data to display.
           </p>
         ) : (
-          /* Widgets (read-only). Each widget shows a minimal visual built from
-             its captured KPI value, looked up from the `kpiValues` object map. */
-          <section data-testid="share-widgets">
-            <h2 className="mb-4 text-lg font-semibold text-content-strong">Widgets</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {payload.widgets.map((w) => (
-                <ShareWidgetCard key={w.id} widget={w} kpiValues={payload.kpiValues} />
-              ))}
-            </div>
+          /* The board as its author laid it out: a 12-column grid from tablet
+             width up, one widget per row on a phone. */
+          <section data-testid="share-widgets" className="grid gap-3 md:auto-rows-[80px] md:grid-cols-12">
+            {readingOrder(payload.widgets).map((w) => {
+              const cell = shareCell(w.position);
+              return (
+                <div
+                  key={w.id}
+                  data-testid={`share-widget-${w.id}`}
+                  className="min-h-[240px] overflow-hidden rounded-lg border border-border bg-surface-1 md:min-h-0 md:[grid-column:var(--share-col)] md:[grid-row:var(--share-row)]"
+                  style={{ '--share-col': cell?.column ?? 'span 6', '--share-row': cell?.row ?? 'span 3' } as CSSProperties}
+                >
+                  <ShareWidget widget={w} payload={payload} />
+                </div>
+              );
+            })}
           </section>
         )}
       </div>

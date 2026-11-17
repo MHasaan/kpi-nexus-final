@@ -2,9 +2,12 @@
 
 import type { DashboardSummaryRow, DashboardWidget } from '../../lib/api-client';
 
+/** What a list row draws. The public share page has only these. */
+export type ListRow = Pick<DashboardSummaryRow, 'kpiId' | 'name' | 'unit' | 'latestValue' | 'status' | 'attainmentPct'>;
+
 interface ListWidgetProps {
   widget: DashboardWidget;
-  summaryRows?: DashboardSummaryRow[];
+  summaryRows?: ListRow[];
 }
 
 // Server-computed, direction-aware status (FE-001): the old latest/target ratio
@@ -17,7 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
 // Problems first, then healthy, then no target / no data.
 const STATUS_RANK: Record<string, number> = { OFF_TRACK: 0, AT_RISK: 1, ON_TRACK: 2 };
 
-function statusColor(row: DashboardSummaryRow): string {
+function statusColor(row: ListRow): string {
   return STATUS_COLOR[row.status] ?? 'text-content-muted';
 }
 

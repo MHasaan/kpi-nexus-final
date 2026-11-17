@@ -6,13 +6,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import type { DashboardWidget } from '../../lib/api-client';
+
+import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, previousPoint, toSeries } from './series';
 
 interface NumberWidgetProps {
   widget: DashboardWidget;
-  kpi?: KpiSummary | null;
-  dataPoints?: DataPoint[];
+  kpi?: WidgetKpi | null;
+  dataPoints?: SeriesPoint[];
 }
 
 export function NumberWidget({ widget, kpi, dataPoints = [] }: NumberWidgetProps) {

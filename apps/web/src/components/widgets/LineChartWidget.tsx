@@ -10,12 +10,14 @@ import {
   YAxis,
 } from 'recharts';
 
-import type { DataPoint, DashboardWidget } from '../../lib/api-client';
+import type { DashboardWidget } from '../../lib/api-client';
+
+import type { SeriesPoint } from './series';
 import { periodLabel, toSeries } from './series';
 
 interface LineChartWidgetProps {
   widget: DashboardWidget;
-  dataPoints?: DataPoint[];
+  dataPoints?: SeriesPoint[];
 }
 
 export function LineChartWidget({ widget, dataPoints = [] }: LineChartWidgetProps) {

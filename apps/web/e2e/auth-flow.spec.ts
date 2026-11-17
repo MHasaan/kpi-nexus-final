@@ -12,6 +12,8 @@
  */
 import { expect, test } from '@playwright/test';
 
+import { registerOrgViaApi } from './helpers/org';
+
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 async function isApiUp(): Promise<boolean> {
@@ -60,29 +62,16 @@ test.describe('UC-01: Login & Authentication happy-path', () => {
       page.getByRole('link', { name: /create organization/i }),
     ).toHaveAttribute('href', '/signup');
 
-    // 2. The classic registration form this flow exercises lives at /register.
+    // 2. There is one way to sign up. The old /register form is gone: its
+    //    address sends you to /signup, and so does the link on /login.
     await page.goto('/register');
-    await expect(
-      page.getByRole('heading', { name: /create your organization/i }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/signup$/);
+    await page.goto('/login');
+    await expect(page.getByRole('link', { name: /create an organization/i })).toHaveAttribute('href', '/signup');
 
-    // 3. Fill register form
-    await page.getByLabel('Organization name').fill(orgName);
-    // slug auto-derives — wait briefly then verify it's pre-filled
-    await expect(page.getByLabel('URL slug')).toHaveValue(slug);
-    await page.getByLabel('Your full name').fill(adminFullName);
-    await page.getByLabel('Your email').fill(adminEmail);
-    await page.getByLabel('Password', { exact: true }).fill(adminPassword);
-
-    // 4. Submit — wait for the api POST
-    const registerResp = page.waitForResponse(
-      (r) => r.url().endsWith('/auth/register') && r.request().method() === 'POST',
-    );
-    await page
-      .getByRole('button', { name: /create organization/i })
-      .click();
-    const resp = await registerResp;
-    expect(resp.status()).toBe(201);
+    // 3–4. Create the organisation (the sign-up form itself is covered by
+    //      onboarding-wizard.spec.ts); this flow is about signing in and out.
+    await registerOrgViaApi(page, { orgName, slug, adminFullName, adminEmail, adminPassword });
 
     // 5. Land on /dashboard, greeted by first name (time-of-day greeting)
     await expect(page).toHaveURL(/\/dashboard$/);

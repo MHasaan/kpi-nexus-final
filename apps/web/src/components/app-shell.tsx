@@ -18,9 +18,11 @@ import {
   Bell,
   Bot,
   Building2,
+  Cable,
   CheckSquare,
   ChevronsUpDown,
   ClipboardCheck,
+  CreditCard,
   FileText,
   History,
   KeyRound,
@@ -33,6 +35,7 @@ import {
   Moon,
   PanelLeft,
   Plug,
+  Puzzle,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -40,8 +43,11 @@ import {
   Sun,
   Target,
   User,
+  UserCheck,
   UserCog,
   Users,
+  UsersRound,
+  Zap,
 } from 'lucide-react';
 
 import { AlertsBell } from './alerts-bell';
@@ -54,6 +60,7 @@ import {
   logoutRequest,
   meRequest,
 } from '../lib/api-client';
+import { mentionUnreadCount } from '../lib/collab-client';
 import {
   NO_PAGE_RESTRICTION,
   isPageAllowed,
@@ -81,6 +88,11 @@ export interface NavItem {
    * visible to everyone (admin holds every key, so they always see all).
    */
   permission?: string;
+  /**
+   * For a page that opens with any one of several keys (its own gate is
+   * `RequireAnyPermission`): shown when at least one is held.
+   */
+  anyOf?: string[];
   /**
    * Override for the derived `data-testid`. Use when the route doesn't map
    * cleanly to the legacy testid (e.g. `/settings/audit` must keep `nav-audit`).
@@ -110,6 +122,8 @@ export const NAV_GROUPS: NavGroup[] = [
     group: 'Workspace',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/my-kpis', label: 'My KPIs', icon: UserCheck },
+      { href: '/team', label: 'My team', icon: UsersRound },
     ],
   },
   {
@@ -134,6 +148,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/okrs', label: 'OKRs', icon: ListChecks },
       { href: '/tasks', label: 'Tasks', icon: CheckSquare },
       { href: '/approvals', label: 'Approvals', icon: ClipboardCheck },
+      { href: '/workflows', label: 'Automations', icon: Zap, permission: 'ORG_SETTINGS' },
       { href: '/reports', label: 'Reports', icon: FileText, permission: 'REPORTS_VIEW' },
     ],
   },
@@ -152,8 +167,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/positions', label: 'Positions', icon: UserCog, permission: 'POSITIONS_MANAGE' },
       { href: '/org-units', label: 'Org units', icon: Building2, permission: 'GROUPS_VIEW' },
       { href: '/integrations', label: 'Integrations', icon: Plug, permission: 'INTEGRATIONS_MANAGE' },
+      { href: '/connectors', label: 'Connectors', icon: Cable, anyOf: ['INTEGRATIONS_MANAGE', 'ORG_SETTINGS'] },
+      { href: '/plugins', label: 'Plugins', icon: Puzzle, permission: 'ORG_SETTINGS' },
       { href: '/activity', label: 'Activity', icon: History },
       { href: '/settings/audit', label: 'Audit', icon: ShieldCheck, permission: 'AUDIT_VIEW', testId: 'nav-audit' },
+      { href: '/billing', label: 'Billing', icon: CreditCard, permission: 'ORG_SETTINGS' },
       { href: '/settings', label: 'Settings', icon: Settings, permission: 'ORG_SETTINGS' },
     ],
   },
@@ -191,6 +209,7 @@ export function visibleNavItems(
   return items.filter(
     (item) =>
       (!item.permission || permissions.includes(item.permission)) &&
+      (!item.anyOf || item.anyOf.some((key) => permissions.includes(key))) &&
       isPageAllowed(pageAccess, item.href),
   );
 }
@@ -211,7 +230,7 @@ export function filterNav(
   pageAccess: PageAccessResolved = NO_PAGE_RESTRICTION,
 ): NavItem[] {
   if (!isReady) {
-    return items.filter((item) => !item.permission);
+    return items.filter((item) => !item.permission && !item.anyOf);
   }
   return visibleNavItems(permissions, items, pageAccess);
 }
@@ -340,6 +359,22 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   // Permissions live in localStorage (unavailable during SSR). Reveal gated
   // items only after mount so SSR and the first client render agree.
   const [mounted, setMounted] = useState(false);
+  // How many mentions are waiting. A failure leaves the bell plain rather than
+  // showing an error in the top bar; the mentions page reports its own.
+  const [unreadMentions, setUnreadMentions] = useState(0);
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    let cancelled = false;
+    mentionUnreadCount().then(
+      ({ count }) => {
+        if (!cancelled) setUnreadMentions(count);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   useEffect(() => {
     setMounted(true);
     if (typeof window !== 'undefined') {
@@ -706,10 +741,19 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
             <Link
               href="/me/mentions"
               data-testid="mentions-bell"
-              aria-label="Mentions"
-              className="flex h-9 w-9 items-center justify-center rounded-md text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={unreadMentions > 0 ? `Mentions, ${unreadMentions} unread` : 'Mentions'}
+              className="relative flex h-9 w-9 items-center justify-center rounded-md text-content-muted outline-none transition-colors hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring"
             >
               <AtSign className="h-[18px] w-[18px]" aria-hidden />
+              {unreadMentions > 0 && (
+                <span
+                  data-testid="mentions-badge"
+                  aria-hidden
+                  className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-primary px-1 text-[10px] font-bold leading-none text-white"
+                >
+                  {unreadMentions > 9 ? '9+' : unreadMentions}
+                </span>
+              )}
             </Link>
             <button
               type="button"

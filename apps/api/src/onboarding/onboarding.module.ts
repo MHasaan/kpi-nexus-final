@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { EmailModule } from '../email/email.module.js';
 import { OrgTemplatesModule } from '../org-templates/org-templates.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { UsersModule } from '../users/users.module.js';
@@ -30,6 +31,7 @@ import { queueProcessors } from '../config/queue-workers.js';
     OrgTemplatesModule,
     // The team in the draft is invited through the same path as People → Invite.
     UsersModule,
+    EmailModule,
     BullModule.registerQueue({ name: ONBOARDING_CLEANUP_QUEUE }),
   ],
   controllers: [OnboardingController],

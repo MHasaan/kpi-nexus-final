@@ -125,6 +125,8 @@ describe('pre-tenant entry points establish a tenancy context (OT-014)', () => {
       {} as AuthService,
       {} as OrgTemplatesService,
       {} as never, // UsersService — not used by cleanupStale
+      {} as never, // AuditService
+      {} as never, // EmailService
     );
     await expect(service.cleanupStale(30)).resolves.toEqual({ cleaned: 2 });
     expect(seen).toEqual([{ bypass: true, org: expect.anything() }]);

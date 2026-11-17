@@ -9,9 +9,13 @@ import {
 } from '@kpi-nexus/contracts';
 import * as bcrypt from 'bcrypt';
 
+import { AuditService } from '../audit/audit.service.js';
 import { AuthService } from '../auth/auth.service.js';
+import { EmailService } from '../email/email.service.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import { computeInheritedAssignments } from '../org-unit-kpis/inheritance.js';
 import { OrgTemplatesService } from '../org-templates/org-templates.service.js';
+import { DEFAULT_PASSWORD_POLICY, checkPasswordPolicy } from '../password/password-policy.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { UsersService } from '../users/users.service.js';
@@ -28,6 +32,9 @@ function mapTrack(track: string): 'IC' | 'MANAGEMENT' | 'EXECUTIVE' {
   if (track === 'EXECUTIVE') return 'EXECUTIVE';
   return 'MANAGEMENT';
 }
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
 
 /** How a name is matched when one row refers to another: no case, no outer spaces. */
 const nameKey = (value: string): string => value.trim().toLowerCase();
@@ -86,6 +93,8 @@ export class OnboardingService {
     private readonly auth: AuthService,
     private readonly templates: OrgTemplatesService,
     private readonly users: UsersService,
+    private readonly audit: AuditService,
+    private readonly email: EmailService,
   ) {}
 
   /** Begin an onboarding session. Returns the resumable draft token. */
@@ -213,6 +222,17 @@ export class OnboardingService {
       kpis: draft.kpis ?? [],
       team: draft.team ?? [],
     };
+
+    // A new organisation has no policy of its own yet, so the default one
+    // applies — the same check an invitation or a password change gets.
+    const violations = checkPasswordPolicy(body.adminPassword, DEFAULT_PASSWORD_POLICY);
+    if (violations.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Password does not meet policy',
+        details: { violations },
+      });
+    }
 
     const passwordHash = await bcrypt.hash(body.adminPassword, 12);
     const orgDraft = payload.organization;
@@ -391,7 +411,35 @@ export class OnboardingService {
       });
     });
 
+    // The first line of the organisation's history, so its activity feed does
+    // not open empty (the invitations below add theirs).
+    // Written as the new administrator: this route is public, so there is no
+    // request context, and without one the row has no tenant to belong to.
+    await RequestContextStore.run(
+      {
+        userId: result.adminUser.id,
+        organizationId: result.org.id,
+        roleId: result.adminRole.id,
+        principalType: 'user',
+      },
+      () =>
+        this.audit.record({
+          action: 'CREATE',
+          entityType: 'Organization',
+          entityId: result.org.id,
+          metadata: {
+            source: 'onboarding',
+            roles: payload.roles.length,
+            positions: payload.positions.length,
+            orgUnits: payload.orgUnits.length,
+            kpis: payload.kpis.length,
+            invited: payload.team.length,
+          },
+        }),
+    );
+
     const invites = await this.inviteTeam(payload.team, body.adminEmail, result);
+    const welcomeEmailSent = await this.sendWelcome(body.adminEmail, body.adminFullName, result.org.name);
 
     const pair = await this.auth.issueTokensForUser({
       userId: result.adminUser.id,
@@ -405,7 +453,29 @@ export class OnboardingService {
       organization: { id: result.org.id, name: result.org.name, slug: result.org.slug },
       user: { id: result.adminUser.id, email: result.adminUser.email },
       invites,
+      welcomeEmailSent,
     };
+  }
+
+  /** Tell the administrator their organisation is ready. Best effort: setup has already succeeded. */
+  private async sendWelcome(to: string, fullName: string, orgName: string): Promise<boolean> {
+    const link = webAppUrl('/login');
+    const first = fullName.trim().split(/\s+/)[0] ?? '';
+    try {
+      await this.email.send({
+        to,
+        subject: `Welcome to KPI Nexus — ${orgName} is ready`,
+        html:
+          `<p>Hi ${escapeHtml(first)},</p>` +
+          `<p><strong>${escapeHtml(orgName)}</strong> is set up on KPI Nexus and you are its administrator.</p>` +
+          `<p><a href="${link}">Sign in</a> with this email address. The dashboard lists what to do next.</p>`,
+        text: `Hi ${first},\n\n${orgName} is set up on KPI Nexus and you are its administrator.\nSign in: ${link}\nThe dashboard lists what to do next.`,
+      });
+      return true;
+    } catch (err) {
+      this.logger.warn(`welcome email failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   }
 
   /**

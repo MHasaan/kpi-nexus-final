@@ -22,7 +22,9 @@ const ApplyTemplateSchema = z.object({ slug: z.string().trim().min(1) }).strict(
 const CompleteSchema = z
   .object({
     adminEmail: z.string().email(),
-    adminPassword: z.string().min(8).max(200),
+    // The rules themselves live in the password policy, checked by the service,
+    // so the answer says which rule was broken (plan 3.2d).
+    adminPassword: z.string().min(1).max(200),
     adminFullName: z.string().trim().min(2).max(160),
     slug: z.string().trim().min(1).max(120),
   })

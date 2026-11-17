@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +11,7 @@ import {
   listRetentionTiers,
 } from '../../../lib/polish-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { usePermissions } from '../../../lib/use-permissions';
 
@@ -55,16 +55,10 @@ export default function RetentionSettingsPage() {
 
   // FE-014: same permission the page's API enforces — no broken 403 screens.
   return (
+    <AppShell title="Data retention" crumbs={[{ label: 'Settings', href: '/settings' }, { label: 'Data retention' }]}>
     <RequirePermission permission="ORG_SETTINGS">
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-3xl items-center gap-6 px-6 py-4">
-          <Link href="/settings" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Data retention</span>
-        </div>
-      </header>
 
-      <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold text-content-strong">Data retention</h1>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="retention-error">{error}</p>}
 
@@ -89,7 +83,7 @@ export default function RetentionSettingsPage() {
           {policies.length === 0 && <p className="text-sm text-content-muted" data-testid="retention-empty">No policies set — apply a tier above.</p>}
         </div>
       </div>
-    </main>
     </RequirePermission>
+    </AppShell>
   );
 }

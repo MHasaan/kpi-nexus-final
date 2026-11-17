@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +13,7 @@ import {
   setPluginEnabled,
 } from '../../lib/integrations-client';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { usePermissions } from '../../lib/use-permissions';
 
@@ -80,17 +80,10 @@ export default function PluginsPage() {
 
   // FE-014: same permission the page's API enforces — no broken 403 screens.
   return (
+    <AppShell title="Plugins" crumbs={[{ label: 'Plugins' }]}>
     <RequirePermission permission="ORG_SETTINGS">
-    <main className="min-h-screen bg-surface-bg">
-      <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-6 py-4">
-          <Link href="/kpis" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
-          <span className="text-sm text-content-muted">Plugins</span>
-          <Link href="/connectors" className="ml-auto text-sm text-content-muted hover:text-accent-primary">Connectors</Link>
-        </div>
-      </header>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl">
         <h1 className="text-2xl font-semibold text-content-strong">Plugins</h1>
         <p className="mt-1 text-sm text-content-muted">Install custom widgets, templates, and formula functions. Sandboxed rendering arrives in a later release.</p>
         <div
@@ -136,7 +129,7 @@ export default function PluginsPage() {
           {plugins.length === 0 && <p className="rounded-lg border border-border bg-surface-1 p-8 text-center text-content-muted sm:col-span-2" data-testid="plugins-empty">No plugins installed.</p>}
         </div>
       </div>
-    </main>
     </RequirePermission>
+    </AppShell>
   );
 }

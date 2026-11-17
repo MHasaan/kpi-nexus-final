@@ -134,6 +134,10 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
 
     // 6. Delete the KPI
     await page.getByTestId(`delete-kpi-${kpiName}`).click();
+    // It asks first, by name, and says where the KPI goes.
+    await expect(page.getByTestId('kpi-delete-confirm')).toContainText(kpiName);
+    await expect(page.getByTestId('kpi-delete-confirm')).toContainText('KPI archive');
+    await page.getByTestId('kpi-delete-confirm-confirm').click();
     await expect(row).not.toBeVisible();
     await expect(page.getByTestId('kpis-empty')).toBeVisible();
   });

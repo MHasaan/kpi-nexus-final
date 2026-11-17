@@ -78,7 +78,14 @@ test.describe('KPI categories', () => {
     await expect(row).toBeVisible({ timeout: 10_000 });
     await expect(row).toContainText(`Financial ${stamp}`);
 
+    // Delete asks first and names the category; Cancel keeps it.
     await row.locator('[data-testid^="category-delete-"]').click();
+    const dialog = page.getByTestId('category-delete-confirm');
+    await expect(dialog).toContainText(`Financial ${stamp}`);
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(row).toBeVisible();
+    await row.locator('[data-testid^="category-delete-"]').click();
+    await page.getByTestId('category-delete-confirm-confirm').click();
     await expect(page.getByTestId('categories-empty')).toBeVisible({ timeout: 10_000 });
   });
 });

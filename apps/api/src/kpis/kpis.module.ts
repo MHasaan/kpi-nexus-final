@@ -11,6 +11,7 @@ import { RbacModule } from '../rbac/rbac.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
 import { WorkflowsModule } from '../workflows/workflows.module.js';
 import { CascadeService } from './cascade.service.js';
+import { KpiAssignmentsService } from './kpi-assignments.service.js';
 import { KpiDataController } from './kpi-data.controller.js';
 import { KpiDataService } from './kpi-data.service.js';
 import { KpiImportService } from './kpi-import.service.js';
@@ -31,7 +32,7 @@ import { KpisService } from './kpis.service.js';
     KpiWatchQueueModule, // provides KpiWatchProducer (data + status events)
   ],
   controllers: [KpisController, KpiDataController],
-  providers: [KpisService, KpiDataService, CascadeService, KpiImportService],
-  exports: [KpisService, KpiDataService, CascadeService],
+  providers: [KpisService, KpiDataService, CascadeService, KpiImportService, KpiAssignmentsService],
+  exports: [KpisService, KpiDataService, CascadeService, KpiAssignmentsService],
 })
 export class KpisModule {}

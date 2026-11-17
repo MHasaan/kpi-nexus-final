@@ -166,6 +166,26 @@ describe('Cross-tenant fuzz harness (P1 exit criterion)', () => {
       expect(status).toBe(404);
     });
 
+    test('GET /kpis/:id/assignments — a KPI from org A is invisible to org B', async () => {
+      if (skipIfNoApi()) return;
+      const created = await http<{ id: string }>('/kpis', {
+        method: 'POST',
+        token: orgA.token,
+        body: JSON.stringify({
+          name: 'TenantA-Assigned-KPI',
+          scope: 'ORG_WIDE',
+          type: 'NUMBER',
+          direction: 'HIGHER_IS_BETTER',
+          aggregationMethod: 'LAST',
+        }),
+      });
+      expect(created.status).toBe(201);
+      const own = await http(`/kpis/${created.body!.id}/assignments`, { token: orgA.token });
+      expect(own.status, 'org A can read its own KPI’s assignments').toBe(200);
+      const { status } = await http(`/kpis/${created.body!.id}/assignments`, { token: orgB.token });
+      expect(status).toBe(404);
+    });
+
     test('GET /org-units/:id — unit from org A is invisible to org B', async () => {
       if (skipIfNoApi()) return;
       const unitA = await createOrgUnitIn(orgA, 'TenantA-Unit');

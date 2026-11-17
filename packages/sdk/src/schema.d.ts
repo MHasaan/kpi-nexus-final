@@ -5771,7 +5771,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    fullName: string;
+                    fullName?: string;
+                    /** @constant */
+                    tourCompleted?: true;
                 };
             };
         };

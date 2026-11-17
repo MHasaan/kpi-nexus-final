@@ -87,6 +87,7 @@ test('wizard roles step: standard roles, a custom role with chosen permissions, 
   await expect(page.getByTestId('wizard-ready')).toBeVisible();
   await page.getByTestId('admin-name').fill('Roles Admin');
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`roles-${stamp}`);
   await page.getByTestId('wizard-complete').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });

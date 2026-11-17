@@ -104,7 +104,16 @@ export interface CompletePayload {
   slug: string;
 }
 
-export function completeOnboarding(sessionId: string, token: string, body: CompletePayload): Promise<{ accessToken: string; refreshToken: string }> {
+export interface CompleteResult {
+  accessToken: string;
+  refreshToken: string;
+  organization?: { id: string; name: string; slug: string };
+  /** What happened to each person the wizard was asked to invite. */
+  invites?: Array<{ email: string; invited: boolean; emailSent?: boolean; error?: string }>;
+  welcomeEmailSent?: boolean;
+}
+
+export function completeOnboarding(sessionId: string, token: string, body: CompletePayload): Promise<CompleteResult> {
   return api(`/onboarding/${sessionId}/complete`, {
     auth: false,
     method: 'POST',

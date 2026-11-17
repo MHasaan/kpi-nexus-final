@@ -97,6 +97,7 @@ test('wizard structure step: build a unit tree by hand; renames and removals kee
   await expect(page.getByTestId('wizard-ready')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('admin-name').fill('Structure Admin');
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`structure-${stamp}`);
   await page.getByTestId('wizard-complete').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });

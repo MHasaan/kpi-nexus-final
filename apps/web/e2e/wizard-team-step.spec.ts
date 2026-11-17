@@ -97,6 +97,7 @@ test('wizard team step: people added by hand and pasted as a list are invited wi
   await page.getByTestId('admin-name').fill('Team Admin');
   await page.getByTestId('admin-email').fill(adminEmail);
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`team-${stamp}`);
   await expect(page.getByTestId('wizard-ready')).toBeVisible();
   await page.getByTestId('wizard-complete').click();

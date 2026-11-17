@@ -113,6 +113,7 @@ test('wizard KPIs step: categories and KPIs built by hand become real KPIs, held
   await expect(page.getByTestId('wizard-ready')).toBeVisible();
   await page.getByTestId('admin-name').fill('Kpis Admin');
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`kpis-${stamp}`);
   await page.getByTestId('wizard-complete').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });

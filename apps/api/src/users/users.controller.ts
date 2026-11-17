@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { OwnerOverride } from '../rbac/decorators/owner-override.decorator.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { InviteUserDtoSchema } from './dto/invite-user.dto.js';
 import { OffboardDtoSchema } from './dto/offboard.dto.js';
+import { UpdateUserDtoSchema } from './dto/update-user.dto.js';
 import {
   type InviteResult,
   type PublicAccessOverride,
@@ -25,6 +27,7 @@ import {
   UsersService,
 } from './users.service.js';
 import { type OffboardSummary, OffboardingService } from './services/offboarding.service.js';
+import { UserUpdateService } from './services/user-update.service.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
@@ -44,6 +47,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly offboarding: OffboardingService,
+    private readonly userUpdate: UserUpdateService,
   ) {}
 
   @Get()
@@ -57,6 +61,14 @@ export class UsersController {
   @OwnerOverride('id')
   getById(@Param('id') id: string): Promise<PublicUser> {
     return this.users.getById(id);
+  }
+
+  /** PATCH /users/:id — change a person's role, manager, position or name (UI-010). */
+  @Patch(':id')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @ApiBody(UpdateUserDtoSchema)
+  update(@Param('id') id: string, @Body() body: unknown): Promise<PublicUser> {
+    return this.userUpdate.update(id, parse(UpdateUserDtoSchema, body));
   }
 
   // -------------------------------------------------------------------------

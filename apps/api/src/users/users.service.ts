@@ -53,7 +53,7 @@ export interface InviteResult {
   emailSent: boolean;
 }
 
-const userSelect = {
+export const userSelect = {
   id: true,
   email: true,
   fullName: true,

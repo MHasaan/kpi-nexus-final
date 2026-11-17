@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { kpiTabFromParam, kpiTabHref, kpiTabsFor } from './kpi-detail-tabs';
+import { kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from './kpi-detail-tabs';
 
 describe('KPI detail tabs in the address', () => {
   test('a tab is named in lower case; Overview is the page itself', () => {
@@ -23,5 +23,16 @@ describe('KPI detail tabs in the address', () => {
   test('an organisation-wide KPI has no Assignments tab', () => {
     expect(kpiTabsFor('ORG_WIDE')).not.toContain('Assignments');
     expect(kpiTabsFor('PER_UNIT')).toContain('Assignments');
+  });
+});
+
+describe('analysis links', () => {
+  const keys = (held: string[]) => kpiAnalyticsLinksFor((p) => held.includes(p)).map((l) => l.key);
+
+  test('forecast and what-if need the forecast key; anomalies and embed the analytics key', () => {
+    expect(keys(['ANALYTICS_VIEW'])).toEqual(['anomalies', 'embed']);
+    expect(keys(['ANALYTICS_FORECAST'])).toEqual(['forecast', 'whatif']);
+    expect(keys(['ANALYTICS_VIEW', 'ANALYTICS_FORECAST'])).toEqual(['forecast', 'anomalies', 'whatif', 'embed']);
+    expect(keys(['INSIGHTS_VIEW'])).toEqual([]);
   });
 });

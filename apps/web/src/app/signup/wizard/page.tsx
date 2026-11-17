@@ -11,9 +11,9 @@ import { KpisStep } from '../../../components/onboarding/wizard/kpis-step';
 import { OrganizationStep } from '../../../components/onboarding/wizard/organization-step';
 import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
 import { RolesStep } from '../../../components/onboarding/wizard/roles-step';
-import { SectionList } from '../../../components/onboarding/wizard/section-list';
 import { StepRail } from '../../../components/onboarding/wizard/step-rail';
 import { StructureStep } from '../../../components/onboarding/wizard/structure-step';
+import { TeamStep } from '../../../components/onboarding/wizard/team-step';
 import { ApiError, setTokens } from '../../../lib/api-client';
 import {
   type CachedDraft,
@@ -32,6 +32,7 @@ import {
   stepFromParam,
   stepNeighbours,
 } from '../../../lib/wizard-steps';
+import { retargetManager } from '../../../lib/wizard-team';
 
 export default function WizardPage() {
   // `useSearchParams` needs a Suspense boundary for the static shell.
@@ -107,6 +108,15 @@ function Wizard() {
   );
 
   const draft: OnboardingDraftInput = payload ?? {};
+
+  /** The administrator's account. When their email changes, the people who report to "me" follow it. */
+  const changeAdmin = (next: AdminAccount) => {
+    if (next.email !== admin.email) {
+      const team = retargetManager(draft.team ?? [], admin.email, next.email);
+      if (team) update({ team });
+    }
+    setAdmin(next);
+  };
   // The same check the server runs on Finish, so the list here is the list there.
   const problems = useMemo(
     () => serverProblems ?? (payload ? validateOnboardingDraft(payload, { adminEmail: admin.email || undefined }) : []),
@@ -213,16 +223,14 @@ function Wizard() {
 
             {step === 'kpis' && <KpisStep draft={draft} problems={grouped.kpis} onChange={update} onGo={go} />}
 
-            {step === 'team' && (
-              <SectionList title="People to invite" items={draft.team ?? []} empty="Nobody yet. You can invite people after setup, from the People page." />
-            )}
+            {step === 'team' && <TeamStep draft={draft} problems={grouped.team} adminEmail={admin.email} onChange={update} />}
 
             {step === 'review' && (
               <ReviewStep
                 draft={draft}
                 problems={problems}
                 admin={admin}
-                onAdminChange={setAdmin}
+                onAdminChange={changeAdmin}
                 onGo={go}
                 onFinish={() => void complete()}
                 finishing={completing}

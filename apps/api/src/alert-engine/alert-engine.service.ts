@@ -6,19 +6,21 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { EscalationsService } from '../escalations/escalations.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
-import type {
-  NoDataConfig,
-  StaticThresholdConfig,
-} from '../alert-rules/dto/alert-rule.dto.js';
+import type { NoDataConfig } from '../alert-rules/dto/alert-rule.dto.js';
+import { type RuleInputs, evaluateRule, ruleNeeds } from './evaluators/evaluate-rule.js';
 import { evaluateNoData } from './evaluators/no-data.js';
-import { evaluateStaticThreshold } from './evaluators/static-threshold.js';
-import { type EvaluationResult, notTriggered } from './evaluators/types.js';
 
 export interface EvaluateKpiParams {
   organizationId: string;
   kpiId: string;
   value: number;
   recordedAt: Date;
+  /**
+   * The row just written. It is left out of the history the std-dev and
+   * rate-of-change rules look back over, and says which series (which unit,
+   * which person) that history belongs to.
+   */
+  dataPointId?: string;
   /** Scopes the alert to a user for PER_USER KPIs. */
   targetUserId?: string | null;
 }
@@ -29,9 +31,9 @@ export interface EvaluateKpiParams {
  * processor wraps this); injectable so unit tests can drive it with a mocked
  * Prisma + Realtime.
  *
- * P4 implements STATIC_THRESHOLD (data-point triggered) + NO_DATA (cron). The
- * DYNAMIC_STDDEV / RATE_OF_CHANGE / COMPOSITE evaluators short-circuit to "no
- * trigger" until P5.
+ * STATIC_THRESHOLD, DYNAMIC_STDDEV, RATE_OF_CHANGE and COMPOSITE are judged
+ * when a value is recorded; NO_DATA by the cron scan. The earlier values the
+ * statistical rules need are loaded once per KPI, and only when a rule asks.
  */
 @Injectable()
 export class AlertEngineService {
@@ -50,13 +52,13 @@ export class AlertEngineService {
       where: { organizationId: params.organizationId, kpiId: params.kpiId, isActive: true },
     });
 
+    if (rules.length === 0) return [];
+    const inputs = await this.loadInputs(rules, params);
+
     const created: string[] = [];
     for (const rule of rules) {
-      let result: EvaluationResult = notTriggered;
-      if (rule.ruleType === 'STATIC_THRESHOLD') {
-        result = evaluateStaticThreshold(rule.config as StaticThresholdConfig, params.value);
-      }
-      // NO_DATA is cron-driven, not data-point-driven. Other types stubbed (P5).
+      // NO_DATA is cron-driven, not data-point-driven: evaluateRule leaves it untriggered.
+      const result = evaluateRule(rule.ruleType, rule.config, inputs);
       if (!result.triggered) continue;
 
       const alertId = await this.maybeCreateAlert(rule, result.message ?? 'Alert triggered', {
@@ -66,6 +68,56 @@ export class AlertEngineService {
       if (alertId) created.push(alertId);
     }
     return created;
+  }
+
+  /**
+   * Gather what the rules are judged against. Threshold rules need only the
+   * new value; std-dev rules the values before it (newest period first); each
+   * rate-of-change window the value the KPI had that long before this one.
+   * "Before" is within the same series: a unit's or a person's values are
+   * never compared with another's.
+   */
+  private async loadInputs(rules: AlertRule[], params: EvaluateKpiParams): Promise<RuleInputs> {
+    const needs = ruleNeeds(rules);
+    const inputs: RuleInputs & { history: number[]; baselines: Map<number, number | null> } = {
+      value: params.value,
+      history: [],
+      baselines: new Map(),
+    };
+    if (needs.historySize === 0 && needs.windows.size === 0) return inputs;
+
+    const point = params.dataPointId
+      ? await this.prisma.kPIDataPoint.findFirst({
+          where: { organizationId: params.organizationId, kpiId: params.kpiId, id: params.dataPointId },
+          select: { orgUnitId: true, userId: true },
+        })
+      : null;
+    const series: Prisma.KPIDataPointWhereInput = {
+      organizationId: params.organizationId,
+      kpiId: params.kpiId,
+      orgUnitId: point?.orgUnitId ?? null,
+      userId: point ? point.userId : (params.targetUserId ?? null),
+      ...(params.dataPointId ? { id: { not: params.dataPointId } } : {}),
+    };
+
+    if (needs.historySize > 0) {
+      const rows = await this.prisma.kPIDataPoint.findMany({
+        where: series,
+        select: { value: true },
+        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
+        take: needs.historySize,
+      });
+      inputs.history = rows.map((r) => r.value);
+    }
+    for (const windowMinutes of needs.windows) {
+      const baseline = await this.prisma.kPIDataPoint.findFirst({
+        where: { ...series, recordedAt: { lte: new Date(params.recordedAt.getTime() - windowMinutes * 60_000) } },
+        select: { value: true },
+        orderBy: { recordedAt: 'desc' },
+      });
+      inputs.baselines.set(windowMinutes, baseline?.value ?? null);
+    }
+    return inputs;
   }
 
   /**

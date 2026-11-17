@@ -33,7 +33,7 @@ export class AlertEngineProcessor extends WorkerHost {
       return;
     }
 
-    const { organizationId, kpiId, value, recordedAt, targetUserId } = job.data;
+    const { organizationId, kpiId, dataPointId, value, recordedAt, targetUserId } = job.data;
     await RequestContextStore.run(
       {
         userId: 'alert-engine-system',
@@ -48,6 +48,7 @@ export class AlertEngineProcessor extends WorkerHost {
           kpiId,
           value,
           recordedAt: new Date(recordedAt),
+          dataPointId,
           targetUserId: targetUserId ?? null,
         });
         if (created.length > 0) {

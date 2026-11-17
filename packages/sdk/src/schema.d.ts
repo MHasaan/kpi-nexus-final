@@ -4951,13 +4951,32 @@ export interface operations {
                     config: {
                         /** @enum {string} */
                         operator: "AND" | "OR";
-                        rules: {
-                            /** @enum {string} */
-                            ruleType: "STATIC_THRESHOLD" | "DYNAMIC_STDDEV" | "RATE_OF_CHANGE" | "NO_DATA";
+                        rules: ({
+                            /** @constant */
+                            ruleType: "STATIC_THRESHOLD";
                             config: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                operator: ">" | "<" | ">=" | "<=" | "==";
+                                value: number;
+                                cooldownMinutes?: number;
                             };
-                        }[];
+                        } | {
+                            /** @constant */
+                            ruleType: "DYNAMIC_STDDEV";
+                            config: {
+                                sigmas: number;
+                                windowSize: number;
+                                cooldownMinutes?: number;
+                            };
+                        } | {
+                            /** @constant */
+                            ruleType: "RATE_OF_CHANGE";
+                            config: {
+                                pctChange: number;
+                                windowMinutes: number;
+                                cooldownMinutes?: number;
+                            };
+                        })[];
                         cooldownMinutes?: number;
                     };
                     kpiId: string;

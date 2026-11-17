@@ -3,11 +3,10 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 // Rule-type-specific config schemas.
 //
-// P4 fully implements STATIC_THRESHOLD + NO_DATA. The remaining types accept
-// + persist their config but their evaluators short-circuit to "no trigger"
-// until P5 lands the statistics infrastructure. `cooldownMinutes` is common to
-// all types: when > 0, a new Alert is suppressed if one already exists for the
-// same (alertRuleId, kpiId) within the window.
+// Every type is evaluated: STATIC_THRESHOLD, DYNAMIC_STDDEV, RATE_OF_CHANGE and
+// COMPOSITE when a value is recorded, NO_DATA by a clock scan. `cooldownMinutes`
+// is common to all types: when > 0, a new Alert is suppressed if one already
+// exists for the same (alertRuleId, kpiId) within the window.
 // ---------------------------------------------------------------------------
 
 const cooldown = z.number().int().min(0).max(10080).optional(); // ≤ 7 days
@@ -30,8 +29,9 @@ export const DynamicStddevConfigSchema = z
 
 export const RateOfChangeConfigSchema = z
   .object({
-    pctChange: z.number(),
-    windowMinutes: z.number().int().min(1),
+    // Signed: 20 = a rise of 20% or more, -20 = a fall of 20% or more. Zero has no direction.
+    pctChange: z.number().refine((n) => n !== 0, 'Give a percentage other than zero: positive for a rise, negative for a fall'),
+    windowMinutes: z.number().int().min(1).max(525600), // ≤ 1 year
     cooldownMinutes: cooldown,
   })
   .strict();
@@ -43,25 +43,20 @@ export const NoDataConfigSchema = z
   })
   .strict();
 
-// COMPOSITE references child rule configs by a lightweight shape. Full
-// recursive evaluation lands in P5; P4 validates structure only.
+// COMPOSITE joins conditions on the same KPI with AND / OR. Each part is one of
+// the kinds that are judged when a value is recorded, with that kind's own
+// config. NO_DATA is not allowed as a part: it holds only while nothing is
+// arriving, so joined to a value-triggered condition it could never fire.
+const CompositePartSchema = z.discriminatedUnion('ruleType', [
+  z.object({ ruleType: z.literal('STATIC_THRESHOLD'), config: StaticThresholdConfigSchema }).strict(),
+  z.object({ ruleType: z.literal('DYNAMIC_STDDEV'), config: DynamicStddevConfigSchema }).strict(),
+  z.object({ ruleType: z.literal('RATE_OF_CHANGE'), config: RateOfChangeConfigSchema }).strict(),
+]);
+
 export const CompositeConfigSchema = z
   .object({
     operator: z.enum(['AND', 'OR']),
-    rules: z
-      .array(
-        z.object({
-          ruleType: z.enum([
-            'STATIC_THRESHOLD',
-            'DYNAMIC_STDDEV',
-            'RATE_OF_CHANGE',
-            'NO_DATA',
-          ]),
-          config: z.record(z.string(), z.unknown()),
-        }),
-      )
-      .min(1)
-      .max(10),
+    rules: z.array(CompositePartSchema).min(1).max(10),
     cooldownMinutes: cooldown,
   })
   .strict();

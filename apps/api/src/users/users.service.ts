@@ -468,6 +468,20 @@ export class UsersService {
       }
     }
 
+    if (dto.managerId) {
+      const manager = await this.prisma.user.findFirst({
+        where: { id: dto.managerId, organizationId: ctx.organizationId },
+        select: { id: true, status: true },
+      });
+      const gone = manager && ['ARCHIVED', 'DELETED', 'PURGED'].includes(manager.status);
+      if (!manager || gone || !(await this.accessContext.isPersonVisible(dto.managerId))) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'managerId is invalid, archived, or belongs to another tenant',
+        });
+      }
+    }
+
     const existing = await this.prisma.user.findUnique({
       where: { organizationId_email: { organizationId: ctx.organizationId, email: dto.email } },
       select: { id: true },
@@ -492,6 +506,7 @@ export class UsersService {
           status: 'INVITED',
           roleId: dto.roleId,
           positionId: dto.positionId,
+          managerId: dto.managerId,
           invitedAt: new Date(),
           invitedById: ctx.userId,
         },
@@ -527,6 +542,130 @@ export class UsersService {
   }
 
   /** Emails the accept link (never logged). Returns false if delivery failed. */
+  /**
+   * Send a fresh invitation link to someone who has not accepted yet. The old
+   * link stops working: only one live link per invitation.
+   */
+  async resendInvite(userId: string): Promise<Omit<InviteResult, 'user'>> {
+    const user = await this.requireInvited(userId);
+    const plaintext = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
+    await this.prisma.$transaction([
+      this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
+      this.prisma.emailVerificationToken.create({ data: { userId, hashedToken: this.hash(plaintext), expiresAt } }),
+      this.prisma.user.update({ where: { id: userId }, data: { invitedAt: new Date() } }),
+    ]);
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { reason: 'invite_resent' },
+    });
+
+    const link = webAppUrl(`/accept-invitation?token=${encodeURIComponent(plaintext)}`);
+    const emailSent = await this.sendInviteEmail(userId, user.email, link, expiresAt);
+    const isDev = process.env.NODE_ENV !== 'production';
+    return { inviteToken: isDev ? plaintext : undefined, acceptUrl: isDev ? link : undefined, emailSent };
+  }
+
+  /**
+   * Withdraw an invitation nobody accepted. The link dies and the address is
+   * free to invite again. The row itself stays, stripped of who it was for —
+   * the same shape a purge leaves — because other records may point at it.
+   */
+  async cancelInvite(userId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    await this.requireInvited(userId);
+    const handle = purgedHandle(ctx.organizationId, userId);
+    await this.prisma.$transaction([
+      this.prisma.emailVerificationToken.deleteMany({ where: { userId } }),
+      this.prisma.kPIAssignmentUser.deleteMany({ where: { userId, organizationId: ctx.organizationId } }),
+      this.prisma.orgUnitMember.updateMany({
+        where: { userId, leftAt: null, orgUnit: { organizationId: ctx.organizationId } },
+        data: { leftAt: new Date(), leaveReason: 'LEFT_ORG' },
+      }),
+      this.prisma.orgUnit.updateMany({
+        where: { organizationId: ctx.organizationId, headUserId: userId },
+        data: { headUserId: null },
+      }),
+      this.prisma.kPI.updateMany({
+        where: { organizationId: ctx.organizationId, ownerUserId: userId },
+        data: { ownerUserId: null },
+      }),
+      this.prisma.user.updateMany({
+        where: { organizationId: ctx.organizationId, managerId: userId },
+        data: { managerId: null },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { email: `${handle}@purged.local`, fullName: 'Former User', status: 'PURGED', managerId: null },
+      }),
+    ]);
+    await this.audit.record({
+      action: 'DELETE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { reason: 'invite_cancelled', handle },
+      redactedKeys: ['email', 'fullName'],
+    });
+  }
+
+  /**
+   * Bring an archived person back. They return ACTIVE if they had signed in
+   * before, INVITED if they never accepted (send them a fresh link). What
+   * offboarding handed to others — KPIs, reports, unit seats — stays handed over.
+   */
+  async restore(userId: string): Promise<PublicUser> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true, status: true, passwordHash: true },
+    });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+    if (user.status !== 'ARCHIVED') {
+      throw new BadRequestException({
+        code: 'NOT_ARCHIVED',
+        message: `User is ${user.status}, not ARCHIVED`,
+        details: { status: user.status },
+      });
+    }
+    const status = user.passwordHash ? 'ACTIVE' : 'INVITED';
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { status },
+      select: userSelect,
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: userId,
+      metadata: { restore: true, status },
+    });
+    return updated;
+  }
+
+  /** The person, if they are in this organisation, visible to the caller, and still only invited. */
+  private async requireInvited(userId: string): Promise<{ id: string; email: string }> {
+    const ctx = RequestContextStore.require();
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: ctx.organizationId },
+      select: { id: true, email: true, status: true },
+    });
+    if (!user || !(await this.accessContext.isPersonVisible(userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'user not found' });
+    }
+    if (user.status !== 'INVITED') {
+      throw new BadRequestException({
+        code: 'NOT_INVITED',
+        message: `User is ${user.status}; there is no pending invitation`,
+        details: { status: user.status },
+      });
+    }
+    return user;
+  }
+
   private async sendInviteEmail(userId: string, to: string, link: string, expiresAt: Date): Promise<boolean> {
     const ctx = RequestContextStore.require();
     const [org, inviter] = await Promise.all([

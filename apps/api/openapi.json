@@ -16980,6 +16980,9 @@
                   },
                   "positionId": {
                     "type": "string"
+                  },
+                  "managerId": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -17490,6 +17493,46 @@
         }
       }
     },
+    "/users/{id}/cancel-invite": {
+      "post": {
+        "operationId": "UsersController_cancelInvite",
+        "tags": [
+          "Users"
+        ],
+        "summary": "POST /users/:id/cancel-invite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "USERS_MANAGE"
+          ]
+        }
+      }
+    },
     "/users/{id}/offboard": {
       "post": {
         "operationId": "UsersController_offboard",
@@ -17610,6 +17653,86 @@
           "Users"
         ],
         "summary": "POST /users/:id/reactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "USERS_MANAGE"
+          ]
+        }
+      }
+    },
+    "/users/{id}/resend-invite": {
+      "post": {
+        "operationId": "UsersController_resendInvite",
+        "tags": [
+          "Users"
+        ],
+        "summary": "POST /users/:id/resend-invite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "USERS_MANAGE"
+          ]
+        }
+      }
+    },
+    "/users/{id}/restore": {
+      "post": {
+        "operationId": "UsersController_restore",
+        "tags": [
+          "Users"
+        ],
+        "summary": "POST /users/:id/restore",
         "parameters": [
           {
             "name": "id",

@@ -162,6 +162,15 @@ describe('Cross-tenant fuzz harness (P1 exit criterion)', () => {
       expect(status).toBe(404);
     });
 
+    test.each(['resend-invite', 'cancel-invite', 'restore'])(
+      'POST /users/:id/%s — org B cannot act on a user from org A',
+      async (action) => {
+        if (skipIfNoApi()) return;
+        const { status } = await http(`/users/${orgA.userId}/${action}`, { method: 'POST', token: orgB.token });
+        expect(status).toBe(404);
+      },
+    );
+
     test('GET /roles/:id — role from org A is invisible to org B', async () => {
       if (skipIfNoApi()) return;
       const roleA = await createRoleIn(orgA, 'TenantA-Custom-Role');

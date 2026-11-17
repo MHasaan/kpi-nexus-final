@@ -64,6 +64,8 @@ interface FakeDataPoint {
   kpiId: string;
   value: number;
   recordedAt: Date;
+  orgUnitId?: string | null;
+  userId?: string | null;
 }
 
 interface FakeKpi {
@@ -136,6 +138,9 @@ class FakePrisma {
             (d) =>
               d.organizationId === where.organizationId &&
               d.kpiId === where.kpiId &&
+              // Organisation-level rows only, when the query asks for them.
+              (!('orgUnitId' in where) || (d.orgUnitId ?? null) === null) &&
+              (!('userId' in where) || (d.userId ?? null) === null) &&
               (gte === undefined || d.recordedAt.getTime() >= gte.getTime()),
           )
           // newest-first to mirror orderBy: { recordedAt: 'desc' }
@@ -339,6 +344,39 @@ describe('SnapshotService.capture', () => {
     expect(payload.kpiValues['undefined']).toBeUndefined();
     expect(payload.widgets).toHaveLength(3);
     expect(payload.dashboard.name).toBe('Test Dashboard');
+  });
+
+  test("BE-048: a snapshot keeps the organisation's value, never one unit's or one person's", async () => {
+    const prisma = new FakePrisma();
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'kpi_calls', value: 37, recordedAt: new Date('2026-01-03'), userId: 'someone' },
+      { organizationId: ORG, kpiId: 'kpi_unit', value: 4100, recordedAt: new Date('2026-01-03'), orgUnitId: 'unit_1' },
+      { organizationId: ORG, kpiId: 'kpi_org', value: 12, recordedAt: new Date('2026-01-03') },
+    );
+    const card = (id: string, kpiId: string) => ({
+      id,
+      widgetType: 'kpi_card',
+      title: null,
+      config: { kpiId },
+      position: { x: 0, y: 0, w: 4, h: 2 },
+      sortOrder: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const dashboardStub = makeDashboardStub({
+      dashboard: { id: 'dash_1', widgets: [card('w1', 'kpi_calls'), card('w2', 'kpi_unit'), card('w3', 'kpi_org')] as PublicDashboard['widgets'] },
+    });
+    const { service } = makeService({ dashboardStub, prisma });
+
+    // Taken by someone who can see everything; opened later by anyone who can open the dashboard.
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+    expect(payload.kpiValues['kpi_calls']).toMatchObject({ latestValue: null });
+    expect(payload.kpiValues['kpi_unit']).toMatchObject({ latestValue: null });
+    expect(payload.kpiValues['kpi_org']).toMatchObject({ latestValue: 12 });
+    expect(JSON.stringify(payload.kpiValues)).not.toContain('37');
+    expect(JSON.stringify(payload.kpiValues)).not.toContain('4100');
   });
 
   test('capture sets takenById from request context userId', async () => {

@@ -342,13 +342,12 @@ function OrgUnitsPageInner() {
               </div>
             </Card>
           ) : units && units.length === 0 ? (
-            <Card>
+            <Card data-testid="units-empty">
               <EmptyState
                 icon={Network}
                 title={`No ${groupLabelPlural.toLowerCase()} yet`}
                 description="Create one above to start building the org structure."
               />
-              <span data-testid="units-empty" className="sr-only" />
             </Card>
           ) : units ? (
             <ul className="flex flex-col gap-3" data-testid="units-list">

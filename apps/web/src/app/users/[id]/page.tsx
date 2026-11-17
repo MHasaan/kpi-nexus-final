@@ -454,13 +454,12 @@ export default function UserKpiPanelPage() {
               </div>
             </Card>
           ) : rows && rows.length === 0 ? (
-            <Card>
+            <Card data-testid="user-kpis-empty">
               <EmptyState
                 icon={UserSquare2}
                 title="No KPIs assigned"
                 description="This person holds no KPIs of their own yet."
               />
-              <span data-testid="user-kpis-empty" className="sr-only" />
             </Card>
           ) : rows ? (
             <Card className="overflow-hidden p-0" data-testid="user-kpis-list">

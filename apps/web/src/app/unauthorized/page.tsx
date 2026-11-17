@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { DeadEndActions } from '../../components/dead-end-actions';
 
 /**
  * Unauthorized page — shown when a user navigates to a route they lack
@@ -16,18 +16,13 @@ export default function UnauthorizedPage() {
           You don&apos;t have access to this page
         </h1>
         <p className="max-w-sm text-sm text-content-subtle">
-          Your account doesn&apos;t have the permissions required to view this
-          content. If you believe this is a mistake, please contact your
-          administrator.
+          Your account isn&apos;t allowed to open it. If you think it should
+          be, ask an administrator of your organisation — or sign out if this
+          is the wrong account.
         </p>
       </div>
 
-      <Link
-        href="/dashboard"
-        className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary"
-      >
-        Back to Dashboard
-      </Link>
+      <DeadEndActions />
     </main>
   );
 }

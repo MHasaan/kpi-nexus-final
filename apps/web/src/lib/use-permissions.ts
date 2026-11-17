@@ -19,6 +19,15 @@ export interface UsePermissionsResult {
    * must send such users to sign in, not to "/unauthorized" (FE-009).
    */
   authenticated: boolean;
+  /**
+   * True when the permissions could not be fetched for a reason other than a
+   * missing session (the server or the network failed). The person is signed
+   * in and nothing is known about what they may open: say so and offer
+   * `retry`, rather than treating them as someone with no permissions.
+   */
+  failed: boolean;
+  /** Ask again after `failed`. */
+  retry: () => void;
   /** Check if the user has a specific permission key. */
   has: (key: string) => boolean;
   /** Check if the user has at least one of the given permission keys. */
@@ -39,6 +48,8 @@ export function usePermissions(): UsePermissionsResult {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [ready, setReady] = useState<boolean>(false);
   const [authenticated, setAuthenticated] = useState<boolean>(false);
+  const [failed, setFailed] = useState<boolean>(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,10 +84,13 @@ export function usePermissions(): UsePermissionsResult {
           setReady(true);
         }
       } catch (err) {
-        // 401 ⇒ the session is gone. Any other failure (network blip) keeps the
-        // token's benefit of the doubt: authenticated, but with no permissions.
+        // 401 ⇒ the session is gone. Any other failure (the server or the
+        // network) says nothing about what this person may open: signed in,
+        // permissions unknown — reported as `failed`, not as "no permissions".
         if (!cancelled) {
-          setAuthenticated(!(err instanceof ApiError && err.status === 401));
+          const signedOut = err instanceof ApiError && err.status === 401;
+          setAuthenticated(!signedOut);
+          setFailed(!signedOut);
           setReady(true);
         }
       }
@@ -86,12 +100,18 @@ export function usePermissions(): UsePermissionsResult {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   return {
     permissions,
     ready,
     authenticated,
+    failed,
+    retry: () => {
+      setFailed(false);
+      setReady(false);
+      setAttempt((n) => n + 1);
+    },
     has: (key: string) => hasPermission(permissions, key),
     hasAny: (keys: string[]) => hasAny(permissions, keys),
   };

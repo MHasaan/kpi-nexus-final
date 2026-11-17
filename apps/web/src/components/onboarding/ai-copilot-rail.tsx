@@ -9,7 +9,11 @@ import {
   type SectionGroup,
   acceptedSectionsPatch,
   copilotErrorMessage,
+  defaultAccepted,
+  describeOps,
   groupPatchBySection,
+  previewNames,
+  sectionLabel,
   suggestionPatch,
 } from '@/lib/copilot';
 import {
@@ -29,7 +33,7 @@ type Mode = 'generate' | 'assistant' | 'suggest' | 'explain';
 type Entry =
   | { id: number; mode: 'generate'; input: string; result: GenerateResult; accepted: Set<string>; done?: string }
   | { id: number; mode: 'assistant'; input: string; groups: SectionGroup[]; ignored: number; accepted: Set<string>; done?: string }
-  | { id: number; mode: 'suggest'; input: string; field: string; suggestions: string[]; used: Set<string> }
+  | { id: number; mode: 'suggest'; input: string; field: string; suggestions: string[]; used: Set<string>; note?: string }
   | { id: number; mode: 'explain'; input: string; explanation: string };
 
 type NewEntry = Entry extends infer E ? (E extends Entry ? Omit<E, 'id'> : never) : never;
@@ -67,6 +71,8 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
   const [error, setError] = useState<string | null>(null);
   const [thread, setThread] = useState<Entry[]>([]);
   const [nextId, setNextId] = useState(1);
+  // The entry whose Apply is running: its button is disabled so a second press cannot send it twice.
+  const [applyingId, setApplyingId] = useState<number | null>(null);
 
   const update = (id: number, fn: (e: Entry) => Entry) => setThread((t) => t.map((e) => (e.id === id ? fn(e) : e)));
   const push = (entry: NewEntry) => {
@@ -89,7 +95,7 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
       } else if (mode === 'assistant') {
         const res = await aiAssistant(handle.sessionId, handle.draftToken, text);
         const { sections, ignored } = groupPatchBySection(res.patch);
-        push({ mode, input: text, groups: sections, ignored, accepted: new Set(sections.map((g) => g.section)) });
+        push({ mode, input: text, groups: sections, ignored, accepted: defaultAccepted(payload, sections) });
       } else if (mode === 'suggest') {
         const res = await aiSuggest(handle.sessionId, handle.draftToken, suggestField, text || undefined);
         const label = SUGGEST_FIELDS.find((f) => f.path === suggestField)?.label ?? suggestField;
@@ -120,13 +126,17 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
     const offered = ['organization', ...GENERATED_SECTIONS.filter((s) => (entry.result.counts[s] ?? 0) > 0)];
     const applied = offered.filter((s) => entry.accepted.has(s));
     const rejected = offered.filter((s) => !entry.accepted.has(s));
+    if (applyingId !== null) return;
     setError(null);
+    setApplyingId(entry.id);
     try {
       await aiApply(handle.sessionId, handle.draftToken, entry.result.interactionId, applied, rejected);
-      update(entry.id, (e) => ({ ...e, done: applied.length ? `Applied ${applied.length} section(s)` : 'Dismissed' }));
+      update(entry.id, (e) => ({ ...e, done: applied.length ? `Applied ${applied.map(sectionLabel).join(', ')}` : 'Dismissed' }));
       await onDraftChanged();
     } catch (e) {
       setError(copilotErrorMessage(e));
+    } finally {
+      setApplyingId(null);
     }
   };
 
@@ -140,18 +150,26 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
       setError(`This change no longer fits the draft: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
+    if (applyingId !== null) return;
+    setApplyingId(entry.id);
     try {
       if (Object.keys(patch).length > 0) await patchDraft(handle.sessionId, handle.draftToken, patch, 'ai-assistant');
-      update(entry.id, (e) => ({ ...e, done: Object.keys(patch).length ? `Applied ${Object.keys(patch).join(', ')}` : 'Dismissed' }));
+      update(entry.id, (e) => ({ ...e, done: Object.keys(patch).length ? `Applied ${Object.keys(patch).map(sectionLabel).join(', ')}` : 'Dismissed' }));
       await onDraftChanged();
     } catch (e) {
       setError(copilotErrorMessage(e));
+    } finally {
+      setApplyingId(null);
     }
   };
 
   const useSuggestion = async (entry: Extract<Entry, { mode: 'suggest' }>, value: string) => {
     const patch = suggestionPatch(payload, entry.field, value);
-    if (!patch) return;
+    if (!patch) {
+      // Nothing to change: say so, instead of a click that does nothing.
+      update(entry.id, (e) => (e.mode === 'suggest' ? { ...e, note: `“${value}” is already in your draft.` } : e));
+      return;
+    }
     setError(null);
     try {
       await patchDraft(handle.sessionId, handle.draftToken, patch, 'ai-suggest');
@@ -199,21 +217,48 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
                 <p className="text-content-strong">
                   Proposed: {entry.result.counts.roles} roles · {entry.result.counts.orgUnits} units · {entry.result.counts.kpis} KPIs
                 </p>
-                <ul className="mt-2 space-y-1">
-                  {['organization', ...GENERATED_SECTIONS.filter((s) => (entry.result.counts[s] ?? 0) > 0)].map((s) => (
-                    <li key={s}>
-                      <label className="flex items-center gap-2 text-content-strong">
-                        <input type="checkbox" data-testid={`ai-section-${s}`} checked={entry.accepted.has(s)} disabled={!!entry.done} onChange={() => toggle(entry.id, s)} />
-                        {s}
-                        {s !== 'organization' && <span className="text-content-muted">({entry.result.counts[s as keyof GenerateResult['counts']]})</span>}
-                      </label>
-                    </li>
-                  ))}
+                <ul className="mt-2 space-y-1.5">
+                  {['organization', ...GENERATED_SECTIONS.filter((s) => (entry.result.counts[s] ?? 0) > 0)].map((s) => {
+                    const names = previewNames(entry.result.preview, s);
+                    return (
+                      <li key={s}>
+                        <label className="flex items-center gap-2 text-content-strong">
+                          <input type="checkbox" data-testid={`ai-section-${s}`} checked={entry.accepted.has(s)} disabled={!!entry.done} onChange={() => toggle(entry.id, s)} />
+                          {sectionLabel(s)}
+                          {s !== 'organization' && <span className="text-content-muted">({entry.result.counts[s as keyof GenerateResult['counts']]})</span>}
+                        </label>
+                        {(names.length > 0 || s === 'organization') && (
+                          <details className="ml-6 mt-0.5">
+                            <summary data-testid={`ai-section-names-${s}`} className="cursor-pointer text-content-muted">
+                              Show what is in it
+                            </summary>
+                            {s === 'organization' && <p className="mt-1 text-content-muted">Your organization keeps its name. This fills in:</p>}
+                            {names.length > 0 ? (
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-content-default">
+                                {names.map((name, i) => (
+                                  <li key={i}>{name}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-1 text-content-muted">Nothing new.</p>
+                            )}
+                          </details>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {entry.done ? (
                   <p className="mt-2 text-status-positive">{entry.done}</p>
                 ) : (
-                  <Button size="sm" className="mt-2" data-testid="ai-apply" onClick={() => void applyGenerated(entry)}>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    data-testid="ai-apply"
+                    disabled={applyingId !== null}
+                    isLoading={applyingId === entry.id}
+                    onClick={() => void applyGenerated(entry)}
+                  >
                     Apply selected
                   </Button>
                 )}
@@ -230,11 +275,16 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
                       <li key={g.section}>
                         <label className="flex items-center gap-2 text-content-strong">
                           <input type="checkbox" data-testid={`ai-patch-section-${g.section}`} checked={entry.accepted.has(g.section)} disabled={!!entry.done} onChange={() => toggle(entry.id, g.section)} />
-                          {g.section}
+                          {sectionLabel(g.section)}
                           <span className="text-content-muted">
                             {[g.summary.add && `+${g.summary.add} added`, g.summary.replace && `${g.summary.replace} changed`, g.summary.remove && `−${g.summary.remove} removed`].filter(Boolean).join(' · ')}
                           </span>
                         </label>
+                        <ul className="ml-6 mt-0.5 list-disc space-y-0.5 pl-4 text-content-default">
+                          {describeOps(payload, g.ops).map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
                       </li>
                     ))}
                   </ul>
@@ -244,7 +294,14 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
                   <p className="mt-2 text-status-positive">{entry.done}</p>
                 ) : (
                   entry.groups.length > 0 && (
-                    <Button size="sm" className="mt-2" data-testid="ai-patch-apply" onClick={() => void applyAssistant(entry)}>
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      data-testid="ai-patch-apply"
+                      disabled={applyingId !== null}
+                      isLoading={applyingId === entry.id}
+                      onClick={() => void applyAssistant(entry)}
+                    >
                       Apply accepted
                     </Button>
                   )
@@ -267,6 +324,11 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
                     {entry.used.has(s) ? `✓ ${s}` : s}
                   </button>
                 ))}
+                {entry.note && (
+                  <p role="status" data-testid="ai-suggestion-note" className="w-full text-xs text-content-muted">
+                    {entry.note}
+                  </p>
+                )}
               </div>
             )}
 

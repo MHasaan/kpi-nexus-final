@@ -119,6 +119,86 @@ export function acceptedSectionsPatch(draft: DraftPayload, groups: SectionGroup[
   return patch as Partial<DraftPayload>;
 }
 
+const SECTION_LABELS: Record<string, string> = {
+  organization: 'Organization details',
+  roles: 'Roles',
+  positions: 'Positions',
+  orgUnitTypes: 'Unit types',
+  orgUnits: 'Units',
+  kpiCategories: 'KPI categories',
+  kpis: 'KPIs',
+};
+
+/** What a draft section is called on screen. */
+export function sectionLabel(section: string): string {
+  return SECTION_LABELS[section] ?? section;
+}
+
+const ORGANIZATION_DETAILS: ReadonlyArray<readonly [string, string]> = [
+  ['industry', 'Industry'],
+  ['type', 'Type'],
+  ['sizeTier', 'Size'],
+];
+
+/**
+ * What one section of a generated proposal contains, by name. For the
+ * organisation that is the details it would fill in; its name is the person's
+ * own and is never taken from a proposal.
+ */
+export function previewNames(preview: Record<string, unknown> | null | undefined, section: string): string[] {
+  const value = preview?.[section];
+  if (section === 'organization') {
+    const org = (value ?? {}) as Record<string, unknown>;
+    return ORGANIZATION_DETAILS.filter(([key]) => typeof org[key] === 'string' && (org[key] as string).trim()).map(
+      ([key, label]) => `${label}: ${(org[key] as string).trim()}`,
+    );
+  }
+  if (!Array.isArray(value)) return [];
+  return value.map((row) => {
+    const name = (row as { name?: unknown } | null)?.name;
+    return typeof name === 'string' && name.trim() ? name.trim() : 'unnamed';
+  });
+}
+
+const quote = (value: unknown): string => `“${String(value ?? '').trim() || 'unnamed'}”`;
+
+function rowName(draft: DraftPayload, section: string, index: string | undefined): string | null {
+  const rows = (draft as Record<string, unknown>)[section];
+  if (!Array.isArray(rows) || index === undefined || !/^\d+$/.test(index)) return null;
+  const name = (rows[Number(index)] as { name?: unknown } | undefined)?.name;
+  return typeof name === 'string' && name.trim() ? name.trim() : null;
+}
+
+/** Each change the assistant proposes, as a line a person can read before accepting it. */
+export function describeOps(draft: DraftPayload, ops: readonly PatchOp[]): string[] {
+  return ops.map((op) => {
+    const [, section = '', index, field] = op.path.split('/');
+    if (section === 'organization') {
+      const what = index ?? 'details';
+      return op.op === 'remove' ? `Clear ${what}` : `Change ${what} to ${quote(typeof op.value === 'object' ? (op.value as { name?: unknown } | null)?.name : op.value)}`;
+    }
+    const existing = rowName(draft, section, index);
+    if (op.op === 'add') return `Add ${quote((op.value as { name?: unknown } | null)?.name)}`;
+    if (op.op === 'remove') return field ? `Clear ${field} of ${quote(existing)}` : `Remove ${quote(existing)}`;
+    return field ? `Change ${field} of ${quote(existing)} to ${quote(op.value)}` : `Replace ${quote(existing)} with ${quote((op.value as { name?: unknown } | null)?.name)}`;
+  });
+}
+
+/** Whether these changes would give the organisation a different name. */
+export function renamesOrganization(ops: readonly PatchOp[]): boolean {
+  return ops.some((op) => op.path === '/organization' || op.path === '/organization/name');
+}
+
+/**
+ * Which sections start ticked. All of them — except a change that would
+ * rename an organisation the person has already named: that has to be chosen,
+ * not slipped in with a list of roles.
+ */
+export function defaultAccepted(draft: DraftPayload, groups: readonly SectionGroup[]): Set<string> {
+  const named = Boolean(draft.organization?.name?.trim());
+  return new Set(groups.filter((g) => !(g.section === 'organization' && named && renamesOrganization(g.ops))).map((g) => g.section));
+}
+
 /** Fields the Suggest mode offers. Chips fill the first three; KPI-shaped lists need more than a name. */
 export const SUGGEST_FIELDS = [
   { path: 'organization.industry', label: 'Industry' },

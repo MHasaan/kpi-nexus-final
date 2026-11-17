@@ -126,6 +126,8 @@ export function completeOnboarding(sessionId: string, token: string, body: Compl
 
 export interface GenerateResult {
   interactionId: string;
+  /** The generated organisation itself, so it can be shown before it is applied. */
+  preview?: Record<string, unknown>;
   counts: { roles: number; positions: number; orgUnitTypes: number; orgUnits: number; kpiCategories: number; kpis: number };
 }
 

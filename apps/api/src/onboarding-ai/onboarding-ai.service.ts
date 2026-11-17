@@ -5,7 +5,7 @@ import type { OnboardingAiMode } from '@kpi-nexus/db';
 
 import { AiProviderRegistry } from '../ai/ai-provider-registry.js';
 import { DEFAULT_FYP_CONFIG } from '../ai/default-fyp-config.js';
-import { OnboardingService } from '../onboarding/onboarding.service.js';
+import { OnboardingService, keepOwnOrganization } from '../onboarding/onboarding.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { budgetsFromEnv } from '../rate-limit/rate-limit-policy.js';
 import { RateLimitService } from '../rate-limit/rate-limit.service.js';
@@ -210,7 +210,7 @@ export class OnboardingAiService {
     token: string,
     input: { interactionId: string; appliedSections: string[]; editedSections?: string[]; rejectedSections?: string[] },
   ) {
-    await this.onboarding.getDraft(sessionId, token); // verify token
+    const draft = await this.onboarding.getDraft(sessionId, token); // also verifies the token
     const interaction = await RequestContextStore.runWithBypass('onboarding-ai.apply.load', () =>
       this.prisma.onboardingAIInteraction.findFirst({ where: { id: input.interactionId, sessionId } }),
     );
@@ -220,6 +220,14 @@ export class OnboardingAiService {
     const patch: Record<string, unknown> = {};
     for (const section of input.appliedSections) {
       if (section in generated) patch[section] = (generated as Record<string, unknown>)[section];
+    }
+    // A generated organisation is a guess at industry, type and size. It fills in
+    // what the person has not said; it never renames their organisation.
+    if (patch.organization) {
+      patch.organization = keepOwnOrganization(
+        (draft.payload as { organization?: Record<string, unknown> } | null)?.organization,
+        patch.organization as Record<string, unknown>,
+      );
     }
 
     await RequestContextStore.runWithBypass('onboarding-ai.apply.update', () =>

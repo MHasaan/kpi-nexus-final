@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { DeadEndActions } from '../components/dead-end-actions';
 
 /** 404 for unknown routes and `notFound()` calls (FE-004). Matches /unauthorized. */
 export default function NotFound() {
@@ -14,12 +14,7 @@ export default function NotFound() {
         </p>
       </div>
 
-      <Link
-        href="/dashboard"
-        className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary"
-      >
-        Back to Dashboard
-      </Link>
+      <DeadEndActions />
     </main>
   );
 }

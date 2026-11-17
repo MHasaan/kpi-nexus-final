@@ -14,5 +14,6 @@ test('unknown routes get the app 404 page (FE-004)', async ({ page }) => {
   const res = await page.goto('/definitely-not-a-page');
   expect(res?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Back to Dashboard' })).toHaveAttribute('href', '/dashboard');
+  // Signed out, the way on is to sign in — not a dashboard that would bounce them (plan 5.4).
+  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
 });

@@ -15,6 +15,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 // Curated scope choices (subset of the canonical permissions in @kpi-nexus/contracts).
@@ -29,6 +30,7 @@ const SCOPE_CHOICES = [
 
 export default function ApiKeysPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -86,6 +88,14 @@ export default function ApiKeysPage() {
   }
 
   async function handleRevoke(id: string) {
+    const ok = await confirm({
+      title: `Revoke the key “${keys?.find((k) => k.id === id)?.name ?? 'this key'}”?`,
+      description: 'Anything using it stops working at once. This cannot be undone; you can create a new key.',
+      confirmLabel: 'Revoke key',
+      tone: 'danger',
+      testId: 'apikey-revoke-confirm',
+    });
+    if (!ok) return;
     setBusyId(id);
     try {
       await revokeApiKey(id);

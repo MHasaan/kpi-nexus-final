@@ -235,6 +235,7 @@ test.describe('Dashboard builder — widget add + persistence', () => {
       // the real UI delete path while drag is active.
       await page.getByTestId('dashboard-edit-toggle').click();
       await page.getByTestId(`widget-delete-${w1.id}`).click();
+      await page.getByTestId('widget-delete-confirm-confirm').click(); // removing a widget asks first
 
       // Widget 1 should disappear from the grid after the delete resolves.
       await expect(page.getByTestId(`widget-card-${w1.id}`)).not.toBeVisible({

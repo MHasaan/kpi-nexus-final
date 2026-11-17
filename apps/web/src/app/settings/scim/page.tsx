@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../../lib/api-client';
 import { type ScimTokenRow, listScimTokens, mintScimToken, revokeScimToken } from '../../../lib/polish-client';
+import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
@@ -12,6 +13,7 @@ import { usePermissions } from '../../../lib/use-permissions';
 
 export default function ScimSettingsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [tokens, setTokens] = useState<ScimTokenRow[]>([]);
   const [label, setLabel] = useState('');
   const [minted, setMinted] = useState<string | null>(null);
@@ -51,6 +53,14 @@ export default function ScimSettingsPage() {
   };
 
   const revoke = async (id: string) => {
+    const ok = await confirm({
+      title: `Revoke the token “${tokens.find((t) => t.id === id)?.label ?? 'this token'}”?`,
+      description: 'Your identity provider stops being able to add or remove people until it is given a new token.',
+      confirmLabel: 'Revoke token',
+      tone: 'danger',
+      testId: 'scim-revoke-confirm',
+    });
+    if (!ok) return;
     try {
       await revokeScimToken(id);
       await load();

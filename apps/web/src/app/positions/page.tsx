@@ -37,6 +37,7 @@ import {
   pluralize,
   useTerminology,
 } from '../../lib/terminology-context';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const TRACK_ORDER: Array<PositionTrack | 'OTHER'> = [
@@ -64,6 +65,7 @@ export default function PositionsPage() {
 function PositionsPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
+  const confirm = useConfirm();
   const [positions, setPositions] = useState<PositionSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -129,6 +131,14 @@ function PositionsPageInner() {
   }
 
   async function handleDelete(position: PositionSummary) {
+    const ok = await confirm({
+      title: `Delete the position “${position.name}”?`,
+      description: 'People who hold it are left without a position. This cannot be undone.',
+      confirmLabel: 'Delete position',
+      tone: 'danger',
+      testId: 'position-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(position.id);
     setDeleteError(null);
     try {

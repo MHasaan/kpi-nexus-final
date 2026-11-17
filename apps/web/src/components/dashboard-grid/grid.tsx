@@ -10,6 +10,7 @@ import ReactGridLayout, { type Layout } from 'react-grid-layout';
 
 import { deleteWidget, updateWidgetPosition, type DashboardWidget } from '../../lib/api-client';
 import { WIDGET_TYPE_LABELS, labelFor } from '../../lib/labels';
+import { useConfirm } from '../../lib/use-confirm';
 import { WidgetRenderer } from '../widgets/widget-renderer';
 
 interface DashboardGridProps {
@@ -43,6 +44,7 @@ export function DashboardGrid({
   onEditWidget,
   onLayoutSaved,
 }: DashboardGridProps) {
+  const confirm = useConfirm();
   const [layout, setLayout] = useState<Layout>(() => widgetsToLayout(widgets));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -107,6 +109,15 @@ export function DashboardGrid({
   );
 
   async function handleDelete(widgetId: string) {
+    const widget = widgets.find((x) => x.id === widgetId);
+    const ok = await confirm({
+      title: `Remove “${widget?.title ?? labelFor(WIDGET_TYPE_LABELS, widget?.widgetType ?? 'widget')}” from this dashboard?`,
+      description: 'The KPI and its values are not affected.',
+      confirmLabel: 'Remove widget',
+      tone: 'danger',
+      testId: 'widget-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(widgetId);
     try {
       await deleteWidget(dashboardId, widgetId);

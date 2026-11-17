@@ -99,6 +99,8 @@ test.describe('/positions page — admin CRUD UI', () => {
 
     // Delete the position
     await page.getByTestId(`delete-position-${positionName}`).click();
+    await expect(page.getByTestId('position-delete-confirm')).toContainText(positionName); // asks first, by name
+    await page.getByTestId('position-delete-confirm-confirm').click();
     await expect(row).not.toBeVisible();
   });
 

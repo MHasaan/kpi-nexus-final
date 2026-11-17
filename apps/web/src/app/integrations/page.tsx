@@ -10,6 +10,7 @@ import {
 } from '../../lib/integrations-client';
 import { RequireAnyPermission } from '../../components/auth/require-permission';
 import { AnyPermissionGuard } from '../../components/auth/permission-guard';
+import { useConfirm } from '../../lib/use-confirm';
 import { usePermissions } from '../../lib/use-permissions';
 
 /** The keys the integrations API accepts — either one (UI-013: the page asked for ORG_SETTINGS only, so the sidebar link led to "no access"). */
@@ -40,6 +41,7 @@ const CATALOG: Array<{ key: string; name: string; description: string; icon: str
 
 export default function IntegrationsPage() {
   const [connections, setConnections] = useState<Record<string, IntegrationConnection>>({});
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -76,6 +78,14 @@ export default function IntegrationsPage() {
   };
 
   const disconnect = async (provider: string, id: string) => {
+    const ok = await confirm({
+      title: `Disconnect ${connections[provider]?.displayName ?? provider}?`,
+      description: 'Alerts and updates stop being sent there until it is connected again.',
+      confirmLabel: 'Disconnect',
+      tone: 'danger',
+      testId: 'integration-disconnect-confirm',
+    });
+    if (!ok) return;
     setBusy(provider);
     try {
       await disconnectIntegration(id);

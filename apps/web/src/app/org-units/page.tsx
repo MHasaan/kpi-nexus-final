@@ -40,6 +40,7 @@ import {
   pluralize,
   useTerminology,
 } from '../../lib/terminology-context';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { treeOrder } from '../../lib/tree-order';
 
@@ -52,6 +53,7 @@ export default function OrgUnitsPage() {
 function OrgUnitsPageInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
+  const confirm = useConfirm();
   const [units, setUnits] = useState<OrgUnitSummary[] | null>(null);
   const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -129,6 +131,14 @@ function OrgUnitsPageInner() {
   }
 
   async function handleDelete(unit: OrgUnitSummary) {
+    const ok = await confirm({
+      title: `Delete the unit “${unit.name}”?`,
+      description: 'Its members stay in the organisation but leave this unit. This cannot be undone.',
+      confirmLabel: 'Delete unit',
+      tone: 'danger',
+      testId: 'unit-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(unit.id);
     try {
       await deleteOrgUnit(unit.id);

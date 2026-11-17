@@ -32,10 +32,13 @@ export class NotificationDeliveriesService {
     from?: Date;
     to?: Date;
     limit?: number;
+    /** Only the deliveries of this alert — its trail. */
+    alertId?: string;
   }): Promise<PublicDelivery[]> {
     const ctx = RequestContextStore.require();
     const where: Prisma.NotificationDeliveryWhereInput = { organizationId: ctx.organizationId };
     if (filter.status) where.status = filter.status;
+    if (filter.alertId) where.alertId = filter.alertId;
     if (filter.from || filter.to) {
       where.createdAt = {};
       if (filter.from) where.createdAt.gte = filter.from;

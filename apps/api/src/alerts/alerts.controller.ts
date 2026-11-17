@@ -15,11 +15,13 @@ export class AlertsController {
     @Query('severity') severity?: 'LOW' | 'MEDIUM' | 'HIGH',
     @Query('kpiId') kpiId?: string,
     @Query('limit') limit?: string,
+    @Query('before') before?: string,
   ): Promise<PublicAlert[]> {
     return this.alerts.list({
       status,
       severity,
       kpiId,
+      before: before || undefined,
       limit: limit ? Number.parseInt(limit, 10) : undefined,
     });
   }

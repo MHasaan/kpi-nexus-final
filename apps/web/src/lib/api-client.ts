@@ -1880,8 +1880,14 @@ export async function listAlerts(filter: {
   status?: AlertStatus;
   severity?: AlertSeverity;
   kpiId?: string;
+  /** How many to return (the API's default is 100). */
+  limit?: number;
+  /** The id of the last alert already shown: returns the ones older than it. */
+  before?: string;
 } = {}): Promise<Alert[]> {
   const params = new URLSearchParams();
+  if (filter.limit) params.set('limit', String(filter.limit));
+  if (filter.before) params.set('before', filter.before);
   if (filter.status) params.set('status', filter.status);
   if (filter.severity) params.set('severity', filter.severity);
   if (filter.kpiId) params.set('kpiId', filter.kpiId);
@@ -1936,16 +1942,16 @@ export async function updateNotificationChannel(
 
 /**
  * Delivery records for one alert (the "what actually fired" trail). The
- * `/notification-deliveries` endpoint is org-scoped (no server alertId filter)
- * and requires ORG_SETTINGS, so we fetch + filter client-side; callers should
+ * `/notification-deliveries` endpoint requires ORG_SETTINGS; callers should
  * treat a 403 as "no delivery history available" and fall back to the rule's
  * configured escalation levels.
  */
 export async function listNotificationDeliveriesForAlert(
   alertId: string,
 ): Promise<NotificationDelivery[]> {
-  const all = await api<NotificationDelivery[]>('/notification-deliveries');
-  return all.filter((d) => d.alertId === alertId);
+  // Asked for by alert: the trail used to be picked out of the organisation's
+  // newest 100 deliveries, so an older alert's trail came back empty (plan 7.5).
+  return api<NotificationDelivery[]>(`/notification-deliveries?alertId=${encodeURIComponent(alertId)}`);
 }
 
 // =============================================================================

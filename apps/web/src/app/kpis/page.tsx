@@ -47,6 +47,7 @@ import {
   TableRow,
   type BadgeTone,
 } from '../../components/ui';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
@@ -90,6 +91,7 @@ function KpisPageInner() {
   const [recordError, setRecordError] = useState<string | null>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   // Toolbar filters (client-side facets over the loaded list)
   const [search, setSearch] = useState('');
@@ -122,6 +124,14 @@ function KpisPageInner() {
   }
 
   async function handleDelete(kpi: KpiSummary) {
+    const ok = await confirm({
+      title: `Delete “${kpi.name}”?`,
+      description: 'It moves to the KPI archive, where it can be restored. Its recorded values are kept. Dashboards and alert rules that use it stop showing it.',
+      confirmLabel: 'Delete KPI',
+      tone: 'danger',
+      testId: 'kpi-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(kpi.id);
     try {
       await deleteKpi(kpi.id);

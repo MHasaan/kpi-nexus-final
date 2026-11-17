@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useConfirm } from '../../../lib/use-confirm';
 
 /** A valid 3/6-digit hex color usable by <input type="color">. */
 function toColorInputValue(value: string): string {
@@ -40,6 +41,7 @@ function toColorInputValue(value: string): string {
 
 export default function KpiCategoriesPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<KpiCategory[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -101,6 +103,15 @@ export default function KpiCategoriesPage() {
   }
 
   async function handleDelete(id: string) {
+    const name = categories?.find((c) => c.id === id)?.name ?? 'this category';
+    const ok = await confirm({
+      title: `Delete “${name}”?`,
+      description: 'The category is removed. No KPI is deleted.',
+      confirmLabel: 'Delete category',
+      tone: 'danger',
+      testId: 'category-delete-confirm',
+    });
+    if (!ok) return;
     setBusyId(id);
     setLoadError(null);
     try {

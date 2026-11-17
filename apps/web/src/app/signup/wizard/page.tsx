@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
 import { DraftStatusBadge, OfflineBanner, useDraftSync } from '../../../components/onboarding/draft-sync-ui';
+import { OrganizationStep } from '../../../components/onboarding/wizard/organization-step';
 import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
 import { SectionList } from '../../../components/onboarding/wizard/section-list';
 import { StepRail } from '../../../components/onboarding/wizard/step-rail';
@@ -196,18 +197,11 @@ function Wizard() {
 
           <div data-testid="wizard-step-content" className="space-y-4">
             {step === 'organization' && (
-              <section className="rounded-lg border border-border bg-surface-1 p-4">
-                <label className="block text-xs font-medium text-content-default" htmlFor="wizard-org-name">
-                  Organization name
-                </label>
-                <input
-                  id="wizard-org-name"
-                  data-testid="wizard-org-name"
-                  value={draft.organization?.name ?? ''}
-                  onChange={(e) => update({ organization: { ...(draft.organization ?? {}), name: e.target.value } })}
-                  className="mt-1 block w-full max-w-md rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong"
-                />
-              </section>
+              <OrganizationStep
+                value={draft.organization ?? {}}
+                problems={grouped.organization}
+                onChange={(organization) => update({ organization })}
+              />
             )}
 
             {step === 'structure' && (

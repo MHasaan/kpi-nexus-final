@@ -47,6 +47,7 @@ import {
   Select,
   Skeleton,
 } from '../../components/ui';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
@@ -127,6 +128,7 @@ export default function DashboardsListPage() {
 function DashboardsListInner() {
   const { terminology } = useTerminology();
   const router = useRouter();
+  const confirm = useConfirm();
   const [dashboards, setDashboards] = useState<Dashboard[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -201,9 +203,14 @@ function DashboardsListInner() {
   }
 
   async function handleDelete(dashboard: Dashboard) {
-    if (!window.confirm(`Delete "${dashboard.name}"? It will be soft-deleted.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete “${dashboard.name}”?`,
+      description: 'It moves to the dashboard archive, where it can be restored for 30 days.',
+      confirmLabel: 'Delete dashboard',
+      tone: 'danger',
+      testId: 'dashboard-delete-confirm',
+    });
+    if (!ok) return;
     setPendingId(dashboard.id);
     setActionError(null);
     try {

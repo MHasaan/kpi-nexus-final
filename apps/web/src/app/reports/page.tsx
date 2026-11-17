@@ -37,6 +37,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../../components/ui';
+import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports' }];
@@ -83,6 +84,7 @@ function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
 
 export default function ReportsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [reports, setReports] = useState<ScheduledReport[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -138,7 +140,14 @@ export default function ReportsPage() {
   }
 
   async function handleDelete(report: ScheduledReport) {
-    if (!window.confirm(`Delete scheduled report "${report.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete “${report.name}”?`,
+      description: 'It stops being sent. Reports already delivered are not affected.',
+      confirmLabel: 'Delete report',
+      tone: 'danger',
+      testId: 'report-delete-confirm',
+    });
+    if (!ok) return;
     setPendingId(report.id);
     setActionError(null);
     try {

@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { OrgTemplatesModule } from '../org-templates/org-templates.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { UsersModule } from '../users/users.module.js';
 import { OnboardingCleanupProcessor } from './onboarding-cleanup.processor.js';
 import {
   ONBOARDING_CLEANUP_QUEUE,
@@ -27,6 +28,8 @@ import { queueProcessors } from '../config/queue-workers.js';
     PrismaModule,
     AuthModule,
     OrgTemplatesModule,
+    // The team in the draft is invited through the same path as People → Invite.
+    UsersModule,
     BullModule.registerQueue({ name: ONBOARDING_CLEANUP_QUEUE }),
   ],
   controllers: [OnboardingController],

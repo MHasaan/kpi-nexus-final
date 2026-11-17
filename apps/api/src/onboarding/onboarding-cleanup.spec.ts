@@ -34,6 +34,7 @@ describe('OnboardingService.cleanupStale', () => {
       prisma as never,
       {} as never, // AuthService — not called by cleanupStale
       {} as never, // OrgTemplatesService — not called by cleanupStale
+      {} as never, // UsersService — not called by cleanupStale
     );
     return { svc, prisma };
   }

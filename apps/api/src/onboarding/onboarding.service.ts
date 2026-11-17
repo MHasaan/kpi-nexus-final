@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
+  type DraftTeamMember,
   type OnboardingDraft,
   OnboardingDraftPatchSchema,
   draftShapeProblems,
@@ -13,6 +14,7 @@ import { computeInheritedAssignments } from '../org-unit-kpis/inheritance.js';
 import { OrgTemplatesService } from '../org-templates/org-templates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { UsersService } from '../users/users.service.js';
 import { deriveDraftToken, hashDraftToken, mergeDraft, verifyDraftToken } from './draft-token.js';
 import { ONBOARDING_DRAFT_SPEC, resolveSecret } from '../config/secrets.js';
 
@@ -30,6 +32,44 @@ function mapTrack(track: string): 'IC' | 'MANAGEMENT' | 'EXECUTIVE' {
 /** How a name is matched when one row refers to another: no case, no outer spaces. */
 const nameKey = (value: string): string => value.trim().toLowerCase();
 
+/** What happened to one person the wizard was asked to invite. */
+export interface OnboardingInvite {
+  email: string;
+  invited: boolean;
+  /** Whether the invitation email was handed to the mail server. */
+  emailSent?: boolean;
+  /** Plaintext token — only outside production, like POST /users. */
+  inviteToken?: string;
+  /** Why they could not be invited, when they could not. */
+  error?: string;
+}
+
+/**
+ * People in an order where everyone comes after whoever they report to, so a
+ * manager exists by the time their report is invited. The draft is validated
+ * first, so there are no loops; anyone left over (there should be nobody) is
+ * appended rather than dropped.
+ */
+export function managersFirst(team: readonly DraftTeamMember[]): DraftTeamMember[] {
+  const inTeam = new Set(team.map((p) => nameKey(p.email)));
+  const placed = new Set<string>();
+  const ordered: DraftTeamMember[] = [];
+  let remaining = [...team];
+  while (remaining.length > 0) {
+    const ready = remaining.filter((p) => {
+      const manager = p.manager ? nameKey(p.manager) : '';
+      return !manager || !inTeam.has(manager) || placed.has(manager);
+    });
+    if (ready.length === 0) break;
+    for (const p of ready) {
+      ordered.push(p);
+      placed.add(nameKey(p.email));
+    }
+    remaining = remaining.filter((p) => !placed.has(nameKey(p.email)));
+  }
+  return [...ordered, ...remaining];
+}
+
 export interface CompleteBody {
   adminEmail: string;
   adminPassword: string;
@@ -39,10 +79,13 @@ export interface CompleteBody {
 
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
     private readonly templates: OrgTemplatesService,
+    private readonly users: UsersService,
   ) {}
 
   /** Begin an onboarding session. Returns the resumable draft token. */
@@ -110,7 +153,9 @@ export class OnboardingService {
   /** What stops the draft becoming an organisation. The wizard shows this on its last step. */
   async validateDraft(sessionId: string, token: string) {
     const session = await this.loadVerified(sessionId, token);
-    return { problems: validateOnboardingDraft(session.payload) };
+    // The address sign-up started with is the administrator's unless they change
+    // it on the last step: it may be named as a manager, and is not invited.
+    return { problems: validateOnboardingDraft(session.payload, { adminEmail: session.userEmail ?? undefined }) };
   }
 
   /** Merge a template's payload into the draft (doesn't blow away existing). */
@@ -152,7 +197,7 @@ export class OnboardingService {
     if (session.status === 'completed') {
       throw new BadRequestException({ code: 'ONBOARDING_DONE', message: 'Session already completed' });
     }
-    const problems = validateOnboardingDraft(session.payload);
+    const problems = validateOnboardingDraft(session.payload, { adminEmail: body.adminEmail });
     if (problems.length > 0) {
       throw new BadRequestException({ code: 'ONBOARDING_INVALID', message: 'Draft is incomplete', details: { problems } });
     }
@@ -166,6 +211,7 @@ export class OnboardingService {
       orgUnits: draft.orgUnits ?? [],
       kpiCategories: draft.kpiCategories ?? [],
       kpis: draft.kpis ?? [],
+      team: draft.team ?? [],
     };
 
     const passwordHash = await bcrypt.hash(body.adminPassword, 12);
@@ -330,9 +376,22 @@ export class OnboardingService {
           data: { status: 'completed', completedAt: new Date(), organizationId: org.id, userId: adminUser.id },
         });
 
-        return { org, adminUser, adminRole };
+        const [roleRows, positionRows] = await Promise.all([
+          tx.roleDefinition.findMany({ where: { organizationId: org.id }, select: { id: true, name: true } }),
+          tx.position.findMany({ where: { organizationId: org.id }, select: { id: true, name: true } }),
+        ]);
+        return {
+          org,
+          adminUser,
+          adminRole,
+          unitIds: unitMap,
+          roleIds: new Map(roleRows.map((r) => [nameKey(r.name), r.id])),
+          positionIds: new Map(positionRows.map((p) => [nameKey(p.name), p.id])),
+        };
       });
     });
+
+    const invites = await this.inviteTeam(payload.team, body.adminEmail, result);
 
     const pair = await this.auth.issueTokensForUser({
       userId: result.adminUser.id,
@@ -345,6 +404,66 @@ export class OnboardingService {
       ...pair,
       organization: { id: result.org.id, name: result.org.name, slug: result.org.slug },
       user: { id: result.adminUser.id, email: result.adminUser.email },
+      invites,
     };
+  }
+
+  /**
+   * Invite the team the wizard was given (plan 3.2c), as the new administrator
+   * and through the same path as People → Invite, so each person gets a normal
+   * one-time link and email. It runs after the organisation is committed: an
+   * invitation that fails is reported, and does not undo the organisation.
+   */
+  private async inviteTeam(
+    team: readonly DraftTeamMember[],
+    adminEmail: string,
+    created: {
+      org: { id: string };
+      adminUser: { id: string };
+      adminRole: { id: string };
+      unitIds: Map<string, string>;
+      roleIds: Map<string, string>;
+      positionIds: Map<string, string>;
+    },
+  ): Promise<OnboardingInvite[]> {
+    if (team.length === 0) return [];
+    const ctx = {
+      userId: created.adminUser.id,
+      organizationId: created.org.id,
+      roleId: created.adminRole.id,
+      principalType: 'user' as const,
+    };
+    const userIds = new Map<string, string>([[nameKey(adminEmail), created.adminUser.id]]);
+    const outcome = new Map<string, OnboardingInvite>();
+
+    await RequestContextStore.run(ctx, async () => {
+      for (const person of managersFirst(team)) {
+        const email = person.email.trim().toLowerCase();
+        try {
+          const managerId = person.manager?.trim() ? userIds.get(nameKey(person.manager)) : undefined;
+          const invited = await this.users.invite({
+            email,
+            fullName: person.fullName.trim(),
+            roleId: person.role?.trim() ? created.roleIds.get(nameKey(person.role)) : undefined,
+            positionId: person.position?.trim() ? created.positionIds.get(nameKey(person.position)) : undefined,
+            managerId,
+          });
+          userIds.set(email, invited.user.id);
+          const unitId = person.unit?.trim() ? created.unitIds.get(nameKey(person.unit)) : undefined;
+          if (unitId) {
+            await this.prisma.orgUnitMember.create({
+              data: { organizationId: created.org.id, orgUnitId: unitId, userId: invited.user.id },
+            });
+          }
+          outcome.set(email, { email, invited: true, emailSent: invited.emailSent, inviteToken: invited.inviteToken });
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : 'Could not invite this person';
+          this.logger.warn(`onboarding invite failed (org ${created.org.id}): ${reason}`);
+          outcome.set(email, { email, invited: false, error: reason });
+        }
+      }
+    });
+    // In the order they were listed, not the order they were invited in.
+    return team.map((p) => outcome.get(p.email.trim().toLowerCase())!);
   }
 }

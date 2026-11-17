@@ -124,6 +124,7 @@ describe('pre-tenant entry points establish a tenancy context (OT-014)', () => {
       prisma as unknown as PrismaService,
       {} as AuthService,
       {} as OrgTemplatesService,
+      {} as never, // UsersService — not used by cleanupStale
     );
     await expect(service.cleanupStale(30)).resolves.toEqual({ cleaned: 2 });
     expect(seen).toEqual([{ bypass: true, org: expect.anything() }]);

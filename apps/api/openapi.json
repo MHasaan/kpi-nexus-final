@@ -6833,6 +6833,46 @@
         }
       }
     },
+    "/kpis/{id}/assignments": {
+      "get": {
+        "operationId": "KpisController_assignments",
+        "tags": [
+          "Kpis"
+        ],
+        "summary": "GET /kpis/:id/assignments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "KPI_VIEW"
+          ]
+        }
+      }
+    },
     "/kpis/{id}/data": {
       "get": {
         "operationId": "KpiDataController_listForKpi",

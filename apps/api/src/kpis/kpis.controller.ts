@@ -19,6 +19,7 @@ import { KpisService, type PublicKpi } from './kpis.service.js';
 import { KpiImportService } from './kpi-import.service.js';
 import type { DryRunResult } from './kpi-import.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
+import { type KpiAssignments, KpiAssignmentsService } from './kpi-assignments.service.js';
 
 const ImportCsvDtoSchema = z.object({ csv: z.string().min(1).max(1_000_000) }).strict();
 
@@ -46,6 +47,7 @@ export class KpisController {
   constructor(
     private readonly kpis: KpisService,
     private readonly importer: KpiImportService,
+    private readonly assignmentsService: KpiAssignmentsService,
   ) {}
 
   @Post('import/dry-run')
@@ -93,6 +95,13 @@ export class KpisController {
   @HttpCode(HttpStatus.NO_CONTENT)
   purge(@Param('id') id: string): Promise<void> {
     return this.kpis.purge(id);
+  }
+
+  /** GET /kpis/:id/assignments — which units or people hold this KPI (UI-004). */
+  @Get(':id/assignments')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  assignments(@Param('id') id: string): Promise<KpiAssignments> {
+    return this.assignmentsService.listForKpi(id);
   }
 
   @Get(':id/versions')

@@ -11,6 +11,7 @@ import { OrganizationStep } from '../../../components/onboarding/wizard/organiza
 import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
 import { SectionList } from '../../../components/onboarding/wizard/section-list';
 import { StepRail } from '../../../components/onboarding/wizard/step-rail';
+import { StructureStep } from '../../../components/onboarding/wizard/structure-step';
 import { ApiError, setTokens } from '../../../lib/api-client';
 import {
   type CachedDraft,
@@ -204,12 +205,7 @@ function Wizard() {
               />
             )}
 
-            {step === 'structure' && (
-              <>
-                <SectionList title="Unit types" items={draft.orgUnitTypes ?? []} empty="No unit types yet — for example Department, Team, Region." />
-                <SectionList title="Units" items={draft.orgUnits ?? []} empty="No units yet. Units are the departments and teams KPIs can be recorded for." />
-              </>
-            )}
+            {step === 'structure' && <StructureStep draft={draft} problems={grouped.structure} onChange={update} />}
 
             {step === 'roles' && (
               <>

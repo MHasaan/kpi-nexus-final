@@ -263,6 +263,10 @@ export default function AiSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [dailyCap, setDailyCap] = useState('');
+  const [monthlyCap, setMonthlyCap] = useState('');
+  const [atCap, setAtCap] = useState<'FAIL_CLOSED' | 'FALLBACK'>('FAIL_CLOSED');
+  const [budgetError, setBudgetError] = useState<string | null>(null);
+  const [savingBudget, setSavingBudget] = useState(false);
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
 
   /** Flash a transient success toast (auto-clears after 4s). */
@@ -282,6 +286,8 @@ export default function AiSettingsPage() {
       .then((b) => {
         setBudget(b);
         setDailyCap(String(b.dailyCapUsd));
+        setMonthlyCap(String(b.monthlyCapUsd));
+        setAtCap(b.circuitBreaker === 'FALLBACK' ? 'FALLBACK' : 'FAIL_CLOSED');
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load budget'));
     // A section that failed to load says so; it used to look like "nothing configured" (X-02).
@@ -305,15 +311,32 @@ export default function AiSettingsPage() {
     load();
   }, [load, router, allowed]);
 
+  /** A cap as typed: a number of dollars, 0 or more. Blank is refused — it used to be sent as 0, which means "no cap". */
+  const capProblem = (label: string, typed: string): string | null => {
+    const value = Number(typed);
+    if (typed.trim() === '' || !Number.isFinite(value)) return `${label} must be a number of dollars. Enter 0 for no cap.`;
+    if (value < 0) return `${label} cannot be below 0.`;
+    return null;
+  };
+
   const saveCap = async () => {
     setError(null);
+    const problem = capProblem('Daily cap', dailyCap) ?? capProblem('Monthly cap', monthlyCap);
+    setBudgetError(problem);
+    if (problem) return;
+    setSavingBudget(true);
     try {
-      await api('/ai/budget', { method: 'PATCH', body: JSON.stringify({ dailyCapUsd: Number(dailyCap) }) });
-      flash('Daily cap updated.');
+      await api('/ai/budget', {
+        method: 'PATCH',
+        body: JSON.stringify({ dailyCapUsd: Number(dailyCap), monthlyCapUsd: Number(monthlyCap), circuitBreaker: atCap }),
+      });
+      flash('Budget saved.');
       load();
     } catch (e) {
       setSuccess(null);
       setError(e instanceof ApiError ? e.message : 'Save failed');
+    } finally {
+      setSavingBudget(false);
     }
   };
 
@@ -403,7 +426,7 @@ export default function AiSettingsPage() {
         <section className="space-y-3" data-testid="ai-budget-section">
           <h2 className="text-sm font-semibold text-content-strong">Spend budget</h2>
           {budget && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3">
               <SpendTile
                 label="Today"
                 value={`$${budget.dailySpend.toFixed(2)}`}
@@ -414,43 +437,51 @@ export default function AiSettingsPage() {
                 value={`$${budget.monthlySpend.toFixed(2)}`}
                 sub={`cap $${budget.monthlyCapUsd}`}
               />
-              <Card>
-                <CardContent className="flex flex-col gap-1">
-                  <span className="kn-eyebrow">Circuit breaker</span>
-                  <Badge tone={budget.circuitBreaker === 'FAIL_CLOSED' ? 'warning' : 'info'}>
-                    {budget.circuitBreaker === 'FAIL_CLOSED' ? 'Fail closed' : 'Fallback'}
-                  </Badge>
-                  <p
-                    className="mt-0.5 text-xs leading-snug text-content-muted"
-                    data-testid="ai-circuit-breaker-help"
-                  >
-                    {budget.circuitBreaker === 'FAIL_CLOSED'
-                      ? 'Blocks AI calls once the daily cap is reached.'
-                      : 'Skips to a cheaper fallback model once over budget.'}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="space-y-2">
-                  <Label htmlFor="daily-cap">Daily cap (USD)</Label>
-                  <Input
-                    id="daily-cap"
-                    data-testid="ai-daily-cap-input"
-                    value={dailyCap}
-                    onChange={(e) => setDailyCap(e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="w-full"
-                    data-testid="ai-save-cap"
-                    onClick={saveCap}
-                  >
-                    Save
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
+          )}
+
+          {budget && (
+            <Card data-testid="ai-budget-form">
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="daily-cap">Daily cap (USD)</Label>
+                    <Input id="daily-cap" inputMode="decimal" data-testid="ai-daily-cap-input" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="monthly-cap">Monthly cap (USD)</Label>
+                    <Input id="monthly-cap" inputMode="decimal" data-testid="ai-monthly-cap-input" value={monthlyCap} onChange={(e) => setMonthlyCap(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="at-cap">When a cap is reached</Label>
+                    <select
+                      id="at-cap"
+                      data-testid="ai-circuit-breaker-select"
+                      value={atCap}
+                      onChange={(e) => setAtCap(e.target.value === 'FALLBACK' ? 'FALLBACK' : 'FAIL_CLOSED')}
+                      className="h-10 w-full rounded-lg border border-border bg-surface-bg px-3 text-sm text-content-strong focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="FAIL_CLOSED">Stop AI until it resets</option>
+                      <option value="FALLBACK">Use each feature&apos;s fallback model</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-content-muted" data-testid="ai-circuit-breaker-help">
+                  A cap of 0 means no cap.{' '}
+                  {atCap === 'FAIL_CLOSED'
+                    ? 'Once a cap is reached, AI calls are refused until it resets.'
+                    : 'Once a cap is reached, each feature switches to its cheaper fallback model.'}
+                </p>
+                {budgetError && (
+                  <p role="alert" data-testid="ai-budget-form-error" className="text-sm text-status-critical">
+                    {budgetError}
+                  </p>
+                )}
+                <Button type="button" size="sm" data-testid="ai-save-cap" isLoading={savingBudget} onClick={saveCap}>
+                  Save budget
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {budget && (
@@ -550,6 +581,8 @@ export default function AiSettingsPage() {
                     <>
                       <Input
                         data-testid={`ai-byo-${p.key}-input`}
+                        type="password"
+                        autoComplete="off"
                         value={keyInputs[p.key] ?? ''}
                         onChange={(e) => setKeyInputs((s) => ({ ...s, [p.key]: e.target.value }))}
                         placeholder={p.key === 'OLLAMA' ? 'local — no key' : 'Paste API key'}

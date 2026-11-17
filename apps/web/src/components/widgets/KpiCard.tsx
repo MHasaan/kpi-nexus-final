@@ -7,13 +7,15 @@ import {
   Tooltip,
 } from 'recharts';
 
-import type { BoardPackStatus, DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import type { BoardPackStatus, DashboardWidget } from '../../lib/api-client';
+
+import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, toSeries } from './series';
 
 interface KpiCardProps {
   widget: DashboardWidget;
-  kpi?: KpiSummary | null;
-  dataPoints?: DataPoint[];
+  kpi?: WidgetKpi | null;
+  dataPoints?: SeriesPoint[];
   /** The server's direction-aware health for this KPI, when the board loaded it. */
   status?: BoardPackStatus | null;
 }

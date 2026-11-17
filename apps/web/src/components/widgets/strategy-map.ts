@@ -59,3 +59,24 @@ export function tallyWords(tally: PerspectiveTally): string {
   if (tally.unrated > 0) parts.push(`${tally.unrated} not rated`);
   return parts.join(' · ');
 }
+
+/** Tiles from counts worked out elsewhere — the public share page is sent counts, never the KPIs. */
+export function tallyFromCounts(
+  counts: ReadonlyArray<{ perspective: string; total: number; onTrack: number; atRisk: number; offTrack: number }>,
+): StrategyMapTally {
+  return {
+    perspectives: PERSPECTIVES.map((perspective): PerspectiveTally => {
+      const c = counts.find((x) => x.perspective === perspective) ?? { total: 0, onTrack: 0, atRisk: 0, offTrack: 0 };
+      return {
+        perspective,
+        total: c.total,
+        onTrack: c.onTrack,
+        atRisk: c.atRisk,
+        offTrack: c.offTrack,
+        unrated: Math.max(0, c.total - c.onTrack - c.atRisk - c.offTrack),
+        worst: c.offTrack > 0 ? 'OFF_TRACK' : c.atRisk > 0 ? 'AT_RISK' : c.onTrack > 0 ? 'ON_TRACK' : 'NONE',
+      };
+    }),
+    unassigned: 0,
+  };
+}

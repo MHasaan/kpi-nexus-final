@@ -97,12 +97,19 @@ interface FakeDataPoint {
   kpiId: string;
   value: number;
   recordedAt: Date;
+  orgUnitId?: string | null;
+  userId?: string | null;
 }
 
 interface FakeKpi {
   organizationId: string;
   id: string;
   categoryId: string | null;
+  name?: string;
+  scope?: 'ORG_WIDE' | 'PER_UNIT' | 'PER_USER';
+  targetValue?: number | null;
+  scorecardQuadrant?: string | null;
+  deletedAt?: Date | null;
 }
 
 interface FakeUser {
@@ -205,6 +212,24 @@ class FakePrisma {
   };
 
   kPIDataPoint = {
+    findMany: vi.fn(
+      async ({ where, take }: { where: { organizationId: string; kpiId: string; orgUnitId?: null; userId?: null; recordedAt?: { gte?: Date } }; take?: number }) => {
+        const gte = where.recordedAt?.gte;
+        return this.dataPointStore
+          .filter(
+            (d) =>
+              d.organizationId === where.organizationId &&
+              d.kpiId === where.kpiId &&
+              // Organisation-level rows only, when the query asks for them.
+              (!('orgUnitId' in where) || (d.orgUnitId ?? null) === null) &&
+              (!('userId' in where) || (d.userId ?? null) === null) &&
+              (gte === undefined || d.recordedAt.getTime() >= gte.getTime()),
+          )
+          .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())
+          .slice(0, take)
+          .map((d) => ({ value: d.value, recordedAt: d.recordedAt, periodStart: d.recordedAt }));
+      },
+    ),
     findFirst: vi.fn(
       async ({
         where,
@@ -230,7 +255,32 @@ class FakePrisma {
     ),
   };
 
+  kPIThresholdBand = { findMany: vi.fn(async () => []) };
+
   kPI = {
+    // The public view's lookups: by id (the widgets' KPIs) or by scope (the organisation-wide set).
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string; id?: { in: string[] }; scope?: string } }) =>
+      this.kpiStore
+        .filter(
+          (k) =>
+            k.organizationId === where.organizationId &&
+            (k.deletedAt ?? null) === null &&
+            (where.id === undefined || where.id.in.includes(k.id)) &&
+            (where.scope === undefined || (k.scope ?? 'ORG_WIDE') === where.scope),
+        )
+        .map((k) => ({
+          id: k.id,
+          name: k.name ?? k.id,
+          scope: k.scope ?? 'ORG_WIDE',
+          unit: null,
+          direction: 'HIGHER_IS_BETTER',
+          targetValue: k.targetValue ?? null,
+          warningThreshold: null,
+          criticalThreshold: null,
+          scorecardQuadrant: k.scorecardQuadrant ?? null,
+          categoryId: k.categoryId,
+        })),
+    ),
     findFirst: vi.fn(
       async ({
         where,
@@ -984,5 +1034,141 @@ describe('ShareLinksService.resolve', () => {
     const result = await service.resolve('valid_token');
 
     expect(result.kpiValues['kpi_1']).toMatchObject({ latestValue: 42 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Plan 4.6: what the widgets need to be drawn as widgets. Read by people with
+  // no account, so each test below is about what must NOT be in the payload as
+  // much as what is.
+  // -------------------------------------------------------------------------
+  const DAY = 86_400_000;
+  const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
+  const widget = (id: string, widgetType: string, config: Record<string, unknown> = {}) => ({
+    id,
+    widgetType,
+    title: null,
+    config,
+    position: { x: 0, y: 0, w: 4, h: 2 },
+    sortOrder: 0,
+  });
+
+  test('a widget\'s KPI comes with its name, target, health and history, oldest first', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [widget('w1', 'line', { kpiId: 'kpi_rev' })];
+    prisma.kpiStore.push({ organizationId: ORG, id: 'kpi_rev', categoryId: null, name: 'Revenue', targetValue: 100 });
+    for (const [value, back] of [[80, 3], [90, 2], [120, 1]] as const) {
+      prisma.dataPointStore.push({ organizationId: ORG, kpiId: 'kpi_rev', value, recordedAt: daysAgo(back) });
+    }
+    const { service } = makeService({ prisma });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpis['kpi_rev']).toMatchObject({ name: 'Revenue', targetValue: 100, status: 'ON_TRACK' });
+    expect(result.kpis['kpi_rev']!.series.map((p) => p.value)).toEqual([80, 90, 120]);
+    // No list widget and no strategy map on this board: neither is sent.
+    expect(result.listRows).toBeUndefined();
+    expect(result.perspectives).toBeUndefined();
+  });
+
+  test('a per-person KPI on a shared board gives its name and nothing anyone recorded', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [widget('w1', 'line', { kpiId: 'kpi_calls' })];
+    prisma.kpiStore.push({ organizationId: ORG, id: 'kpi_calls', categoryId: null, name: 'Calls made', scope: 'PER_USER' });
+    prisma.dataPointStore.push({ organizationId: ORG, kpiId: 'kpi_calls', value: 37, recordedAt: daysAgo(1), userId: 'someone' });
+    const { service } = makeService({ prisma });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpis['kpi_calls']).toMatchObject({ name: 'Calls made', status: null, series: [] });
+    expect(JSON.stringify(result.kpis)).not.toContain('37');
+    expect(JSON.stringify(result.kpis)).not.toContain('someone');
+  });
+
+  test('a KPI in a category the link\'s creator may not see is absent — name included', async () => {
+    const prisma = new FakePrisma();
+    seedTwoCategoryLink(prisma);
+    prisma.dashboardStore[0]!.widgets.push(widget('w_list', 'list'), widget('w_map', 'strategy_map'));
+    prisma.kpiStore.find((k) => k.id === 'kpi_restricted')!.scorecardQuadrant = 'FINANCIAL';
+    const accessContext = new FakeAccessContext();
+    accessContext.allowlistByUser.set('u1', ['cat_a']);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(Object.keys(result.kpis)).toEqual(['kpi_allowed']);
+    expect(result.listRows!.map((r) => r.kpiId)).toEqual(['kpi_allowed']);
+    expect(result.perspectives!.find((p) => p.perspective === 'FINANCIAL')!.total).toBe(0);
+    expect(JSON.stringify(result)).not.toContain('999');
+  });
+
+  test('history older than the creator\'s window is not sent', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [widget('w1', 'line', { kpiId: 'kpi_rev' })];
+    prisma.kpiStore.push({ organizationId: ORG, id: 'kpi_rev', categoryId: null });
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'kpi_rev', value: 1, recordedAt: daysAgo(40) },
+      { organizationId: ORG, kpiId: 'kpi_rev', value: 2, recordedAt: daysAgo(2) },
+    );
+    const accessContext = new FakeAccessContext();
+    accessContext.historyWindowByUser.set('u1', 7);
+    const { service } = makeService({ prisma, accessContext });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpis['kpi_rev']!.series.map((p) => p.value)).toEqual([2]);
+  });
+
+  test('a list widget gets only the rows it draws, organisation-wide KPIs only, problems first', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [widget('w_list', 'list', { maxItems: 2 })];
+    prisma.kpiStore.push(
+      { organizationId: ORG, id: 'k_good', categoryId: null, name: 'Good', targetValue: 100 },
+      { organizationId: ORG, id: 'k_bad', categoryId: null, name: 'Bad', targetValue: 100 },
+      { organizationId: ORG, id: 'k_none', categoryId: null, name: 'Untargeted' },
+      { organizationId: ORG, id: 'k_unit', categoryId: null, name: 'Per unit', scope: 'PER_UNIT', targetValue: 100 },
+      { organizationId: ORG, id: 'k_gone', categoryId: null, name: 'Deleted', deletedAt: new Date() },
+      { organizationId: 'other_org', id: 'k_other', categoryId: null, name: 'Someone else\'s' },
+    );
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'k_good', value: 150, recordedAt: daysAgo(1) },
+      { organizationId: ORG, kpiId: 'k_bad', value: 5, recordedAt: daysAgo(1) },
+      { organizationId: ORG, kpiId: 'k_unit', value: 1, recordedAt: daysAgo(1), orgUnitId: 'unit_1' },
+    );
+    const { service } = makeService({ prisma });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.listRows).toEqual([
+      { kpiId: 'k_bad', name: 'Bad', unit: null, latestValue: 5, status: 'OFF_TRACK', attainmentPct: 5 },
+      { kpiId: 'k_good', name: 'Good', unit: null, latestValue: 150, status: 'ON_TRACK', attainmentPct: 150 },
+    ]);
+    const sent = JSON.stringify(result);
+    for (const absent of ['Per unit', 'Deleted', 'Someone else', 'Untargeted']) expect(sent).not.toContain(absent);
+    expect(result.kpis).toEqual({}); // no widget points at a KPI
+  });
+
+  test('a strategy map gets counts per perspective and no KPI names', async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [widget('w_map', 'strategy_map')];
+    prisma.kpiStore.push(
+      { organizationId: ORG, id: 'k1', categoryId: null, name: 'Secret margin', targetValue: 100, scorecardQuadrant: 'FINANCIAL' },
+      { organizationId: ORG, id: 'k2', categoryId: null, name: 'Secret revenue', targetValue: 100, scorecardQuadrant: 'FINANCIAL' },
+    );
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'k1', value: 150, recordedAt: daysAgo(1) },
+      { organizationId: ORG, kpiId: 'k2', value: 5, recordedAt: daysAgo(1) },
+    );
+    const { service } = makeService({ prisma });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.perspectives![0]).toEqual({ perspective: 'FINANCIAL', total: 2, onTrack: 1, atRisk: 0, offTrack: 1 });
+    expect(result.listRows).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain('Secret');
   });
 });

@@ -1,12 +1,14 @@
 'use client';
 
-import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import type { DashboardWidget } from '../../lib/api-client';
+
+import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint } from './series';
 
 interface GaugeWidgetProps {
   widget: DashboardWidget;
-  kpi?: KpiSummary | null;
-  dataPoints?: DataPoint[];
+  kpi?: WidgetKpi | null;
+  dataPoints?: SeriesPoint[];
 }
 
 /**

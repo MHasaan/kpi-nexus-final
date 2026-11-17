@@ -18,6 +18,17 @@ import {
 } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { DashboardsService } from './dashboards.service.js';
+import { type KpiHealthStatus, attainmentPct, kpiHealthStatus } from '../kpis/kpi-health.js';
+import {
+  PUBLIC_SERIES_POINTS,
+  type PublicKpiView,
+  type PublicListRow,
+  type PublicPerspectiveCount,
+  type SummaryRow,
+  perspectiveCounts,
+  publicListRows,
+  publicListSize,
+} from './public-dashboard-view.js';
 import type { CreateShareLinkDto } from './dto/dashboard.dto.js';
 
 const BCRYPT_ROUNDS = 12;
@@ -115,11 +126,20 @@ export interface ShareLinkResolvedPayload {
     string,
     { latestValue: number | null; latestRecordedAt: Date | null }
   >;
+  /** The KPIs the widgets point at: name, target and a short history to draw. Keyed by kpiId. */
+  kpis: Record<string, PublicKpiView>;
+  /** The rows the list widgets show; absent when the dashboard has no list widget. */
+  listRows?: PublicListRow[];
+  /** Strategy-map counts; absent when the dashboard has no strategy map. */
+  perspectives?: PublicPerspectiveCount[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Service
 // ────────────────────────────────────────────────────────────────────────────
+
+/** The most organisation-wide KPIs a public list or strategy map is built from. */
+const MAX_PUBLIC_SUMMARY_KPIS = 500;
 
 @Injectable()
 export class ShareLinksService {
@@ -398,8 +418,132 @@ export class ShareLinksService {
           sortOrder: w.sortOrder,
         })),
         kpiValues,
+        ...(await this.publicView(link.organizationId, dashboard.widgets, kpiIds, allowlist, windowFrom)),
       };
     });
+  }
+
+  /**
+   * What the widgets need to be drawn as widgets rather than as bare numbers.
+   * Gated exactly as `kpiValues` is — the link creator's category allowlist
+   * and history window — and narrower in one respect: history, health, list
+   * rows and strategy-map counts are built from ORGANISATION-WIDE KPIs only.
+   * A per-unit or per-person KPI contributes its name and target and nothing
+   * recorded, so no unit's or person's values reach a reader with no account.
+   */
+  private async publicView(
+    organizationId: string,
+    widgets: ReadonlyArray<{ widgetType: string; config: unknown }>,
+    widgetKpiIds: ReadonlySet<string>,
+    allowlist: readonly string[] | null,
+    windowFrom: Date | undefined,
+  ): Promise<Pick<ShareLinkResolvedPayload, 'kpis' | 'listRows' | 'perspectives'>> {
+    const listSize = publicListSize(widgets);
+    const wantsMap = widgets.some((w) => w.widgetType === 'strategy_map');
+    const wantsSummary = listSize !== null || wantsMap;
+    if (widgetKpiIds.size === 0 && !wantsSummary) return { kpis: {} };
+
+    const select = {
+      id: true,
+      name: true,
+      scope: true,
+      unit: true,
+      direction: true,
+      targetValue: true,
+      warningThreshold: true,
+      criticalThreshold: true,
+      scorecardQuadrant: true,
+      categoryId: true,
+    } satisfies Prisma.KPISelect;
+    // The widgets' own KPIs are always looked up; the organisation-wide set
+    // (for list rows and strategy-map counts) is capped separately, so a large
+    // catalogue can never push a widget's KPI out of the result.
+    const [pointedAt, summarised] = await Promise.all([
+      widgetKpiIds.size > 0
+        ? this.prisma.kPI.findMany({ where: { organizationId, deletedAt: null, id: { in: [...widgetKpiIds] } }, select })
+        : [],
+      wantsSummary
+        ? this.prisma.kPI.findMany({
+            where: { organizationId, deletedAt: null, scope: 'ORG_WIDE' },
+            select,
+            orderBy: { name: 'asc' },
+            take: MAX_PUBLIC_SUMMARY_KPIS,
+          })
+        : [],
+    ]);
+    const found = [...new Map([...pointedAt, ...summarised].map((k) => [k.id, k])).values()];
+    const allowed = found.filter((k) => isCategoryAllowed(allowlist, k.categoryId));
+    const orgWide = allowed.filter((k) => k.scope === 'ORG_WIDE');
+
+    const bandRows = orgWide.length
+      ? await this.prisma.kPIThresholdBand.findMany({
+          where: { organizationId, kpiId: { in: orgWide.map((k) => k.id) } },
+          select: { kpiId: true, name: true, lower: true, upper: true, color: true, order: true, consecutivePointsRequired: true },
+        })
+      : [];
+
+    // Newest period first, organisation-level rows only.
+    const measured = new Map<string, { status: KpiHealthStatus; points: Array<{ value: number; recordedAt: Date; periodStart: Date }> }>();
+    await Promise.all(
+      orgWide.map(async (kpi) => {
+        const points = await this.prisma.kPIDataPoint.findMany({
+          where: {
+            organizationId,
+            kpiId: kpi.id,
+            orgUnitId: null,
+            userId: null,
+            ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
+          },
+          select: { value: true, recordedAt: true, periodStart: true },
+          orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
+          take: PUBLIC_SERIES_POINTS,
+        });
+        measured.set(kpi.id, {
+          points,
+          status: kpiHealthStatus({
+            recentValues: points.slice(0, 10).map((p) => p.value),
+            meta: kpi,
+            bands: bandRows.filter((b) => b.kpiId === kpi.id),
+          }),
+        });
+      }),
+    );
+
+    const kpis: ShareLinkResolvedPayload['kpis'] = {};
+    for (const kpi of allowed) {
+      if (!widgetKpiIds.has(kpi.id)) continue;
+      const data = measured.get(kpi.id);
+      kpis[kpi.id] = {
+        name: kpi.name,
+        unit: kpi.unit,
+        direction: kpi.direction,
+        targetValue: kpi.targetValue,
+        warningThreshold: kpi.warningThreshold,
+        criticalThreshold: kpi.criticalThreshold,
+        status: data?.status ?? null,
+        series: data ? [...data.points].reverse() : [],
+      };
+    }
+    if (!wantsSummary) return { kpis };
+
+    const rows: SummaryRow[] = orgWide.map((kpi) => {
+      const data = measured.get(kpi.id);
+      const latestValue = data?.points[0]?.value ?? null;
+      return {
+        kpiId: kpi.id,
+        name: kpi.name,
+        unit: kpi.unit,
+        latestValue,
+        status: data?.status ?? 'NO_DATA',
+        attainmentPct: attainmentPct(latestValue, kpi.targetValue, kpi.direction),
+        scorecardQuadrant: kpi.scorecardQuadrant,
+      };
+    });
+    return {
+      kpis,
+      ...(listSize !== null ? { listRows: publicListRows(rows, listSize) } : {}),
+      ...(wantsMap ? { perspectives: perspectiveCounts(rows) } : {}),
+    };
   }
 
   /**

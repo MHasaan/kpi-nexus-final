@@ -19,6 +19,7 @@ import { CorrectDataPointDtoSchema } from './dto/correct-data-point.dto.js';
 import { RecordDataPointDtoSchema } from './dto/record-data-point.dto.js';
 import { KpiDataService, type PublicDataPoint } from './kpi-data.service.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
+import { endOfDayIfDateOnly, parseFrom } from './period-window.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
@@ -95,8 +96,9 @@ export class KpiDataController {
     @Query('limit') limit?: string,
   ): Promise<PublicDataPoint[]> {
     return this.data.listForKpi(id, {
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
+      from: parseFrom(from),
+      // A date-only `to` means the end of that day, so today's values are in range.
+      to: endOfDayIfDateOnly(to),
       limit: limit ? Number.parseInt(limit, 10) : undefined,
     });
   }
@@ -124,8 +126,8 @@ export class KpiDataController {
   @RequirePermissions(PermissionKey.KPI_VIEW)
   dashboardSummary(@Query('from') from?: string, @Query('to') to?: string) {
     return this.data.dashboardSummary({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
+      from: parseFrom(from),
+      to: endOfDayIfDateOnly(to),
     });
   }
 }

@@ -231,6 +231,59 @@ describe('GET /kpis/dashboard-summary', () => {
     expect(febRow?.latestValue).toBe(20);
   });
 
+  test('a period that straddles the window, and the current unfinished one, are both in it (UI-002)', async () => {
+    if (!apiAvailable) return;
+    const stamp = suffix();
+    const admin = await registerOrg(stamp);
+    const k = await http<{ id: string }>('/kpis', {
+      method: 'POST',
+      token: admin.accessToken,
+      body: JSON.stringify({
+        name: `Straddle ${stamp}`,
+        scope: 'ORG_WIDE',
+        type: 'NUMBER',
+        direction: 'HIGHER_IS_BETTER',
+        aggregationMethod: 'LAST',
+        frequency: 'MONTHLY',
+      }),
+    });
+
+    // Two monthly periods: last month, and this month (still running).
+    const now = new Date();
+    const month = (offset: number) => {
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
+      const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset + 1, 0));
+      return { periodStart: start.toISOString(), periodEnd: end.toISOString() };
+    };
+    for (const [value, offset] of [[100, -1], [200, 0]] as const) {
+      const res = await http(`/kpis/${k.body!.id}/data`, {
+        method: 'POST',
+        token: admin.accessToken,
+        body: JSON.stringify({ value, ...month(offset) }),
+      });
+      expect(res.status).toBe(201);
+    }
+
+    // The dashboard's default range: the last 30 days, as date-only strings.
+    const day = (back: number) => new Date(Date.now() - back * 86_400_000).toISOString().slice(0, 10);
+    const windowed = await http<SummaryRow[]>(
+      `/kpis/dashboard-summary?from=${day(30)}&to=${day(0)}`,
+      { token: admin.accessToken },
+    );
+    const row = windowed.body!.find((r) => r.kpiId === k.body!.id);
+    // Last month's period starts before the window and this month's ends after
+    // it: under the old "wholly inside" rule the card read "No data".
+    expect(row?.pointCount).toBeGreaterThanOrEqual(1);
+    expect(row?.latestValue).toBe(200);
+
+    // The same two periods are readable through the data list.
+    const points = await http<Array<{ value: number }>>(
+      `/kpis/${k.body!.id}/data?from=${day(30)}&to=${day(0)}`,
+      { token: admin.accessToken },
+    );
+    expect(points.body!.map((p) => p.value)).toContain(200);
+  });
+
   test('smoke perf: 20 KPIs × 30 data points each → response under 500ms cold', async () => {
     if (!apiAvailable) return;
     const stamp = suffix();

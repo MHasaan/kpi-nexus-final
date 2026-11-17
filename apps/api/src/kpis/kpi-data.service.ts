@@ -18,12 +18,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import {
   buildKpiVisibilityWhere,
-  clampHistoryFrom,
   clampTake,
   kpiContextFromProfile,
   kpiDataPointScopeWhere,
   type KpiVisibilityContext,
 } from '../rbac/visibility/kpi-visibility.js';
+import { periodWindowWhere } from './period-window.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
@@ -337,7 +337,7 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const visibility = await this.buildVisibilityContext();
     const limits = await this.accessContext.dataLimits();
-    const windowFrom = clampHistoryFrom(opts.from, limits.historyWindowDays);
+    const window = periodWindowWhere(opts, limits.historyWindowDays);
     // The exact rule GET /kpis lists by (scope + assignments + category) — the
     // summary used a looser copy that ignored the KPIS scope (BE-003).
     const filtered = await this.prisma.kPI.findMany({
@@ -375,9 +375,9 @@ export class KpiDataService {
           organizationId: ctx.organizationId,
           kpiId: kpi.id,
         };
-        // Layer-4: clamp the read window to the principal's historyWindowDays (null ⇒ parity).
-        if (windowFrom) where.periodStart = { gte: windowFrom };
-        if (opts.to) where.periodEnd = { lte: opts.to };
+        // A period counts as in the window when it OVERLAPS it; historyWindowDays
+        // still bounds how far back the principal may aggregate (UI-002).
+        Object.assign(where, window);
         // Only the points the KPIS scope reaches (self / reports / units).
         Object.assign(where, kpiDataPointScopeWhere(kpi.scope, visibility));
 
@@ -430,11 +430,10 @@ export class KpiDataService {
       organizationId: ctx.organizationId,
       kpiId,
     };
-    // Layer-4: clamp the read window to historyWindowDays (null ⇒ request as-is = parity).
+    // A period counts as in the window when it OVERLAPS it; the Layer-4
+    // historyWindowDays floor still bounds how far back we read (UI-002).
     const limits = await this.accessContext.dataLimits();
-    const windowFrom = clampHistoryFrom(opts.from, limits.historyWindowDays);
-    if (windowFrom) where.periodStart = { gte: windowFrom };
-    if (opts.to) where.periodEnd = { lte: opts.to };
+    Object.assign(where, periodWindowWhere(opts, limits.historyWindowDays));
 
     // Same rule as GET /kpis (scope + assignments + category): a KPI you can't
     // list has no readable data — 404, no existence leak (BE-003).

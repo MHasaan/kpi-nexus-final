@@ -320,25 +320,19 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 
 ### UI completion round — open findings (2026-11-16)
 
-Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verification-plan-2026-11-16.md). "Plan" is the work item in [2026-11-16-ui-completion.md](../superpowers/plans/2026-11-16-ui-completion.md). A row moves to the table above, with its PR and regression test, when it is fixed.
+Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verification-plan-2026-11-16.md). Batches 0–3 of the plan are done (2026-11-17): UI-001, UI-002, UI-003, UI-004, UI-005, UI-010, UI-011 and UI-016 are in the fix log above, with BE-044, BE-045 and BE-046, which that work turned up. "Plan" is the work item in [2026-11-16-ui-completion.md](../superpowers/plans/2026-11-16-ui-completion.md). A row moves to the table above, with its PR and regression test, when it is fixed.
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-001 dashboard widgets show an old value as "latest" and plot newest → oldest | Critical | ⬜ open | 1.2, 1.3 |
-| UI-002 dashboard date range drops any period not wholly inside it (default 30d shows "No data") | Critical | ⬜ open | 1.1 |
-| UI-004 (remainder) the org-unit page has no KPI panel, and a user's page cannot assign a per-user KPI | Medium | ⬜ open | 2.9, 2.10 |
-| UI-005 setup wizard is one screen; only the AI co-pilot can add roles, units and KPIs | Critical | ⬜ open | 3.1–3.9 |
 | UI-006 dashboard live refresh does nothing | High | ⬜ open | 4.1 |
 | UI-007 "Create automation" always fails (400); page unlinked | High | ⬜ open | 4.2 |
 | UI-008 approvers are bounced from `/approvals`; a new org cannot create its first workflow | High | ⬜ open | 4.3 |
 | UI-009 std-dev and rate-of-change alert rules never fire | High | ⬜ open | 4.5 |
-| UI-010 a user's manager, role and position cannot be changed after the invite | High | ⬜ open | 2.4, 2.5, 2.11 |
 | UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |
 | UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
-| UI-016 inviting a user shows no success message outside development | High | ⬜ open | 2.11 |
-| X-01 deletes with no confirmation; `window.confirm` in six places | Medium | ⬜ open | 0.2, 7.1 |
+| X-01 deletes with no confirmation; `window.confirm` still in five places (the `/users` list is done) | Medium | 🟡 partly | 7.1 |
 | X-02 failures that show nothing (empty `catch`) | Medium | ⬜ open | 0.4, 7.2 |
 | X-03 internal enums and ids shown to users | Low | ⬜ open | 0.3, 7.3 |
 | X-04 page ↔ API permission table | High | ⬜ open | 5.2 |
@@ -355,14 +349,13 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | QA-H3 KPI health is computed two ways that disagree: `kpi-health.ts` (home, scorecard, summary) falls back to the KPI's own `warningThreshold` / `criticalThreshold`, while `GET /kpis/:id/threshold-bands/status` (the KPI page) reads only ThresholdBand rows — and the KPI form writes the first, never the second. The same KPI reads "At risk, 72%" on the home page and `no_bands` on its own page | High | ⬜ open | new 1.6 |
-| QA-M1 choosing a template overwrites the organisation name the user typed, in the wizard and afterwards in Settings | Medium | ⬜ open | 3.8, 3.9 |
 | QA-M2 contributors cannot create tasks in the UI although `POST /tasks` only needs KPI_VIEW (the New task button is gated on KPI_CREATE) | Medium | ⬜ open | 5.2 |
 | QA-M4 Department Manager sees fewer OKRs than Contributor, because the seeded role sets an OKR scope of "their units" while Contributor has no override | Medium | ⬜ open | new 5.6 |
 | QA-M5 Billing shows "Users 0 / ∞" with active users: only KPIs and dashboards are counted live | Medium | ⬜ open | 6.11 |
 | QA-M6 insights pile up as duplicates — 52 insights for 22 KPIs, up to 5 near-identical per KPI; "Generate" never replaces the old ones | Medium | ⬜ open | new 4.8 |
 | QA-M9 choosing Prophet silently returns a NAIVE forecast when the sidecar's Stan backend fails; the page does not say which model ran | Medium | ⬜ open | new 4.9 |
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
-| QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them | Low | ⬜ open | 3.2b |
+| QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
 | QA-L10 settings errors are generic ("Invalid request body") and name no field | Low | ⬜ open | 7.4 |
 | QA-L13 the public KPI embed shows "No data" next to a valid latest value | Low | ⬜ open | 4.6 |

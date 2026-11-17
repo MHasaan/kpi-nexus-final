@@ -1,4 +1,4 @@
-# Session handoff — resume here (updated 2026-11-16)
+# Session handoff — resume here (updated 2026-11-17)
 
 This file lets a new Claude Code session, on any computer, carry on exactly where the last one stopped. Read it top to bottom once. Then work from **§6 Next steps**.
 
@@ -235,6 +235,30 @@ Every major once deferred here has since landed, each in its own PR: Zod 4 (DEP-
 The original Dependabot PRs for those (#1, #2, #4, #5, #6, #15–#20) are still open because Dependabot PRs are never closed or deleted; they are superseded, not pending work.
 
 ---
+
+## 5d. UI completion round (started 2026-11-16) — where it stands
+
+The owner asked for every page and every option to work end to end, from sign-up to daily use. The findings are in [ui-verification-plan-2026-11-16.md](docs/audit/ui-verification-plan-2026-11-16.md) and [qa-report-2026-11-17.md](docs/audit/qa-report-2026-11-17.md); the work is [2026-11-16-ui-completion.md](docs/superpowers/plans/2026-11-16-ui-completion.md), nine batches. The open-findings table in [docs/audit/README.md](docs/audit/README.md) is the live list.
+
+| Batch | What | State |
+|---|---|---|
+| 0 | Shared pieces: confirm dialog, toasts, labels, async-data hook, approval-pending notice, e2e org helper | ✅ merged (#120–#124, #136) |
+| 1 | Wrong numbers: period window, newest value, one health rule on the home page, dashboard data provider, sparklines | ✅ merged (#137–#141) |
+| 2 | Per-unit and per-person KPIs, people: assignments API and tab, record form, unit KPI panel, `PATCH /users/:id`, invite lifecycle, `/users` edit and lifecycle actions, `/team` | ✅ merged (#142–#158) |
+| 3 | Sign-up and onboarding: one sign-up path, dead invite links, per-person tour, `/signup`, the draft schema, organisation settings / unit KPIs / team / finish touches in `complete`, the real checklist, and the six-step wizard with quick vs full and the AI rail | ✅ built, PRs #159–#180 (merge in order, see below) |
+| 4 | Features offered that do not work: live refresh, automations, approvals, std-dev / rate-of-change / composite alert rules, Activity and Strategy-map widgets, channel test; plus new 4.8 (insights replace) and 4.9 (forecast says which model ran) | ⬜ next |
+| 5 | Reachability and permissions (unlinked pages, the page ↔ API permission table, pages that need `GET /users`); new 5.6 | ⬜ |
+| 6 | Settings that save but change nothing; the real Integrations connect form | ⬜ needs ADR-002 (SSO without WorkOS) and ADR-003 (custom domains) signed off first |
+| 7 | Safety and polish, one pattern at a time (confirm dialogs, silent failures, enums, forms, paging) | ⬜ |
+| 8 | Click-through and regression net | ⬜ |
+
+Also open from the QA pass: 1.6 (one KPI health rule on the KPI page too, and the KPI form writing threshold bands) and 0.7 (developer experience).
+
+**Decisions the owner made for this round** (do not re-ask): settings that save but do nothing are each made to work; the wizard gets real manual steps; Integrations gets a real per-provider connect form; std-dev and rate-of-change alert rules and the Activity and Strategy-map widgets are all built; only `/signup` is kept (`/register` redirects).
+
+**How the PRs are merged.** One finding per PR; test commit, then the change, then a docs commit adding the fix-log row. Every PR adds a row at the same place in `docs/audit/README.md`, so independent branches always conflict there. Since #154 the open PRs are one **chain**: each branch is based on the one before it, all target `main`. Merge them strictly in number order (#159 … #180), each with `gh pr merge N --merge --match-head-commit <full sha>` once its own checks are green and `main`'s CI is green after the previous merge. Merged in order, no branch needs a rebase and its head — the one CI ran on — never changes. Merging one out of order would pull the earlier ones in with it: don't. Rollback of any one is `git revert -m 1 <its merge commit>`.
+
+**The throwaway stack** (`.cache/uiwalk/`, compose project `kpi-uiwalk`, Postgres on 25432) is what all of this is tested on; see the memory note "Local disposable stack". Its `env.sh` mirrors CI's raised onboarding rate limits — without them the e2e suite trips the 10-per-hour sign-up limit. Unit suites must be run in a shell that has **not** sourced that `env.sh`: its mock AI keys and SMTP settings fail four environment-sensitive specs.
 
 ## 6. Next steps (in order)
 

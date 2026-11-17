@@ -169,7 +169,7 @@ test.describe('UC-Alerts — rule builder → breach → inbox → acknowledge',
         .poll(async () => page.locator('[data-testid^="alert-status-"]').first().textContent(), {
           timeout: 10_000,
         })
-        .toContain('ACKNOWLEDGED');
+        .toContain('Acknowledged');
     },
   );
 

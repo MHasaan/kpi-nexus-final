@@ -350,6 +350,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-013 (KPI detail tabs) Targets, Thresholds, Benchmarks, Formula and Cascade showed their forms, Auto-compute and delete buttons to every reader; the API asks for KPI_EDIT | ✅ Fixed — all behind KPI_EDIT; a reader sees the formula as text. This closes UI-013 | #215 | `e2e/kpi-detail-tabs-permission.spec.ts`: an editor has every form; a reader has none, still sees what is saved, and is refused nothing
 | QA-M4 (plan 5.6) the seeded Department Manager saw fewer OKRs and alerts than a Contributor: its role narrowed both to its units while the Contributor's left the organisation-wide default | ✅ Fixed — the manager's role leaves both at the default | #216 | `seed-roles.spec.ts`: for every domain, a more senior seeded role's effective scope is never narrower than a more junior one's (failed for OKRS and ALERTS before)
 | X-01 (plan 7.1, part 1) deleting a dashboard, a report or a snapshot, revoking a share link and permanently removing a person asked through `window.confirm` | ✅ Fixed — all five use the shared dialog; no `window.confirm` is left | #217 | `e2e/confirm-deletes.spec.ts` (cancel keeps, confirm deletes, no browser dialog), `share-link.spec.ts`
+| X-01 (plan 7.1, part 2) deleting a KPI from the list, a category, a target, a band or a benchmark, and detaching a cascade, acted on one click; tab deletes dropped failures silently | ✅ Fixed — each asks in the shared dialog, and the tab deletes show a failure there | #218 | `e2e/confirm-kpi-tab-deletes.spec.ts`, `kpi-categories.spec.ts`, `kpis-flow.spec.ts`
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -359,7 +360,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 |---|---|---|---|
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
-| X-01 (remainder) deletes with no confirmation at all: KPI list, category, target, band, benchmark, cascade, widget, role, position, unit, webhooks, API keys, connectors, plugins | Medium | 🟡 partly | 7.1 |
+| X-01 (remainder) deletes with no confirmation at all: widget, role, position, unit, webhooks, API keys, connectors, plugins | Medium | 🟡 partly | 7.1 |
 | X-02 failures that show nothing (empty `catch`) | Medium | ⬜ open | 0.4, 7.2 |
 | X-03 internal enums and ids shown to users | Low | ⬜ open | 0.3, 7.3 |
 | X-04 page ↔ API permission table | High | ⬜ open | 5.2 |

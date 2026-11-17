@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { UsersRound } from 'lucide-react';
 
 import { AppShell } from '../../components/app-shell';
+import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
   Avatar,
   Card,
@@ -16,8 +17,9 @@ import {
   StatusBadge,
   type KpiStatus,
 } from '../../components/ui';
-import { ApiError, getAccessToken, listTeamKpis, type MyKpiRow } from '../../lib/api-client';
+import { getAccessToken, listTeamKpis } from '../../lib/api-client';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAsyncData } from '../../lib/use-async-data';
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -39,19 +41,10 @@ function toStatus(raw: string | null | undefined): KpiStatus {
 
 export default function TeamPage() {
   const router = useRouter();
-  const [team, setTeam] = useState<
-    Array<{ userId: string; fullName: string; kpis: MyKpiRow[] }> | null
-  >(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: team, error, reload } = useAsyncData(() => listTeamKpis(), []);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.replace(currentLoginRedirect());
-      return;
-    }
-    listTeamKpis()
-      .then(setTeam)
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
   return (
@@ -68,7 +61,10 @@ export default function TeamPage() {
             data-testid="team-error"
             className="rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           >
-            {error}
+            {error}{' '}
+            <button type="button" className="font-medium underline" onClick={reload}>
+              Try again
+            </button>
           </div>
         )}
 
@@ -85,14 +81,23 @@ export default function TeamPage() {
             <EmptyState
               icon={UsersRound}
               title="No direct reports"
-              description="When people report to you, their personal KPIs appear here."
+              description="When people report to you, they appear here with the KPIs they hold."
+              action={
+                <PermissionGuard permission="USERS_MANAGE">
+                  <p className="text-sm text-content-muted">
+                    Set who someone reports to with Edit on their row.{' '}
+                    <Link href="/users" className="font-semibold text-accent-primary hover:underline">
+                      Go to People
+                    </Link>
+                  </p>
+                </PermissionGuard>
+              }
             />
-            <span data-testid="team-list" className="sr-only" />
           </Card>
         ) : team ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="team-list">
             {team.map((member) => (
-              <Card key={member.userId} className="flex flex-col gap-3 p-4">
+              <Card key={member.userId} className="flex flex-col gap-3 p-4" data-testid={`team-member-${member.userId}`}>
                 <Link
                   href={`/users/${member.userId}`}
                   className="flex items-center gap-2.5 hover:text-accent-primary"

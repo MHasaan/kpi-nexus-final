@@ -62,6 +62,16 @@ export function checkPasswordPolicy(
 }
 
 /**
+ * Whether a password set at `changedAt` is older than the policy allows.
+ * A maximum age of 0 means passwords do not expire; a password with no
+ * recorded date has not expired (its clock has not started).
+ */
+export function passwordExpired(policy: PasswordPolicy, changedAt: Date | null | undefined, now: Date = new Date()): boolean {
+  if (policy.maxAgeDays <= 0 || !changedAt) return false;
+  return now.getTime() - changedAt.getTime() > policy.maxAgeDays * 24 * 60 * 60 * 1000;
+}
+
+/**
  * Resolve an org's policy by parsing the Json field, falling back to defaults
  * on missing/invalid input so the caller never gets `null`.
  */

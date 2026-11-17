@@ -277,6 +277,8 @@ model User {
   emailVerifiedAt       DateTime?
   fullName              String
   passwordHash          String?
+  // When passwordHash was last set; null when there is no password. Drives the policy's maximum age.
+  passwordChangedAt     DateTime?
   status                UserStatus      @default(ACTIVE)
   // Optional profile fields
   avatarUrl             String?

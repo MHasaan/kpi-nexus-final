@@ -11,6 +11,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
+import { passwordExpired, resolvePasswordPolicy } from '../password/password-policy.js';
+
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { verifyTotp } from '../mfa/totp.js';
@@ -102,6 +104,7 @@ export class AuthService {
             email: dto.adminEmail,
             fullName: dto.adminFullName,
             passwordHash,
+            passwordChangedAt: new Date(),
             roleId: adminRole.id,
             emailVerifiedAt: new Date(),
             status: 'ACTIVE',
@@ -224,6 +227,20 @@ export class AuthService {
         }
       }
 
+      // The organisation's maximum password age. Checked last, so only someone who
+      // knows the password (and passed MFA) learns that it has expired.
+      const org = await this.prisma.organization.findUnique({
+        where: { id: user.organizationId },
+        select: { passwordPolicy: true },
+      });
+      if (passwordExpired(resolvePasswordPolicy(org?.passwordPolicy), user.passwordChangedAt)) {
+        await recordAttempt('INVALID_CREDENTIALS', 'password_expired');
+        throw new UnauthorizedException({
+          code: 'PASSWORD_EXPIRED',
+          message: 'Your password has expired. Reset it to sign in.',
+        });
+      }
+
       const isAdmin = user.roleId
         ? Boolean(
             (
@@ -323,6 +340,7 @@ export class AuthService {
           where: { id: user.id },
           data: {
             passwordHash,
+            passwordChangedAt: new Date(),
             status: 'ACTIVE',
             emailVerifiedAt: new Date(),
           },

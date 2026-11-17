@@ -144,7 +144,7 @@ export class AccountService {
 
     await this.prisma.user.update({
       where: { id: ctx.userId, organizationId: ctx.organizationId },
-      data: { passwordHash },
+      data: { passwordHash, passwordChangedAt: new Date() },
     });
 
     // Force re-login on every device after a credential change.

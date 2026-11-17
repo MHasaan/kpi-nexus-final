@@ -54,7 +54,7 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     'trend',
   ].includes(widget.widgetType);
 
-  const needsSummary = widget.widgetType === 'list';
+  const needsSummary = widget.widgetType === 'list' || widget.widgetType === 'strategy_map';
 
   // Inside a dashboard the KPI definition and the summary rows come from the
   // board's one shared load; only a lone preview (the widget editor) fetches them.
@@ -147,7 +147,7 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     case 'activity':
       return <ActivityWidget widget={widget} />;
     case 'strategy_map':
-      return <StrategyMapWidget widget={widget} />;
+      return <StrategyMapWidget widget={widget} summaryRows={shownRows} />;
     default: {
       // Exhaustive check — widgetType is narrowed by WidgetType union
       const _exhaustive: never = widget.widgetType;

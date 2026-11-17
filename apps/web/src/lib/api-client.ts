@@ -461,6 +461,18 @@ export async function offboardUser(
 export async function purgeUser(id: string): Promise<{ handle: string }> {
   return api(`/users/${id}/purge`, { method: 'POST' });
 }
+/** Send a fresh invitation link; the previous one stops working. */
+export async function resendInvite(id: string): Promise<{ emailSent?: boolean; acceptUrl?: string }> {
+  return api(`/users/${id}/resend-invite`, { method: 'POST' });
+}
+/** Withdraw an invitation nobody accepted; the address can be invited again. */
+export async function cancelInvite(id: string): Promise<void> {
+  return api(`/users/${id}/cancel-invite`, { method: 'POST' });
+}
+/** Bring an archived person back (ACTIVE, or INVITED if they never accepted). */
+export async function restoreUser(id: string): Promise<UserSummary> {
+  return api(`/users/${id}/restore`, { method: 'POST' });
+}
 
 export async function acceptInvitation(body: {
   token: string;

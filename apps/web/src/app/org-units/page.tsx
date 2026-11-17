@@ -7,6 +7,7 @@ import { Building2, ChevronDown, Network, Plus, UserPlus, Users } from 'lucide-r
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { OrgUnitReorg } from '../../components/org-unit-reorg';
+import { UnitKpiPanel } from '../../components/org-units/unit-kpi-panel';
 import {
   Badge,
   Button,
@@ -395,7 +396,7 @@ function OrgUnitsPageInner() {
                               />
                             }
                           >
-                            {isExpanded ? 'Hide members' : 'Members'}
+                            {isExpanded ? 'Hide details' : 'Members & KPIs'}
                           </Button>
                           <PermissionGuard permission="GROUPS_MANAGE">
                             <Button
@@ -560,6 +561,10 @@ function OrgUnitsPageInner() {
                               }}
                             />
                           )}
+
+                          <PermissionGuard permission="KPI_VIEW">
+                            <UnitKpiPanel unit={unit} allUnits={units ?? []} />
+                          </PermissionGuard>
                         </div>
                       )}
                     </Card>

@@ -2475,6 +2475,23 @@ export async function listKpiAssignments(kpiId: string): Promise<KpiAssignments>
   return api(`/kpis/${kpiId}/assignments`);
 }
 
+export interface UnitKpiRow {
+  assignmentId: string;
+  kpiId: string;
+  name: string;
+  unit: string | null;
+  inherited: boolean;
+  inheritedFromUnitId: string | null;
+  targetValue: number | null;
+  currentValue: number | null;
+  status: string | null;
+}
+
+/** The KPIs a unit holds: its own and the ones it inherits from a parent. */
+export async function listUnitKpis(orgUnitId: string): Promise<UnitKpiRow[]> {
+  return api(`/org-units/${orgUnitId}/kpis`);
+}
+
 /** Give a unit this PER_UNIT KPI (its descendants inherit it). */
 export async function assignKpiToUnit(orgUnitId: string, kpiId: string, targetValue?: number): Promise<{ id: string }> {
   return api(`/org-units/${orgUnitId}/kpis`, {

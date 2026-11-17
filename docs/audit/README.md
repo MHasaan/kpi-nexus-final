@@ -319,6 +319,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-005 exit check — sign-up to a working organisation with no template and no AI | ✅ Passing | `d4d1026` | `e2e/wizard-manual-path.spec.ts` (2: the manual path, checked on `/roles`, `/org-units`, `/kpis`, `/users`, `/team` and the dashboard checklist; the rich template plus an edit finishes at 10 / 14 / 12 / 20 / 5) |
 | Crawl regression (Batch 2) `/team` and `/users/[id]` called the api before redirecting a signed-out visitor to sign-in | ✅ Fixed | `22ec3fb` | `e2e/signed-out-no-calls.spec.ts` (2); the 84-route × 4-persona crawl is otherwise identical to the baseline apart from `/register` → `/signup` |
 | UI-006 dashboard live refresh did nothing: the stream filtered on a dashboard id that data events never carry | ✅ Fixed — a dashboard subscription hears about the KPIs on it; the board updates in place | `d3845b9` | `e2e/uc05-realtime.spec.ts` (new value and a correction appear with zero navigations; a value for a KPI not on the board causes no refetch), `dashboard-kpi-scope.spec.ts` (4), `realtime.service.spec.ts` (+6), `realtime.controller.spec.ts` (+3, incl. 404 for a hidden board), `realtime-refresh.spec.ts` (3) |
+| UI-007 'Create automation' always failed (400), the API took any JSON as a rule, and 'Run now' did nothing | ✅ Fixed — typed rule and action, references checked, a real Run now; the page creates, pauses, runs, edits and deletes | `152848d` | `e2e/automations.spec.ts` (made on the page → a recorded value creates the task; paused → none; Run now; edit; confirmed delete), `workflow.dto.spec.ts` (16), `workflows.service.spec.ts` (+10), `workflow-form.spec.ts` (9) |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -326,7 +327,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-007 "Create automation" always fails (400); page unlinked | High | ⬜ open | 4.2 |
+| UI-007 (remainder) the Automations page has no link in the navigation | High | ⬜ open | 5.1 |
 | UI-008 approvers are bounced from `/approvals`; a new org cannot create its first workflow | High | ⬜ open | 4.3 |
 | UI-009 std-dev and rate-of-change alert rules never fire | High | ⬜ open | 4.5 |
 | UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |

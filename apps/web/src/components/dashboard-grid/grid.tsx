@@ -8,9 +8,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactGridLayout, { type Layout } from 'react-grid-layout';
 
-import { deleteWidget, updateWidgetPosition, type DashboardWidget } from '../../lib/api-client';
+import { ApiError, deleteWidget, updateWidgetPosition, type DashboardWidget } from '../../lib/api-client';
 import { WIDGET_TYPE_LABELS, labelFor } from '../../lib/labels';
 import { useConfirm } from '../../lib/use-confirm';
+import { useToast } from '../../lib/use-toast';
 import { WidgetRenderer } from '../widgets/widget-renderer';
 
 interface DashboardGridProps {
@@ -45,6 +46,7 @@ export function DashboardGrid({
   onLayoutSaved,
 }: DashboardGridProps) {
   const confirm = useConfirm();
+  const toast = useToast();
   const [layout, setLayout] = useState<Layout>(() => widgetsToLayout(widgets));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(1200);
@@ -94,13 +96,16 @@ export function DashboardGrid({
               y: item.y,
               w: item.w,
               h: item.h,
-            }).catch(() => {
-              // Best-effort — position saves are not critical
-            }),
+            }).then(
+              () => true,
+              () => false,
+            ),
           );
 
         if (saves.length > 0) {
-          await Promise.all(saves);
+          const saved = await Promise.all(saves);
+          // A move that was not saved looks saved until the page is reloaded: say so (X-02).
+          if (saved.includes(false)) toast.error('The new layout was not saved', 'Move the widget again, or reload to see the saved layout.');
           onLayoutSaved?.();
         }
       }, 350);
@@ -122,8 +127,8 @@ export function DashboardGrid({
     try {
       await deleteWidget(dashboardId, widgetId);
       onWidgetDeleted(widgetId);
-    } catch {
-      // Best-effort; parent will re-fetch on next refresh
+    } catch (err) {
+      toast.error('The widget was not removed', err instanceof ApiError ? err.message : undefined);
     } finally {
       setDeletingId(null);
     }

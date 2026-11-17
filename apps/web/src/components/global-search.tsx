@@ -27,6 +27,7 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [failed, setFailed] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -47,10 +48,21 @@ export function GlobalSearch() {
     if (debounce.current) clearTimeout(debounce.current);
     if (!q.trim()) {
       setResults([]);
+      setFailed(false);
       return;
     }
     debounce.current = setTimeout(() => {
-      globalSearch(q.trim()).then(setResults).catch(() => setResults([]));
+      globalSearch(q.trim()).then(
+        (found) => {
+          setResults(found);
+          setFailed(false);
+        },
+        () => {
+          // A failed search is not "no results" (X-02).
+          setResults([]);
+          setFailed(true);
+        },
+      );
     }, 300);
   }, [q, open]);
 
@@ -101,7 +113,12 @@ export function GlobalSearch() {
                   ))}
                 </div>
               ))}
-              {q.trim() && groups.length === 0 && <p className="px-2 py-3 text-sm text-content-muted" data-testid="global-search-empty">No results.</p>}
+              {q.trim() && failed && (
+                <p className="px-2 py-3 text-sm text-status-critical" role="alert" data-testid="global-search-error">
+                  Search is not answering. Try again in a moment.
+                </p>
+              )}
+              {q.trim() && !failed && groups.length === 0 && <p className="px-2 py-3 text-sm text-content-muted" data-testid="global-search-empty">No results.</p>}
             </div>
           </div>
         </div>

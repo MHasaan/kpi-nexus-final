@@ -283,8 +283,13 @@ export default function AiSettingsPage() {
         setDailyCap(String(b.dailyCapUsd));
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load budget'));
-    listAiConfigs().then(setConfigs).catch(() => undefined);
-    api<ByoProvider[]>('/ai/providers/byok').then(setByo).catch(() => undefined);
+    // A section that failed to load says so; it used to look like "nothing configured" (X-02).
+    listAiConfigs()
+      .then(setConfigs)
+      .catch((e) => setError(e instanceof ApiError ? `The feature models could not be loaded: ${e.message}` : 'The feature models could not be loaded.'));
+    api<ByoProvider[]>('/ai/providers/byok')
+      .then(setByo)
+      .catch((e) => setError(e instanceof ApiError ? `Your provider keys could not be loaded: ${e.message}` : 'Your provider keys could not be loaded.'));
   }, []);
 
   useEffect(() => {

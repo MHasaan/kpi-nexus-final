@@ -1153,9 +1153,15 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
   const clear = async () => {
     setErr(null);
     setMsg(null);
-    await deleteFormula(kpiId).catch(() => undefined);
-    setRaw('');
-    reload();
+    try {
+      await deleteFormula(kpiId);
+      setRaw('');
+      setMsg('Formula cleared.');
+      reload();
+    } catch (e2) {
+      // The box used to empty as if it had worked (X-02).
+      setErr(e2 instanceof ApiError ? e2.message : 'The formula was not cleared.');
+    }
   };
   return (
     <UICard>

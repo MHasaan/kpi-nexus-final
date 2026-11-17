@@ -9,6 +9,7 @@ import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
 import { DraftStatusBadge, OfflineBanner, useDraftSync } from '../../../components/onboarding/draft-sync-ui';
 import { OrganizationStep } from '../../../components/onboarding/wizard/organization-step';
 import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
+import { RolesStep } from '../../../components/onboarding/wizard/roles-step';
 import { SectionList } from '../../../components/onboarding/wizard/section-list';
 import { StepRail } from '../../../components/onboarding/wizard/step-rail';
 import { StructureStep } from '../../../components/onboarding/wizard/structure-step';
@@ -207,18 +208,7 @@ function Wizard() {
 
             {step === 'structure' && <StructureStep draft={draft} problems={grouped.structure} onChange={update} />}
 
-            {step === 'roles' && (
-              <>
-                <SectionList title="Roles" items={draft.roles ?? []} empty="No roles yet. A role decides what someone can see and do.">
-                  {(draft.roles ?? []).some((r) => r.isAdmin) && (
-                    <p className="mt-2 text-xs text-content-muted">
-                      Administrator: {(draft.roles ?? []).filter((r) => r.isAdmin).map((r) => r.name).join(', ')}
-                    </p>
-                  )}
-                </SectionList>
-                <SectionList title="Positions" items={draft.positions ?? []} empty="No positions yet — job titles such as Engineer or Account Manager." />
-              </>
-            )}
+            {step === 'roles' && <RolesStep draft={draft} problems={grouped.roles} onChange={update} />}
 
             {step === 'kpis' && (
               <>

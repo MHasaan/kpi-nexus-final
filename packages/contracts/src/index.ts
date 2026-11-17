@@ -4,3 +4,4 @@ export * from './error.js';
 export * from './permissions.js';
 export * from './realtime.js';
 export * from './onboarding.js';
+export * from './default-roles.js';

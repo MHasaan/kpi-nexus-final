@@ -203,7 +203,7 @@ export default function AskPage() {
   const lastIsAnswer = messages.length > 0 && messages[messages.length - 1]!.role === 'assistant';
 
   return (
-    <RequirePermission permission="ANALYTICS_VIEW">
+    <RequirePermission permission="INSIGHTS_VIEW">
       <AppShell>
         <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-5">
           <PageHeader

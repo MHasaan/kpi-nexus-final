@@ -17,6 +17,7 @@ import {
   type WebhookSubscription,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
+import { CopyButton } from '../../../components/copy-button';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
@@ -130,7 +131,7 @@ export default function WebhooksPage() {
             <p className="text-sm font-medium text-content-strong">Signing secret — copy it now, it won&apos;t be shown again.</p>
             <div className="mt-2 flex items-center gap-2">
               <code className="flex-1 break-all rounded-md border border-border bg-surface-bg px-3 py-2 text-xs text-content-strong">{secret}</code>
-              <button type="button" onClick={() => void navigator.clipboard?.writeText(secret)} className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs hover:bg-surface-2">Copy</button>
+              <CopyButton value={secret} />
               <button type="button" onClick={() => setSecret(null)} data-testid="webhook-secret-dismiss" className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs hover:bg-surface-2">Dismiss</button>
             </div>
           </div>
@@ -190,7 +191,7 @@ export default function WebhooksPage() {
                     <td className="px-4 py-3 text-content-muted">{h.lastStatus ?? '—'}</td>
                     <td className="px-4 py-3 text-right">
                       <button type="button" onClick={() => void withBusy(h.id, async () => { await testWebhook(h.id); setStatusMsg('Test delivery queued.'); })} disabled={busyId === h.id} data-testid={`webhook-test-${h.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Test</button>
-                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { const r = await rotateWebhookSecret(h.id); setSecret(r.secret); })} disabled={busyId === h.id} data-testid={`webhook-rotate-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Rotate</button></PermissionGuard>
+                      <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void confirm({ title: `Rotate the signing secret of “${h.name}”?`, description: 'The current secret stops working at once. Whatever receives this webhook must be given the new one, or it will reject every event.', confirmLabel: 'Rotate secret', tone: 'danger', testId: 'webhook-rotate-confirm', action: async () => { const r = await rotateWebhookSecret(h.id); setSecret(r.secret); } })} disabled={busyId === h.id} data-testid={`webhook-rotate-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">Rotate</button></PermissionGuard>
                       <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void withBusy(h.id, async () => { await setWebhookActive(h.id, !h.isActive); await refresh(); })} disabled={busyId === h.id} data-testid={`webhook-toggle-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs hover:bg-surface-2 disabled:opacity-50">{h.isActive ? 'Disable' : 'Enable'}</button></PermissionGuard>
                       <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void confirm({ title: `Delete the webhook “${h.name}”?`, description: 'Events stop being sent to it. This cannot be undone.', confirmLabel: 'Delete webhook', tone: 'danger', testId: 'webhook-delete-confirm', action: async () => { await deleteWebhook(h.id); await refresh(); } })} disabled={busyId === h.id} data-testid={`webhook-delete-${h.id}`} className="ml-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Delete</button></PermissionGuard>
                     </td>

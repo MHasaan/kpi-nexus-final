@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { ApiError, getAccessToken } from '../../../lib/api-client';
+import { ApiError, apiBaseUrl, getAccessToken } from '../../../lib/api-client';
+import { CopyButton } from '../../../components/copy-button';
 import { type ScimTokenRow, listScimTokens, mintScimToken, revokeScimToken } from '../../../lib/polish-client';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
@@ -77,12 +78,21 @@ export default function ScimSettingsPage() {
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold text-content-strong">SCIM tokens</h1>
         <p className="mt-1 text-sm text-content-muted">Bearer tokens your IdP (Okta/Azure AD) uses to provision users at <code>/scim/v2</code>.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-1 px-4 py-3 text-sm" data-testid="scim-base-url">
+          <span className="text-content-muted">Address to give your identity provider:</span>
+          <code className="break-all text-xs text-content-strong">{`${apiBaseUrl}/scim/v2`}</code>
+          <CopyButton value={`${apiBaseUrl}/scim/v2`} className="rounded-md border border-border bg-surface-bg px-2 py-1 text-xs hover:bg-surface-2" />
+        </div>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="scim-error">{error}</p>}
 
         {minted && (
           <div data-testid="scim-minted" className="mt-4 rounded-lg border border-status-positive/40 bg-status-positive/10 p-4">
             <p className="text-sm font-medium text-content-strong">Copy this token now — it won&apos;t be shown again:</p>
-            <code className="mt-1 block break-all rounded bg-surface-bg px-2 py-1 text-xs text-content-strong" data-testid="scim-token-value">{minted}</code>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="block flex-1 break-all rounded bg-surface-bg px-2 py-1 text-xs text-content-strong" data-testid="scim-token-value">{minted}</code>
+              <CopyButton value={minted} />
+              <button type="button" onClick={() => setMinted(null)} data-testid="scim-minted-dismiss" className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs hover:bg-surface-2">Dismiss</button>
+            </div>
           </div>
         )}
 

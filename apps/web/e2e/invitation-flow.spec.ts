@@ -138,12 +138,61 @@ test.describe('Full happy-path: invite user → accept → role gating visible',
 
   test('password mismatch → inline error, no api call', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
+    const { inviteToken } = await freshInvitation();
 
-    await page.goto('/accept-invitation?token=any-token');
+    await page.goto(`/accept-invitation?token=${inviteToken}`);
     await page.getByTestId('invite-password').fill('aaaaaaaa');
     await page.getByTestId('invite-confirm-password').fill('bbbbbbbb');
     await page.getByTestId('invite-submit').click();
 
     await expect(page.getByTestId('invite-error')).toHaveText(/do not match/i);
   });
+
+  test('a link that is unknown, used or withdrawn says so at once — no password form to fill in vain', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    // Never existed.
+    await page.goto('/accept-invitation?token=not-a-real-token');
+    const dead = page.getByTestId('invite-invalid');
+    await expect(dead).toBeVisible();
+    await expect(page.getByTestId('invite-password')).toHaveCount(0);
+    await expect(dead.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+
+    // Withdrawn by the administrator after it was sent.
+    const { inviteToken, userId, adminToken } = await freshInvitation();
+    const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${adminToken}` } });
+    expect((await api.post(`/users/${userId}/cancel-invite`)).status()).toBe(204);
+    await page.goto(`/accept-invitation?token=${inviteToken}`);
+    await expect(page.getByTestId('invite-invalid')).toBeVisible();
+    await expect(page.getByTestId('invite-password')).toHaveCount(0);
+  });
+
+  test('a live invitation offers a way to sign in instead, for someone who already has an account', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+    const { inviteToken } = await freshInvitation();
+    await page.goto(`/accept-invitation?token=${inviteToken}`);
+    await expect(page.getByTestId('invite-password')).toBeVisible();
+    await expect(page.getByTestId('invite-signin-link')).toHaveAttribute('href', '/login');
+  });
 });
+
+/** A brand-new organisation with one pending invitation. */
+async function freshInvitation(): Promise<{ inviteToken: string; userId: string; adminToken: string }> {
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const anon = await request.newContext({ baseURL: API_URL });
+  const reg = (await (await anon.post('/auth/register', {
+    data: {
+      orgName: `Invite Link ${stamp}`,
+      slug: `invite-link-${stamp}`,
+      adminEmail: `admin-${stamp}@invite-link.test.local`,
+      adminPassword: 'correct-horse-battery-staple',
+      adminFullName: 'Invite Link Admin',
+    },
+  })).json()) as { accessToken: string };
+  const invite = (await (await anon.post('/users', {
+    headers: { authorization: `Bearer ${reg.accessToken}` },
+    data: { email: `invitee-${stamp}@invite-link.test.local`, fullName: 'Pending Invitee' },
+  })).json()) as { inviteToken: string; user: { id: string } };
+  await anon.dispose();
+  return { inviteToken: invite.inviteToken, userId: invite.user.id, adminToken: reg.accessToken };
+}

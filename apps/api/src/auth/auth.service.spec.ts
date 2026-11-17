@@ -81,6 +81,35 @@ describe('AuthService.previewInvitation()', () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
+  test.each(['SUSPENDED', 'ARCHIVED', 'DELETED', 'PURGED'])(
+    'invitee who is %s (invitation withdrawn) → NotFoundException, same as a bad token',
+    async (status) => {
+      const prisma = {
+        emailVerificationToken: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'evt_1',
+            userId: 'user_1',
+            hashedToken: HASHED,
+            expiresAt: new Date(Date.now() + 60_000),
+            consumedAt: null,
+          }),
+        },
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            email: 'invitee@example.com',
+            passwordHash: null,
+            status,
+            organization: { name: 'Acme Corp' },
+          }),
+        },
+      };
+
+      await expect(
+        makeService(prisma).previewInvitation({ token: RAW_TOKEN }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
+
   test('already-consumed token → NotFoundException', async () => {
     const prisma = {
       emailVerificationToken: {

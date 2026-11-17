@@ -296,6 +296,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-046 `POST /auth/accept-invitation` checked only the token — an invitee archived or suspended before accepting could still set a password and become ACTIVE | ✅ Fixed — 401, same as a bad token | `f3cb900` | BE-046 case in `test/integration/invitation.spec.ts` (was 200, now 401 after offboard and after suspend; status stays put), `withdrawn-invitee.spec.ts` (3) |
 | UI-010 (part 4) `/team` was empty in every real organisation, and its empty state carried the list's own test id | ✅ Fixed — works now that a manager can be set; the empty state says how | `ac64e97` | `e2e/team-page.spec.ts` (empty state with a way forward; reports listed with KPIs; a report with none still appears; non-reports are absent) |
 | UI-005 (part 1) two sign-up paths: `/login` sent new people to `/register`, an older form that skipped the setup wizard | ✅ Fixed — `/register` redirects to `/signup`; the `/login` link goes there | `0e75fe1` | `e2e/auth-flow.spec.ts` (redirect + link, then sign out / sign in as before) |
+| UI-005 (part 2) `/accept-invitation` showed a password form for an expired, used or withdrawn link, had no way to sign in instead, and quoted the wrong path | ✅ Fixed — dead links are reported at once; sign-in link; correct path | `64b4541` | `e2e/invitation-flow.spec.ts` (unknown and cancelled links show no form; live link offers sign-in), `auth.service.spec.ts` (preview 404 for a withdrawn invitee ×4) |
 
 ### UI completion round — open findings (2026-11-16)
 

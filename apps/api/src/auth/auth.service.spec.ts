@@ -52,7 +52,7 @@ describe('AuthService.previewInvitation()', () => {
       email: 'invitee@example.com',
       passwordHash: null,
       status: 'INVITED',
-      organization: { name: 'Acme Corp' },
+      organization: { name: 'Acme Corp', passwordPolicy: { minLength: 12, requireDigit: true } },
     });
     const prisma = {
       emailVerificationToken: { findUnique: findToken },
@@ -65,6 +65,8 @@ describe('AuthService.previewInvitation()', () => {
       email: 'invitee@example.com',
       organizationName: 'Acme Corp',
       expiresAt: expiresAt.toISOString(),
+      // The organisation's own rules, so the page can say them before a password is typed (plan 6.5).
+      passwordRules: ['at least 12 characters', 'a digit'],
     });
     // Token must be looked up by its sha256 hash, never the raw value.
     expect(findToken).toHaveBeenCalledWith({ where: { hashedToken: HASHED } });

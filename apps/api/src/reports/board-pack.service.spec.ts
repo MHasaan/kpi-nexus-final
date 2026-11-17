@@ -86,7 +86,8 @@ describe('BoardPackService', () => {
       },
     ]);
     expect(r.topMovers).toEqual([
-      { kpiId: 'k1', name: 'Revenue', unit: 'USD', previousValue: 100, currentValue: 120, change: 20, changePct: 20 },
+      // `direction` travels with the mover so the reader knows whether the move is good news (X-08).
+      { kpiId: 'k1', name: 'Revenue', unit: 'USD', previousValue: 100, currentValue: 120, change: 20, changePct: 20, direction: 'HIGHER_IS_BETTER' },
     ]);
   });
 

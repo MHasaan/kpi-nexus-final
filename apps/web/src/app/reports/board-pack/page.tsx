@@ -15,6 +15,7 @@ import { AppShell } from '../../../components/app-shell';
 import { PrintButton } from '../../../components/print-button';
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { changeTone } from '../../../lib/kpi-health';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'Board pack' }];
 
@@ -171,12 +172,17 @@ export default function BoardPackPage() {
                   const sign = positive ? '+' : '';
                   const pct =
                     mover.changePct !== null ? ` (${sign}${mover.changePct.toFixed(1)}%)` : '';
+                  // The arrow shows which way the value moved; the colour shows
+                  // whether that is good news for THIS KPI (X-08): a fall in
+                  // churn is green, a rise in churn is red.
                   const ChangeIcon = flat ? Minus : positive ? ArrowUpRight : ArrowDownRight;
-                  const changeCls = flat
-                    ? 'text-content-muted'
-                    : positive
+                  const tone = changeTone(mover);
+                  const changeCls =
+                    tone === 'good'
                       ? 'text-status-success'
-                      : 'text-status-critical';
+                      : tone === 'bad'
+                        ? 'text-status-critical'
+                        : 'text-content-muted';
                   return (
                     <Card key={mover.kpiId} data-testid={`mover-card-${mover.kpiId}`} className="p-4">
                       <p className="truncate text-sm font-medium text-content-strong">

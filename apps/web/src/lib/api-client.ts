@@ -1482,6 +1482,8 @@ export interface BoardPackMover {
   currentValue: number | null;
   change: number | null;
   changePct: number | null;
+  /** The KPI's direction, so a reader knows whether the move is good news. */
+  direction: string;
 }
 
 /** Mirrors BoardPackStatus in apps/api/src/reports/services/board-pack.service.ts. */

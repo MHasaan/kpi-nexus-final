@@ -261,3 +261,60 @@ test('onboarding: a time zone that does not exist stops the draft, on its field'
   const { problems } = (await (await anon.get(`/onboarding/${sessionId}/validate`, { headers: hdr })).json()) as { problems: Problem[] };
   expect(problems).toEqual([expect.objectContaining({ section: 'organization', field: 'timezone' })]);
 });
+
+// ---- Plan 3.2b: a per-unit KPI created by onboarding belongs to units ------
+
+test('onboarding: a per-unit KPI is given to its units (and the units below them), with its target and an owner', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  const kpi = { category: 'Delivery', scope: 'PER_UNIT', type: 'NUMBER', direction: 'LOWER_IS_BETTER', frequency: 'WEEKLY' };
+  expect((await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        roles: [{ name: 'Admin', isAdmin: true }],
+        orgUnitTypes: [{ name: 'Department' }],
+        orgUnits: [
+          { name: 'Engineering', type: 'Department' },
+          { name: 'Platform', type: 'Department', parent: 'Engineering' },
+          { name: 'Sales', type: 'Department' },
+        ],
+        kpiCategories: [{ name: 'Delivery' }],
+        kpis: [
+          { ...kpi, name: 'Cycle Time', units: ['engineering'], targetValue: 5 },
+          { ...kpi, name: 'Open Bugs' }, // no units named
+        ],
+      },
+    },
+  })).status()).toBe(200);
+
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  const { accessToken, user } = (await done.json()) as { accessToken: string; user: { id: string } };
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${accessToken}` } });
+  const kpis = (await (await api.get('/kpis')).json()) as Array<{ id: string; name: string; ownerUserId: string | null; targetValue: number | null }>;
+  type Row = { name: string; inherited: boolean; targetValue: number | null; assignmentId: string };
+  const unitsOf = async (name: string) =>
+    ((await (await api.get(`/kpis/${kpis.find((k) => k.name === name)!.id}/assignments`)).json()) as { units: Row[] }).units;
+
+  const cycle = await unitsOf('Cycle Time');
+  expect(cycle.map((u) => [u.name, u.inherited]).sort()).toEqual([['Engineering', false], ['Platform', true]]);
+  expect(cycle.find((u) => u.name === 'Engineering')!.targetValue).toBe(5);
+  expect(kpis.find((k) => k.name === 'Cycle Time')).toMatchObject({ ownerUserId: user.id, targetValue: 5 });
+
+  // No units named: every top-level unit holds it, and theirs inherit.
+  const bugs = await unitsOf('Open Bugs');
+  expect(bugs.map((u) => [u.name, u.inherited]).sort()).toEqual([['Engineering', false], ['Platform', true], ['Sales', false]]);
+
+  // Which means a value can actually be recorded for a unit.
+  const recorded = await api.post(`/org-units/kpi-assignments/${cycle.find((u) => u.name === 'Platform')!.assignmentId}/data`, {
+    data: { value: 4, periodStart: '2026-11-09T00:00:00.000Z', periodEnd: '2026-11-15T23:59:59.999Z' },
+  });
+  expect(recorded.status()).toBe(201);
+});

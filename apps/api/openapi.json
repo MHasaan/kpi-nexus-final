@@ -6774,15 +6774,32 @@
                     "maxLength": 120
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 2000
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "unit": {
-                    "type": "string",
-                    "maxLength": 40
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "categoryId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "scope": {
                     "type": "string",
@@ -6860,28 +6877,47 @@
                     ]
                   },
                   "targetValue": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "warningThreshold": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "criticalThreshold": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "allowNegative": {
                     "type": "boolean"
                   },
                   "scorecardQuadrant": {
-                    "type": "string",
-                    "enum": [
-                      "FINANCIAL",
-                      "CUSTOMER",
-                      "INTERNAL_PROCESS",
-                      "LEARNING_GROWTH"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "FINANCIAL",
+                          "CUSTOMER",
+                          "INTERNAL_PROCESS",
+                          "LEARNING_GROWTH"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "ownerUserId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "tags": {
                     "type": "array",

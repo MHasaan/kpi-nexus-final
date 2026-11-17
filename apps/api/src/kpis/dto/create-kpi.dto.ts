@@ -84,5 +84,23 @@ export const CreateKpiDtoSchema = z
 
 export type CreateKpiDto = z.infer<typeof CreateKpiDtoSchema>;
 
-export const UpdateKpiDtoSchema = partialUpdate(CreateKpiDtoSchema).strict();
+/**
+ * An update may also CLEAR an optional field by sending `null`: a KPI's
+ * target, thresholds, unit, description, category, owner and scorecard
+ * perspective. Leaving a field out still means "no change". Without this a
+ * target, once set, could never be removed — the form sent a blank as "no
+ * change" (plan 7.4).
+ */
+export const UpdateKpiDtoSchema = partialUpdate(CreateKpiDtoSchema)
+  .extend({
+    description: z.string().trim().max(2000).nullable().optional(),
+    unit: z.string().trim().max(40).nullable().optional(),
+    categoryId: z.string().nullable().optional(),
+    targetValue: z.number().finite().nullable().optional(),
+    warningThreshold: z.number().finite().nullable().optional(),
+    criticalThreshold: z.number().finite().nullable().optional(),
+    scorecardQuadrant: z.enum(['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']).nullable().optional(),
+    ownerUserId: z.string().nullable().optional(),
+  })
+  .strict();
 export type UpdateKpiDto = z.infer<typeof UpdateKpiDtoSchema>;

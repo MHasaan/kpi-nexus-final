@@ -317,6 +317,18 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
       return;
     }
 
+    // A number box that holds something other than a number is a mistake, not a blank.
+    for (const [label, raw] of [
+      ['Target', values.targetValue],
+      ['Warning threshold', values.warningThreshold],
+      ['Critical threshold', values.criticalThreshold],
+    ] as const) {
+      if (raw.trim() !== '' && parseNum(raw) === undefined) {
+        setError(`${label} must be a number, or left blank.`);
+        return;
+      }
+    }
+
     // Shared editable fields.
     const base: Partial<KpiWriteBody> = {
       name,
@@ -342,7 +354,21 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
       if (isEdit) {
         if (!kpiId) throw new Error('Missing KPI id');
         // Scope + assignments are immutable in edit mode — never sent.
-        const result: unknown = await updateKpi(kpiId, base);
+        // In an edit a blank means "remove it": send null, which clears the
+        // field. Leaving it out would mean "no change", so a target or a unit,
+        // once set, could never be taken away again (plan 7.4).
+        const result: unknown = await updateKpi(kpiId, {
+          ...base,
+          description: base.description ?? null,
+          unit: base.unit ?? null,
+          categoryId: base.categoryId ?? null,
+          ownerUserId: base.ownerUserId ?? null,
+          targetValue: base.targetValue ?? null,
+          warningThreshold: base.warningThreshold ?? null,
+          criticalThreshold: base.criticalThreshold ?? null,
+          scorecardQuadrant: base.scorecardQuadrant ?? null,
+          tags: parsedTags,
+        });
         // 202: an active KPI_DEFINITION workflow queued the change instead of saving it.
         if (isApprovalPending(result)) {
           setApprovalPending(true);

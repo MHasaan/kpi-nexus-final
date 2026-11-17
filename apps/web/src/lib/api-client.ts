@@ -880,9 +880,13 @@ export async function createKpi(body: KpiWriteBody): Promise<KpiSummary> {
   return api('/kpis', { method: 'POST', body: JSON.stringify(body) });
 }
 
+/** The optional fields an edit may clear by sending `null` (leaving one out means "no change"). */
+type KpiClearable = 'description' | 'unit' | 'categoryId' | 'targetValue' | 'warningThreshold' | 'criticalThreshold' | 'scorecardQuadrant' | 'ownerUserId';
+export type KpiUpdateBody = Partial<Omit<KpiWriteBody, KpiClearable>> & { [K in KpiClearable]?: KpiWriteBody[K] | null };
+
 export async function updateKpi(
   id: string,
-  patch: Partial<KpiWriteBody>,
+  patch: KpiUpdateBody,
 ): Promise<KpiSummary> {
   return api(`/kpis/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }

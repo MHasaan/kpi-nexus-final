@@ -421,3 +421,59 @@ test('onboarding: a team member with the administrator\'s own address, or a mana
     ['team', 1, 'manager'],
   ]);
 });
+
+// ---- Plan 3.2d: the last step of setup -------------------------------------
+
+test('onboarding: finishing leaves an activity trail and welcomes the administrator', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  await anon.post(`/onboarding/${sessionId}/apply-template`, { headers: hdr, data: { slug: 'minimal' } });
+  const adminEmail = `admin-${stamp}@onb.test.local`;
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  const body = (await done.json()) as { accessToken: string; user: { id: string }; organization: { id: string }; welcomeEmailSent: boolean };
+  expect(body.welcomeEmailSent).toBe(true);
+
+  // "Recent activity" on the new dashboard is not empty: it starts with the organisation itself.
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${body.accessToken}` } });
+  const activity = (await (await api.get('/activity?limit=5')).json()) as {
+    items: Array<{ action: string; entityType: string | null; entityId: string | null; userId: string | null; metadata: Record<string, unknown> | null }>;
+  };
+  const created = activity.items.find((i) => i.entityType === 'Organization');
+  expect(created).toMatchObject({ action: 'CREATE', entityId: body.organization.id, userId: body.user.id });
+  expect(created!.metadata).toMatchObject({ source: 'onboarding', roles: 1, kpis: 1 });
+
+  // The welcome reached the mail server, addressed to the administrator.
+  const mailhog = process.env.MAILHOG_URL;
+  if (mailhog) {
+    const found = (await (await fetch(`${mailhog}/api/v2/search?kind=to&query=${encodeURIComponent(adminEmail)}`)).json()) as {
+      items: Array<{ Content: { Headers: { Subject: string[] } } }>;
+    };
+    expect(found.items.some((m) => /welcome/i.test(m.Content.Headers.Subject[0] ?? ''))).toBe(true);
+  }
+});
+
+test('onboarding: a password that breaks the rules is refused with the rule, and nothing is created', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  await anon.post(`/onboarding/${sessionId}/apply-template`, { headers: hdr, data: { slug: 'minimal' } });
+  const res = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'short', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(res.status()).toBe(400);
+  const body = (await res.json()) as { code: string; details: { violations: Array<{ field: string; message: string }> } };
+  expect(body.code).toBe('VALIDATION_ERROR');
+  expect(body.details.violations).toEqual([{ field: 'password', message: 'must be at least 8 characters' }]);
+  const draft = (await (await anon.get(`/onboarding/${sessionId}`, { headers: hdr })).json()) as { status: string };
+  expect(draft.status).toBe('in_progress');
+});

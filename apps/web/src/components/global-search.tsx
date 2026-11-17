@@ -2,6 +2,7 @@
 
 import { Search } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { useTranslations } from '../i18n/locale-provider';
@@ -29,14 +30,30 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [failed, setFailed] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
+  // The result the arrow keys are on; Enter opens it.
+  const [active, setActive] = useState(0);
+
+  /** Close and forget the search: reopening used to show the last query, so typing appended to it (QA-L15). */
+  const close = () => {
+    setOpen(false);
+    setQ('');
+    setResults([]);
+    setFailed(false);
+    setActive(0);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setOpen((o) => !o);
+        setQ('');
+        setResults([]);
+        setFailed(false);
+        setActive(0);
       } else if (e.key === 'Escape') {
-        setOpen(false);
+        close();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -56,6 +73,7 @@ export function GlobalSearch() {
         (found) => {
           setResults(found);
           setFailed(false);
+          setActive(0);
         },
         () => {
           // A failed search is not "no results" (X-02).
@@ -69,6 +87,25 @@ export function GlobalSearch() {
   const groups = (['kpi', 'dashboard', 'user', 'orgUnit'] as const)
     .map((type) => ({ type, items: results.filter((r) => r.type === type) }))
     .filter((g) => g.items.length > 0);
+  // The results in the order they are shown, for the arrow keys.
+  const ordered = groups.flatMap((g) => g.items);
+
+  const onInputKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (ordered.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActive((i) => (i + 1) % ordered.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive((i) => (i - 1 + ordered.length) % ordered.length);
+    } else if (e.key === 'Enter') {
+      const chosen = ordered[Math.min(active, ordered.length - 1)];
+      if (!chosen) return;
+      e.preventDefault();
+      close();
+      router.push(HREF[chosen.type](chosen.id));
+    }
+  };
 
   return (
     <>
@@ -86,13 +123,14 @@ export function GlobalSearch() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={close}>
           <div data-testid="global-search-modal" className="w-full max-w-lg rounded-lg border border-border bg-surface-bg shadow-xl" onClick={(e) => e.stopPropagation()}>
             <input
               autoFocus
               data-testid="global-search-input"
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onInputKey}
               placeholder={t('search.placeholder')}
               className="w-full rounded-t-lg border-b border-border bg-surface-1 px-4 py-3 text-sm text-content-strong outline-none"
             />
@@ -105,8 +143,9 @@ export function GlobalSearch() {
                       key={`${r.type}-${r.id}`}
                       href={HREF[r.type](r.id)}
                       data-testid={`search-result-${r.id}`}
-                      onClick={() => setOpen(false)}
-                      className="block rounded px-2 py-1.5 text-sm text-content-strong hover:bg-surface-1"
+                      data-active={ordered[active]?.id === r.id && ordered[active]?.type === r.type ? 'true' : undefined}
+                      onClick={close}
+                      className={`block rounded px-2 py-1.5 text-sm text-content-strong hover:bg-surface-1 ${ordered[active]?.id === r.id && ordered[active]?.type === r.type ? 'bg-surface-1 ring-1 ring-accent-primary/40' : ''}`}
                     >
                       {r.label}{r.sublabel ? <span className="ml-2 text-xs text-content-muted">{r.sublabel}</span> : null}
                     </Link>

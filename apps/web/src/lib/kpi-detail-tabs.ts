@@ -25,8 +25,13 @@ export function kpiTabHref(kpiId: string, tab: KpiTab): string {
 
 /** The analysis pages of one KPI, in the order they are offered. */
 export const KPI_ANALYTICS_LINKS = [
-  { key: 'forecast', label: 'Forecast' },
-  { key: 'anomalies', label: 'Anomalies' },
-  { key: 'whatif', label: 'What-if' },
-  { key: 'embed', label: 'Embed' },
+  { key: 'forecast', label: 'Forecast', permission: 'ANALYTICS_FORECAST' },
+  { key: 'anomalies', label: 'Anomalies', permission: 'ANALYTICS_VIEW' },
+  { key: 'whatif', label: 'What-if', permission: 'ANALYTICS_FORECAST' },
+  { key: 'embed', label: 'Embed', permission: 'ANALYTICS_VIEW' },
 ] as const;
+
+/** The analysis links this person may follow — each page has its own key. */
+export function kpiAnalyticsLinksFor(has: (permission: string) => boolean) {
+  return KPI_ANALYTICS_LINKS.filter((link) => has(link.permission));
+}

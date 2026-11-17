@@ -122,7 +122,7 @@ export default function WhatIfPage() {
 
   return (
     <AppShell title="What-if" crumbs={crumbs}>
-     <RequirePermission permission="ANALYTICS_VIEW">
+     <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
         title="What-if simulator"
         subtitle="Explore how changing a driver moves this KPI. Assumes a linear relationship between driver and outcome."

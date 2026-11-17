@@ -95,7 +95,8 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, labelFor } from '../../../lib/labels';
 import { useConfirm } from '../../../lib/use-confirm';
-import { KPI_ANALYTICS_LINKS, type KpiTab, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
+import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
+import { usePermissions } from '../../../lib/use-permissions';
 import { useToast } from '../../../lib/use-toast';
 
 export default function KpiDetailPage() {
@@ -106,6 +107,8 @@ export default function KpiDetailPage() {
   // The open tab lives in the address (`?tab=cascade`), so a link can land on
   // it and Back returns to it.
   const search = useSearchParams();
+  // Each analysis page has its own key; a link is shown only when its page will open.
+  const analyticsLinks = kpiAnalyticsLinksFor(usePermissions().has);
   const confirm = useConfirm();
   const toast = useToast();
   const [kpi, setKpi] = useState<KpiSummary | null>(null);
@@ -204,16 +207,16 @@ export default function KpiDetailPage() {
           </span>
         </div>
         {kpi.description && <p className="mt-1 text-sm text-content-muted">{kpi.description}</p>}
-        <PermissionGuard permission="ANALYTICS_VIEW">
+        {analyticsLinks.length > 0 && (
           <nav aria-label="Analysis of this KPI" className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="kpi-analytics-links">
             <span className="text-content-muted">Analyse:</span>
-            {KPI_ANALYTICS_LINKS.map((link) => (
+            {analyticsLinks.map((link) => (
               <Link key={link.key} href={`/kpis/${kpiId}/${link.key}`} data-testid={`kpi-analytics-${link.key}`} className="font-medium text-accent-primary hover:underline">
                 {link.label}
               </Link>
             ))}
           </nav>
-        </PermissionGuard>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as KpiTab)} className="mb-6">

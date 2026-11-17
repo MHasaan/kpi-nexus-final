@@ -77,3 +77,35 @@ test('co-pilot requires a valid draft token', async () => {
   });
   expect(res.status()).toBe(403);
 });
+
+test('co-pilot apply: the generated organisation fills in details but never renames the organisation', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  test.setTimeout(60_000);
+  const anon = await request.newContext({ baseURL: API_URL });
+  const stamp = suffix();
+  const started = (await (await anon.post('/onboarding/start', {
+    data: { email: `a-${stamp}@oai.test.local`, organizationName: `Mine ${stamp}` },
+  })).json()) as { sessionId: string; draftToken: string };
+  const hdr = { 'x-draft-token': started.draftToken };
+
+  const generated = await anon.post('/onboarding/ai/generate', {
+    headers: hdr,
+    data: { sessionId: started.sessionId, prompt: 'B2B SaaS startup, 50 employees' },
+    timeout: 35_000,
+  });
+  expect(generated.status()).toBe(201);
+  const { interactionId, preview } = (await generated.json()) as { interactionId: string; preview: { organization?: { name?: string }; roles: unknown[] } };
+  // The proposal comes with its contents, so they can be shown before applying.
+  expect(preview.roles.length).toBeGreaterThan(0);
+
+  const applied = await anon.post('/onboarding/ai/apply', {
+    headers: hdr,
+    data: { sessionId: started.sessionId, interactionId, appliedSections: ['organization', 'roles'], rejectedSections: [] },
+  });
+  expect(applied.status()).toBe(201);
+  const draft = (await (await anon.get(`/onboarding/${started.sessionId}`, { headers: hdr })).json()) as {
+    payload: { organization: { name: string }; roles: unknown[] };
+  };
+  expect(draft.payload.organization.name).toBe(`Mine ${stamp}`);
+  expect(draft.payload.roles.length).toBe(preview.roles.length);
+});

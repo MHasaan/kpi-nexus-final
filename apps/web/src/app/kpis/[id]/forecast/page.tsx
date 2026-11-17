@@ -149,7 +149,7 @@ export default function ForecastPage() {
 
   return (
     <AppShell title="Forecast" crumbs={crumbs}>
-     <RequirePermission permission="ANALYTICS_VIEW">
+     <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
         title="Forecast"
         subtitle="Project this KPI forward with 80/95% confidence bands. The forecast segment is dashed; bands render as translucent fills."

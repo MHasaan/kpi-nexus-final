@@ -8138,7 +8138,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "INSIGHTS_VIEW"
+            "ANALYTICS_FORECAST"
           ]
         }
       },
@@ -8201,7 +8201,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "INSIGHTS_VIEW"
+            "ANALYTICS_FORECAST"
           ]
         }
       }
@@ -9224,7 +9224,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "INSIGHTS_VIEW"
+            "ANALYTICS_FORECAST"
           ]
         }
       }

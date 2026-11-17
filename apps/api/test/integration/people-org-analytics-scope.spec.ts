@@ -59,7 +59,7 @@ beforeAll(async () => {
 
   const role = await post<{ id: string }>('/roles', admin, {
     name: 'Scoped Manager',
-    permissions: ['USERS_VIEW', 'USERS_MANAGE', 'GROUPS_VIEW', 'GROUPS_MANAGE', 'KPI_VIEW', 'INSIGHTS_VIEW'],
+    permissions: ['USERS_VIEW', 'USERS_MANAGE', 'GROUPS_VIEW', 'GROUPS_MANAGE', 'KPI_VIEW', 'INSIGHTS_VIEW', 'ANALYTICS_FORECAST'],
   });
   expect(role.status).toBe(201);
 

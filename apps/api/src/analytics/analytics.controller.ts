@@ -84,13 +84,13 @@ export class AnalyticsController {
   }
 
   @Get('forecasts')
-  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @RequirePermissions(PermissionKey.ANALYTICS_FORECAST)
   listForecasts(@Param('kpiId') kpiId: string, @Query('model') model?: string): Promise<Forecast[]> {
     return this.forecasts.list(kpiId, model || undefined);
   }
 
   @Post('forecasts')
-  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @RequirePermissions(PermissionKey.ANALYTICS_FORECAST)
   @ApiBody(ForecastSchema)
   forecast(@Param('kpiId') kpiId: string, @Body() body: unknown): Promise<Forecast> {
     const parsed = ForecastSchema.safeParse(body);
@@ -99,7 +99,7 @@ export class AnalyticsController {
   }
 
   @Post('whatif')
-  @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
+  @RequirePermissions(PermissionKey.ANALYTICS_FORECAST)
   @ApiBody(WhatIfSchema)
   simulate(@Param('kpiId') kpiId: string, @Body() body: unknown) {
     const parsed = WhatIfSchema.safeParse(body);

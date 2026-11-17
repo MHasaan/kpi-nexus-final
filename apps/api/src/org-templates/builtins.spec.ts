@@ -1,4 +1,4 @@
-import { OnboardingDraftPatchSchema, validateOnboardingDraft } from '@kpi-nexus/contracts';
+import { ORG_SIZE_TIERS, OnboardingDraftPatchSchema, validateOnboardingDraft } from '@kpi-nexus/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { BUILTIN_TEMPLATES } from './builtins.js';
@@ -20,6 +20,13 @@ describe('builtin templates', () => {
     for (const t of BUILTIN_TEMPLATES) {
       expect(OnboardingDraftPatchSchema.safeParse(t.payload).success, `${t.slug} has the draft shape`).toBe(true);
       expect(validateOnboardingDraft(t.payload), `${t.slug} is ready to complete`).toEqual([]);
+    }
+  });
+
+  it('a template that states a size states one the organisation can store (plan 3.2a)', () => {
+    for (const t of BUILTIN_TEMPLATES) {
+      const tier = t.payload.organization.sizeTier;
+      if (tier !== undefined) expect(ORG_SIZE_TIERS as readonly string[], `${t.slug}: ${tier}`).toContain(tier);
     }
   });
 

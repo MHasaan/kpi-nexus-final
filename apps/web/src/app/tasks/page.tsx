@@ -103,28 +103,38 @@ function dueTone(iso: string, status: TaskStatus): 'overdue' | 'soon' | 'normal'
   return 'normal';
 }
 
-/** Per-column quick-add: type a title + Enter to create a task directly in that column. */
+/**
+ * Per-column quick-add: type a title + Enter to create a task directly in that
+ * column. The box is emptied only once the task exists: it used to empty at
+ * once, so a failed create threw the typed title away (plan 7.7).
+ */
 function QuickAdd({
   status,
   onAdd,
 }: {
   status: TaskStatus;
-  onAdd: (status: TaskStatus, title: string) => void | Promise<void>;
+  /** Resolves true when the task was created. */
+  onAdd: (status: TaskStatus, title: string) => Promise<boolean>;
 }) {
   const [value, setValue] = useState('');
+  const [adding, setAdding] = useState(false);
   return (
     <Input
       data-testid={`quick-add-${status}`}
       value={value}
       onChange={(e) => setValue(e.target.value)}
-      placeholder="Add task…"
-      aria-label={`Add task to ${status}`}
+      placeholder={adding ? 'Adding…' : 'Add task…'}
+      aria-label={`Add a task to ${status.replace(/_/g, ' ').toLowerCase()}`}
+      aria-busy={adding}
       className="h-8 text-[13px]"
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && value.trim()) {
-          void onAdd(status, value.trim());
-          setValue('');
-        }
+        if (e.key !== 'Enter' || !value.trim() || adding) return;
+        setAdding(true);
+        void onAdd(status, value.trim())
+          .then((created) => {
+            if (created) setValue('');
+          })
+          .finally(() => setAdding(false));
       }}
     />
   );
@@ -245,13 +255,16 @@ export default function TasksPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [detailId, createOpen]);
 
-  const addTaskTo = async (status: TaskStatus, value: string) => {
-    if (!value.trim()) return;
+  const addTaskTo = async (status: TaskStatus, value: string): Promise<boolean> => {
+    if (!value.trim()) return false;
     try {
       await createTask({ title: value.trim(), status, priority: 'MEDIUM' });
+      setError(null);
       await load();
+      return true;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not create task');
+      setError(e instanceof ApiError ? `The task was not added: ${e.message}` : 'The task was not added. What you typed is still in the box.');
+      return false;
     }
   };
 

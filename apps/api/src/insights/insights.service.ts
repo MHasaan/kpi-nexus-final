@@ -141,17 +141,28 @@ export class InsightsService {
       maxTokens: 400,
     });
 
-    return this.prisma.kPIInsight.create({
-      data: {
-        organizationId: ctx.organizationId,
-        kpiId,
-        narrative: result.content,
-        model: route.model,
-        promptTokens: result.usage.inputTokens,
-        completionTokens: result.usage.outputTokens,
-        confidence: deriveConfidence(stats),
-      },
-    });
+    // One current insight per KPI: the new one retires the one before it, in
+    // the same transaction, so a KPI is never left with two or with none.
+    // Retired rows are kept (status SUPERSEDED) as history; a dismissed one
+    // stays dismissed. "Generate" used to add a row every time (QA-M6).
+    const [, created] = await this.prisma.$transaction([
+      this.prisma.kPIInsight.updateMany({
+        where: { organizationId: ctx.organizationId, kpiId, status: 'ACTIVE' },
+        data: { status: 'SUPERSEDED' },
+      }),
+      this.prisma.kPIInsight.create({
+        data: {
+          organizationId: ctx.organizationId,
+          kpiId,
+          narrative: result.content,
+          model: route.model,
+          promptTokens: result.usage.inputTokens,
+          completionTokens: result.usage.outputTokens,
+          confidence: deriveConfidence(stats),
+        },
+      }),
+    ]);
+    return created;
   }
 
   /** Generate insights for the org's most-changed KPIs (|changePct| ≥ threshold). */
@@ -187,19 +198,25 @@ export class InsightsService {
     // Only insights about KPIs the caller can see (BE-004) — null = admin, no filter.
     const visible = await this.accessContext.visibleKpiIds();
     if (filter.kpiId && visible && !visible.includes(filter.kpiId)) return [];
-    return this.prisma.kPIInsight.findMany({
+    const rows = await this.prisma.kPIInsight.findMany({
       where: {
         organizationId: ctx.organizationId,
-        // Hide dismissed insights unless the caller explicitly opts in.
-        ...(filter.includeDismissed ? {} : { status: { not: 'DISMISSED' } }),
+        // The current insights only, unless the caller asks for the history
+        // (dismissed and superseded ones too).
+        ...(filter.includeDismissed ? {} : { status: 'ACTIVE' }),
         ...(filter.kpiId ? { kpiId: filter.kpiId } : visible ? { kpiId: { in: visible } } : {}),
         ...(filter.from || filter.to
           ? { generatedAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } }
           : {}),
       },
       orderBy: { generatedAt: 'desc' },
-      take: 100,
+      take: filter.includeDismissed ? 100 : 500,
     });
+    if (filter.includeDismissed) return rows;
+    // Rows written before generation retired the previous one are all still
+    // ACTIVE: show the newest per KPI, so old duplicates do not need a cleanup.
+    const seen = new Set<string>();
+    return rows.filter((row) => !seen.has(row.kpiId) && seen.add(row.kpiId)).slice(0, 100);
   }
 
   /** Mark an insight DISMISSED so it drops out of the default list. Org-scoped. */

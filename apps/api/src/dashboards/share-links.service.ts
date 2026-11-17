@@ -379,9 +379,14 @@ export class ShareLinksService {
             }
           }
 
+          // Organisation-level rows only (BE-047). The reader has no account:
+          // a per-unit or per-person KPI on a shared board must not surface
+          // whichever unit's or person's value happened to be recorded last.
           const where: Prisma.KPIDataPointWhereInput = {
             organizationId: link.organizationId,
             kpiId,
+            orgUnitId: null,
+            userId: null,
           };
           // Apply the creator's history-window lower bound only when set; an older
           // point is omitted (latestValue becomes null/absent) for the public viewer.

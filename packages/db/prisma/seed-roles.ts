@@ -42,7 +42,9 @@ export const ROLE_SPECS: RoleSpec[] = [
     name: 'Department Manager', isAdmin: false, level: 3, color: '#0891b2',
     description: 'Manages KPIs, dashboards and people within their department.',
     permissions: ['KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'KPI_DATA_ENTRY', 'DASHBOARD_VIEW', 'DASHBOARD_MANAGE', 'USERS_VIEW', 'GROUPS_VIEW', 'ALERTS_VIEW', 'REPORTS_VIEW', 'ANALYTICS_VIEW', 'ANALYTICS_FORECAST', 'INSIGHTS_VIEW'],
-    scopeConfig: { KPIS: 'UNITS', DASHBOARDS: 'UNITS', TASKS: 'UNITS', OKRS: 'UNITS', ALERTS: 'UNITS' },
+    // OKRs and alerts are left at the organisation-wide default: narrowing them here made a
+    // manager see less than a Contributor, whose role leaves the default (QA-M4).
+    scopeConfig: { KPIS: 'UNITS', DASHBOARDS: 'UNITS', TASKS: 'UNITS' },
   },
   {
     name: 'Senior Contributor', isAdmin: false, level: 4, color: '#059669',

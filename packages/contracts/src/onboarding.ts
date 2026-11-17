@@ -36,6 +36,34 @@ export const SCORECARD_QUADRANTS = ['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS',
 /** `IC` is the stored value; `INDIVIDUAL_CONTRIBUTOR` is what templates and the AI write. Both are accepted. */
 export const POSITION_TRACKS = ['MANAGEMENT', 'INDIVIDUAL_CONTRIBUTOR', 'IC', 'EXECUTIVE'] as const;
 
+/** How big the organisation is. Stored on Organization.sizeTier. */
+export const ORG_SIZE_TIERS = ['SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'] as const;
+export type OrgSizeTier = (typeof ORG_SIZE_TIERS)[number];
+
+const SIZE_TIER_WORDS: Readonly<Record<string, OrgSizeTier>> = {
+  STARTUP: 'SMALL',
+  SMB: 'SMALL',
+  SMALL_BUSINESS: 'SMALL',
+  SCALEUP: 'MEDIUM',
+  SCALE_UP: 'MEDIUM',
+  MID: 'MEDIUM',
+  MIDSIZE: 'MEDIUM',
+  MID_MARKET: 'MEDIUM',
+  MIDMARKET: 'MEDIUM',
+  CORPORATE: 'LARGE',
+};
+
+/**
+ * The stored size for whatever a template or the AI called it. Templates say
+ * "SCALEUP", "STARTUP", "SMB"; none of those is a stored value, so they used to
+ * be dropped without a word. Unknown words still give null (no size recorded).
+ */
+export function normalizeSizeTier(value: string | null | undefined): OrgSizeTier | null {
+  const word = (value ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if ((ORG_SIZE_TIERS as readonly string[]).includes(word)) return word as OrgSizeTier;
+  return SIZE_TIER_WORDS[word] ?? null;
+}
+
 /** The most rows one section may hold. Far above any real organisation; stops a draft being used as storage. */
 export const DRAFT_SECTION_MAX = 500;
 
@@ -47,6 +75,16 @@ export const DraftOrganizationSchema = z.object({
   industry: shortText.optional(),
   type: shortText.optional(),
   sizeTier: z.string().max(40).optional(),
+  /** IANA zone, e.g. "Asia/Karachi". Checked for real in validateOnboardingDraft. */
+  timezone: z.string().max(60).optional(),
+  /** ISO 4217 code, e.g. "USD". */
+  currency: z.string().max(3).optional(),
+  /** BCP 47 tag, e.g. "en-GB". */
+  locale: z.string().max(15).optional(),
+  /** 1 = January … 12 = December. */
+  fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),
+  /** 0 = Sunday … 6 = Saturday. */
+  weekStartsOn: z.number().int().min(0).max(6).optional(),
 });
 
 export const DraftRoleSchema = z.object({
@@ -153,6 +191,25 @@ export function draftShapeProblems(issues: readonly { path: PropertyKey[]; messa
 
 const key = (value: string): string => value.trim().toLowerCase();
 
+/** Whether the runtime knows this IANA time zone. */
+export function isTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether this is a well-formed language tag ("en", "en-GB", "ur-PK"). */
+export function isLocaleTag(value: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(value).length === 1;
+  } catch {
+    return false;
+  }
+}
+
 function namedRows(
   section: DraftSection,
   rows: readonly { name: string }[],
@@ -191,6 +248,17 @@ export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
 
   if (!draft.organization?.name?.trim()) {
     problems.push({ section: 'organization', field: 'name', message: 'Give your organization a name.' });
+  }
+
+  const org = draft.organization ?? {};
+  if (org.timezone !== undefined && !isTimeZone(org.timezone)) {
+    problems.push({ section: 'organization', field: 'timezone', message: `"${org.timezone}" is not a time zone.` });
+  }
+  if (org.currency !== undefined && !/^[A-Za-z]{3}$/.test(org.currency)) {
+    problems.push({ section: 'organization', field: 'currency', message: 'Choose a currency (a three-letter code such as USD).' });
+  }
+  if (org.locale !== undefined && !isLocaleTag(org.locale)) {
+    problems.push({ section: 'organization', field: 'locale', message: `"${org.locale}" is not a language setting.` });
   }
 
   const roles = draft.roles ?? [];

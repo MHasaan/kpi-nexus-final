@@ -33,7 +33,7 @@ function kpi(
 }
 
 const RICH_SAAS: TemplatePayload = {
-  organization: { name: 'Acme SaaS', industry: 'Software', type: 'B2B SaaS', sizeTier: 'SCALEUP' },
+  organization: { name: 'Acme SaaS', industry: 'Software', type: 'B2B SaaS', sizeTier: 'MEDIUM' },
   roles: [
     { name: 'Admin', isAdmin: true, level: 100, color: '#dc2626', permissions: PERM_ADMIN },
     { name: 'VP Engineering', isAdmin: false, level: 90, color: '#7c3aed', permissions: PERM_MANAGER },
@@ -112,7 +112,7 @@ const RICH_SAAS: TemplatePayload = {
 };
 
 const STARTER_TECH: TemplatePayload = {
-  organization: { name: 'Tech Co', industry: 'Software', type: 'Startup', sizeTier: 'STARTUP' },
+  organization: { name: 'Tech Co', industry: 'Software', type: 'Startup', sizeTier: 'SMALL' },
   roles: [
     { name: 'Admin', isAdmin: true, level: 100, permissions: PERM_ADMIN },
     { name: 'Manager', isAdmin: false, level: 70, permissions: PERM_MANAGER },
@@ -135,7 +135,7 @@ const STARTER_TECH: TemplatePayload = {
 };
 
 const STARTER_RETAIL: TemplatePayload = {
-  organization: { name: 'Retail Co', industry: 'Retail', type: 'Retail', sizeTier: 'SMB' },
+  organization: { name: 'Retail Co', industry: 'Retail', type: 'Retail', sizeTier: 'SMALL' },
   roles: [
     { name: 'Admin', isAdmin: true, level: 100, permissions: PERM_ADMIN },
     { name: 'Store Manager', isAdmin: false, level: 70, permissions: PERM_MANAGER },

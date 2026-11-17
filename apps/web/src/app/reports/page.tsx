@@ -158,11 +158,20 @@ export default function ReportsPage() {
         titleTestId="reports-heading"
         subtitle="Automatically generate and deliver reports on a schedule. Reports run as their creator."
         actions={
-          <PermissionGuard permission="REPORTS_VIEW">
-            <Link href="/reports/new" data-testid="reports-new-link">
-              <Button leftIcon={<Plus className="h-4 w-4" aria-hidden />}>New report</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/reports/board-pack"
+              data-testid="reports-board-pack-link"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Board pack
             </Link>
-          </PermissionGuard>
+            <PermissionGuard permission="REPORTS_VIEW">
+              <Link href="/reports/new" data-testid="reports-new-link">
+                <Button leftIcon={<Plus className="h-4 w-4" aria-hidden />}>New report</Button>
+              </Link>
+            </PermissionGuard>
+          </div>
         }
       />
 

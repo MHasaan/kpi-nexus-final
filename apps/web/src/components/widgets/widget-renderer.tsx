@@ -40,6 +40,9 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
   const [summaryRows, setSummaryRows] = useState<DashboardSummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Once something has been shown, a reload keeps it on screen until the new
+  // values arrive — a live refresh must not blank every widget on the board.
+  const [loaded, setLoaded] = useState(false);
 
   const needsKpiData = [
     'kpi_card',
@@ -53,6 +56,11 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
 
   const needsSummary = widget.widgetType === 'list';
 
+  // Inside a dashboard the KPI definition and the summary rows come from the
+  // board's one shared load; only a lone preview (the widget editor) fetches them.
+  const inDashboard = shared !== null;
+  const refreshKey = shared?.refreshKey ?? 0;
+
   useEffect(() => {
     if (!needsKpiData && !needsSummary) return;
 
@@ -63,17 +71,20 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     async function load() {
       try {
         if (needsSummary) {
-          // The dashboard already loaded the summary; only a lone preview fetches it.
-          const rows = shared ? [...shared.rows.values()] : await getDashboardSummary(dateRange);
-          if (!cancelled) setSummaryRows(rows);
+          if (!inDashboard) {
+            const rows = await getDashboardSummary(dateRange);
+            if (!cancelled) setSummaryRows(rows);
+          }
+          if (!cancelled) setLoaded(true);
         } else if (kpiId) {
           const [kpiDefinition, points] = await Promise.all([
-            shared ? Promise.resolve(shared.kpis.get(kpiId) ?? null) : listKpis().then((all) => all.find((k) => k.id === kpiId) ?? null),
+            inDashboard ? Promise.resolve(null) : listKpis().then((all) => all.find((k) => k.id === kpiId) ?? null),
             listKpiDataPoints(kpiId, dateRange),
           ]);
           if (!cancelled) {
-            setKpi(kpiDefinition);
+            if (!inDashboard) setKpi(kpiDefinition);
             setDataPoints(points);
+            setLoaded(true);
           }
         }
       } catch {
@@ -87,9 +98,13 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     return () => {
       cancelled = true;
     };
-  }, [kpiId, needsKpiData, needsSummary, dateRange?.from, dateRange?.to, shared]);
+    // `refreshKey` reloads this widget's own series when a value arrives live.
+  }, [kpiId, needsKpiData, needsSummary, dateRange?.from, dateRange?.to, inDashboard, refreshKey]);
 
-  if (loading) {
+  const shownKpi = inDashboard && kpiId ? (shared.kpis.get(kpiId) ?? null) : kpi;
+  const shownRows = inDashboard ? [...shared.rows.values()] : summaryRows;
+
+  if (loading && !loaded) {
     return (
       <div
         className="flex h-full items-center justify-center"
@@ -114,21 +129,21 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
 
   switch (widget.widgetType) {
     case 'kpi_card':
-      return <KpiCard widget={widget} kpi={kpi} dataPoints={dataPoints} status={kpiId ? (shared?.rows.get(kpiId)?.status ?? null) : null} />;
+      return <KpiCard widget={widget} kpi={shownKpi} dataPoints={dataPoints} status={kpiId ? (shared?.rows.get(kpiId)?.status ?? null) : null} />;
     case 'line':
       return <LineChartWidget widget={widget} dataPoints={dataPoints} />;
     case 'bar':
       return <BarChartWidget widget={widget} dataPoints={dataPoints} />;
     case 'pie':
-      return <PieChartWidget widget={widget} kpi={kpi} dataPoints={dataPoints} />;
+      return <PieChartWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'gauge':
-      return <GaugeWidget widget={widget} kpi={kpi} dataPoints={dataPoints} />;
+      return <GaugeWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'number':
-      return <NumberWidget widget={widget} kpi={kpi} dataPoints={dataPoints} />;
+      return <NumberWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'trend':
       return <TrendWidget widget={widget} dataPoints={dataPoints} />;
     case 'list':
-      return <ListWidget widget={widget} summaryRows={summaryRows} />;
+      return <ListWidget widget={widget} summaryRows={shownRows} />;
     case 'activity':
       return <ActivityWidget widget={widget} />;
     case 'strategy_map':

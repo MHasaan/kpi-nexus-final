@@ -11,6 +11,8 @@ import { useAsyncData } from '../../../lib/use-async-data';
 
 import {
   ApiError,
+  assignKpiToUnit,
+  assignKpiToUser,
   attachCascade,
   type Benchmark,
   type Cascade,
@@ -47,14 +49,18 @@ import {
   listKpiDataPoints,
   listKpis,
   listKpiSnapshots,
+  listOrgUnits,
   listTargets,
   listThresholdBands,
+  listUsers,
   putFormula,
   recordMyKpiData,
   recordOrgWideDataPoint,
   recordUnitKpiData,
   takeKpiSnapshot,
   type ThresholdBand,
+  unassignKpiFromUnit,
+  unassignUserKpi,
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
 import { WatchButton } from '../../../components/kpis/watch-button';
@@ -85,9 +91,26 @@ import {
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
+import { ASSIGNMENT_STATUS_LABELS, labelFor } from '../../../lib/labels';
+import { useConfirm } from '../../../lib/use-confirm';
+import { useToast } from '../../../lib/use-toast';
 
-const TABS = ['Overview', 'Data', 'Formula', 'Cascade', 'Targets', 'Thresholds', 'Benchmarks', 'Lineage', 'Audit'] as const;
+const TABS = [
+  'Overview',
+  'Data',
+  'Assignments',
+  'Formula',
+  'Cascade',
+  'Targets',
+  'Thresholds',
+  'Benchmarks',
+  'Lineage',
+  'Audit',
+] as const;
 type Tab = (typeof TABS)[number];
+
+/** Assignments only mean something for a KPI recorded per unit or per person. */
+const tabsFor = (scope: string): readonly Tab[] => (scope === 'ORG_WIDE' ? TABS.filter((t) => t !== 'Assignments') : TABS);
 
 export default function KpiDetailPage() {
   const params = useParams<{ id: string }>();
@@ -163,7 +186,7 @@ export default function KpiDetailPage() {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-6">
         <TabsList className="flex-wrap">
-          {TABS.map((t) => (
+          {tabsFor(kpi.scope).map((t) => (
             <span key={t} data-testid={`tab-${t.toLowerCase()}`}>
               <TabsTrigger value={t}>{t}</TabsTrigger>
             </span>
@@ -173,6 +196,7 @@ export default function KpiDetailPage() {
 
       {tab === 'Overview' && <OverviewTab kpi={kpi} />}
       {tab === 'Data' && <DataTab kpi={kpi} />}
+      {tab === 'Assignments' && <AssignmentsTab kpi={kpi} />}
       {tab === 'Formula' && <FormulaTab kpiId={kpiId} />}
       {tab === 'Cascade' && <CascadeTab kpiId={kpiId} />}
       {tab === 'Targets' && <TargetsTab kpiId={kpiId} />}
@@ -410,6 +434,177 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
               <TableRow>
                 <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="py-4 text-center text-content-muted">
                   No data points yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </UICard>
+    </div>
+  );
+}
+
+function AssignmentsTab({ kpi }: { kpi: KpiSummary }) {
+  const [assignments, reload, loadError] = useAsync(() => listKpiAssignments(kpi.id), [kpi.id]);
+  const [units] = useAsync(() => (kpi.scope === 'PER_UNIT' ? listOrgUnits() : Promise.resolve([])), [kpi.scope]);
+  const [people] = useAsync(() => (kpi.scope === 'PER_USER' ? listUsers() : Promise.resolve([])), [kpi.scope]);
+  const [holderId, setHolderId] = useState('');
+  const [target, setTarget] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  const perUnit = kpi.scope === 'PER_UNIT';
+  const held = perUnit ? (assignments?.units ?? []) : (assignments?.users ?? []);
+  const heldIds = new Set(
+    perUnit ? (assignments?.units ?? []).map((u) => u.orgUnitId) : (assignments?.users ?? []).map((u) => u.userId),
+  );
+  const candidates = perUnit
+    ? (units ?? []).filter((u) => !heldIds.has(u.id)).map((u) => ({ id: u.id, name: u.name }))
+    : (people ?? []).filter((p) => !heldIds.has(p.id)).map((p) => ({ id: p.id, name: p.fullName }));
+
+  const add = async (event: FormEvent) => {
+    event.preventDefault();
+    setErr(null);
+    const id = holderId || candidates[0]?.id;
+    if (!id) {
+      setErr(perUnit ? 'Every unit already holds this KPI.' : 'Everyone already holds this KPI.');
+      return;
+    }
+    const targetValue = target.trim() === '' ? undefined : Number(target);
+    if (targetValue !== undefined && Number.isNaN(targetValue)) {
+      setErr('The target must be a number.');
+      return;
+    }
+    setBusy(true);
+    try {
+      if (perUnit) await assignKpiToUnit(id, kpi.id, targetValue);
+      else await assignKpiToUser(id, kpi.id, targetValue);
+      setHolderId('');
+      setTarget('');
+      reload();
+      toast.success(perUnit ? 'Unit assigned' : 'Person assigned');
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not assign this KPI.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (row: { assignmentId: string; name: string; orgUnitId?: string; inherited?: boolean }) => {
+    await confirm({
+      title: `Remove ${row.name} from this KPI?`,
+      description: perUnit
+        ? 'The unit stops holding this KPI. Values already recorded for it are kept.'
+        : 'They stop holding this KPI. Values they already recorded are kept.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      testId: 'assignment-remove-confirm',
+      action: async () => {
+        if (perUnit && row.orgUnitId) await unassignKpiFromUnit(row.orgUnitId, kpi.id);
+        else await unassignUserKpi(row.assignmentId);
+        reload();
+        toast.success('Removed');
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <TabLoadError error={loadError} onRetry={reload} />
+
+      <PermissionGuard permission="KPI_CREATE">
+        <UICard>
+          <CardContent>
+            <form onSubmit={add} className="flex flex-wrap items-end gap-3" data-testid="assignment-form">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="assignment-holder">{perUnit ? 'Unit' : 'Person'}</Label>
+                <Select
+                  id="assignment-holder"
+                  value={holderId || candidates[0]?.id || ''}
+                  onChange={(e) => setHolderId(e.target.value)}
+                  data-testid="assignment-holder"
+                >
+                  {candidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                  {candidates.length === 0 && <option value="">Nothing left to assign</option>}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="assignment-target">Target (optional)</Label>
+                <Input
+                  id="assignment-target"
+                  type="number"
+                  step="any"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  data-testid="assignment-target"
+                  className="w-40"
+                />
+              </div>
+              <Button type="submit" isLoading={busy} data-testid="assignment-add">
+                Assign
+              </Button>
+              {err && (
+                <p role="alert" data-testid="assignment-error" className="w-full text-sm text-status-critical">
+                  {err}
+                </p>
+              )}
+            </form>
+          </CardContent>
+        </UICard>
+      </PermissionGuard>
+
+      <UICard className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{perUnit ? 'Unit' : 'Person'}</TableHead>
+              <TableHead>Latest value</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="sr-only">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {held.map((row) => (
+              <TableRow key={row.assignmentId} data-testid={`assignment-row-${row.assignmentId}`}>
+                <TableCell className="text-content-strong">
+                  {row.name}
+                  {'inherited' in row && row.inherited && (
+                    <span className="ml-2 text-xs text-content-muted">inherited</span>
+                  )}
+                </TableCell>
+                <TableCell className="tabular-nums">{row.currentValue ?? '—'}</TableCell>
+                <TableCell className="tabular-nums">{row.targetValue ?? '—'}</TableCell>
+                <TableCell>{labelFor(ASSIGNMENT_STATUS_LABELS, row.status)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right">
+                  <PermissionGuard permission="KPI_CREATE">
+                    {!('inherited' in row && row.inherited) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-status-critical hover:bg-status-critical-bg"
+                        data-testid={`assignment-remove-${row.assignmentId}`}
+                        onClick={() => void remove(row)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </PermissionGuard>
+                </TableCell>
+              </TableRow>
+            ))}
+            {assignments && held.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-4 text-center text-content-muted" data-testid="assignment-empty">
+                  {perUnit
+                    ? 'No unit holds this KPI yet, so nobody can record a value for it.'
+                    : 'Nobody holds this KPI yet, so nobody can record a value for it.'}
                 </TableCell>
               </TableRow>
             )}

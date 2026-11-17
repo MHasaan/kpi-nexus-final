@@ -47,3 +47,53 @@ describe('AuditService.record — identity resolution', () => {
     });
   });
 });
+
+describe('AuditService.list / exportCsv (plan 6.13)', () => {
+  const tenant = { userId: 'u1', organizationId: 'org-a', roleId: null, principalType: 'user' as const };
+  const row = {
+    id: 'a1',
+    action: 'UPDATE',
+    entityType: 'KPI',
+    entityId: 'k1',
+    changes: null,
+    userId: 'u1',
+    userEmail: '=cmd@example.test',
+    metadata: null,
+    redactedKeys: ['passwordHash'],
+    createdAt: new Date('2026-11-10T08:30:00.000Z'),
+  };
+  function makeList() {
+    const findMany = vi.fn(async (_args: unknown) => [row]);
+    return { findMany, service: new AuditService({ auditLog: { findMany } } as unknown as PrismaService) };
+  }
+
+  test('a date range limits the rows, newest first with a stable order', async () => {
+    const { service, findMany } = makeList();
+    const from = new Date('2026-11-01T00:00:00.000Z');
+    const to = new Date('2026-11-10T23:59:59.999Z');
+    await RequestContextStore.run(tenant, () => service.list({ from, to }));
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: 'org-a', createdAt: { gte: from, lte: to } }),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      }),
+    );
+  });
+
+  test('with no dates, no date condition is sent', async () => {
+    const { service, findMany } = makeList();
+    await RequestContextStore.run(tenant, () => service.list({}));
+    expect((findMany.mock.calls[0]![0] as { where: Record<string, unknown> }).where.createdAt).toBeUndefined();
+  });
+
+  test('the export is a CSV of the same rows; a cell that could run as a formula is made text', async () => {
+    const { service, findMany } = makeList();
+    const csv = await RequestContextStore.run(tenant, () => service.exportCsv({ action: 'UPDATE' as never }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 5000 }));
+    expect(csv.split('\r\n')).toEqual([
+      'Time (UTC),Action,Entity type,Entity id,Person,Redacted fields',
+      "2026-11-10T08:30:00.000Z,UPDATE,KPI,k1,'=cmd@example.test,passwordHash",
+      '',
+    ]);
+  });
+});

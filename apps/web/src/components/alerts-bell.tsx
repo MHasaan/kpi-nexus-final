@@ -22,6 +22,8 @@ export function AlertsBell() {
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<Alert[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [ackFailedId, setAckFailedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,20 +58,23 @@ export function AlertsBell() {
     if (next) {
       try {
         setRecent((await listAlerts({ status: 'OPEN' })).slice(0, 10));
+        setLoadFailed(false);
       } catch {
-        // ignore — dropdown just shows empty
+        // Not "no open alerts": they could not be loaded (X-02).
+        setLoadFailed(true);
       }
     }
   }
 
   async function ack(id: string) {
     setBusyId(id);
+    setAckFailedId(null);
     try {
       await acknowledgeAlert(id);
       setRecent((prev) => prev.filter((a) => a.id !== id));
       await refreshCount();
     } catch {
-      // best-effort
+      setAckFailedId(id);
     } finally {
       setBusyId(null);
     }
@@ -105,7 +110,12 @@ export function AlertsBell() {
             <Link href="/alerts" className="text-xs text-accent-primary hover:underline" data-testid="alerts-bell-viewall">View all</Link>
           </div>
           <ul className="max-h-80 overflow-auto">
-            {recent.length === 0 && (
+            {loadFailed && (
+              <li className="px-3 py-4 text-center text-xs text-status-critical" role="alert" data-testid="alerts-bell-error">
+                Alerts could not be loaded. Close and open this to try again.
+              </li>
+            )}
+            {!loadFailed && recent.length === 0 && (
               <li className="px-3 py-4 text-center text-xs text-content-muted">No open alerts.</li>
             )}
             {recent.map((a) => (
@@ -114,7 +124,7 @@ export function AlertsBell() {
                   <span className="mr-1">{a.severity === 'HIGH' ? '🔴' : a.severity === 'MEDIUM' ? '🟡' : '🔵'}</span>
                   <span className="break-words">{a.message}</span>
                 </Link>
-                <button type="button" onClick={() => void ack(a.id)} disabled={busyId === a.id} data-testid={`alerts-bell-ack-${a.id}`} className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-surface-2 disabled:opacity-50">Ack</button>
+                <button type="button" onClick={() => void ack(a.id)} disabled={busyId === a.id} data-testid={`alerts-bell-ack-${a.id}`} title={ackFailedId === a.id ? 'That did not work. Press to try again.' : 'Acknowledge'} className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] hover:bg-surface-2 disabled:opacity-50 ${ackFailedId === a.id ? 'border-status-critical text-status-critical' : 'border-border'}`}>{ackFailedId === a.id ? 'Retry' : 'Ack'}</button>
               </li>
             ))}
           </ul>

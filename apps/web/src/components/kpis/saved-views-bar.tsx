@@ -36,8 +36,10 @@ export function SavedViewsBar({ current, canSave, onApply }: SavedViewsBarProps)
   const load = useCallback(async () => {
     try {
       setViews(await listKpiSavedViews());
-    } catch {
+    } catch (err) {
+      // Not "you have no saved views": they could not be loaded (X-02).
       setViews([]);
+      setError(err instanceof ApiError ? `Saved views could not be loaded: ${err.message}` : 'Saved views could not be loaded.');
     }
   }, []);
   useEffect(() => {

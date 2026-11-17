@@ -36,6 +36,11 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
   {
     heading: 'Integrations',
     links: [
+      { href: '/integrations', title: 'Connected apps', description: 'Slack, Teams, Jira and other services.' },
+      { href: '/connectors', title: 'Data connectors', description: 'Bring KPI values in from other systems on a schedule.' },
+      { href: '/alerts/channels', title: 'Alert channels', description: 'Where alerts are sent: email, Slack, Teams, webhooks.' },
+      { href: '/workflows', title: 'Automations', description: 'Create a task when a KPI crosses a line.' },
+      { href: '/plugins', title: 'Plugins', description: 'Installed extensions.' },
       { href: '/settings/custom-domain', title: 'Custom domain', description: 'Serve KPI Nexus from your own domain.' },
       { href: '/settings/notifications', title: 'Notifications', description: 'Digest mode, mute windows, channel prefs.' },
       { href: '/settings/ai', title: 'AI', description: 'Provider, budget caps, and feature models.' },

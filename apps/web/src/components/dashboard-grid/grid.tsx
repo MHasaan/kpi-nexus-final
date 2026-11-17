@@ -3,11 +3,13 @@
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
-import { Pencil } from 'lucide-react';
+import { Maximize2, Pencil } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactGridLayout, { type Layout } from 'react-grid-layout';
 
 import { deleteWidget, updateWidgetPosition, type DashboardWidget } from '../../lib/api-client';
+import { WIDGET_TYPE_LABELS, labelFor } from '../../lib/labels';
 import { WidgetRenderer } from '../widgets/widget-renderer';
 
 interface DashboardGridProps {
@@ -159,9 +161,22 @@ export function DashboardGrid({
                 editMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
               }`}
             >
-              <span className="truncate text-xs font-semibold text-content-strong">
-                {widget.title ?? widget.widgetType}
-              </span>
+              {/* A widget on a KPI opens its detail view. Not while arranging: the header is the drag handle then. */}
+              {!editMode && typeof widget.config['kpiId'] === 'string' ? (
+                <Link
+                  href={`/dashboards/${dashboardId}/widgets/${widget.id}`}
+                  data-testid={`widget-open-${widget.id}`}
+                  title="Open the detail view"
+                  className="group flex min-w-0 items-center gap-1 text-xs font-semibold text-content-strong hover:text-accent-primary"
+                >
+                  <span className="truncate">{widget.title ?? labelFor(WIDGET_TYPE_LABELS, widget.widgetType)}</span>
+                  <Maximize2 className="h-3 w-3 shrink-0 text-content-muted group-hover:text-accent-primary" aria-hidden />
+                </Link>
+              ) : (
+                <span className="truncate text-xs font-semibold text-content-strong">
+                  {widget.title ?? labelFor(WIDGET_TYPE_LABELS, widget.widgetType)}
+                </span>
+              )}
               {editMode && (
                 <div className="flex items-center gap-1 shrink-0">
                   <span className="text-xs text-content-muted select-none">⠿</span>

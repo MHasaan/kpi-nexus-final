@@ -1,4 +1,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  type OnboardingDraft,
+  OnboardingDraftPatchSchema,
+  draftShapeProblems,
+  validateOnboardingDraft,
+} from '@kpi-nexus/contracts';
 import * as bcrypt from 'bcrypt';
 
 import { AuthService } from '../auth/auth.service.js';
@@ -6,7 +12,6 @@ import { OrgTemplatesService } from '../org-templates/org-templates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { deriveDraftToken, hashDraftToken, mergeDraft, verifyDraftToken } from './draft-token.js';
-import { type TemplatePayload, validateTemplatePayload } from '../org-templates/template-payload.js';
 import { ONBOARDING_DRAFT_SPEC, resolveSecret } from '../config/secrets.js';
 
 // Resolved lazily: a module-level constant is evaluated before ConfigModule has
@@ -20,6 +25,9 @@ function mapTrack(track: string): 'IC' | 'MANAGEMENT' | 'EXECUTIVE' {
   if (track === 'EXECUTIVE') return 'EXECUTIVE';
   return 'MANAGEMENT';
 }
+
+/** How a name is matched when one row refers to another: no case, no outer spaces. */
+const nameKey = (value: string): string => value.trim().toLowerCase();
 
 export interface CompleteBody {
   adminEmail: string;
@@ -77,7 +85,18 @@ export class OnboardingService {
     if (session.status !== 'in_progress') {
       throw new BadRequestException({ code: 'ONBOARDING_NOT_EDITABLE', message: 'Session is not editable' });
     }
-    const merged = mergeDraft(session.payload as Record<string, unknown>, patch);
+    // Every writer — the wizard, a template, the AI — goes through here, so this
+    // is where a draft gets its shape (plan 3.1). Before this the endpoint took
+    // any JSON, and a section of the wrong type failed `complete` with a 500.
+    const parsed = OnboardingDraftPatchSchema.safeParse(patch);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'ONBOARDING_INVALID_DRAFT',
+        message: 'That is not a valid onboarding draft',
+        details: { problems: draftShapeProblems(parsed.error.issues) },
+      });
+    }
+    const merged = mergeDraft(session.payload as Record<string, unknown>, parsed.data);
     return RequestContextStore.runWithBypass('onboarding.patch', async () => {
       const updated = await this.prisma.onboardingSession.update({
         where: { id: sessionId },
@@ -85,6 +104,12 @@ export class OnboardingService {
       });
       return { sessionId, payload: updated.payload };
     });
+  }
+
+  /** What stops the draft becoming an organisation. The wizard shows this on its last step. */
+  async validateDraft(sessionId: string, token: string) {
+    const session = await this.loadVerified(sessionId, token);
+    return { problems: validateOnboardingDraft(session.payload) };
   }
 
   /** Merge a template's payload into the draft (doesn't blow away existing). */
@@ -126,11 +151,21 @@ export class OnboardingService {
     if (session.status === 'completed') {
       throw new BadRequestException({ code: 'ONBOARDING_DONE', message: 'Session already completed' });
     }
-    const payload = session.payload as unknown as TemplatePayload;
-    const problems = validateTemplatePayload(payload);
+    const problems = validateOnboardingDraft(session.payload);
     if (problems.length > 0) {
-      throw new BadRequestException({ code: 'ONBOARDING_INVALID', message: 'Draft is incomplete', details: problems });
+      throw new BadRequestException({ code: 'ONBOARDING_INVALID', message: 'Draft is incomplete', details: { problems } });
     }
+    // No problems ⇒ it parses; parsing fills the defaults a half-specified row relies on.
+    const draft: OnboardingDraft = OnboardingDraftPatchSchema.parse(session.payload);
+    const payload = {
+      organization: { ...draft.organization, name: draft.organization!.name!.trim() },
+      roles: draft.roles ?? [],
+      positions: draft.positions ?? [],
+      orgUnitTypes: draft.orgUnitTypes ?? [],
+      orgUnits: draft.orgUnits ?? [],
+      kpiCategories: draft.kpiCategories ?? [],
+      kpis: draft.kpis ?? [],
+    };
 
     const passwordHash = await bcrypt.hash(body.adminPassword, 12);
     const sizeTier = payload.organization.sizeTier && VALID_SIZE_TIERS.has(payload.organization.sizeTier)
@@ -192,7 +227,7 @@ export class OnboardingService {
           const created = await tx.orgUnitType.create({
             data: { organizationId: org.id, dimensionId: dimension.id, name: t.name, namePlural: `${t.name}s`, allowNesting: true },
           });
-          typeMap.set(t.name, created.id);
+          typeMap.set(nameKey(t.name), created.id);
         }
 
         // Create units parent-before-child regardless of array order.
@@ -200,19 +235,19 @@ export class OnboardingService {
         const remaining = [...payload.orgUnits];
         let guard = remaining.length * remaining.length + 1;
         while (remaining.length > 0 && guard-- > 0) {
-          const next = remaining.findIndex((u) => !u.parent || unitMap.has(u.parent));
+          const next = remaining.findIndex((u) => !u.parent?.trim() || unitMap.has(nameKey(u.parent)));
           if (next === -1) break; // unresolved parent (validator should prevent)
           const u = remaining.splice(next, 1)[0]!;
           const created = await tx.orgUnit.create({
             data: {
               organizationId: org.id,
-              orgUnitTypeId: typeMap.get(u.type)!,
-              parentUnitId: u.parent ? (unitMap.get(u.parent) ?? null) : null,
-              name: u.name,
+              orgUnitTypeId: typeMap.get(nameKey(u.type))!,
+              parentUnitId: u.parent?.trim() ? (unitMap.get(nameKey(u.parent)) ?? null) : null,
+              name: u.name.trim(),
               code: u.code ?? null,
             },
           });
-          unitMap.set(u.name, created.id);
+          unitMap.set(nameKey(u.name), created.id);
         }
 
         const catMap = new Map<string, string>();
@@ -221,7 +256,7 @@ export class OnboardingService {
           const created = await tx.kPICategory.create({
             data: { organizationId: org.id, name: c.name, color: c.color ?? null, sortOrder: i },
           });
-          catMap.set(c.name, created.id);
+          catMap.set(nameKey(c.name), created.id);
         }
 
         if (payload.kpis.length) {
@@ -230,7 +265,7 @@ export class OnboardingService {
               organizationId: org.id,
               name: k.name,
               description: k.description ?? null,
-              categoryId: catMap.get(k.category) ?? null,
+              categoryId: catMap.get(nameKey(k.category)) ?? null,
               scope: k.scope,
               type: k.type,
               direction: k.direction,

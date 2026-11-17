@@ -60,6 +60,13 @@ export class OnboardingController {
     return this.onboarding.patchDraft(id, token ?? '', data.patch, data.lastEditedStep);
   }
 
+  /** What stops this draft becoming an organisation, by section and row. Empty = ready. */
+  @Get(':id/validate')
+  @Public()
+  validate(@Param('id') id: string, @Headers('x-draft-token') token?: string) {
+    return this.onboarding.validateDraft(id, token ?? '');
+  }
+
   @Post(':id/apply-template')
   @Public()
   @ApiBody(ApplyTemplateSchema)

@@ -92,3 +92,112 @@ test('onboarding: complete on an empty draft is rejected (400)', async () => {
   });
   expect(res.status()).toBe(400); // no admin role / no payload depth
 });
+
+// ---- Plan 3.1: the draft has a shape, and says what is wrong with it --------
+
+interface Problem { section: string; index?: number; field?: string; message: string }
+
+test('onboarding: a write that is not a draft is refused, and the draft is left as it was', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, suffix());
+  const hdr = { 'x-draft-token': draftToken };
+  const put = (patch: unknown) => anon.put(`/onboarding/${sessionId}`, { headers: hdr, data: { patch } });
+
+  for (const bad of [
+    { roles: 'everyone' },
+    { kpis: [{ name: 'X', category: 'Y', scope: 'PER_PLANET' }] },
+    { secrets: { anything: 'stored for free' } },
+  ]) {
+    const res = await put(bad);
+    expect(res.status(), JSON.stringify(bad)).toBe(400);
+    const body = (await res.json()) as { code: string; details: { problems: Problem[] } };
+    expect(body.code).toBe('ONBOARDING_INVALID_DRAFT');
+    expect(body.details.problems.length).toBeGreaterThan(0);
+  }
+  const scope = (await (await put({ kpis: [{ name: 'X', category: 'Y', scope: 'PER_PLANET' }] })).json()) as { details: { problems: Problem[] } };
+  expect(scope.details.problems[0]).toMatchObject({ section: 'kpis', index: 0, field: 'scope' });
+
+  const draft = (await (await anon.get(`/onboarding/${sessionId}`, { headers: hdr })).json()) as { payload: Record<string, unknown> };
+  expect(Object.keys(draft.payload)).toEqual(['organization']);
+
+  // A half-typed row is still a draft: it saves.
+  expect((await put({ kpis: [{ name: '', category: '' }] })).status()).toBe(200);
+});
+
+test('onboarding: validate lists what stops the draft becoming an organisation; complete refuses with the same list', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  const validate = async () =>
+    ((await (await anon.get(`/onboarding/${sessionId}/validate`, { headers: hdr })).json()) as { problems: Problem[] }).problems;
+
+  // Fresh draft: named, but nobody could administer it.
+  expect(await validate()).toEqual([expect.objectContaining({ section: 'roles' })]);
+
+  await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        roles: [{ name: 'Admin', isAdmin: true }, { name: 'admin' }],
+        orgUnitTypes: [{ name: 'Department' }],
+        orgUnits: [{ name: 'Engineering', type: 'Squad' }],
+        kpiCategories: [{ name: 'Delivery' }],
+        kpis: [{ name: 'Cycle Time', category: 'Speed' }],
+      },
+    },
+  });
+  const problems = await validate();
+  expect(problems).toEqual([
+    expect.objectContaining({ section: 'roles', index: 1, field: 'name' }),
+    expect.objectContaining({ section: 'orgUnits', index: 0, field: 'type' }),
+    expect.objectContaining({ section: 'kpis', index: 0, field: 'category' }),
+  ]);
+
+  const refused = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(refused.status()).toBe(400);
+  const body = (await refused.json()) as { code: string; details: { problems: Problem[] } };
+  expect(body.code).toBe('ONBOARDING_INVALID');
+  expect(body.details.problems).toEqual(problems);
+
+  // The wrong token cannot read the list either.
+  expect((await anon.get(`/onboarding/${sessionId}/validate`, { headers: { 'x-draft-token': 'nope' } })).status()).toBe(403);
+});
+
+test('onboarding: references match by name whatever the capitals, and the organisation is built from them', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  expect((await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        roles: [{ name: 'Admin', isAdmin: true }],
+        orgUnitTypes: [{ name: 'Department' }],
+        orgUnits: [{ name: 'Engineering', type: 'department' }, { name: 'Platform', type: 'DEPARTMENT', parent: 'engineering ' }],
+        kpiCategories: [{ name: 'Delivery' }],
+        kpis: [{ name: 'Cycle Time', category: 'delivery' }],
+      },
+    },
+  })).status()).toBe(200);
+
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  const { accessToken } = (await done.json()) as { accessToken: string };
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${accessToken}` } });
+  const units = (await (await api.get('/org-units')).json()) as Array<{ id: string; name: string; parentUnitId: string | null }>;
+  const engineering = units.find((u) => u.name === 'Engineering')!;
+  expect(units.find((u) => u.name === 'Platform')?.parentUnitId).toBe(engineering.id);
+  const kpis = (await (await api.get('/kpis')).json()) as Array<{ name: string; categoryId: string | null }>;
+  expect(kpis.find((k) => k.name === 'Cycle Time')?.categoryId).toBeTruthy();
+});

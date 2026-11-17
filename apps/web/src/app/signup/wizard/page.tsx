@@ -1,11 +1,15 @@
 'use client';
 
+import { type DraftProblem, type OnboardingDraftInput, validateOnboardingDraft } from '@kpi-nexus/contracts';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
 import { DraftStatusBadge, OfflineBanner, useDraftSync } from '../../../components/onboarding/draft-sync-ui';
+import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
+import { SectionList } from '../../../components/onboarding/wizard/section-list';
+import { StepRail } from '../../../components/onboarding/wizard/step-rail';
 import { ApiError, setTokens } from '../../../lib/api-client';
 import {
   type CachedDraft,
@@ -15,28 +19,37 @@ import {
   getDraft,
   readCachedDraft,
 } from '../../../lib/onboarding-client';
-
-function counts(p: DraftPayload) {
-  return {
-    roles: p.roles?.length ?? 0,
-    positions: p.positions?.length ?? 0,
-    orgUnits: p.orgUnits?.length ?? 0,
-    kpiCategories: p.kpiCategories?.length ?? 0,
-    kpis: p.kpis?.length ?? 0,
-  };
-}
+import {
+  WIZARD_STEPS,
+  type WizardStepId,
+  draftCounts,
+  problemsByStep,
+  slugFromName,
+  stepFromParam,
+  stepNeighbours,
+} from '../../../lib/wizard-steps';
 
 export default function WizardPage() {
+  // `useSearchParams` needs a Suspense boundary for the static shell.
+  return (
+    <Suspense fallback={null}>
+      <Wizard />
+    </Suspense>
+  );
+}
+
+function Wizard() {
   const router = useRouter();
+  const step = stepFromParam(useSearchParams().get('step'));
   const [handle, setHandle] = useState<CachedDraft | null>(null);
   const [payload, setPayload] = useState<DraftPayload | null>(null);
-  const [orgName, setOrgName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [serverProblems, setServerProblems] = useState<DraftProblem[] | null>(null);
 
   // AI co-pilot rail: open by default on wide screens; Esc closes it.
   const [railOpen, setRailOpen] = useState(false);
   useEffect(() => {
-    setRailOpen(window.matchMedia('(min-width: 1024px)').matches);
+    setRailOpen(window.matchMedia('(min-width: 1280px)').matches);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setRailOpen(false);
     };
@@ -44,18 +57,13 @@ export default function WizardPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Complete
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminFullName, setAdminFullName] = useState('');
-  const [slug, setSlug] = useState('');
+  const [admin, setAdmin] = useState<AdminAccount>({ fullName: '', email: '', password: '', slug: '' });
   const [completing, setCompleting] = useState(false);
 
   const loadDraft = useCallback(async (h: CachedDraft) => {
     try {
       const d = await getDraft(h.sessionId, h.draftToken);
       setPayload(d.payload);
-      setOrgName(d.payload.organization?.name ?? h.organizationName);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not load draft');
     }
@@ -68,18 +76,50 @@ export default function WizardPage() {
       return;
     }
     setHandle(h);
-    setSlug(h.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
     // The email sign-up started with is the administrator's, unless they change it.
-    setAdminEmail((prev) => prev || h.email || '');
+    setAdmin((prev) => ({ ...prev, slug: prev.slug || slugFromName(h.organizationName), email: prev.email || h.email || '' }));
     void loadDraft(h);
   }, [loadDraft, router]);
 
   // Debounced draft autosave; a failed save is kept and retried (offline banner).
   const { state: sync, edit, flush } = useDraftSync(handle);
-  const onOrgNameChange = (value: string) => {
-    setOrgName(value);
-    if (!handle) return;
-    edit({ organization: { ...(payload?.organization ?? {}), name: value } });
+
+  /** Replace whole draft sections: shown at once, saved shortly after. */
+  const update = useCallback(
+    (patch: Partial<OnboardingDraftInput>) => {
+      setServerProblems(null);
+      setPayload((current) => ({ ...(current ?? {}), ...patch }));
+      edit(patch);
+    },
+    [edit],
+  );
+
+  const go = useCallback(
+    (next: WizardStepId) => {
+      router.push(`/signup/wizard?step=${next}`, { scroll: false });
+      window.scrollTo({ top: 0 });
+    },
+    [router],
+  );
+
+  const draft: OnboardingDraftInput = payload ?? {};
+  // The same check the server runs on Finish, so the list here is the list there.
+  const problems = useMemo(
+    () => serverProblems ?? (payload ? validateOnboardingDraft(payload, { adminEmail: admin.email || undefined }) : []),
+    [serverProblems, payload, admin.email],
+  );
+  const grouped = useMemo(() => problemsByStep(problems), [problems]);
+  const counts = draftCounts(draft);
+  const { prev, next } = stepNeighbours(step);
+  const current = WIZARD_STEPS.find((s) => s.id === step)!;
+
+  const saveAndContinue = async () => {
+    setError(null);
+    if (!(await flush())) {
+      setError('Your latest changes are not saved yet. Retry saving, then continue.');
+      return;
+    }
+    if (next) go(next);
   };
 
   const complete = async () => {
@@ -93,24 +133,35 @@ export default function WizardPage() {
       return;
     }
     try {
-      const res = await completeOnboarding(handle.sessionId, handle.draftToken, { adminEmail, adminPassword, adminFullName, slug });
+      const res = await completeOnboarding(handle.sessionId, handle.draftToken, {
+        adminEmail: admin.email.trim(),
+        adminPassword: admin.password,
+        adminFullName: admin.fullName.trim(),
+        slug: admin.slug.trim(),
+      });
       setTokens(res.accessToken, res.refreshToken);
       clearCachedDraft();
       router.push('/dashboard');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not finish setup');
+      if (e instanceof ApiError) {
+        const details = e.details as { problems?: DraftProblem[]; violations?: Array<{ message: string }> } | undefined;
+        if (details?.problems?.length) setServerProblems(details.problems);
+        setError(details?.violations?.length ? `Password ${details.violations.map((v) => v.message).join(', ')}.` : e.message);
+      } else {
+        setError('Could not finish setup');
+      }
     } finally {
       setCompleting(false);
     }
   };
 
-  const c = payload ? counts(payload) : null;
-
   return (
-    <main className={`min-h-screen bg-surface-bg ${railOpen ? 'lg:pr-[380px]' : ''}`}>
+    <main className={`min-h-screen bg-surface-bg ${railOpen ? 'xl:pr-[380px]' : ''}`}>
       <header className="border-b border-border bg-surface-1">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-6 py-4">
-          <Link href="/" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-4">
+          <Link href="/" className="text-lg font-semibold text-content-strong hover:text-accent-primary">
+            KPI Nexus
+          </Link>
           <span className="text-sm text-content-muted">Setup wizard</span>
           <DraftStatusBadge state={sync} />
           <button
@@ -125,46 +176,106 @@ export default function WizardPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
-        <OfflineBanner state={sync} onRetry={() => void flush()} />
-        {error && <p className="text-sm text-status-critical" data-testid="wizard-error">{error}</p>}
+      <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <StepRail current={step} counts={counts} problems={grouped} onGo={go} />
 
-        {/* Organization */}
-        <section>
-          <h2 className="text-sm font-semibold text-content-strong">Organization</h2>
-          <label className="mt-2 block text-xs text-content-muted">
-            Name
-            <input data-testid="wizard-org-name" value={orgName} onChange={(e) => onOrgNameChange(e.target.value)} className="mt-1 block w-full max-w-md rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong" />
-          </label>
-        </section>
+        <div className="min-w-0 space-y-6">
+          <OfflineBanner state={sync} onRetry={() => void flush()} />
+          {error && (
+            <p role="alert" className="text-sm text-status-critical" data-testid="wizard-error">
+              {error}
+            </p>
+          )}
 
-        {/* Review */}
-        <section>
-          <h2 className="text-sm font-semibold text-content-strong">Review</h2>
-          <div data-testid="wizard-counts" className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {c &&
-              Object.entries(c).map(([k, v]) => (
-                <div key={k} className="rounded-lg border border-border bg-surface-1 p-3 text-center">
-                  <p className="text-lg font-semibold text-content-strong" data-testid={`count-${k}`}>{v}</p>
-                  <p className="text-xs text-content-muted">{k}</p>
-                </div>
-              ))}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-content-muted">
+              Step {WIZARD_STEPS.indexOf(current) + 1} of {WIZARD_STEPS.length}
+            </p>
+            <h1 className="mt-1 text-xl font-semibold text-content-strong">{current.label}</h1>
           </div>
-        </section>
 
-        {/* Finish */}
-        <section className="rounded-lg border border-border bg-surface-1 p-5">
-          <h2 className="text-sm font-semibold text-content-strong">Create your admin account &amp; finish</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <input data-testid="admin-name" value={adminFullName} onChange={(e) => setAdminFullName(e.target.value)} placeholder="Full name" className="rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-            <input data-testid="admin-email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="Admin email" className="rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-            <input data-testid="admin-password" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Password (min 8)" className="rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
-            <input data-testid="org-slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="org-slug" className="rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong" />
+          <div data-testid="wizard-step-content" className="space-y-4">
+            {step === 'organization' && (
+              <section className="rounded-lg border border-border bg-surface-1 p-4">
+                <label className="block text-xs font-medium text-content-default" htmlFor="wizard-org-name">
+                  Organization name
+                </label>
+                <input
+                  id="wizard-org-name"
+                  data-testid="wizard-org-name"
+                  value={draft.organization?.name ?? ''}
+                  onChange={(e) => update({ organization: { ...(draft.organization ?? {}), name: e.target.value } })}
+                  className="mt-1 block w-full max-w-md rounded border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong"
+                />
+              </section>
+            )}
+
+            {step === 'structure' && (
+              <>
+                <SectionList title="Unit types" items={draft.orgUnitTypes ?? []} empty="No unit types yet — for example Department, Team, Region." />
+                <SectionList title="Units" items={draft.orgUnits ?? []} empty="No units yet. Units are the departments and teams KPIs can be recorded for." />
+              </>
+            )}
+
+            {step === 'roles' && (
+              <>
+                <SectionList title="Roles" items={draft.roles ?? []} empty="No roles yet. A role decides what someone can see and do.">
+                  {(draft.roles ?? []).some((r) => r.isAdmin) && (
+                    <p className="mt-2 text-xs text-content-muted">
+                      Administrator: {(draft.roles ?? []).filter((r) => r.isAdmin).map((r) => r.name).join(', ')}
+                    </p>
+                  )}
+                </SectionList>
+                <SectionList title="Positions" items={draft.positions ?? []} empty="No positions yet — job titles such as Engineer or Account Manager." />
+              </>
+            )}
+
+            {step === 'kpis' && (
+              <>
+                <SectionList title="KPI categories" items={draft.kpiCategories ?? []} empty="No categories yet. Categories group KPIs, for example Sales or Quality." />
+                <SectionList title="KPIs" items={draft.kpis ?? []} empty="No KPIs yet. You can also add them after setup." />
+              </>
+            )}
+
+            {step === 'team' && (
+              <SectionList title="People to invite" items={draft.team ?? []} empty="Nobody yet. You can invite people after setup, from the People page." />
+            )}
+
+            {step === 'review' && (
+              <ReviewStep
+                draft={draft}
+                problems={problems}
+                admin={admin}
+                onAdminChange={setAdmin}
+                onGo={go}
+                onFinish={() => void complete()}
+                finishing={completing}
+              />
+            )}
           </div>
-          <button type="button" data-testid="wizard-complete" onClick={complete} disabled={completing} className="mt-4 rounded-md bg-accent-primary px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-            {completing ? 'Finishing…' : 'Finish setup'}
-          </button>
-        </section>
+
+          <div className="flex items-center justify-between border-t border-border-divider pt-4">
+            <button
+              type="button"
+              data-testid="wizard-back"
+              onClick={() => prev && go(prev)}
+              disabled={!prev}
+              className="rounded border border-border px-4 py-2 text-sm font-medium text-content-strong hover:border-accent-primary disabled:opacity-40"
+            >
+              Back
+            </button>
+            {next && (
+              <button
+                type="button"
+                data-testid="wizard-continue"
+                onClick={() => void saveAndContinue()}
+                className="rounded-md bg-accent-primary px-5 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Save &amp; continue
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {railOpen && handle && payload && (

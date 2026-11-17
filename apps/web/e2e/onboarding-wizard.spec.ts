@@ -47,7 +47,8 @@ test('wizard: template gallery → apply rich → complete → dashboard + check
   await expect(page.getByTestId('count-roles')).toHaveText('10', { timeout: 15_000 });
   await expect(page.getByTestId('count-kpis')).toHaveText('20');
 
-  // Finish.
+  // Finish, on the last step.
+  await page.getByTestId('wizard-step-review').click();
   await page.getByTestId('admin-name').fill('Wiz Admin');
   await page.getByTestId('admin-email').fill(`admin-${stamp}@wiz.test.local`);
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
@@ -187,6 +188,7 @@ test('wizard: a failed save is kept, blocks Finish, and is saved by Retry', asyn
   await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'offline');
 
   // Finish refuses to complete with an unsaved edit.
+  await page.getByTestId('wizard-step-review').click();
   await page.getByTestId('admin-name').fill('Wiz Admin');
   await page.getByTestId('admin-email').fill(`admin-${stamp}@wiz.test.local`);
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
@@ -199,7 +201,7 @@ test('wizard: a failed save is kept, blocks Finish, and is saved by Retry', asyn
   await page.getByTestId('offline-retry').click();
   await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'saved');
   await expect(page.getByTestId('offline-banner')).toBeHidden();
-  await page.reload();
+  await page.goto('/signup/wizard');
   await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Renamed ${stamp}`, { timeout: 15_000 });
 });
 

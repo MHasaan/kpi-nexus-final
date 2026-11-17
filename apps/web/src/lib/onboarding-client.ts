@@ -5,6 +5,7 @@
  * ({sessionId, draftToken}) is cached in localStorage so a session survives a
  * browser crash / reload (the "draft survives crash" exit criterion).
  */
+import type { OnboardingDraftInput } from '@kpi-nexus/contracts';
 import { api } from './api-client';
 
 const DRAFT_KEY = 'kpi-nexus.onboarding-draft';
@@ -14,15 +15,11 @@ export interface OnboardingStart {
   draftToken: string;
 }
 
-export interface DraftPayload {
-  organization?: { name?: string; industry?: string; type?: string; sizeTier?: string };
-  roles?: unknown[];
-  positions?: unknown[];
-  orgUnitTypes?: unknown[];
-  orgUnits?: unknown[];
-  kpiCategories?: unknown[];
-  kpis?: unknown[];
-}
+/**
+ * The onboarding draft as the API stores it. The shape is the shared schema in
+ * `@kpi-nexus/contracts`; rows may still be half-typed.
+ */
+export type DraftPayload = OnboardingDraftInput;
 
 export interface DraftView {
   sessionId: string;

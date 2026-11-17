@@ -144,8 +144,8 @@ export function suggestionPatch(draft: DraftPayload, field: string, value: strin
     return { organization: { ...(draft.organization ?? {}), [key]: value } };
   }
   if (field === 'kpiCategories') {
-    const current = (draft.kpiCategories ?? []) as Array<{ name?: string }>;
-    if (current.some((c) => c.name?.toLowerCase() === value.toLowerCase())) return null;
+    const current = draft.kpiCategories ?? [];
+    if (current.some((c) => c.name.toLowerCase() === value.toLowerCase())) return null;
     return { kpiCategories: [...current, { name: value }] };
   }
   return null;

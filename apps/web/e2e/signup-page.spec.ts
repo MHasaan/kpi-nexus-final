@@ -53,6 +53,8 @@ test('signup: the email typed here is the administrator email in the wizard', as
   await page.getByTestId('signup-org').fill(`Signup ${stamp}`);
   await page.getByTestId('entry-quick').click();
   await expect(page).toHaveURL(/\/signup\/wizard/);
+  // The administrator's account is the wizard's last step.
+  await page.getByTestId('wizard-step-review').click();
   await expect(page.getByTestId('admin-email')).toHaveValue(email);
 });
 

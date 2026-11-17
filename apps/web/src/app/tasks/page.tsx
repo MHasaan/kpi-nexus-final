@@ -228,6 +228,8 @@ export default function TasksPage() {
   const users = usePeople(tasks.flatMap((t) => [t.assigneeUserId, t.createdById]));
 
   useEffect(() => {
+    // Not asked for when signed out: the page is about to go to the sign-in page.
+    if (!getAccessToken()) return;
     listKpis()
       .then(setKpis)
       .catch(() => setKpis([]));

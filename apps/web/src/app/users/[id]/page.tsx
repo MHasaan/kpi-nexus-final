@@ -46,6 +46,7 @@ import { canHoldKpis, personKpiCandidates } from '../../../lib/person-kpi-candid
 import { useAsyncData } from '../../../lib/use-async-data';
 import { useConfirm } from '../../../lib/use-confirm';
 import { useToast } from '../../../lib/use-toast';
+import { useAllowed } from '../../../lib/use-allowed';
 
 /** The person, or the fact that there is nobody with this id (or nobody the caller may see). */
 type PersonLoad = { found: true; user: UserSummary } | { found: false };
@@ -113,13 +114,15 @@ export default function UserKpiPanelPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
+  // Nothing is asked for until the person is known to be allowed this page.
+  const mayLoad = useAllowed('USERS_VIEW') && signedIn;
   // Each request stands alone (plan 2.10): the person is loaded by id, and a
   // role or directory list the caller may not read no longer blanks the page.
-  const person = useAsyncData(() => loadPerson(params.id), [params.id], { enabled: signedIn });
-  const kpiRows = useAsyncData(() => listUserKpis(params.id), [params.id], { enabled: signedIn });
-  const people = useAsyncData(() => optional(listUsers()), [], { enabled: signedIn });
-  const roleList = useAsyncData(() => optional(listRoles()), [], { enabled: signedIn });
-  const allKpis = useAsyncData(() => optional(listKpis()), [], { enabled: signedIn });
+  const person = useAsyncData(() => loadPerson(params.id), [params.id], { enabled: mayLoad });
+  const kpiRows = useAsyncData(() => listUserKpis(params.id), [params.id], { enabled: mayLoad });
+  const people = useAsyncData(() => optional(listUsers()), [], { enabled: mayLoad });
+  const roleList = useAsyncData(() => optional(listRoles()), [], { enabled: mayLoad });
+  const allKpis = useAsyncData(() => optional(listKpis()), [], { enabled: mayLoad });
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const confirm = useConfirm();

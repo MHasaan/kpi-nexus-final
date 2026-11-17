@@ -43,6 +43,7 @@ import {
 } from '../../../lib/api-client';
 import { PERMISSION_GROUPS, PERMISSION_LABELS } from '../../../lib/permissions';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useAllowed } from '../../../lib/use-allowed';
 
 // -----------------------------------------------------------------------------
 // Static maps
@@ -90,11 +91,15 @@ export default function AccessCenterPage() {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('USERS_MANAGE');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void (async () => {
       try {
         const [u, cats] = await Promise.all([listUsers(), listKpiCategories().catch(() => [])]);
@@ -110,7 +115,7 @@ export default function AccessCenterPage() {
         setLoadError(err instanceof ApiError ? err.message : 'Failed to load users');
       }
     })();
-  }, [router]);
+  }, [router, allowed]);
 
   const filtered = useMemo(() => {
     if (!users) return null;

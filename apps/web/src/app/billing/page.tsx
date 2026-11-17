@@ -7,6 +7,7 @@ import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { ApiError, getAccessToken, getBilling, type BillingStatus } from '../../lib/api-client';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAllowed } from '../../lib/use-allowed';
 
 export default function BillingPage() {
   const router = useRouter();
@@ -21,13 +22,17 @@ export default function BillingPage() {
     }
   }, []);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('ORG_SETTINGS');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   return (
     <AppShell>

@@ -69,6 +69,7 @@ import {
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAllowed } from '../../lib/use-allowed';
 
 export default function UsersPage() {
   return (
@@ -104,17 +105,21 @@ function UsersPageInner() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteNotice, setInviteNotice] = useState<InviteFeedback | null>(null);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('USERS_VIEW');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     void refresh();
     // Who is signed in: they cannot change their own role (the API refuses it).
     meRequest()
       .then(({ user }) => setMeId(user.id))
       .catch(() => undefined);
-  }, [router]);
+  }, [router, allowed]);
 
   async function refresh() {
     setLoadError(null);

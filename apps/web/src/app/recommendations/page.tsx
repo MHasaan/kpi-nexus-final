@@ -32,6 +32,7 @@ import {
 import { useKpiNames } from '../../lib/use-kpi-names';
 import { useToast } from '../../lib/use-toast';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAllowed } from '../../lib/use-allowed';
 
 // Status → Badge tone (icon/label keeps it readable; never colour-only).
 const STATUS_TONE: Record<Recommendation['status'], BadgeTone> = {
@@ -85,13 +86,17 @@ export default function RecommendationsPage() {
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
   }, []);
 
+  // Nothing is asked for until the person is known to be allowed this page.
+  const allowed = useAllowed('INSIGHTS_VIEW');
+
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
+    if (!allowed) return;
     load();
-  }, [load, router]);
+  }, [load, router, allowed]);
 
   // The page listed recommendations and had no way to ask for one (plan 7.7).
   const ask = async () => {

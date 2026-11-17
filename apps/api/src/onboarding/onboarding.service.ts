@@ -3,6 +3,7 @@ import {
   type OnboardingDraft,
   OnboardingDraftPatchSchema,
   draftShapeProblems,
+  normalizeSizeTier,
   validateOnboardingDraft,
 } from '@kpi-nexus/contracts';
 import * as bcrypt from 'bcrypt';
@@ -18,7 +19,6 @@ import { ONBOARDING_DRAFT_SPEC, resolveSecret } from '../config/secrets.js';
 // loaded .env, so it silently ignored ONBOARDING_DRAFT_SECRET / JWT_SECRET from
 // .env and used the public dev default. Dev default refused in production (OT-008).
 const draftSecret = (): string => resolveSecret(ONBOARDING_DRAFT_SPEC);
-const VALID_SIZE_TIERS = new Set(['SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE']);
 
 function mapTrack(track: string): 'IC' | 'MANAGEMENT' | 'EXECUTIVE' {
   if (track === 'INDIVIDUAL_CONTRIBUTOR' || track === 'IC') return 'IC';
@@ -168,9 +168,8 @@ export class OnboardingService {
     };
 
     const passwordHash = await bcrypt.hash(body.adminPassword, 12);
-    const sizeTier = payload.organization.sizeTier && VALID_SIZE_TIERS.has(payload.organization.sizeTier)
-      ? payload.organization.sizeTier
-      : null;
+    const orgDraft = payload.organization;
+    const sizeTier = normalizeSizeTier(orgDraft.sizeTier);
 
     const result = await RequestContextStore.runWithBypass('onboarding.complete', async () => {
       const slugTaken = await this.prisma.organization.findUnique({ where: { slug: body.slug } });
@@ -183,7 +182,16 @@ export class OnboardingService {
             slug: body.slug,
             industry: payload.organization.industry ?? null,
             type: payload.organization.type ?? null,
-            ...(sizeTier ? { sizeTier: sizeTier as 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE' } : {}),
+            ...(sizeTier ? { sizeTier } : {}),
+            // The organisation's own settings, when the wizard was told them (plan
+            // 3.2a). Anything left out keeps the column default (UTC, USD, en-US…).
+            ...(orgDraft.timezone ? { timezone: orgDraft.timezone } : {}),
+            ...(orgDraft.currency ? { currency: orgDraft.currency.toUpperCase() } : {}),
+            ...(orgDraft.locale ? { locale: orgDraft.locale } : {}),
+            ...(orgDraft.weekStartsOn !== undefined ? { weekStartsOn: orgDraft.weekStartsOn } : {}),
+            ...(orgDraft.fiscalYearStartMonth !== undefined
+              ? { fiscalCalendar: { startMonth: orgDraft.fiscalYearStartMonth } }
+              : {}),
           },
         });
 

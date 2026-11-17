@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { OnboardingDraftPatchSchema, validateOnboardingDraft } from './onboarding.js';
+import { OnboardingDraftPatchSchema, normalizeSizeTier, validateOnboardingDraft } from './onboarding.js';
 
 const ready = () => ({
   organization: { name: 'Acme Inc.' },
@@ -126,5 +126,52 @@ describe('validateOnboardingDraft — can this become an organisation?', () => {
     draft.orgUnits[1] = { name: 'Platform', type: ' department ', parent: 'ENGINEERING' };
     draft.kpis[0]!.category = 'delivery';
     expect(validateOnboardingDraft(draft)).toEqual([]);
+  });
+});
+
+describe('organisation settings in the draft (plan 3.2a)', () => {
+  test('timezone, currency, language, fiscal-year start and week start are part of the draft', () => {
+    const organization = { name: 'Acme', timezone: 'Asia/Karachi', currency: 'PKR', locale: 'en-GB', fiscalYearStartMonth: 7, weekStartsOn: 1 };
+    expect(OnboardingDraftPatchSchema.parse({ organization }).organization).toEqual(organization);
+    expect(validateOnboardingDraft({ ...ready(), organization })).toEqual([]);
+  });
+
+  test.each([
+    ['a month that does not exist', { fiscalYearStartMonth: 13 }],
+    ['a month given as text', { fiscalYearStartMonth: 'July' }],
+    ['an eighth day of the week', { weekStartsOn: 7 }],
+    ['a currency longer than a code', { currency: 'DOLLARS' }],
+  ])('the shape refuses %s', (_label, extra) => {
+    expect(OnboardingDraftPatchSchema.safeParse({ organization: { name: 'Acme', ...extra } }).success).toBe(false);
+  });
+
+  test('a time zone, currency or language that is not one is a problem on its field', () => {
+    const draft = { ...ready(), organization: { name: 'Acme', timezone: 'Mars/Olympus', currency: 'U$', locale: 'not a locale' } };
+    expect(validateOnboardingDraft(draft).map((p) => [p.section, p.field])).toEqual([
+      ['organization', 'timezone'],
+      ['organization', 'currency'],
+      ['organization', 'locale'],
+    ]);
+  });
+});
+
+describe('normalizeSizeTier', () => {
+  test('a stored value is kept, whatever its case', () => {
+    expect(normalizeSizeTier('MEDIUM')).toBe('MEDIUM');
+    expect(normalizeSizeTier(' enterprise ')).toBe('ENTERPRISE');
+  });
+
+  test('what templates and the AI call a size maps to a stored one instead of being dropped', () => {
+    expect(normalizeSizeTier('STARTUP')).toBe('SMALL');
+    expect(normalizeSizeTier('SMB')).toBe('SMALL');
+    expect(normalizeSizeTier('SCALEUP')).toBe('MEDIUM');
+    expect(normalizeSizeTier('Mid-market')).toBe('MEDIUM');
+    expect(normalizeSizeTier('corporate')).toBe('LARGE');
+  });
+
+  test('nothing, or a word that means nothing, records no size', () => {
+    expect(normalizeSizeTier(undefined)).toBeNull();
+    expect(normalizeSizeTier('')).toBeNull();
+    expect(normalizeSizeTier('gigantic')).toBeNull();
   });
 });

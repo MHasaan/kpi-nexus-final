@@ -201,3 +201,63 @@ test('onboarding: references match by name whatever the capitals, and the organi
   const kpis = (await (await api.get('/kpis')).json()) as Array<{ name: string; categoryId: string | null }>;
   expect(kpis.find((k) => k.name === 'Cycle Time')?.categoryId).toBeTruthy();
 });
+
+// ---- Plan 3.2a: the organisation's own settings are part of the draft ------
+
+test('onboarding: timezone, currency, language, fiscal year and week start are applied when the organisation is created', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  expect((await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        organization: {
+          name: `Settings ${stamp}`,
+          industry: 'Logistics',
+          sizeTier: 'SCALEUP',
+          timezone: 'Asia/Karachi',
+          currency: 'pkr',
+          locale: 'en-GB',
+          fiscalYearStartMonth: 7,
+          weekStartsOn: 1,
+        },
+        roles: [{ name: 'Admin', isAdmin: true }],
+      },
+    },
+  })).status()).toBe(200);
+
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  const { accessToken } = (await done.json()) as { accessToken: string };
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${accessToken}` } });
+  const org = (await (await api.get('/organizations/me')).json()) as Record<string, unknown>;
+  expect(org).toMatchObject({
+    name: `Settings ${stamp}`,
+    industry: 'Logistics',
+    sizeTier: 'MEDIUM', // what the template called SCALEUP; it used to be dropped
+    timezone: 'Asia/Karachi',
+    currency: 'PKR',
+    locale: 'en-GB',
+    weekStartsOn: 1,
+  });
+  expect((org.fiscalCalendar as { startMonth?: number } | null)?.startMonth).toBe(7);
+});
+
+test('onboarding: a time zone that does not exist stops the draft, on its field', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, suffix());
+  const hdr = { 'x-draft-token': draftToken };
+  await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: { patch: { organization: { name: 'Zone Check', timezone: 'Mars/Olympus' }, roles: [{ name: 'Admin', isAdmin: true }] } },
+  });
+  const { problems } = (await (await anon.get(`/onboarding/${sessionId}/validate`, { headers: hdr })).json()) as { problems: Problem[] };
+  expect(problems).toEqual([expect.objectContaining({ section: 'organization', field: 'timezone' })]);
+});

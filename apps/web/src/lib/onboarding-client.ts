@@ -41,6 +41,25 @@ export interface TemplateSummary {
 
 export interface CachedDraft extends OnboardingStart {
   organizationName: string;
+  /** The email sign-up started with; the wizard offers it as the administrator's. */
+  email?: string;
+}
+
+/** What is inside a template, for a look before choosing it. */
+export interface TemplatePreview {
+  slug: string;
+  name: string;
+  payload: {
+    roles?: Array<{ name: string }>;
+    positions?: Array<{ name: string }>;
+    orgUnits?: Array<{ name: string }>;
+    kpiCategories?: Array<{ name: string }>;
+    kpis?: Array<{ name: string }>;
+  };
+}
+
+export function previewTemplate(slug: string): Promise<TemplatePreview> {
+  return api<TemplatePreview>(`/org-templates/${encodeURIComponent(slug)}`, { auth: false });
 }
 
 function draftHeaders(token: string): Record<string, string> {

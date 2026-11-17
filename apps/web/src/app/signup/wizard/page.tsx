@@ -69,7 +69,8 @@ export default function WizardPage() {
     }
     setHandle(h);
     setSlug(h.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
-    setAdminEmail((prev) => prev);
+    // The email sign-up started with is the administrator's, unless they change it.
+    setAdminEmail((prev) => prev || h.email || '');
     void loadDraft(h);
   }, [loadDraft, router]);
 

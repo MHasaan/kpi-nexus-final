@@ -9,20 +9,27 @@ import {
 } from '../../lib/api-client';
 import {
   type CachedDraft,
+  type TemplatePreview,
   type TemplateSummary,
   applyTemplate,
   cacheDraft,
   clearCachedDraft,
   listTemplates,
+  previewTemplate,
   readCachedDraft,
   startOnboarding,
 } from '../../lib/onboarding-client';
+import { type SignupEntryErrors, signupEntryErrors } from '../../lib/signup-entry';
 
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
   const [templates, setTemplates] = useState<TemplateSummary[] | null>(null);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<SignupEntryErrors>({});
+  const [previewSlug, setPreviewSlug] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, TemplatePreview | 'loading' | 'error'>>({});
   const [showGallery, setShowGallery] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,14 +41,16 @@ export default function SignupPage() {
 
   const beginSession = async (entryMode: string): Promise<CachedDraft | null> => {
     setError(null);
-    if (!email.trim() || !orgName.trim()) {
-      setError('Enter your email and an organization name first.');
+    const problems = signupEntryErrors(email, orgName);
+    setFieldErrors(problems);
+    if (problems.email || problems.orgName) {
+      document.getElementById(problems.email ? 'signup-email' : 'signup-org')?.focus();
       return null;
     }
     setBusy(true);
     try {
       const started = await startOnboarding(email.trim(), orgName.trim(), entryMode);
-      const handle: CachedDraft = { ...started, organizationName: orgName.trim() };
+      const handle: CachedDraft = { ...started, organizationName: orgName.trim(), email: email.trim() };
       cacheDraft(handle);
       return handle;
     } catch (e) {
@@ -57,14 +66,35 @@ export default function SignupPage() {
     if (handle) router.push('/signup/wizard');
   };
 
+  const loadTemplates = async () => {
+    setGalleryError(null);
+    try {
+      setTemplates(await listTemplates());
+    } catch (e) {
+      // A failed load is not "no templates": say so, and let them try again.
+      setGalleryError(e instanceof ApiError ? e.message : 'The templates could not be loaded. Check your connection.');
+    }
+  };
+
   const openGallery = async () => {
     setShowGallery(true);
-    if (!templates) {
-      try {
-        setTemplates(await listTemplates());
-      } catch {
-        setTemplates([]);
-      }
+    if (!templates) await loadTemplates();
+  };
+
+  const togglePreview = async (slug: string) => {
+    if (previewSlug === slug) {
+      setPreviewSlug(null);
+      return;
+    }
+    setPreviewSlug(slug);
+    const known = previews[slug];
+    if (known && known !== 'error') return;
+    setPreviews((p) => ({ ...p, [slug]: 'loading' }));
+    try {
+      const loaded = await previewTemplate(slug);
+      setPreviews((p) => ({ ...p, [slug]: loaded }));
+    } catch {
+      setPreviews((p) => ({ ...p, [slug]: 'error' }));
     }
   };
 
@@ -88,6 +118,12 @@ export default function SignupPage() {
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
           <Link href="/" className="text-lg font-semibold text-content-strong hover:text-accent-primary">KPI Nexus</Link>
           <span className="text-sm text-content-muted">Set up your organization</span>
+          <span className="ml-auto text-sm text-content-muted">
+            Already have an account?{' '}
+            <Link href="/login" data-testid="signup-signin-link" className="font-medium text-accent-primary hover:underline">
+              Sign in
+            </Link>
+          </span>
         </div>
       </header>
 
@@ -115,17 +151,58 @@ export default function SignupPage() {
         )}
 
         <h1 className="text-2xl font-semibold text-content-strong">Welcome — let&apos;s build your KPI workspace</h1>
-        {error && <p className="mt-3 text-sm text-status-critical" data-testid="signup-error">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-status-critical" data-testid="signup-error">
+            {error}
+          </p>
+        )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="text-xs text-content-muted">
-            Your email
-            <input data-testid="signup-email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong" placeholder="you@company.com" />
-          </label>
-          <label className="text-xs text-content-muted">
-            Organization name
-            <input data-testid="signup-org" value={orgName} onChange={(e) => setOrgName(e.target.value)} className="mt-1 block w-full rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong" placeholder="Acme Inc." />
-          </label>
+          <div className="text-xs text-content-muted">
+            <label htmlFor="signup-email">Your email</label>
+            <input
+              id="signup-email"
+              type="email"
+              autoComplete="email"
+              data-testid="signup-email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: undefined }));
+              }}
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'signup-email-error' : undefined}
+              className="mt-1 block w-full rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong"
+              placeholder="you@company.com"
+            />
+            {fieldErrors.email && (
+              <p id="signup-email-error" role="alert" data-testid="signup-email-error" className="mt-1 text-xs text-status-critical">
+                {fieldErrors.email}
+              </p>
+            )}
+          </div>
+          <div className="text-xs text-content-muted">
+            <label htmlFor="signup-org">Organization name</label>
+            <input
+              id="signup-org"
+              autoComplete="organization"
+              data-testid="signup-org"
+              value={orgName}
+              onChange={(e) => {
+                setOrgName(e.target.value);
+                if (fieldErrors.orgName) setFieldErrors((f) => ({ ...f, orgName: undefined }));
+              }}
+              aria-invalid={fieldErrors.orgName ? true : undefined}
+              aria-describedby={fieldErrors.orgName ? 'signup-org-error' : undefined}
+              className="mt-1 block w-full rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong"
+              placeholder="Acme Inc."
+            />
+            {fieldErrors.orgName && (
+              <p id="signup-org-error" role="alert" data-testid="signup-org-error" className="mt-1 text-xs text-status-critical">
+                {fieldErrors.orgName}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -161,17 +238,71 @@ export default function SignupPage() {
                   </div>
                   <p className="mt-1 text-xs text-content-muted">{t.description}</p>
                   <p className="mt-2 text-xs text-content-muted">{t.counts.roles} roles · {t.counts.orgUnits} units · {t.counts.kpis} KPIs</p>
-                  <button type="button" data-testid={`use-template-${t.slug}`} onClick={() => useTemplate(t.slug)} disabled={busy} className="mt-3 w-full rounded bg-accent-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50">
-                    Use this template
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" data-testid={`use-template-${t.slug}`} onClick={() => useTemplate(t.slug)} disabled={busy} className="flex-1 rounded bg-accent-primary px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50">
+                      Use this template
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`preview-template-${t.slug}`}
+                      aria-expanded={previewSlug === t.slug}
+                      onClick={() => void togglePreview(t.slug)}
+                      className="rounded border border-border px-3 py-1.5 text-xs font-medium text-content-strong hover:border-accent-primary"
+                    >
+                      {previewSlug === t.slug ? 'Hide' : "What's inside"}
+                    </button>
+                  </div>
+                  {previewSlug === t.slug && <TemplateContents slug={t.slug} state={previews[t.slug]} />}
                 </div>
               ))}
-              {templates && templates.length === 0 && <p className="text-sm text-content-muted">No templates available.</p>}
+              {templates && templates.length === 0 && !galleryError && <p className="text-sm text-content-muted">No templates available.</p>}
             </div>
+            {galleryError && (
+              <p role="alert" data-testid="template-gallery-error" className="mt-3 text-sm text-status-critical">
+                {galleryError}{' '}
+                <button type="button" onClick={() => void loadTemplates()} className="font-medium underline">
+                  Try again
+                </button>
+              </p>
+            )}
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+const PREVIEW_SECTIONS = [
+  ['roles', 'Roles'],
+  ['positions', 'Positions'],
+  ['orgUnits', 'Units'],
+  ['kpiCategories', 'KPI categories'],
+  ['kpis', 'KPIs'],
+] as const;
+
+/** What a template would create, by name — a look, not a choice. */
+function TemplateContents({ slug, state }: { slug: string; state: TemplatePreview | 'loading' | 'error' | undefined }) {
+  return (
+    <div data-testid={`template-preview-${slug}`} className="mt-3 border-t border-border-divider pt-3 text-xs text-content-muted">
+      {(state === undefined || state === 'loading') && <p>Loading…</p>}
+      {state === 'error' && <p role="alert" className="text-status-critical">This template could not be opened. Try again in a moment.</p>}
+      {state && typeof state === 'object' && (
+        <dl className="flex flex-col gap-2">
+          {PREVIEW_SECTIONS.map(([key, label]) => {
+            const items = state.payload[key] ?? [];
+            if (items.length === 0) return null;
+            return (
+              <div key={key}>
+                <dt className="font-medium text-content-strong">
+                  {label} ({items.length})
+                </dt>
+                <dd className="mt-0.5">{items.map((item) => item.name).join(' · ')}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
+    </div>
   );
 }
 

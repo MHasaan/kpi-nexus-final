@@ -78,3 +78,47 @@ describe('BillingService usage and plans', () => {
     expect(plans).toEqual([{ key: 'FREE', displayName: 'Free', monthlyPriceUsd: 0, features: [], quotas: { kpis: 10, dashboards: 3, users: 5 } }]);
   });
 });
+
+describe('BillingService plan features (plan 6.11)', () => {
+  function make(planKey: string, flag: { enabled: boolean } | null = null) {
+    const prisma = {
+      plan: {
+        count: vi.fn().mockResolvedValue(3),
+        // A seeded catalog describes features in words; the keys come from the built-in catalog.
+        findUnique: vi.fn().mockResolvedValue({ key: planKey, displayName: planKey === 'FREE' ? 'Free' : 'Pro', monthlyPriceUsd: 0, features: ['10 KPIs', 'Community support'], quotas: {} }),
+      },
+      organization: { findUniqueOrThrow: vi.fn().mockResolvedValue({ planKey }) },
+      featureFlag: { findUnique: vi.fn().mockResolvedValue(flag) },
+      kPI: { count: vi.fn().mockResolvedValue(0) },
+      dashboard: { count: vi.fn().mockResolvedValue(0) },
+      user: { count: vi.fn().mockResolvedValue(1) },
+    };
+    return new BillingService(prisma as unknown as PrismaService);
+  }
+
+  it('refuses a feature the plan does not include with 402 FEATURE_NOT_IN_PLAN', async () => {
+    const err = await Promise.resolve(RequestContextStore.run(tenant, () => make('FREE').assertFeature('webhooks'))).catch((e: unknown) => e);
+    expect((err as { getStatus: () => number }).getStatus()).toBe(402);
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({
+      code: 'FEATURE_NOT_IN_PLAN',
+      message: 'Webhooks are not part of the Free plan. Choose a plan that includes them on the Billing page.',
+      details: { feature: 'webhooks', plan: 'FREE' },
+    });
+  });
+
+  it('allows a feature the plan includes, whatever words the stored catalog uses', async () => {
+    await expect(RequestContextStore.run(tenant, () => make('PRO').assertFeature('webhooks'))).resolves.toBeUndefined();
+    await expect(RequestContextStore.run(tenant, () => make('PRO').assertFeature('api_keys'))).rejects.toBeDefined();
+  });
+
+  it("allows a feature switched on for the organisation by a feature flag", async () => {
+    await expect(RequestContextStore.run(tenant, () => make('FREE', { enabled: true }).assertFeature('webhooks'))).resolves.toBeUndefined();
+  });
+
+  it('reports the feature keys of the plan, not the stored descriptions', async () => {
+    const service = make('PRO');
+    await expect(RequestContextStore.run(tenant, () => service.getStatus())).resolves.toMatchObject({
+      features: ['ai_insights', 'webhooks', 'scheduled_reports'],
+    });
+  });
+});

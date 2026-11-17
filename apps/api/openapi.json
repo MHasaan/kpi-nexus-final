@@ -10940,6 +10940,31 @@
         "security": []
       }
     },
+    "/onboarding/{id}/validate": {
+      "get": {
+        "operationId": "OnboardingController_validate",
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "GET /onboarding/:id/validate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": []
+      }
+    },
     "/onboarding/ai/apply": {
       "post": {
         "operationId": "OnboardingAiController_apply",

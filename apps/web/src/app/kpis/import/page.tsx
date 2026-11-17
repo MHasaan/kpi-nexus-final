@@ -104,7 +104,7 @@ export default function KpiImportPage() {
   const canCommit = result !== null && result.errors.length === 0 && result.valid.length > 0;
 
   return (
-    <RequirePermission permission="KPI_VIEW">
+    <RequirePermission permission="KPI_CREATE">
     <AppShell
       title="Import KPIs"
       crumbs={[

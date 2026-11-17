@@ -295,6 +295,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-045 `POST /user-kpis/assign` and `DELETE /user-kpis/assignments/:id` ignored the caller's PEOPLE scope — a manager limited to their units could assign to, or unassign from, anyone | ✅ Fixed — 404, same as the read | `9937147` | `user-kpis.assign-scope.spec.ts` (4), BE-045 case in `test/integration/people-org-analytics-scope.spec.ts` (was 201, now 404; in-scope assign/unassign still 201/204) |
 | BE-046 `POST /auth/accept-invitation` checked only the token — an invitee archived or suspended before accepting could still set a password and become ACTIVE | ✅ Fixed — 401, same as a bad token | `f3cb900` | BE-046 case in `test/integration/invitation.spec.ts` (was 200, now 401 after offboard and after suspend; status stays put), `withdrawn-invitee.spec.ts` (3) |
 | UI-010 (part 4) `/team` was empty in every real organisation, and its empty state carried the list's own test id | ✅ Fixed — works now that a manager can be set; the empty state says how | `ac64e97` | `e2e/team-page.spec.ts` (empty state with a way forward; reports listed with KPIs; a report with none still appears; non-reports are absent) |
+| UI-005 (part 1) two sign-up paths: `/login` sent new people to `/register`, an older form that skipped the setup wizard | ✅ Fixed — `/register` redirects to `/signup`; the `/login` link goes there | `0e75fe1` | `e2e/auth-flow.spec.ts` (redirect + link, then sign out / sign in as before) |
 
 ### UI completion round — open findings (2026-11-16)
 

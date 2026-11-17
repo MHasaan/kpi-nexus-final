@@ -54,7 +54,7 @@ export class ScheduledReportsController {
   }
 
   @Post()
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequirePermissions(PermissionKey.REPORTS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
   @ApiBody(CreateScheduledReportDtoSchema)
   create(@Body() body: unknown) {
@@ -69,7 +69,7 @@ export class ScheduledReportsController {
   }
 
   @Patch(':id')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequirePermissions(PermissionKey.REPORTS_MANAGE)
   @ApiBody(UpdateScheduledReportDtoSchema)
   update(@Param('id') id: string, @Body() body: unknown) {
     const dto = parse(UpdateScheduledReportDtoSchema, body);
@@ -77,7 +77,7 @@ export class ScheduledReportsController {
   }
 
   @Delete(':id')
-  @RequirePermissions(PermissionKey.ORG_SETTINGS)
+  @RequirePermissions(PermissionKey.REPORTS_MANAGE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
     await this.scheduledReports.remove(id);

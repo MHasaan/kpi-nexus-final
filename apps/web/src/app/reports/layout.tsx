@@ -7,6 +7,7 @@ import { RequirePermission } from '../../components/auth/require-permission';
 
 export default function ReportsLayout({ children }: { children: ReactNode }) {
   const segment = useSelectedLayoutSegment();
-  const permission = segment === 'new' ? 'ORG_SETTINGS' : 'REPORTS_VIEW';
+  // Creating a report is REPORTS_MANAGE on the API; reading them is REPORTS_VIEW.
+  const permission = segment === 'new' ? 'REPORTS_MANAGE' : 'REPORTS_VIEW';
   return <RequirePermission permission={permission}>{children}</RequirePermission>;
 }

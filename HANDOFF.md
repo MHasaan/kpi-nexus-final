@@ -245,18 +245,28 @@ The owner asked for every page and every option to work end to end, from sign-up
 | 0 | Shared pieces: confirm dialog, toasts, labels, async-data hook, approval-pending notice, e2e org helper | ✅ merged (#120–#124, #136) |
 | 1 | Wrong numbers: period window, newest value, one health rule on the home page, dashboard data provider, sparklines | ✅ merged (#137–#141) |
 | 2 | Per-unit and per-person KPIs, people: assignments API and tab, record form, unit KPI panel, `PATCH /users/:id`, invite lifecycle, `/users` edit and lifecycle actions, `/team` | ✅ merged (#142–#158) |
-| 3 | Sign-up and onboarding: one sign-up path, dead invite links, per-person tour, `/signup`, the draft schema, organisation settings / unit KPIs / team / finish touches in `complete`, the real checklist, and the six-step wizard with quick vs full and the AI rail | ✅ built, PRs #159–#180 (merge in order, see below) |
-| 4 | Features offered that do not work: live refresh, automations, approvals, std-dev / rate-of-change / composite alert rules, Activity and Strategy-map widgets, channel test; plus new 4.8 (insights replace) and 4.9 (forecast says which model ran) | ⬜ next |
-| 5 | Reachability and permissions (unlinked pages, the page ↔ API permission table, pages that need `GET /users`); new 5.6 | ⬜ |
+| 3 | Sign-up and onboarding: one sign-up path, dead invite links, per-person tour, `/signup`, the draft schema, organisation settings / unit KPIs / team / finish touches in `complete`, the real checklist, and the six-step wizard with quick vs full and the AI rail | ✅ built, PRs #159–#182; merged through #167 on 2026-11-17, the rest in order (see below) |
+| 4 | Features offered that did not work: live refresh (#183), automations (#184), approvals inbox (#185), role changes under approval (#186), std-dev / rate-of-change / composite alert rules (#187) and the rule form's recipients (#188), Activity and Strategy-map widgets (#189), the public share page (#190), channel test and editing (#193), forecast says which model ran (#197), insights replace (#198) | ✅ built, all PRs green, waiting their turn in the chain |
+| 5 | Reachability and permissions. Done: links (#194–#196, closes UI-012) and the Ask permission (#199). Left: the rest of the page ↔ API permission table (5.2), names without `USERS_VIEW` (5.3), dead ends (5.4), pages outside the shell (5.5), seeded role scopes (5.6) | 🟡 started; three 5.2 groups need sign-off (below) |
 | 6 | Settings that save but change nothing; the real Integrations connect form | ⬜ needs ADR-002 (SSO without WorkOS) and ADR-003 (custom domains) signed off first |
 | 7 | Safety and polish, one pattern at a time (confirm dialogs, silent failures, enums, forms, paging) | ⬜ |
 | 8 | Click-through and regression net | ⬜ |
+
+**Found and fixed on the way (2026-11-17):** BE-047 — a public share link sent the newest value of a KPI from *any* unit or person (#191); BE-048 — a dashboard snapshot froze the same (#192). Both now read organisation-level rows only. Snapshots taken before #192 are not rewritten: one taken of a board with a per-unit or per-person KPI may still hold such a value.
+
+**Waiting for the owner's sign-off** (each changes which permission an API route asks for; nothing has been changed yet):
+- Forecast and what-if: API `INSIGHTS_VIEW` → `ANALYTICS_FORECAST`, pages to match.
+- Anomalies: API `INSIGHTS_VIEW` → `ANALYTICS_VIEW`; the Confirm button behind `KPI_EDIT`.
+- Scheduled reports: create / pause / delete `ORG_SETTINGS` → `REPORTS_MANAGE` (the key exists for this).
+- Batch 6 still needs ADR-002 (SSO without WorkOS) and ADR-003 (custom domains).
+
+**End-of-batch crawl (2026-11-17, 84 routes × 4 passes, on the tip of the chain):** no regression. Three rows improved (`/approvals` as a contributor; `/team` and `/users/[id]` signed out). Twenty warnings remain, all of the Batch 5 kind (a page asks the API before its gate, or needs names it may not list).
 
 Also open from the QA pass: 1.6 (one KPI health rule on the KPI page too, and the KPI form writing threshold bands) and 0.7 (developer experience).
 
 **Decisions the owner made for this round** (do not re-ask): settings that save but do nothing are each made to work; the wizard gets real manual steps; Integrations gets a real per-provider connect form; std-dev and rate-of-change alert rules and the Activity and Strategy-map widgets are all built; only `/signup` is kept (`/register` redirects).
 
-**How the PRs are merged.** One finding per PR; test commit, then the change, then a docs commit adding the fix-log row. Every PR adds a row at the same place in `docs/audit/README.md`, so independent branches always conflict there. Since #154 the open PRs are one **chain**: each branch is based on the one before it, all target `main`. Merge them strictly in number order (#159 … #180), each with `gh pr merge N --merge --match-head-commit <full sha>` once its own checks are green and `main`'s CI is green after the previous merge. Merged in order, no branch needs a rebase and its head — the one CI ran on — never changes. Merging one out of order would pull the earlier ones in with it: don't. Rollback of any one is `git revert -m 1 <its merge commit>`.
+**How the PRs are merged.** One finding per PR; test commit, then the change, then a docs commit adding the fix-log row. Every PR adds a row at the same place in `docs/audit/README.md`, so independent branches always conflict there. Since #154 the open PRs are one **chain**: each branch is based on the one before it, all target `main`. Merge them strictly in number order (#168 … #199, then any later ones), each with `gh pr merge N --merge --match-head-commit <full sha>` once its own checks are green and `main`'s CI is green after the previous merge. Merged in order, no branch needs a rebase and its head — the one CI ran on — never changes. Merging one out of order would pull the earlier ones in with it: don't. Rollback of any one is `git revert -m 1 <its merge commit>`.
 
 **The throwaway stack** (`.cache/uiwalk/`, compose project `kpi-uiwalk`, Postgres on 25432) is what all of this is tested on; see the memory note "Local disposable stack". Its `env.sh` mirrors CI's raised onboarding rate limits — without them the e2e suite trips the 10-per-hour sign-up limit. Unit suites must be run in a shell that has **not** sourced that `env.sh`: its mock AI keys and SMTP settings fail four environment-sensitive specs.
 

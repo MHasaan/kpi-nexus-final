@@ -8,10 +8,8 @@ import { ExternalLink, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
 import {
   ApiError,
   type KpiSummary,
-  type UserSummary,
   getAccessToken,
   listKpis,
-  listUsers,
 } from '../../../lib/api-client';
 import {
   type KeyResult,
@@ -48,6 +46,7 @@ import {
 } from '../../../components/ui';
 import type { BadgeTone } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { usePeople } from '../../../lib/use-people';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -132,7 +131,8 @@ export default function ObjectiveDetailPage() {
   const [objective, setObjective] = useState<Objective | null>(null);
   const [krs, setKrs] = useState<KeyResult[]>([]);
   const [allObjectives, setAllObjectives] = useState<Objective[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
+  // The owner's name (and the other owners', for the picker), without asking for the people list on behalf of someone who may not have it (X-05).
+  const users = usePeople([objective?.ownerUserId, ...allObjectives.map((o) => o.ownerUserId)]);
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,17 +159,15 @@ export default function ObjectiveDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [obj, krList, objs, us, kp] = await Promise.all([
+      const [obj, krList, objs, kp] = await Promise.all([
         getObjective(id),
         listKeyResults(id),
         listObjectives().catch(() => [] as Objective[]),
-        listUsers().catch(() => [] as UserSummary[]),
         listKpis().catch(() => [] as KpiSummary[]),
       ]);
       setObjective(obj);
       setKrs(krList);
       setAllObjectives(objs);
-      setUsers(us);
       setKpis(kp);
       setError(null);
     } catch (e) {

@@ -127,6 +127,24 @@ export class UsersService {
     });
   }
 
+  /**
+   * The names of the given people — for showing who a task is assigned to or
+   * who owns an objective. Open to every member, because those pages are, and
+   * deliberately not a list: it answers only for ids the caller already holds
+   * (they came from a task, a comment, an objective), within the caller's
+   * organisation, and gives a name and nothing else.
+   */
+  async names(ids: readonly string[]): Promise<Array<{ id: string; fullName: string }>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return [];
+    const ctx = RequestContextStore.require();
+    const rows = await this.prisma.user.findMany({
+      where: { organizationId: ctx.organizationId, id: { in: unique } },
+      select: { id: true, fullName: true },
+    });
+    return rows.map((row) => ({ id: row.id, fullName: row.fullName }));
+  }
+
   async getById(id: string): Promise<PublicUser> {
     const ctx = RequestContextStore.require();
     const user = await this.prisma.user.findFirst({

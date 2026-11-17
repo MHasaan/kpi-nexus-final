@@ -17928,6 +17928,56 @@
         }
       }
     },
+    "/users/names": {
+      "post": {
+        "operationId": "UsersController_names",
+        "tags": [
+          "Users"
+        ],
+        "summary": "POST /users/names",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  }
+                },
+                "required": [
+                  "ids"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/webhooks": {
       "get": {
         "operationId": "WebhooksController_list",

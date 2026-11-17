@@ -8,11 +8,10 @@ import { AlignLeft, ExternalLink, MessageSquare, Plus, Trash2, X } from 'lucide-
 import {
   ApiError,
   type KpiSummary,
-  type UserSummary,
   getAccessToken,
   listKpis,
-  listUsers,
 } from '../../lib/api-client';
+import { type Person, usePeople } from '../../lib/use-people';
 import {
   type Task,
   type TaskStatus,
@@ -163,7 +162,6 @@ interface EditState {
 export default function TasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,17 +211,18 @@ export default function TasksPage() {
     void load();
   }, [load, router]);
 
+  // Names for everyone on the board, without asking for the people list on
+  // behalf of someone who may not have it (X-05).
+  const users = usePeople(tasks.flatMap((t) => [t.assigneeUserId, t.createdById]));
+
   useEffect(() => {
-    listUsers()
-      .then(setUsers)
-      .catch(() => setUsers([]));
     listKpis()
       .then(setKpis)
       .catch(() => setKpis([]));
   }, []);
 
   const userById = useCallback(
-    (uid: string | null): UserSummary | undefined => (uid ? users.find((u) => u.id === uid) : undefined),
+    (uid: string | null): Person | undefined => (uid ? users.find((u) => u.id === uid) : undefined),
     [users],
   );
   const kpiById = useCallback(

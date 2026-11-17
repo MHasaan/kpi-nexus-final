@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_TASKS, countComplete, mergeChecklist } from './setup-checklist.defaults.js';
+import { DEFAULT_TASKS, countComplete, mergeChecklist, resolveChecklist } from './setup-checklist.defaults.js';
 
 describe('DEFAULT_TASKS', () => {
   it('defines exactly 14 tasks with unique keys', () => {
@@ -14,6 +14,46 @@ describe('DEFAULT_TASKS', () => {
       expect(t.category).toBeTruthy();
       expect(t.label).toBeTruthy();
     }
+  });
+});
+
+describe('DEFAULT_TASKS — what a person reads (plan 3.3)', () => {
+  it('every task says where to go to do it', () => {
+    for (const t of DEFAULT_TASKS) {
+      expect(t.href, t.key).toMatch(/^\/[a-z]/);
+    }
+  });
+
+  it('no label carries a build-phase note', () => {
+    for (const t of DEFAULT_TASKS) {
+      expect(t.label, t.key).not.toMatch(/\bP\d\b|post-|\(/i);
+    }
+  });
+
+  it('starts with what a new organisation does first: people, then data', () => {
+    expect(DEFAULT_TASKS.slice(0, 3).map((t) => t.key)).toEqual(['remaining_invites', 'historical_import', 'default_dashboard']);
+  });
+});
+
+describe('resolveChecklist — done because it is done, not because someone ticked it', () => {
+  it('a task whose work exists is complete, and says it was detected', () => {
+    const items = resolveChecklist([], new Set(['channels']));
+    expect(items.find((i) => i.key === 'channels')).toMatchObject({ status: 'complete', detected: true });
+    expect(items.filter((i) => i.status === 'pending')).toHaveLength(13);
+  });
+
+  it('a task ticked by hand is complete without being detected', () => {
+    const item = resolveChecklist([{ key: 'compliance_review', status: 'complete' }], new Set()).find((i) => i.key === 'compliance_review')!;
+    expect(item).toMatchObject({ status: 'complete', detected: false });
+  });
+
+  it('dismissed stays dismissed even if the work later exists', () => {
+    const item = resolveChecklist([{ key: 'sso', status: 'dismissed' }], new Set(['sso'])).find((i) => i.key === 'sso')!;
+    expect(item.status).toBe('dismissed');
+  });
+
+  it('ignores a detected key that is not a task', () => {
+    expect(resolveChecklist([], new Set(['ghost'])).every((i) => i.status === 'pending')).toBe(true);
   });
 });
 
@@ -33,7 +73,8 @@ describe('mergeChecklist', () => {
   it('preserves category + label from the defaults', () => {
     const item = mergeChecklist([{ key: 'sso', status: 'dismissed' }]).find((i) => i.key === 'sso')!;
     expect(item.category).toBe('Security');
-    expect(item.label).toContain('SSO');
+    expect(item.label).toBe('Set up single sign-on');
+    expect(item.href).toBe('/settings/sso');
     expect(item.status).toBe('dismissed');
   });
 

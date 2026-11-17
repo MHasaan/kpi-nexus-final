@@ -63,6 +63,22 @@ describe('ConfirmDialog (X-01)', () => {
     expect(html).toContain('You do not have permission.');
   });
 
+  test('choices that go with the question are shown inside the dialog, outside its description', () => {
+    const html = renderToStaticMarkup(
+      <ConfirmDialog open title="Archive Lee?" description="They lose access." onConfirm={() => {}} onCancel={() => {}}>
+        <label>
+          Hand their KPIs to
+          <select data-testid="heir">
+            <option>Hana</option>
+          </select>
+        </label>
+      </ConfirmDialog>,
+    );
+    expect(html).toContain('data-testid="heir"');
+    // The description stays a plain sentence: the controls are not inside its <p>.
+    expect(html).toMatch(/<p[^>]*>They lose access\.<\/p>/);
+  });
+
   test('custom test id prefixes every part', () => {
     const html = renderToStaticMarkup(<ConfirmDialog open testId="delete-role" title="t" onConfirm={noop} onCancel={noop} />);
     expect(html).toContain('data-testid="delete-role"');

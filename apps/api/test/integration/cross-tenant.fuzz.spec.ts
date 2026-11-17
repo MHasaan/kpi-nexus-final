@@ -152,6 +152,16 @@ describe('Cross-tenant fuzz harness (P1 exit criterion)', () => {
       expect(status).toBe(404);
     });
 
+    test('PATCH /users/:id — a user from org A cannot be edited by org B', async () => {
+      if (skipIfNoApi()) return;
+      const { status } = await http(`/users/${orgA.userId}`, {
+        method: 'PATCH',
+        token: orgB.token,
+        body: JSON.stringify({ fullName: 'Hijacked Name' }),
+      });
+      expect(status).toBe(404);
+    });
+
     test('GET /roles/:id — role from org A is invisible to org B', async () => {
       if (skipIfNoApi()) return;
       const roleA = await createRoleIn(orgA, 'TenantA-Custom-Role');

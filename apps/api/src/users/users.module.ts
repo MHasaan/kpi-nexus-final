@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { UsersController } from './users.controller.js';
 import { UsersService } from './users.service.js';
 import { OffboardingService } from './services/offboarding.service.js';
+import { UserUpdateService } from './services/user-update.service.js';
 
 @Module({
   imports: [EmailModule],
@@ -13,6 +14,7 @@ import { OffboardingService } from './services/offboarding.service.js';
   providers: [
     UsersService,
     OffboardingService,
+    UserUpdateService,
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,

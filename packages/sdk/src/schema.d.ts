@@ -4088,7 +4088,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** PATCH /users/:id */
+        patch: operations["UsersController_update"];
         trace?: never;
     };
     "/users/{id}/access-override": {
@@ -16171,6 +16172,49 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UsersController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fullName?: string;
+                    roleId?: string;
+                    managerId?: string | null;
+                    positionId?: string | null;
+                };
+            };
+        };
         responses: {
             /** @description Success */
             200: {

@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 
 import { AlertsModule } from '../alerts/alerts.module.js';
+import { DashboardsModule } from '../dashboards/dashboards.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
 import { RealtimeAccessService } from './realtime-access.service.js';
 import { RealtimeController } from './realtime.controller.js';
 import { RealtimeService } from './realtime.service.js';
 
 @Module({
-  imports: [AlertsModule, RbacModule],
+  imports: [AlertsModule, RbacModule, DashboardsModule],
   controllers: [RealtimeController],
   providers: [RealtimeService, RealtimeAccessService],
   exports: [RealtimeService],

@@ -3,7 +3,9 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { RealtimeStreamQuerySchema } from '@kpi-nexus/contracts';
 
+import { DashboardsService } from '../dashboards/dashboards.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { type DashboardKpiScope, dashboardKpiScope } from './dashboard-kpi-scope.js';
 import { RealtimeAccessService } from './realtime-access.service.js';
 import { RealtimeService } from './realtime.service.js';
 
@@ -21,20 +23,22 @@ import { RealtimeService } from './realtime.service.js';
  *
  * Query params:
  *   kpiId       (optional) — filter events to this KPI
- *   dashboardId (optional) — filter events to this dashboard
+ *   dashboardId (optional) — filter events to the KPIs this dashboard shows.
+ *                 The dashboard must be one the caller can see (404 otherwise).
  */
 @Controller('realtime')
 export class RealtimeController {
   constructor(
     private readonly realtimeService: RealtimeService,
     private readonly access: RealtimeAccessService,
+    private readonly dashboards: DashboardsService,
   ) {}
 
   @Get('stream')
-  stream(
+  async stream(
     @Req() req: FastifyRequest,
     @Res() reply: FastifyReply,
-  ): void {
+  ): Promise<void> {
     // Validate query params
     const queryResult = RealtimeStreamQuerySchema.safeParse(req.query);
     if (!queryResult.success) {
@@ -52,6 +56,16 @@ export class RealtimeController {
     // may read before it is written (other users' PER_USER values, alerts on
     // hidden KPIs and other users' digests are withheld).
     const filter = this.access.forSubscriber();
+
+    // "This dashboard" means the KPIs on it, read once when the stream opens
+    // (the page reconnects when its widgets change). getById applies dashboard
+    // visibility, so a board the caller cannot see is a 404 before any stream
+    // is opened. Done before hijack() so that 404 is an ordinary response.
+    let dashboardKpis: DashboardKpiScope | undefined;
+    if (filters.dashboardId !== undefined) {
+      const dashboard = await this.dashboards.getById(filters.dashboardId);
+      dashboardKpis = dashboardKpiScope(dashboard.widgets);
+    }
 
     // Hijack the Fastify reply so Nest/Fastify leave the raw stream alone
     reply.hijack();
@@ -78,7 +92,7 @@ export class RealtimeController {
     }, 25_000);
 
     // Subscribe to realtime events for this org
-    const subscription = this.realtimeService.subscribe(orgId, filters).subscribe({
+    const subscription = this.realtimeService.subscribe(orgId, filters, dashboardKpis).subscribe({
       next: (event) => {
         void filter.allows(event).then((allowed) => {
           if (!allowed || raw.writableEnded) return;

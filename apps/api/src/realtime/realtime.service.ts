@@ -4,6 +4,8 @@ import { Observable, Subject } from 'rxjs';
 
 import type { RealtimeEvent, RealtimeStreamQuery } from '@kpi-nexus/contracts';
 
+import type { DashboardKpiScope } from './dashboard-kpi-scope.js';
+
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 /**
@@ -14,7 +16,10 @@ const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
  *    even when a kpiId or dashboardId filter is active.
  *  - For any other event type, if no filter fields are set, the event passes.
  *  - If `kpiId` is set, the event's `kpiId` field must match.
- *  - If `dashboardId` is set, the event's `dashboardId` field must match.
+ *  - If `dashboardId` is set, the event must be for a KPI that dashboard shows
+ *    (`dashboardKpis`, resolved by the caller from the dashboard's widgets).
+ *    Data events do not name a dashboard, so without that set nothing can match
+ *    except an event that does carry the same `dashboardId`.
  *  - Both filters are ANDed when both are set.
  *
  * Exported as a pure function so it can be unit-tested without Redis.
@@ -22,6 +27,7 @@ const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 export function eventMatchesFilter(
   event: RealtimeEvent,
   filters: RealtimeStreamQuery,
+  dashboardKpis?: DashboardKpiScope,
 ): boolean {
   // ping / heartbeat-style events always pass — clients need them to know
   // the connection is alive regardless of what they are filtering for.
@@ -32,7 +38,10 @@ export function eventMatchesFilter(
   // data_point_added / _updated carry kpiId and (optionally) dashboardId
   if (event.type === 'data_point_added' || event.type === 'data_point_updated') {
     if (kpiId !== undefined && event.kpiId !== kpiId) return false;
-    if (dashboardId !== undefined && event.dashboardId !== dashboardId) return false;
+    if (dashboardId !== undefined) {
+      if (dashboardKpis === undefined) return event.dashboardId === dashboardId;
+      return dashboardKpis === 'all' || dashboardKpis.has(event.kpiId);
+    }
     return true;
   }
 
@@ -155,7 +164,7 @@ export class RealtimeService implements OnModuleDestroy {
    * caller unsubscribes (teardown removes the Redis SUBSCRIBE if no other
    * callers remain for that org channel).
    */
-  subscribe(orgId: string, filters: RealtimeStreamQuery): Observable<RealtimeEvent> {
+  subscribe(orgId: string, filters: RealtimeStreamQuery, dashboardKpis?: DashboardKpiScope): Observable<RealtimeEvent> {
     return new Observable<RealtimeEvent>((subscriber) => {
       // Ensure a Subject exists for this org channel.
       if (!this.subjects.has(orgId)) {
@@ -173,7 +182,7 @@ export class RealtimeService implements OnModuleDestroy {
       // Fan the Subject into this rxjs subscriber, applying event filters.
       const inner = subject.subscribe({
         next: (event) => {
-          if (eventMatchesFilter(event, filters)) {
+          if (eventMatchesFilter(event, filters, dashboardKpis)) {
             subscriber.next(event);
           }
         },

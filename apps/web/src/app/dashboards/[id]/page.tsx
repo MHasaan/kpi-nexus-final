@@ -109,6 +109,11 @@ function DashboardDetailInner() {
   const [snapDone, setSnapDone] = useState(false);
   const [snapping, setSnapping] = useState(false);
 
+  // Live updates: a value arriving for a KPI on this board bumps `refreshKey`,
+  // which reloads the numbers in place (UI-006).
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [live, setLive] = useState(false);
+
   const refresh = useCallback(async () => {
     setLoadError(null);
     try {
@@ -263,7 +268,12 @@ function DashboardDetailInner() {
       {dashboard && (
         <>
           {/* Real-time refresh — invisible, subscribes to SSE */}
-          <RealtimeRefresh dashboardId={dashboardId} onRefresh={refresh} />
+          <RealtimeRefresh
+            dashboardId={dashboardId}
+            widgetsKey={dashboard.widgets.map((w) => `${w.id}:${String(w.config['kpiId'] ?? '')}`).join(',')}
+            onRefresh={() => setRefreshKey((k) => k + 1)}
+            onStatus={setLive}
+          />
 
           {/* Page header */}
           <PageHeader
@@ -280,6 +290,12 @@ function DashboardDetailInner() {
                   {new Date(dashboard.updatedAt).toLocaleString()}
                   {dashboard.isDefault && ' · default'}
                   {dashboard.isShared && ' · shared'}
+                  {live && (
+                    <span data-testid="dashboard-live" className="ml-2 inline-flex items-center gap-1 text-status-success" title="New values appear here as they are recorded">
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-status-success" />
+                      Live
+                    </span>
+                  )}
                 </span>
               </>
             }
@@ -557,7 +573,7 @@ function DashboardDetailInner() {
             )}
 
             {/* Widget grid — one KPI + summary load for the whole board. */}
-            <DashboardDataProvider dateRange={dateRange}>
+            <DashboardDataProvider dateRange={dateRange} refreshKey={refreshKey}>
             <DashboardGrid
               dashboardId={dashboardId}
               widgets={dashboard.widgets}

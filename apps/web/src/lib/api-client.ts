@@ -1282,6 +1282,8 @@ export interface RealtimeEvent {
 export function subscribeRealtime(
   filters: { kpiId?: string; dashboardId?: string },
   onEvent: (evt: RealtimeEvent) => void,
+  /** Told when the stream opens and when it drops, so a page can say whether it is live. */
+  onStatus?: (connected: boolean) => void,
 ): () => void {
   const controller = new AbortController();
 
@@ -1307,6 +1309,7 @@ export function subscribeRealtime(
       }
 
       if (!res.ok || !res.body) return;
+      onStatus?.(true);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -1318,7 +1321,10 @@ export function subscribeRealtime(
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          onStatus?.(false);
+          break;
+        }
 
         buf += decoder.decode(value, { stream: true });
         const lines = buf.split('\n');
@@ -1351,6 +1357,7 @@ export function subscribeRealtime(
     } catch (err) {
       // AbortError means cleanup — don't reconnect
       if (err instanceof DOMException && err.name === 'AbortError') return;
+      onStatus?.(false);
       // Other errors: attempt reconnect after 3 s
       if (!controller.signal.aborted) {
         await new Promise<void>((resolve) => setTimeout(resolve, 3000));

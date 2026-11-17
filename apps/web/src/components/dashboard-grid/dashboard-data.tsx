@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   type DashboardSummaryRow,
@@ -16,6 +16,8 @@ export interface DashboardData {
   rows: Map<string, DashboardSummaryRow>;
   loading: boolean;
   error: string | null;
+  /** Bumped when fresh values arrive; a widget reloads its own series when it changes. */
+  refreshKey: number;
 }
 
 const DashboardDataContext = createContext<DashboardData | null>(null);
@@ -46,16 +48,21 @@ export function DashboardDataProvider({
   const [error, setError] = useState<string | null>(null);
   const from = dateRange?.from;
   const to = dateRange?.to;
+  // What was last loaded for: a change of range shows "loading"; a refresh of
+  // the same range swaps the numbers in place, without blanking the board.
+  const loadedFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const range = `${from ?? ''}|${to ?? ''}`;
+    if (loadedFor.current !== range) setLoading(true);
     setError(null);
     Promise.all([listKpis(), getDashboardSummary({ from, to })])
       .then(([allKpis, summary]) => {
         if (cancelled) return;
         setKpis(new Map(allKpis.map((k) => [k.id, k])));
         setRows(new Map(summary.map((r) => [r.kpiId, r])));
+        loadedFor.current = range;
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load this dashboard’s KPIs.');
@@ -68,7 +75,10 @@ export function DashboardDataProvider({
     };
   }, [from, to, refreshKey]);
 
-  const value = useMemo<DashboardData>(() => ({ kpis, rows, loading, error }), [kpis, rows, loading, error]);
+  const value = useMemo<DashboardData>(
+    () => ({ kpis, rows, loading, error, refreshKey: refreshKey ?? 0 }),
+    [kpis, rows, loading, error, refreshKey],
+  );
   return <DashboardDataContext.Provider value={value}>{children}</DashboardDataContext.Provider>;
 }
 

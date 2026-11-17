@@ -52,6 +52,7 @@ test('wizard: template gallery → apply rich → complete → dashboard + check
   await page.getByTestId('admin-name').fill('Wiz Admin');
   await page.getByTestId('admin-email').fill(`admin-${stamp}@wiz.test.local`);
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`wiz-${stamp}`);
   await page.getByTestId('wizard-complete').click();
 
@@ -192,6 +193,7 @@ test('wizard: a failed save is kept, blocks Finish, and is saved by Retry', asyn
   await page.getByTestId('admin-name').fill('Wiz Admin');
   await page.getByTestId('admin-email').fill(`admin-${stamp}@wiz.test.local`);
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('wizard-complete').click();
   await expect(page.getByTestId('wizard-error')).toContainText('not saved yet');
   await expect(page).toHaveURL(/\/signup\/wizard/);

@@ -32,7 +32,9 @@ import {
   stepFromParam,
   stepNeighbours,
 } from '../../../lib/wizard-steps';
+import { type AdminAccountErrors, adminAccountErrors, finishMessage, firstInvalidField } from '../../../lib/wizard-finish';
 import { retargetManager } from '../../../lib/wizard-team';
+import { useToast } from '../../../lib/use-toast';
 
 export default function WizardPage() {
   // `useSearchParams` needs a Suspense boundary for the static shell.
@@ -62,8 +64,10 @@ function Wizard() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const [admin, setAdmin] = useState<AdminAccount>({ fullName: '', email: '', password: '', slug: '' });
+  const [admin, setAdmin] = useState<AdminAccount>({ fullName: '', email: '', password: '', confirm: '', slug: '' });
+  const [adminErrors, setAdminErrors] = useState<AdminAccountErrors>({});
   const [completing, setCompleting] = useState(false);
+  const toast = useToast();
 
   const loadDraft = useCallback(async (h: CachedDraft) => {
     try {
@@ -116,6 +120,8 @@ function Wizard() {
       if (team) update({ team });
     }
     setAdmin(next);
+    // Once Finish has been tried, each field's message follows what is typed.
+    if (Object.keys(adminErrors).length > 0) setAdminErrors(adminAccountErrors(next));
   };
   // The same check the server runs on Finish, so the list here is the list there.
   const problems = useMemo(
@@ -136,13 +142,28 @@ function Wizard() {
     if (next) go(next);
   };
 
+  const FIELD_IDS = { fullName: 'admin-name', email: 'admin-email', password: 'admin-password', confirm: 'admin-password-confirm', slug: 'org-slug' } as const;
+
   const complete = async () => {
     if (!handle) return;
     setError(null);
+    // The form first: nothing is sent while a field is wrong.
+    const formErrors = adminAccountErrors(admin);
+    setAdminErrors(formErrors);
+    const invalid = firstInvalidField(formErrors);
+    if (invalid) {
+      document.getElementById(FIELD_IDS[invalid])?.focus();
+      return;
+    }
     setCompleting(true);
     // Completion builds the org from the saved draft: an unsaved edit would be lost.
     if (!(await flush())) {
       setError('Your latest changes are not saved yet. Retry saving, then finish setup.');
+      setCompleting(false);
+      return;
+    }
+    if (problems.length > 0) {
+      setError('Fix what is listed above first — setup cannot be finished until then.');
       setCompleting(false);
       return;
     }
@@ -155,12 +176,24 @@ function Wizard() {
       });
       setTokens(res.accessToken, res.refreshToken);
       clearCachedDraft();
+      const message = finishMessage(res.organization?.name ?? draft.organization?.name ?? '', res);
+      if (message.tone === 'success') toast.success(message.title, message.description);
+      else toast.error(message.title, message.description);
       router.push('/dashboard');
     } catch (e) {
       if (e instanceof ApiError) {
         const details = e.details as { problems?: DraftProblem[]; violations?: Array<{ message: string }> } | undefined;
         if (details?.problems?.length) setServerProblems(details.problems);
-        setError(details?.violations?.length ? `Password ${details.violations.map((v) => v.message).join(', ')}.` : e.message);
+        if (details?.violations?.length) {
+          // The server's own password rule, on the password field.
+          setAdminErrors({ password: `Password ${details.violations.map((v) => v.message).join(', ')}.` });
+          document.getElementById(FIELD_IDS.password)?.focus();
+        } else if (e.status === 409) {
+          setAdminErrors({ slug: 'That web address is already in use. Choose another.' });
+          document.getElementById(FIELD_IDS.slug)?.focus();
+        } else {
+          setError(e.message);
+        }
       } else {
         setError('Could not finish setup');
       }
@@ -230,6 +263,7 @@ function Wizard() {
                 draft={draft}
                 problems={problems}
                 admin={admin}
+                errors={adminErrors}
                 onAdminChange={changeAdmin}
                 onGo={go}
                 onFinish={() => void complete()}

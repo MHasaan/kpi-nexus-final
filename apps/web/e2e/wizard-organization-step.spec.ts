@@ -67,6 +67,7 @@ test('wizard organization step: its settings are chosen, saved, survive a reload
   await expect(page.getByTestId('wizard-ready')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('admin-name').fill('Org Admin');
   await page.getByTestId('admin-password').fill('correct-horse-battery-staple');
+  await page.getByTestId('admin-password-confirm').fill('correct-horse-battery-staple');
   await page.getByTestId('org-slug').fill(`orgstep-${stamp}`);
   await page.getByTestId('wizard-complete').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });

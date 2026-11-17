@@ -8,7 +8,7 @@ import { NotFoundException } from '@nestjs/common';
 
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { type RequestContext, RequestContextStore } from '../tenancy/request-context.js';
-import { MentionsService } from './mentions.service.js';
+import { MentionsService, excerptOf } from './mentions.service.js';
 
 interface FakeMention {
   id: string;
@@ -21,6 +21,19 @@ interface FakeMention {
 
 class FakePrisma {
   mentions: FakeMention[] = [];
+  comments: Array<{ id: string; organizationId: string; authorId: string; body: string; entityType: string; entityId: string; deletedAt: Date | null }> = [];
+  users: Array<{ id: string; organizationId: string; fullName: string }> = [];
+
+  comment = {
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
+      this.comments.filter((c) => c.organizationId === where.organizationId && where.id.in.includes(c.id)),
+    ),
+  };
+  user = {
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
+      this.users.filter((u) => u.organizationId === where.organizationId && where.id.in.includes(u.id)),
+    ),
+  };
 
   mention = {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
@@ -123,5 +136,60 @@ describe('MentionsService', () => {
     const res = await withCtx({ userId: 'carol' }, () => service.markAllRead());
     expect(res.count).toBe(1);
     expect(prisma.mentions.filter((m) => m.mentionedUserId === 'carol' && m.organizationId === ORG && m.readAt === null)).toHaveLength(0);
+  });
+});
+
+// Plan 7.7: a mention said "You were mentioned" and a date — not who, where or what.
+describe('MentionsService.list — who, where and what', () => {
+  const mention = (id: string, commentId: string): FakeMention => ({ id, organizationId: ORG, commentId, mentionedUserId: 'me', readAt: null, createdAt: new Date() });
+
+  test('a row carries the author, the start of the comment and the thing it is on', async () => {
+    const prisma = new FakePrisma();
+    prisma.mentions.push(mention('m1', 'c1'));
+    prisma.comments.push({ id: 'c1', organizationId: ORG, authorId: 'ada', body: 'Can you look at   this?\n@me', entityType: 'kpi', entityId: 'k1', deletedAt: null });
+    prisma.users.push({ id: 'ada', organizationId: ORG, fullName: 'Ada Admin' });
+    const service = new MentionsService(prisma as unknown as PrismaService);
+
+    const [row] = await withCtx({ userId: 'me' }, () => service.list({}));
+
+    expect(row).toMatchObject({ id: 'm1', authorName: 'Ada Admin', excerpt: 'Can you look at this? @me', entityType: 'kpi', entityId: 'k1' });
+  });
+
+  test('a deleted comment keeps its place but not its text', async () => {
+    const prisma = new FakePrisma();
+    prisma.mentions.push(mention('m1', 'c1'));
+    prisma.comments.push({ id: 'c1', organizationId: ORG, authorId: 'ada', body: 'secret', entityType: 'task', entityId: 't1', deletedAt: new Date() });
+    prisma.users.push({ id: 'ada', organizationId: ORG, fullName: 'Ada Admin' });
+    const service = new MentionsService(prisma as unknown as PrismaService);
+
+    const [row] = await withCtx({ userId: 'me' }, () => service.list({}));
+
+    expect(row).toMatchObject({ authorName: 'Ada Admin', excerpt: null, entityType: 'task' });
+    expect(JSON.stringify(row)).not.toContain('secret');
+  });
+
+  test("a comment or an author from another organisation is not read", async () => {
+    const prisma = new FakePrisma();
+    prisma.mentions.push(mention('m1', 'c_theirs'));
+    prisma.comments.push({ id: 'c_theirs', organizationId: 'org_other', authorId: 'x', body: 'theirs', entityType: 'kpi', entityId: 'k9', deletedAt: null });
+    const service = new MentionsService(prisma as unknown as PrismaService);
+
+    const [row] = await withCtx({ userId: 'me' }, () => service.list({}));
+
+    expect(row).toMatchObject({ authorName: null, excerpt: null, entityType: null, entityId: null });
+  });
+
+  test('no mentions, no lookups', async () => {
+    const prisma = new FakePrisma();
+    const service = new MentionsService(prisma as unknown as PrismaService);
+    expect(await withCtx({ userId: 'me' }, () => service.list({}))).toEqual([]);
+    expect(prisma.comment.findMany).not.toHaveBeenCalled();
+  });
+
+  test('a long comment is cut with an ellipsis', () => {
+    const cut = excerptOf('word '.repeat(100));
+    expect(cut.length).toBeLessThanOrEqual(240);
+    expect(cut.endsWith('…')).toBe(true);
+    expect(excerptOf('short')).toBe('short');
   });
 });

@@ -69,6 +69,13 @@ export interface Mention {
   mentionedUserId: string;
   readAt: string | null;
   createdAt: string;
+  /** Who wrote the comment. */
+  authorName?: string | null;
+  /** The start of the comment; null when it has since been deleted. */
+  excerpt?: string | null;
+  /** What the comment is on, and its id. */
+  entityType?: string | null;
+  entityId?: string | null;
 }
 export function listMentions(unreadOnly = false): Promise<Mention[]> {
   return api(`/me/mentions${unreadOnly ? '?unreadOnly=true' : ''}`);

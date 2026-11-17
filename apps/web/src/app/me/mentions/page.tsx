@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AtSign } from 'lucide-react';
@@ -9,6 +10,7 @@ import { type Mention, listMentions, markAllMentionsRead, markMentionRead } from
 import { AppShell } from '../../../components/app-shell';
 import { PageHeader, Card, CardContent, Badge, Button, EmptyState, Skeleton } from '../../../components/ui';
 import { cn } from '../../../lib/cn';
+import { mentionHref, mentionSentence, mentionText } from '../../../lib/mentions-view';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 export default function MentionsPage() {
@@ -128,9 +130,17 @@ export default function MentionsPage() {
               className={cn(m.readAt == null && 'border-l-4 border-l-accent-primary bg-accent-bg/40')}
             >
               <CardContent>
-                <p className={cn('text-sm text-content-strong', m.readAt == null && 'font-medium')}>
-                  You were mentioned
+                <p className={cn('text-sm text-content-strong', m.readAt == null && 'font-medium')} data-testid={`mention-who-${m.id}`}>
+                  {mentionSentence(m)}
                 </p>
+                <p className="mt-1 text-sm text-content-muted" data-testid={`mention-text-${m.id}`}>
+                  {mentionText(m)}
+                </p>
+                {mentionHref(m) && (
+                  <Link href={mentionHref(m)!} className="mt-1 inline-block text-xs font-medium text-accent-primary hover:underline" data-testid={`mention-open-${m.id}`}>
+                    Open it
+                  </Link>
+                )}
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-xs tabular-nums text-content-muted">{new Date(m.createdAt).toLocaleString()}</span>
                   {m.readAt == null && (

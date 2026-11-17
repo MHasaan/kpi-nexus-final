@@ -109,6 +109,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
         r.request().method() === 'DELETE',
     );
     await page.getByRole('button', { name: `Delete ${customName}`, exact: true }).click();
+    await page.getByTestId('role-delete-confirm-confirm').click(); // deleting a role asks first
     expect((await deleteResp).status()).toBe(204);
 
     // Row is gone
@@ -127,6 +128,7 @@ test.describe('UC-02: Manage User Roles happy-path', () => {
       (r) => r.url().includes('/roles/') && r.request().method() === 'DELETE',
     );
     await page.getByRole('button', { name: 'Delete Admin', exact: true }).click();
+    await page.getByTestId('role-delete-confirm-confirm').click(); // deleting a role asks first
     const resp = await deleteResp;
     expect(resp.status()).toBe(409);
     await expect(page.getByRole('alert').filter({ hasText: /still has/i })).toBeVisible();

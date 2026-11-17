@@ -115,10 +115,13 @@ test.describe('/org-units page — admin CRUD UI', () => {
     // 5. Collapse + delete child
     await parentRow.getByTestId(`expand-unit-${parentName}`).click();
     await page.getByTestId(`delete-unit-${childName}`).click();
+    await expect(page.getByTestId('unit-delete-confirm')).toContainText(childName); // asks first, by name
+    await page.getByTestId('unit-delete-confirm-confirm').click();
     await expect(childRow).not.toBeVisible();
 
     // 6. Delete the parent
     await page.getByTestId(`delete-unit-${parentName}`).click();
+    await page.getByTestId('unit-delete-confirm-confirm').click();
     await expect(parentRow).not.toBeVisible();
     // Back to empty state
     await expect(page.getByTestId('units-empty')).toBeVisible();

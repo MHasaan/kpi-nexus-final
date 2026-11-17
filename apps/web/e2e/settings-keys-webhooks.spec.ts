@@ -81,6 +81,7 @@ test.describe('Settings — API keys + Webhooks', () => {
     const row = page.locator('[data-testid^="apikey-row-"]').first();
     await expect(row).toBeVisible();
     await row.locator('[data-testid^="apikey-revoke-"]').click();
+    await page.getByTestId('apikey-revoke-confirm-confirm').click(); // revoking asks first
     await expect(row).toContainText('Revoked', { timeout: 10_000 });
   });
 
@@ -113,6 +114,7 @@ test.describe('Settings — API keys + Webhooks', () => {
 
     // Delete it → table empties.
     await row.locator('[data-testid^="webhook-delete-"]').click();
+    await page.getByTestId('webhook-delete-confirm-confirm').click(); // deleting asks first
     await expect(page.getByTestId('webhooks-empty')).toBeVisible({ timeout: 10_000 });
   });
 });

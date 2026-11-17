@@ -7,6 +7,7 @@ import { Archive } from 'lucide-react';
 
 import { AppShell } from '../../../components/app-shell';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   ApiError,
   getAccessToken,
@@ -24,6 +25,7 @@ import {
   Skeleton,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { usePermissions } from '../../../lib/use-permissions';
 
 const PURGE_WINDOW_DAYS = 30;
 
@@ -51,13 +53,17 @@ export default function DashboardArchivePage() {
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
   }, []);
 
+  // Load only once the page gate passes, so someone without access is sent
+  // away without first drawing a 403 from the api (FE-014).
+  const { ready, has } = usePermissions();
+  const allowed = ready && has('DASHBOARD_VIEW');
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
-    load();
-  }, [load, router]);
+    if (allowed) load();
+  }, [load, router, allowed]);
 
   const onRestore = async (id: string) => {
     setBusyId(id);
@@ -88,6 +94,7 @@ export default function DashboardArchivePage() {
 
   return (
     <AppShell>
+      <RequirePermission permission="DASHBOARD_VIEW">
       <PageHeader
         title="Archived Dashboards"
         subtitle={`Soft-deleted dashboards are kept for ${PURGE_WINDOW_DAYS} days. Restore brings them back; purge deletes permanently.`}
@@ -231,6 +238,7 @@ export default function DashboardArchivePage() {
           </Card>
         )}
       </div>
+      </RequirePermission>
     </AppShell>
   );
 }

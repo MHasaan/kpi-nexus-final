@@ -796,7 +796,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
       <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
-          <form onSubmit={add} className="flex items-end gap-3">
+          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="flex items-end gap-3">
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="target-value-input">Static target value</Label>
               <Input
@@ -812,7 +812,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
             <Button type="submit" data-testid="target-add">
               Add target
             </Button>
-          </form>
+          </form></PermissionGuard>
           {pending && (
             <div className="mt-3">
               <ApprovalPendingNotice what="This target" testId="target-approval-pending" />
@@ -835,14 +835,14 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
               <span className="tabular-nums text-content-strong">
                 {t.type} {t.value ?? `${t.minValue}/${t.expectedValue}/${t.stretchValue}`}
               </span>
-              <Button
+              <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteTarget(kpiId, t.id).then(reload)}
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
-              </Button>
+              </Button></PermissionGuard>
             </div>
           ))}
           {targets && targets.length === 0 && <p className="py-3 text-center text-content-muted">No targets.</p>}
@@ -887,7 +887,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       </UICard>
       <UICard>
         <CardContent>
-          <form onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Input
               placeholder="name"
               value={form.name}
@@ -917,7 +917,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
             <Button type="submit" data-testid="band-add">
               Add band
             </Button>
-          </form>
+          </form></PermissionGuard>
           {err && (
             <p role="alert" data-testid="band-error" className="mt-2 text-sm text-status-critical">
               {err}
@@ -939,14 +939,14 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
                   [{b.lower ?? '−∞'}, {b.upper ?? '∞'}]
                 </span>
               </span>
-              <Button
+              <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteThresholdBand(kpiId, b.id).then(reload)}
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
-              </Button>
+              </Button></PermissionGuard>
             </div>
           ))}
           {bands && bands.length === 0 && <p className="py-3 text-center text-content-muted">No bands.</p>}
@@ -987,16 +987,16 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
         <CardContent>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-content-muted">Benchmarks compare this KPI to reference values.</p>
-            <Button
+            <PermissionGuard permission="KPI_EDIT"><Button
               variant="secondary"
               size="sm"
               onClick={() => void compute()}
               data-testid="benchmark-compute"
             >
               Auto-compute (30d)
-            </Button>
+            </Button></PermissionGuard>
           </div>
-          <form onSubmit={add} className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
               <option value="EXTERNAL_INDUSTRY">Industry</option>
               <option value="EXTERNAL_PEER">Peer</option>
@@ -1018,7 +1018,7 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
             <Button type="submit" data-testid="benchmark-add">
               Add
             </Button>
-          </form>
+          </form></PermissionGuard>
           {err && (
             <p role="alert" data-testid="benchmark-error" className="mt-2 text-sm text-status-critical">
               {err}
@@ -1036,14 +1036,14 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
               <span className="tabular-nums text-content-strong">
                 {b.kind}: {b.value} {b.source && <span className="text-content-muted">({b.source})</span>}
               </span>
-              <Button
+              <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteBenchmark(kpiId, b.id).then(reload)}
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
-              </Button>
+              </Button></PermissionGuard>
             </div>
           ))}
           {benchmarks && benchmarks.length === 0 && (
@@ -1090,6 +1090,8 @@ function LineageTab({ kpiId }: { kpiId: string }) {
 
 function FormulaTab({ kpiId }: { kpiId: string }) {
   const [formula, reload] = useAsync(() => getFormula(kpiId).catch(() => null), [kpiId]);
+  // Saving or clearing a formula is KPI_EDIT on the API; a reader is shown it, not a form that would be refused (UI-013).
+  const canEdit = usePermissions().has('KPI_EDIT');
   const [raw, setRaw] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -1123,7 +1125,7 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
           A formula derives this KPI from other KPIs (referenced by name). Example:{' '}
           <code className="rounded bg-surface-2 px-1 font-mono">revenue - cost</code>
         </p>
-        <form onSubmit={save} className="mt-3 space-y-3">
+        <PermissionGuard permission="KPI_EDIT"><form onSubmit={save} className="mt-3 space-y-3">
           <Textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
@@ -1142,7 +1144,15 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
               </Button>
             )}
           </div>
-        </form>
+        </form></PermissionGuard>
+        {!canEdit &&
+          (formula ? (
+            <pre className="mt-3 overflow-x-auto rounded-md border border-border-divider bg-surface-1 px-3 py-2 font-mono text-sm text-content-strong" data-testid="formula-readonly">
+              {formula.raw}
+            </pre>
+          ) : (
+            <p className="mt-3 text-sm text-content-muted" data-testid="formula-none">This KPI has no formula.</p>
+          ))}
         {msg && (
           <p className="mt-2 text-sm text-status-positive" data-testid="formula-msg">
             {msg}
@@ -1180,14 +1190,14 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
               className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
             >
               <span className="text-content-strong">{nm(e.parentKpiId)}</span>
-              <Button
+              <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteCascade(e.id).then(reload)}
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Detach
-              </Button>
+              </Button></PermissionGuard>
             </div>
           ))}
           {parents.length === 0 && <p className="py-2 text-content-muted">No parents.</p>}
@@ -1204,14 +1214,14 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
               <span className="text-content-strong">
                 {nm(e.childKpiId)} <span className="tabular-nums text-content-muted">· {e.method} · w{e.weight}</span>
               </span>
-              <Button
+              <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() => deleteCascade(e.id).then(reload)}
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Detach
-              </Button>
+              </Button></PermissionGuard>
             </div>
           ))}
           {children.length === 0 && <p className="py-2 text-content-muted">No children.</p>}
@@ -1248,7 +1258,7 @@ function AddChildForm({
   };
   return (
     <>
-      <form onSubmit={add} className="mt-3 flex gap-2">
+      <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="mt-3 flex gap-2">
         <Select
           value={childKpiId}
           onChange={(e) => setChildKpiId(e.target.value)}
@@ -1265,7 +1275,7 @@ function AddChildForm({
         <Button type="submit" data-testid="cascade-add">
           Attach
         </Button>
-      </form>
+      </form></PermissionGuard>
       {err && (
         <p role="alert" data-testid="cascade-error" className="mt-2 text-sm text-status-critical">
           {err}

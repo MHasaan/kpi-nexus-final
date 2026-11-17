@@ -39,6 +39,21 @@ const escapeHtml = (value: string): string =>
 /** How a name is matched when one row refers to another: no case, no outer spaces. */
 const nameKey = (value: string): string => value.trim().toLowerCase();
 
+/**
+ * A template describes a sample organisation ("Acme SaaS"); the person setting
+ * up has their own. What they have already said about theirs — above all its
+ * name — is kept, and the template only fills in what they have not said.
+ */
+export function keepOwnOrganization(
+  own: Record<string, unknown> | null | undefined,
+  fromTemplate: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const said = Object.fromEntries(
+    Object.entries(own ?? {}).filter(([, value]) => value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')),
+  );
+  return { ...(fromTemplate ?? {}), ...said };
+}
+
 /** What happened to one person the wizard was asked to invite. */
 export interface OnboardingInvite {
   email: string;
@@ -169,9 +184,20 @@ export class OnboardingService {
 
   /** Merge a template's payload into the draft (doesn't blow away existing). */
   async applyTemplate(sessionId: string, token: string, slug: string) {
-    await this.loadVerified(sessionId, token);
+    const session = await this.loadVerified(sessionId, token);
     const template = await this.templates.preview(slug);
-    return this.patchDraft(sessionId, token, template.payload as unknown as Record<string, unknown>, 'template');
+    return this.patchDraft(
+      sessionId,
+      token,
+      {
+        ...(template.payload as unknown as Record<string, unknown>),
+        organization: keepOwnOrganization(
+          (session.payload as { organization?: Record<string, unknown> } | null)?.organization,
+          template.payload.organization as unknown as Record<string, unknown>,
+        ),
+      },
+      'template',
+    );
   }
 
   /**

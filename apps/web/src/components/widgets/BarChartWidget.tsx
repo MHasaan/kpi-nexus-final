@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint, DashboardWidget } from '../../lib/api-client';
+import { periodLabel, toSeries } from './series';
 
 interface BarChartWidgetProps {
   widget: DashboardWidget;
@@ -20,8 +21,8 @@ interface BarChartWidgetProps {
 export function BarChartWidget({ widget, dataPoints = [] }: BarChartWidgetProps) {
   const title = widget.title ?? 'Bar Chart';
 
-  const chartData = dataPoints.map((dp) => ({
-    date: new Date(dp.recordedAt).toLocaleDateString(),
+  const chartData = toSeries(dataPoints).map((dp) => ({
+    date: periodLabel(dp),
     value: dp.value,
   }));
 

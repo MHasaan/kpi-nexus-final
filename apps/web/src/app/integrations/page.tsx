@@ -8,8 +8,12 @@ import {
   disconnectIntegration,
   type IntegrationConnection,
 } from '../../lib/integrations-client';
-import { RequirePermission } from '../../components/auth/require-permission';
-import { PermissionGuard } from '../../components/auth/permission-guard';
+import { RequireAnyPermission } from '../../components/auth/require-permission';
+import { AnyPermissionGuard } from '../../components/auth/permission-guard';
+import { usePermissions } from '../../lib/use-permissions';
+
+/** The keys the integrations API accepts — either one (UI-013: the page asked for ORG_SETTINGS only, so the sidebar link led to "no access"). */
+const INTEGRATIONS_KEYS = ['INTEGRATIONS_MANAGE', 'ORG_SETTINGS'];
 import { AppShell } from '../../components/app-shell';
 import {
   PageHeader,
@@ -52,9 +56,12 @@ export default function IntegrationsPage() {
     }
   };
 
+  // Load only once the page gate passes (FE-014).
+  const { ready, hasAny } = usePermissions();
+  const allowed = ready && hasAny(INTEGRATIONS_KEYS);
   useEffect(() => {
-    void refresh().finally(() => setLoading(false));
-  }, []);
+    if (allowed) void refresh().finally(() => setLoading(false));
+  }, [allowed]);
 
   const connect = async (provider: string, displayName: string) => {
     setBusy(provider);
@@ -81,7 +88,7 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <RequirePermission permission="ORG_SETTINGS">
+    <RequireAnyPermission permissions={INTEGRATIONS_KEYS}>
       <AppShell title="Integrations" crumbs={[{ label: 'Home', href: '/' }, { label: 'Integrations' }]}>
         <PageHeader
           title="Integrations"
@@ -154,7 +161,7 @@ export default function IntegrationsPage() {
                         </Button>
                       </Link>
                     ) : (
-                      <PermissionGuard permission="ORG_SETTINGS">
+                      <AnyPermissionGuard permissions={INTEGRATIONS_KEYS}>
                         {connected && connection ? (
                           <Button
                             variant="secondary"
@@ -178,7 +185,7 @@ export default function IntegrationsPage() {
                             {isBusy ? 'Connecting…' : 'Connect'}
                           </Button>
                         )}
-                      </PermissionGuard>
+                      </AnyPermissionGuard>
                     )}
                   </CardFooter>
                 </Card>
@@ -187,6 +194,6 @@ export default function IntegrationsPage() {
           </div>
         )}
       </AppShell>
-    </RequirePermission>
+    </RequireAnyPermission>
   );
 }

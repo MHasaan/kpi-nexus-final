@@ -12,7 +12,11 @@ import {
   type AuditEntry,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
-import { RequirePermission } from '../../../components/auth/require-permission';
+import { RequireAnyPermission } from '../../../components/auth/require-permission';
+import { usePermissions } from '../../../lib/use-permissions';
+
+/** The keys the audit API accepts — either one (UI-013: the page asked for ORG_SETTINGS only, so an auditor's sidebar link led to "no access"). */
+const AUDIT_KEYS = ['AUDIT_VIEW', 'ORG_SETTINGS'];
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
 const ACTION_OPTIONS: AuditAction[] = [
@@ -41,13 +45,16 @@ function AuditPageInner() {
   const [filterAction, setFilterAction] = useState<AuditAction | ''>('');
   const [filterEntityType, setFilterEntityType] = useState('');
 
+  // Load only once the page gate passes (FE-014).
+  const { ready, hasAny } = usePermissions();
+  const allowed = ready && hasAny(AUDIT_KEYS);
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
-    void refresh();
-  }, [router]);
+    if (allowed) void refresh();
+  }, [router, allowed]);
 
   async function refresh() {
     setLoadError(null);
@@ -72,7 +79,7 @@ function AuditPageInner() {
 
   return (
     <AppShell>
-      <RequirePermission permission="ORG_SETTINGS">
+      <RequireAnyPermission permissions={AUDIT_KEYS}>
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
           <h1
@@ -218,7 +225,7 @@ function AuditPageInner() {
           )}
         </section>
       </div>
-      </RequirePermission>
+      </RequireAnyPermission>
     </AppShell>
   );
 }

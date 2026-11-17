@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiError, getAccessToken } from '../../lib/api-client';
-import { PermissionGuard } from '../../components/auth/permission-guard';
+import { AnyPermissionGuard } from '../../components/auth/permission-guard';
 import { AppShell } from '../../components/app-shell';
 import { Skeleton } from '../../components/ui';
 import {
@@ -114,7 +114,7 @@ export default function ConnectorsPage() {
         </div>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="connectors-error">{error}</p>}
 
-        <PermissionGuard permission="ORG_SETTINGS">
+        <AnyPermissionGuard permissions={['INTEGRATIONS_MANAGE', 'ORG_SETTINGS']}>
         <div className="mt-5 rounded-lg border border-border bg-surface-1 p-5">
           <h2 className="text-sm font-semibold text-content-strong">New connector</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -130,7 +130,7 @@ export default function ConnectorsPage() {
           </div>
           <button type="button" data-testid="connector-create" onClick={create} className="mt-3 rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">Create connector</button>
         </div>
-        </PermissionGuard>
+        </AnyPermissionGuard>
 
         {loading && (
           <div className="mt-6 space-y-2" data-testid="connectors-loading">
@@ -156,7 +156,7 @@ export default function ConnectorsPage() {
                 <button type="button" data-testid={`connector-run-${c.id}`} onClick={() => run(c.id)} disabled={busy === c.id} className="rounded border border-border px-3 py-1 text-xs text-content-strong hover:border-accent-primary disabled:opacity-50">
                   {busy === c.id ? 'Running…' : 'Run now'}
                 </button>
-                <PermissionGuard permission="ORG_SETTINGS"><button type="button" aria-label="Delete" onClick={() => remove(c.id)} className="text-content-muted hover:text-status-critical">×</button></PermissionGuard>
+                <AnyPermissionGuard permissions={['INTEGRATIONS_MANAGE', 'ORG_SETTINGS']}><button type="button" aria-label="Delete" onClick={() => remove(c.id)} className="text-content-muted hover:text-status-critical">×</button></AnyPermissionGuard>
               </div>
             </div>
           ))}

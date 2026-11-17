@@ -1,5 +1,6 @@
 'use client';
 
+import { RequirePermission } from '../../components/auth/require-permission';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Briefcase, Plus } from 'lucide-react';
@@ -52,8 +53,11 @@ const TRACK_LABEL: Record<PositionTrack | 'OTHER', string> = {
 };
 
 export default function PositionsPage() {
+  // Positions are managed with POSITIONS_MANAGE — the sidebar link's key and the API's key for every change (UI-013).
   return (
-    <PositionsPageInner />
+    <RequirePermission permission="POSITIONS_MANAGE">
+      <PositionsPageInner />
+    </RequirePermission>
   );
 }
 

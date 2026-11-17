@@ -133,10 +133,9 @@ test.describe('F2: settings pages render with backing content', () => {
     await expect(page.getByTestId('billing-plan-name')).not.toBeEmpty();
     // Usage section is present (default ENTERPRISE has quotas listed).
     await expect(page.getByTestId('billing-quotas')).toBeVisible();
-    // Upgrade affordance is present but disabled (payment wiring deferred).
-    const upgrade = page.getByTestId('billing-upgrade');
-    await expect(upgrade).toBeVisible();
-    await expect(upgrade).toBeDisabled();
+    // The plans are listed; the one in use is marked. (A disabled "Upgrade" button stood here before.)
+    await expect(page.getByTestId('billing-upgrade')).toHaveCount(0);
+    await expect(page.getByTestId('billing-plan-current')).toBeVisible();
     await expect(page.getByTestId('billing-error')).toHaveCount(0);
   });
 });

@@ -135,7 +135,7 @@ export default function LoginPage() {
       <p className="mt-6 text-center text-sm text-content-muted">
         New here?{' '}
         <Link
-          href="/register"
+          href="/signup"
           className="font-medium text-accent-primary hover:underline"
         >
           Create an organization

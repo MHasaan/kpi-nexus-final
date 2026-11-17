@@ -2450,6 +2450,32 @@ export async function listKpiAssignments(kpiId: string): Promise<KpiAssignments>
   return api(`/kpis/${kpiId}/assignments`);
 }
 
+/** Give a unit this PER_UNIT KPI (its descendants inherit it). */
+export async function assignKpiToUnit(orgUnitId: string, kpiId: string, targetValue?: number): Promise<{ id: string }> {
+  return api(`/org-units/${orgUnitId}/kpis`, {
+    method: 'POST',
+    body: JSON.stringify({ kpiId, ...(targetValue === undefined ? {} : { targetValue }) }),
+  });
+}
+
+/** Take this KPI away from a unit. An inherited row cannot be removed directly. */
+export async function unassignKpiFromUnit(orgUnitId: string, kpiId: string): Promise<void> {
+  return api(`/org-units/${orgUnitId}/kpis/${kpiId}`, { method: 'DELETE' });
+}
+
+/** Give a person this PER_USER KPI. */
+export async function assignKpiToUser(userId: string, kpiId: string, targetValue?: number): Promise<{ id: string }> {
+  return api('/user-kpis/assign', {
+    method: 'POST',
+    body: JSON.stringify({ userId, kpiId, ...(targetValue === undefined ? {} : { targetValue }) }),
+  });
+}
+
+/** Take a person's assignment of a KPI away. */
+export async function unassignUserKpi(assignmentId: string): Promise<void> {
+  return api(`/user-kpis/assignments/${assignmentId}`, { method: 'DELETE' });
+}
+
 /** Record a value for one unit's assignment of a PER_UNIT KPI. */
 export async function recordUnitKpiData(
   assignmentId: string,

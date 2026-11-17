@@ -15,7 +15,7 @@ import type { ApprovalEntityType } from '@kpi-nexus/db';
 import type { infer as ZInfer, ZodTypeAny } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
-import { ApprovalRequestService, type PublicApprovalRequest } from './approval-request.service.js';
+import { ApprovalRequestService, type ApprovalRequestView, type PublicApprovalRequest } from './approval-request.service.js';
 import { ApprovalWorkflowService, type PublicApprovalWorkflow } from './approval-workflow.service.js';
 import {
   DecideDtoSchema,
@@ -67,7 +67,7 @@ export class ApprovalsController {
 
   @Get('requests')
   @RequirePermissions(PermissionKey.KPI_VIEW)
-  listRequests(@Query() query: unknown): Promise<PublicApprovalRequest[]> {
+  listRequests(@Query() query: unknown): Promise<ApprovalRequestView[]> {
     return this.requests.list(parse(ListRequestsQuerySchema, query ?? {}));
   }
 

@@ -38,9 +38,14 @@ const NotificationSettingsDtoSchema = z
 
 const UpdateProfileDtoSchema = z
   .object({
-    fullName: z.string().trim().min(1).max(120),
+    fullName: z.string().trim().min(1).max(120).optional(),
+    /** The person has seen the first-login tour; it is not shown to them again, on any device. */
+    tourCompleted: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .refine((dto) => dto.fullName !== undefined || dto.tourCompleted !== undefined, {
+    message: 'Nothing to update',
+  });
 
 const ChangePasswordDtoSchema = z
   .object({
@@ -136,6 +141,7 @@ export class AuthController {
       mfaEnabled: boolean;
       status: string;
       notificationSettings: unknown;
+      onboardingCompletedAt: Date | null;
       permissions: string[];
     };
     accessProfile: AccessProfile;
@@ -153,6 +159,7 @@ export class AuthController {
           mfaEnabled: true,
           status: true,
           notificationSettings: true,
+          onboardingCompletedAt: true,
         },
       }),
       this.permissionResolver.resolveForCurrentPrincipal(),
@@ -184,7 +191,8 @@ export class AuthController {
 
   /**
    * Update the current user's own profile. Self-service: authenticated-only,
-   * no permission gate. Only `fullName` is mutable — role/status/email are not.
+   * no permission gate. Only `fullName` and the "tour seen" mark are mutable —
+   * role/status/email are not.
    */
   @Patch('me')
   @ApiBody(UpdateProfileDtoSchema)

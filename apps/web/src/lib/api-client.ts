@@ -145,6 +145,8 @@ export interface AuthUser {
   mfaEnabled?: boolean;
   status?: string;
   notificationSettings?: NotificationSettings | null;
+  /** When this person finished (or skipped) the first-login tour; null until then. */
+  onboardingCompletedAt?: string | null;
 }
 
 export interface AuthOrganization {
@@ -184,6 +186,11 @@ export async function registerRequest(body: {
     body: JSON.stringify(body),
     auth: false,
   });
+}
+
+/** Record on the account that this person has seen the first-login tour. */
+export async function completeTour(): Promise<void> {
+  await api('/auth/me', { method: 'PATCH', body: JSON.stringify({ tourCompleted: true }) });
 }
 
 export async function meRequest(): Promise<{ user: AuthUser; accessProfile?: AccessProfile }> {

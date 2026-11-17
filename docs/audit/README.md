@@ -297,6 +297,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-010 (part 4) `/team` was empty in every real organisation, and its empty state carried the list's own test id | ✅ Fixed — works now that a manager can be set; the empty state says how | `ac64e97` | `e2e/team-page.spec.ts` (empty state with a way forward; reports listed with KPIs; a report with none still appears; non-reports are absent) |
 | UI-005 (part 1) two sign-up paths: `/login` sent new people to `/register`, an older form that skipped the setup wizard | ✅ Fixed — `/register` redirects to `/signup`; the `/login` link goes there | `0e75fe1` | `e2e/auth-flow.spec.ts` (redirect + link, then sign out / sign in as before) |
 | UI-005 (part 2) `/accept-invitation` showed a password form for an expired, used or withdrawn link, had no way to sign in instead, and quoted the wrong path | ✅ Fixed — dead links are reported at once; sign-in link; correct path | `64b4541` | `e2e/invitation-flow.spec.ts` (unknown and cancelled links show no form; live link offers sign-in), `auth.service.spec.ts` (preview 404 for a withdrawn invitee ×4) |
+| UI-005 (part 3) the first-login tour was remembered per browser, not per person; no Back; Esc did nothing | ✅ Fixed — completion lives on the account (`onboardingCompletedAt`) | `6969f17` | `e2e/onboarding-tour.spec.ts` (same person on a clean browser: no tour; another person on the same browser: tour; Back; Esc), `account.service.spec.ts` (2), `onboarding-tour.spec.ts` (3) |
 
 ### UI completion round — open findings (2026-11-16)
 

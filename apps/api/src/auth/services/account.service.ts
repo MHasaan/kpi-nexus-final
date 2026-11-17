@@ -26,6 +26,8 @@ export interface SelfUser {
   mfaEnabled: boolean;
   status: string;
   notificationSettings: unknown;
+  /** When this person finished (or skipped) the first-login tour; null until then. */
+  onboardingCompletedAt: Date | null;
   permissions: string[];
 }
 
@@ -38,6 +40,7 @@ const selfUserSelect = {
   mfaEnabled: true,
   status: true,
   notificationSettings: true,
+  onboardingCompletedAt: true,
 } as const;
 
 /**
@@ -58,22 +61,32 @@ export class AccountService {
     private readonly refreshTokens: RefreshTokenService,
   ) {}
 
-  /** Update the current user's display name. Only `fullName` is mutable here. */
-  async updateProfile(input: { fullName: string }): Promise<SelfUser> {
+  /**
+   * Update what a person may change about themself: their display name, and
+   * the mark that they have seen the first-login tour (kept on the account so
+   * it follows them across browsers and is not shared with whoever signs in
+   * next on the same one).
+   */
+  async updateProfile(input: { fullName?: string; tourCompleted?: true }): Promise<SelfUser> {
     const ctx = RequestContextStore.require();
 
     const updated = await this.prisma.user.update({
       where: { id: ctx.userId, organizationId: ctx.organizationId },
-      data: { fullName: input.fullName },
+      data: {
+        ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
+        ...(input.tourCompleted ? { onboardingCompletedAt: new Date() } : {}),
+      },
       select: selfUserSelect,
     });
 
-    await this.audit.record({
-      action: 'UPDATE',
-      entityType: 'User',
-      entityId: ctx.userId,
-      changes: { fullName: input.fullName },
-    });
+    if (input.fullName !== undefined) {
+      await this.audit.record({
+        action: 'UPDATE',
+        entityType: 'User',
+        entityId: ctx.userId,
+        changes: { fullName: input.fullName },
+      });
+    }
 
     return this.withPermissions(updated);
   }
@@ -145,16 +158,7 @@ export class AccountService {
     });
   }
 
-  private async withPermissions(user: {
-    id: string;
-    email: string;
-    fullName: string;
-    organizationId: string;
-    roleId: string | null;
-    mfaEnabled: boolean;
-    status: string;
-    notificationSettings: unknown;
-  }): Promise<SelfUser> {
+  private async withPermissions(user: Omit<SelfUser, 'permissions'>): Promise<SelfUser> {
     const resolved = await this.permissionResolver.resolveForCurrentPrincipal();
     const permissions: string[] = resolved.isAdmin
       ? [...ALL_PERMISSIONS]

@@ -28,7 +28,7 @@ function suffix(): string {
 
 interface Reg { accessToken: string; refreshToken: string }
 
-async function setup(page: Page): Promise<{ kpiId: string; reg: Reg }> {
+async function setup(page: Page, values: number[] = [10, 11, 9, 10, 12, 8, 10, 11, 9, 100, 10, 9]): Promise<{ kpiId: string; reg: Reg }> {
   const stamp = suffix();
   const anon = await request.newContext({ baseURL: API_URL });
   const reg = (await (await anon.post('/auth/register', {
@@ -47,7 +47,6 @@ async function setup(page: Page): Promise<{ kpiId: string; reg: Reg }> {
   const kpi = (await (await api.post('/kpis', {
     data: { name: `Latency ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'LOWER_IS_BETTER', aggregationMethod: 'LAST' },
   })).json()) as { id: string };
-  const values = [10, 11, 9, 10, 12, 8, 10, 11, 9, 100, 10, 9];
   for (let i = 0; i < values.length; i += 1) {
     const m = String(i + 1).padStart(2, '0');
     await api.post(`/kpis/${kpi.id}/data`, { data: { value: values[i], periodStart: `2026-${m}-01`, periodEnd: `2026-${m}-28` } });
@@ -104,6 +103,32 @@ test('forecast page: picking ARIMA runs ARIMA (OT-005)', async ({ page }) => {
   await page.getByTestId('fc-horizon').fill('4');
   await page.getByTestId('fc-run').click();
   await expect(page.getByTestId('fc-metrics')).toContainText('ARIMA', { timeout: 20_000 });
+});
+
+// QA-M9: with too little history the service runs the simple trend instead of
+// the chosen model. The page said so only by a small "NAIVE" in a metric card.
+test('forecast page: says so when the chosen model could not run and another did', async ({ page }) => {
+  test.skip(!ready, 'api/ML not reachable');
+  test.setTimeout(60_000);
+  const { kpiId } = await setup(page, [10, 12, 11]); // three values: not enough for Prophet
+
+  await page.goto(`/kpis/${kpiId}/forecast`);
+  await page.getByTestId('fc-model').selectOption('prophet');
+  await page.getByTestId('fc-horizon').fill('3');
+  await page.getByTestId('fc-run').click();
+  const notice = page.getByTestId('fc-fallback');
+  await expect(notice).toContainText('Prophet could not be fitted', { timeout: 20_000 });
+  await expect(notice).toContainText('made with Simple trend instead');
+  await expect(page.getByTestId('fc-metrics')).toContainText('Simple trend');
+
+  // Moving the picker afterwards does not rewrite what the shown forecast was asked for.
+  await page.getByTestId('fc-model').selectOption('arima');
+  await expect(notice).toContainText('Prophet could not be fitted');
+
+  // Asking for the simple trend and getting it: nothing to explain.
+  await page.getByTestId('fc-model').selectOption('naive');
+  await page.getByTestId('fc-run').click();
+  await expect(page.getByTestId('fc-fallback')).toHaveCount(0, { timeout: 20_000 });
 });
 
 test('whatif page: simulate renders ~10% lift', async ({ page }) => {

@@ -359,6 +359,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.7 (mentions): the mentions page said 'You were mentioned' and a date — not who, on what, or what was written | ✅ Fixed — rows carry the author, the start of the comment and where it is; the page shows them with a link | #225 | `mentions.service.spec.ts`, `mentions-view.spec.ts`, `e2e/mentions-readable.spec.ts`
 | Plan 7.7 (comments): no count on the Comments button until the drawer was opened; a comment could not be edited or deleted; a 'markdown ok' hint for markdown that is never rendered | ✅ Fixed — counted on arrival; the author can edit and delete (asked first); hint removed | #226 | `e2e/comments-edit-delete.spec.ts`
 | Plan 7.7 (tasks): the quick-add box emptied on Enter, so a failed create threw the typed title away | ✅ Fixed — emptied only once the task exists; says it was not added | #227 | `e2e/tasks-quick-add.spec.ts`
+| Plan 7.7 (recommendations): the page had no way to ask for a recommendation | ✅ Built — KPI picker and 'Get a recommendation', with busy state and a reason on failure | #228 | `e2e/recommendations-ask.spec.ts` (mocked provider; not checked against a real one)
 
 ### UI completion round — open findings (2026-11-16)
 

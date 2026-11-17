@@ -2326,6 +2326,11 @@ export async function listRecommendations(filter: {
   return api(`/recommendations${q ? `?${q}` : ''}`);
 }
 
+/** Ask for a recommendation about one KPI. It uses the organisation's AI budget. */
+export async function generateRecommendation(kpiId: string): Promise<Recommendation> {
+  return api('/recommendations/generate', { method: 'POST', body: JSON.stringify({ kpiId }) });
+}
+
 export async function setRecommendationStatus(
   id: string,
   status: 'ACTIONED' | 'DISMISSED',

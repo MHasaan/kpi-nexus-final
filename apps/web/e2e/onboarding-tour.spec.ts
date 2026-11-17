@@ -95,8 +95,10 @@ test('tour: finishing it is remembered for the person, not the browser (plan 3.4
 
   // The account knows.
   const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${first.accessToken}` } });
-  const me = (await (await api.get('/auth/me')).json()) as { user: { onboardingCompletedAt: string | null } };
-  expect(me.user.onboardingCompletedAt).toBeTruthy();
+  // The tour closes at once and the save follows it: wait for the save, do not race it.
+  await expect
+    .poll(async () => ((await (await api.get('/auth/me')).json()) as { user: { onboardingCompletedAt: string | null } }).user.onboardingCompletedAt)
+    .toBeTruthy();
 
   // Same person on a browser that has never seen the app: no tour again.
   await page.evaluate(() => {

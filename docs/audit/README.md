@@ -281,6 +281,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-003 (part 1) `POST /org-units/kpi-assignments/:id/data` checked only KPI_DATA_ENTRY, so anyone holding it could record a value for any unit in the org, including units they cannot read (the per-user path has always refused someone else's assignment) | ✅ fixed | `4241aca` | `kpi-data-unit-scope.spec.ts` (5: member/manager allowed, out-of-scope 403 `UNIT_NOT_IN_SCOPE` with nothing written, empty scope refused, org-scoped allowed, and the existing 422 scope-mismatch answer unchanged); `test/integration/kpi-data-scope.spec.ts` + cross-tenant fuzz = 27 passing |
 | UI-004 (part 1) nothing exposed which units or people hold a PER_UNIT / PER_USER KPI, so the web app could not show a KPI's assignments after creation nor offer the right place to record a value | ✅ API built (the UI follows in 2.6–2.10) | `640eb1c` | `kpi-assignments.service.spec.ts` (8: scope filtering per caller, ORG_WIDE queries nothing, 404 for a KPI outside scope / category / tenant), plus a `GET /kpis/:id/assignments` probe in `cross-tenant.fuzz.spec.ts` (20 passing) |
 | UI-003 (part 2) the Data tab offered a record form only for ORG_WIDE; for PER_UNIT and PER_USER it said "record via its scope-specific endpoint" and stopped, so 19 of the 37 seeded demo KPIs could not be given a value anywhere in the web app | ✅ fixed | `957d852` | `e2e/per-unit-record.spec.ts` (unit picker, this month offered by default, value stored against the unit's assignment); `lib/period.spec.ts` (10), `record-value-form.spec.ts` (4). 15 KPI browser tests green |
+| UI-004 (part 2) nothing in the web app could give a KPI to a unit or a person once it existed, so `/my-kpis`, `/team` and a KPI's own page stayed empty in a real organisation — while the KPI form said "create the KPI and assign later" | ✅ fixed | `195d9f6` | `e2e/kpi-assignments-tab.spec.ts`: assign a second unit with a target, see it listed and confirmed by `GET /kpis/:id/assignments`, remove it through the confirm dialog, see it gone both on screen and in the API |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -290,7 +291,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 |---|---|---|---|
 | UI-001 dashboard widgets show an old value as "latest" and plot newest → oldest | Critical | ⬜ open | 1.2, 1.3 |
 | UI-002 dashboard date range drops any period not wholly inside it (default 30d shows "No data") | Critical | ⬜ open | 1.1 |
-| UI-004 no UI assigns a KPI to a unit or user after creation | Critical | ⬜ open | 2.6, 2.8–2.10 |
+| UI-004 (remainder) the org-unit page has no KPI panel, and a user's page cannot assign a per-user KPI | Medium | ⬜ open | 2.9, 2.10 |
 | UI-005 setup wizard is one screen; only the AI co-pilot can add roles, units and KPIs | Critical | ⬜ open | 3.1–3.9 |
 | UI-006 dashboard live refresh does nothing | High | ⬜ open | 4.1 |
 | UI-007 "Create automation" always fails (400); page unlinked | High | ⬜ open | 4.2 |

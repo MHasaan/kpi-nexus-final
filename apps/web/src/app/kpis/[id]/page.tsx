@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { ApprovalPendingNotice } from '../../../components/approval-pending-notice';
@@ -26,6 +27,7 @@ import {
   deleteBenchmark,
   deleteCascade,
   deleteFormula,
+  deleteKpi,
   deleteTarget,
   deleteThresholdBand,
   getAccessToken,
@@ -93,31 +95,19 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, labelFor } from '../../../lib/labels';
 import { useConfirm } from '../../../lib/use-confirm';
+import { KPI_ANALYTICS_LINKS, type KpiTab, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { useToast } from '../../../lib/use-toast';
-
-const TABS = [
-  'Overview',
-  'Data',
-  'Assignments',
-  'Formula',
-  'Cascade',
-  'Targets',
-  'Thresholds',
-  'Benchmarks',
-  'Lineage',
-  'Audit',
-] as const;
-type Tab = (typeof TABS)[number];
-
-/** Assignments only mean something for a KPI recorded per unit or per person. */
-const tabsFor = (scope: string): readonly Tab[] => (scope === 'ORG_WIDE' ? TABS.filter((t) => t !== 'Assignments') : TABS);
 
 export default function KpiDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const kpiId = params.id;
 
-  const [tab, setTab] = useState<Tab>('Overview');
+  // The open tab lives in the address (`?tab=cascade`), so a link can land on
+  // it and Back returns to it.
+  const search = useSearchParams();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [kpi, setKpi] = useState<KpiSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,6 +151,23 @@ export default function KpiDetailPage() {
     );
   }
 
+  const tab = kpiTabFromParam(search.get('tab'), kpi.scope);
+  const setTab = (next: KpiTab) => router.replace(kpiTabHref(kpiId, next), { scroll: false });
+
+  const remove = () =>
+    confirm({
+      title: `Delete “${kpi.name}”?`,
+      description: 'It moves to the KPI archive, where it can be restored. Its recorded values are kept. Dashboards and alert rules that use it stop showing it.',
+      confirmLabel: 'Delete KPI',
+      tone: 'danger',
+      testId: 'kpi-delete-confirm',
+      action: async () => {
+        await deleteKpi(kpiId);
+        toast.success(`“${kpi.name}” deleted`, 'It is in the KPI archive.');
+        router.push('/kpis');
+      },
+    });
+
   return (
     <Shell kpiId={kpiId} name={kpi.name}>
       <div className="mb-6">
@@ -176,17 +183,42 @@ export default function KpiDetailPage() {
           <span className="text-xs tabular-nums text-content-muted">
             v{kpi.version} · {kpi.type}
           </span>
-          <span className="ml-auto flex items-center gap-2">
+          <span className="ml-auto flex flex-wrap items-center gap-2">
             <WatchButton kpiId={kpiId} />
             <CommentsDrawer entityType="kpi" entityId={kpiId} />
+            <PermissionGuard permission="KPI_EDIT">
+              <Link
+                href={`/kpis/${kpiId}/edit`}
+                data-testid="kpi-detail-edit"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border-strong bg-surface-bg px-3 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                Edit
+              </Link>
+            </PermissionGuard>
+            <PermissionGuard permission="KPI_DELETE">
+              <Button variant="ghost" size="sm" onClick={() => void remove()} data-testid="kpi-detail-delete" className="text-status-critical hover:bg-status-critical-bg" leftIcon={<Trash2 className="h-3.5 w-3.5" aria-hidden />}>
+                Delete
+              </Button>
+            </PermissionGuard>
           </span>
         </div>
         {kpi.description && <p className="mt-1 text-sm text-content-muted">{kpi.description}</p>}
+        <PermissionGuard permission="ANALYTICS_VIEW">
+          <nav aria-label="Analysis of this KPI" className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" data-testid="kpi-analytics-links">
+            <span className="text-content-muted">Analyse:</span>
+            {KPI_ANALYTICS_LINKS.map((link) => (
+              <Link key={link.key} href={`/kpis/${kpiId}/${link.key}`} data-testid={`kpi-analytics-${link.key}`} className="font-medium text-accent-primary hover:underline">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </PermissionGuard>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-6">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as KpiTab)} className="mb-6">
         <TabsList className="flex-wrap">
-          {tabsFor(kpi.scope).map((t) => (
+          {kpiTabsFor(kpi.scope).map((t) => (
             <span key={t} data-testid={`tab-${t.toLowerCase()}`}>
               <TabsTrigger value={t}>{t}</TabsTrigger>
             </span>

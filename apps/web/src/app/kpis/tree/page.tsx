@@ -87,7 +87,7 @@ export default function CascadeTreePage() {
                       </Link>
                     </div>
                     <Link
-                      href={`/kpis/${node.parentKpiId}`}
+                      href={`/kpis/${node.parentKpiId}?tab=cascade`}
                       className="text-xs font-medium text-accent-primary hover:underline"
                       data-testid={`tree-edit-cascades-${node.parentKpiId}`}
                     >

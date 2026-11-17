@@ -104,10 +104,11 @@ test('wizard: each step shows what the draft already holds', async ({ page }) =>
   await expect(page.getByTestId('count-kpis')).toHaveText('20');
   await expect(page.getByTestId('wizard-step-problems-roles')).toHaveCount(0);
 
+  // Steps that have an editor show the draft in its fields; the rest list it.
   await page.getByTestId('wizard-step-structure').click();
-  await expect(page.getByTestId('wizard-step-content')).toContainText(tpl.payload.orgUnits[0]!.name);
+  await expect(page.getByTestId('unit-name-0')).toHaveValue(tpl.payload.orgUnits[0]!.name);
   await page.getByTestId('wizard-step-roles').click();
-  await expect(page.getByTestId('wizard-step-content')).toContainText(tpl.payload.roles[1]!.name);
+  await expect(page.getByTestId('role-name-1')).toHaveValue(tpl.payload.roles[1]!.name);
   await page.getByTestId('wizard-step-kpis').click();
   await expect(page.getByTestId('wizard-step-content')).toContainText(tpl.payload.kpis[0]!.name);
 

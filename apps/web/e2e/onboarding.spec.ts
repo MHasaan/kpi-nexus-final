@@ -477,3 +477,33 @@ test('onboarding: a password that breaks the rules is refused with the rule, and
   const draft = (await (await anon.get(`/onboarding/${sessionId}`, { headers: hdr })).json()) as { status: string };
   expect(draft.status).toBe('in_progress');
 });
+
+// ---- A template fills in the organisation; it does not rename it -----------
+
+test('onboarding: applying a template keeps the name the organisation was started with', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  // Something the person already chose about their organisation.
+  await anon.put(`/onboarding/${sessionId}`, { headers: hdr, data: { patch: { organization: { name: `Onb ${stamp}`, timezone: 'Asia/Karachi' } } } });
+
+  const applied = await anon.post(`/onboarding/${sessionId}/apply-template`, { headers: hdr, data: { slug: 'saas-startup-rich' } });
+  expect(applied.status()).toBe(201);
+  const draft = (await (await anon.get(`/onboarding/${sessionId}`, { headers: hdr })).json()) as {
+    payload: { organization: { name: string; industry?: string; timezone?: string }; roles: unknown[] };
+  };
+  // Theirs is kept; what they had not said is taken from the template.
+  expect(draft.payload.organization.name).toBe(`Onb ${stamp}`);
+  expect(draft.payload.organization.timezone).toBe('Asia/Karachi');
+  expect(draft.payload.organization.industry).toBe('Software');
+  expect(draft.payload.roles).toHaveLength(10);
+
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail: `admin-${stamp}@onb.test.local`, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  expect(((await done.json()) as { organization: { name: string } }).organization.name).toBe(`Onb ${stamp}`);
+});

@@ -99,7 +99,8 @@ test('wizard review step: lists what will be created; the account is checked on 
   await page.getByTestId('org-slug').fill(`review-${stamp}`);
   await page.getByTestId('wizard-complete').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
-  await expect(page.getByTestId('toast').filter({ hasText: 'is ready' })).toBeVisible();
+  // The organisation has the name typed at sign-up, not the template's sample one.
+  await expect(page.getByTestId('toast').filter({ hasText: `Review ${stamp} is ready` })).toBeVisible();
 });
 
 test('wizard review step: with something still wrong, Finish says so instead of sending', async ({ page }) => {

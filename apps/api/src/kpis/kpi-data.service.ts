@@ -217,6 +217,17 @@ export class KpiDataService {
       });
     }
 
+    // KPI_DATA_ENTRY says the principal may record; the KPIS scope says for
+    // WHOM. Without this, anyone holding the permission could write a value for
+    // any unit in the org, including units they cannot even read (UI-003).
+    const scope = await this.accessContext.kpiPointScopeWhere('PER_UNIT');
+    if (scope.orgUnitId && !scope.orgUnitId.in.includes(assignment.orgUnitId)) {
+      throw new ForbiddenException({
+        code: 'UNIT_NOT_IN_SCOPE',
+        message: 'You can only record values for a unit you manage or belong to',
+      });
+    }
+
     const point = await this.insertDataPoint({
       organizationId: ctx.organizationId,
       kpiId: assignment.kpiId,

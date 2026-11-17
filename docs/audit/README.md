@@ -353,6 +353,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | X-01 (plan 7.1, part 2) deleting a KPI from the list, a category, a target, a band or a benchmark, and detaching a cascade, acted on one click; tab deletes dropped failures silently | ✅ Fixed — each asks in the shared dialog, and the tab deletes show a failure there | #218 | `e2e/confirm-kpi-tab-deletes.spec.ts`, `kpi-categories.spec.ts`, `kpis-flow.spec.ts`
 | X-01 (plan 7.1, part 3) eleven actions acted on one click: role, position, unit, widget, task card, connector, plugin and webhook deletes, API-key and SCIM-token revokes, integration disconnect; the task card's × was invisible until hovered | ✅ Fixed — each asks in the shared dialog; the × is always visible. This closes X-01 | #220 | `e2e/confirm-admin-deletes.spec.ts`, and the role, position, unit, widget, key and webhook specs. Connector, plugin, SCIM and integration dialogs have no browser test of their own
 | X-02 (plan 7.2) a failed request looked like 'nothing here': search, the alerts bell, saved views, widget remove and move, AI settings, formula clear | ✅ Fixed for those — each says what failed | #221 | `e2e/errors-shown.spec.ts` (saved views, search, bell, widget remove — each failure produced with a 500)
+| X-03 (plan 7.3) pages printed the API's codes and ids: KPI status / type / direction / frequency, alert status, KPI and rule ids on alerts, insights and recommendations, raw audit actions, the role id on the profile | ✅ Fixed — words and names throughout those pages | #222 | `e2e/labels-not-codes.spec.ts` (KPI page, alert detail and list, activity, profile)
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -363,7 +364,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
 | X-02 (remainder) failures still swallowed: the KPI picker on the tasks page, the watch button, the report-form pickers, clipboard copy on API keys and webhooks | Low | 🟡 partly | 7.2 |
-| X-03 internal enums and ids shown to users | Low | ⬜ open | 0.3, 7.3 |
 | X-04 page ↔ API permission table | High | ⬜ open | 5.2 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
 | X-06 forms: no busy state, blank saved as 0, fields that cannot be cleared, typed ids | Medium | ⬜ open | 7.4 |

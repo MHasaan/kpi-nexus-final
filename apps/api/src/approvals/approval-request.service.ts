@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { ApprovalApplyService } from './approval-apply.service.js';
 import { type ApprovalDecision, resolveStatus } from './approval-status.js';
+import { canDecide, targetKpiId } from './approval-view.js';
 
 const requestSelect = {
   id: true,
@@ -24,6 +25,14 @@ const requestSelect = {
 
 export type PublicApprovalRequest = Prisma.ApprovalRequestGetPayload<{ select: typeof requestSelect }>;
 
+/** A request as the inbox shows it: who asked, what it is about, and whether the reader can decide it. */
+export type ApprovalRequestView = PublicApprovalRequest & {
+  canDecide: boolean;
+  requesterName: string | null;
+  /** The name of the KPI or role the change is about; null if it no longer exists. */
+  entityLabel: string | null;
+};
+
 interface StoredDecision extends ApprovalDecision {
   comment?: string;
   decidedAt: string;
@@ -37,9 +46,9 @@ export class ApprovalRequestService {
     private readonly apply: ApprovalApplyService,
   ) {}
 
-  async list(filter: { status?: string; entityType?: ApprovalEntityType }): Promise<PublicApprovalRequest[]> {
+  async list(filter: { status?: string; entityType?: ApprovalEntityType }): Promise<ApprovalRequestView[]> {
     const ctx = RequestContextStore.require();
-    return this.prisma.approvalRequest.findMany({
+    const requests = await this.prisma.approvalRequest.findMany({
       where: {
         organizationId: ctx.organizationId,
         ...(filter.status ? { status: filter.status as never } : {}),
@@ -48,6 +57,42 @@ export class ApprovalRequestService {
       select: requestSelect,
       orderBy: [{ createdAt: 'desc' }],
     });
+    if (requests.length === 0) return [];
+
+    // One query per kind of thing the list names, however many requests there are.
+    const unique = (ids: string[]) => [...new Set(ids)];
+    const org = { organizationId: ctx.organizationId };
+    const kpiIds = unique(
+      requests.filter((r) => r.entityType !== 'ROLE_PERMISSIONS').map((r) => (r.entityType === 'KPI_TARGET' ? targetKpiId(r) : r.entityId)),
+    );
+    const roleIds = unique(requests.filter((r) => r.entityType === 'ROLE_PERMISSIONS').map((r) => r.entityId));
+    const [workflows, people, kpis, roles] = await Promise.all([
+      this.prisma.approvalWorkflow.findMany({
+        where: { ...org, id: { in: unique(requests.map((r) => r.workflowId)) } },
+        select: { id: true, requiredApproverRoleIds: true },
+      }),
+      this.prisma.user.findMany({
+        where: { ...org, id: { in: unique(requests.map((r) => r.requesterUserId)) } },
+        select: { id: true, fullName: true },
+      }),
+      kpiIds.length ? this.prisma.kPI.findMany({ where: { ...org, id: { in: kpiIds } }, select: { id: true, name: true } }) : [],
+      roleIds.length ? this.prisma.roleDefinition.findMany({ where: { ...org, id: { in: roleIds } }, select: { id: true, name: true } }) : [],
+    ]);
+    const approvers = new Map(workflows.map((w) => [w.id, w.requiredApproverRoleIds]));
+    const personName = new Map(people.map((p) => [p.id, p.fullName]));
+    const kpiName = new Map(kpis.map((k) => [k.id, k.name]));
+    const roleName = new Map(roles.map((r) => [r.id, r.name]));
+    const viewer = { userId: ctx.userId, roleId: ctx.roleId };
+
+    return requests.map((r) => ({
+      ...r,
+      canDecide: canDecide(r, viewer, approvers.get(r.workflowId)),
+      requesterName: personName.get(r.requesterUserId) ?? null,
+      entityLabel:
+        (r.entityType === 'ROLE_PERMISSIONS'
+          ? roleName.get(r.entityId)
+          : kpiName.get(r.entityType === 'KPI_TARGET' ? targetKpiId(r) : r.entityId)) ?? null,
+    }));
   }
 
   async decide(

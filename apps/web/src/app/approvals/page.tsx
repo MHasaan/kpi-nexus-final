@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, Clock, ArrowRight } from 'lucide-react';
+import { ArrowRight, Check, Clock, X } from 'lucide-react';
 
-import { ApiError, getAccessToken, listRoles, meRequest, type RoleSummary } from '../../lib/api-client';
+import { ApiError, getAccessToken, listRoles, meRequest } from '../../lib/api-client';
 import {
   type ApprovalEntityType,
   type ApprovalRequest,
@@ -17,14 +17,28 @@ import {
   upsertApprovalWorkflow,
 } from '../../lib/collab-client';
 import { AppShell } from '../../components/app-shell';
-import { RequirePermission } from '../../components/auth/require-permission';
-import { PageHeader, Card, CardContent, Button, Badge, EmptyState, Skeleton, Select, Input } from '../../components/ui';
+import { Badge, Button, Card, CardContent, EmptyState, Input, PageHeader, Skeleton } from '../../components/ui';
+import { APPROVAL_KINDS, type WorkflowSetting, kindLabel, requestStanding, statusLabel, toggleApproverRole, workflowProblem, workflowSettings } from '../../lib/approvals-view';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useAsyncData } from '../../lib/use-async-data';
+import { useConfirm } from '../../lib/use-confirm';
+import { usePermissions } from '../../lib/use-permissions';
+import { useToast } from '../../lib/use-toast';
 
 const RESOLVED_STATUSES: ApprovalRequestStatus[] = ['APPROVED', 'REJECTED', 'CANCELLED'];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="kn-eyebrow mb-3 mt-6">{children}</div>;
+}
+
+/** "KPI change · Churn" — the kind in words and the thing it is about by name. */
+function RequestTitle({ request }: { request: ApprovalRequest }) {
+  return (
+    <div className="text-sm font-semibold text-content-strong">
+      {kindLabel(request.entityType)}
+      {request.entityLabel ? <span className="font-normal text-content"> · {request.entityLabel}</span> : null}
+    </div>
+  );
 }
 
 const RESOLVED_TONE: Record<string, 'success' | 'error' | 'neutral'> = {
@@ -111,193 +125,240 @@ function BeforeAfterDiff({ current, proposed }: { current: unknown; proposed: un
   );
 }
 
+/**
+ * The approvals inbox. Everyone who can see KPIs gets it: approvers decide,
+ * requesters watch (and can cancel) their own. Setting up which changes need
+ * approval is for administrators and is only asked for when the viewer may see it —
+ * asking first, for everyone, used to turn the inbox into an error page (UI-008).
+ */
 export default function ApprovalsPage() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([]);
-  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
-  const [resolved, setResolved] = useState<ApprovalRequest[]>([]);
-  const [roles, setRoles] = useState<RoleSummary[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [comments, setComments] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
+  const { ready, has } = usePermissions();
+  const canConfigure = ready && has('ORG_SETTINGS');
+  const toast = useToast();
+  const confirm = useConfirm();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [wf, pending, resolvedByStatus] = await Promise.all([
-        listApprovalWorkflows(),
+  const inbox = useAsyncData(
+    async () => {
+      const [pending, ...resolved] = await Promise.all([
         listApprovalRequests({ status: 'PENDING' }),
-        Promise.all(
-          RESOLVED_STATUSES.map((status) => listApprovalRequests({ status }).catch((): ApprovalRequest[] => [])),
-        ),
+        ...RESOLVED_STATUSES.map((status) => listApprovalRequests({ status })),
       ]);
-      setWorkflows(wf);
-      setRequests(pending);
-      setResolved(resolvedByStatus.flat());
-      setError(null);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load approvals');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return {
+        pending,
+        resolved: resolved.flat().sort((x, y) => y.createdAt.localeCompare(x.createdAt)),
+      };
+    },
+    [],
+    { enabled: signedIn },
+  );
+  const me = useAsyncData(() => meRequest(), [], { enabled: signedIn });
+  const config = useAsyncData(
+    async () => {
+      const [saved, roles] = await Promise.all([listApprovalWorkflows(), listRoles()]);
+      return { saved, roles };
+    },
+    [],
+    { enabled: signedIn && canConfigure },
+  );
+
+  // Saved workflows, kept in step with each save without reloading the section.
+  const [savedWorkflows, setSavedWorkflows] = useState<ApprovalWorkflow[] | null>(null);
+  const [savingKind, setSavingKind] = useState<ApprovalEntityType | null>(null);
+  const [kindError, setKindError] = useState<Partial<Record<ApprovalEntityType, string>>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.replace(currentLoginRedirect());
-      return;
-    }
-    void load();
-    listRoles()
-      .then(setRoles)
-      .catch(() => setRoles([]));
-    meRequest()
-      .then(({ user }) => setCurrentUserId(user.id))
-      .catch(() => setCurrentUserId(null));
-  }, [load, router]);
+    if (!getAccessToken()) router.replace(currentLoginRedirect());
+  }, [router]);
 
-  const decide = async (reqId: string, decision: 'approve' | 'reject') => {
+  const currentUserId = me.data?.user.id ?? null;
+  const settings = workflowSettings(savedWorkflows ?? config.data?.saved ?? []);
+  const pending = inbox.data?.pending ?? [];
+  const resolved = inbox.data?.resolved ?? [];
+  const waitingOnMe = pending.filter((r) => r.canDecide).length;
+
+  const saveWorkflow = async (current: WorkflowSetting, patch: Partial<WorkflowSetting>) => {
+    const next = { ...current, ...patch };
+    const problem = workflowProblem(next);
+    setKindError((errors) => ({ ...errors, [current.entityType]: problem ?? undefined }));
+    if (problem) return;
+    // Shown at once, so a tick looks ticked; put back if the save fails.
+    const before = savedWorkflows ?? config.data?.saved ?? [];
+    const others = before.filter((w) => w.entityType !== current.entityType);
+    const existingId = before.find((w) => w.entityType === current.entityType)?.id ?? '';
+    setSavedWorkflows([...others, { id: existingId, ...next }]);
+    setSavingKind(current.entityType);
     try {
-      const comment = comments[reqId]?.trim();
-      await decideApprovalRequest(reqId, { decision, ...(comment ? { comment } : {}) });
-      setComments((c) => {
-        const next = { ...c };
-        delete next[reqId];
-        return next;
+      const saved = await upsertApprovalWorkflow(current.entityType, {
+        requiredApproverRoleIds: next.requiredApproverRoleIds,
+        requireAll: next.requireAll,
+        isActive: next.isActive,
       });
-      await load();
+      setSavedWorkflows([...others, saved]);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not record decision');
+      setSavedWorkflows(before);
+      toast.error('That was not saved', e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setSavingKind(null);
     }
   };
 
-  const cancel = async (reqId: string) => {
-    try {
-      await cancelApprovalRequest(reqId);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not cancel request');
-    }
-  };
-
-  const saveWorkflow = async (
-    entityType: ApprovalEntityType,
-    patch: { requiredApproverRoleIds?: string[]; requireAll?: boolean; isActive?: boolean },
-  ) => {
-    const existing = workflows.find((w) => w.entityType === entityType);
-    try {
-      const saved = await upsertApprovalWorkflow(entityType, {
-        requiredApproverRoleIds: patch.requiredApproverRoleIds ?? existing?.requiredApproverRoleIds ?? [],
-        requireAll: patch.requireAll ?? existing?.requireAll ?? false,
-        isActive: patch.isActive ?? existing?.isActive ?? false,
+  const act = async (request: ApprovalRequest, action: 'approve' | 'reject' | 'cancel') => {
+    if (action === 'cancel') {
+      const ok = await confirm({
+        title: 'Cancel this request?',
+        description: 'The change will not be made. You can ask again by making the change once more.',
+        confirmLabel: 'Cancel request',
+        cancelLabel: 'Keep it',
+        tone: 'danger',
       });
-      setWorkflows((ws) => ws.map((w) => (w.entityType === entityType ? saved : w)));
+      if (!ok) return;
+    }
+    setBusyId(request.id);
+    try {
+      if (action === 'cancel') {
+        await cancelApprovalRequest(request.id);
+        toast.success('Request cancelled');
+      } else {
+        const comment = comments[request.id]?.trim();
+        const result = await decideApprovalRequest(request.id, { decision: action, ...(comment ? { comment } : {}) });
+        if (action === 'reject') toast.success('Rejected', 'The change was not made.');
+        else if (result.status === 'APPROVED') toast.success('Approved', 'The change has been made.');
+        else toast.success('Approved', 'Recorded. It still needs another approver before the change is made.');
+        setComments(({ [request.id]: _done, ...rest }) => rest);
+      }
+      inbox.reload();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not update workflow');
+      toast.error('That did not work', e instanceof ApiError ? e.message : undefined);
+    } finally {
+      setBusyId(null);
     }
   };
+
+  const loading = inbox.loading && !inbox.data;
 
   return (
     <AppShell title="Approvals" crumbs={[{ label: 'Approvals' }]}>
       <PageHeader
         title="Approvals"
-        subtitle="Govern which changes need sign-off — and decide what's pending"
+        subtitle="Changes waiting for sign-off, and what was decided"
         actions={
-          <Badge tone="warning">
+          <Badge tone={waitingOnMe > 0 ? 'warning' : 'neutral'} data-testid="approvals-waiting">
             <Clock className="h-3 w-3" aria-hidden />
-            {requests.length} pending
+            {waitingOnMe} waiting for you
           </Badge>
         }
       />
 
-      {error && (
+      {inbox.error && (
         <p
           className="mb-4 rounded-lg border border-status-critical-bg bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
           role="alert"
           data-testid="approvals-error"
         >
-          {error}
+          {inbox.error}{' '}
+          <button type="button" className="underline" onClick={inbox.reload}>
+            Try again
+          </button>
         </p>
       )}
 
-      <RequirePermission permission="ORG_SETTINGS">
-        <SectionLabel>Workflow configuration</SectionLabel>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="workflow-config">
-          {loading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent>
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="mt-3 h-3 w-24" />
-                </CardContent>
-              </Card>
-            ))
-          ) : workflows.length === 0 ? (
-            <p className="rounded-lg border border-border bg-surface-bg p-6 text-center text-sm text-content-muted sm:col-span-2 lg:col-span-3">
-              No workflows configured.
+      {canConfigure && (
+        <>
+          <SectionLabel>What needs approval</SectionLabel>
+          {config.error ? (
+            <p className="rounded-lg border border-border bg-surface-bg p-4 text-sm text-status-critical" role="alert" data-testid="workflow-config-error">
+              {config.error}{' '}
+              <button type="button" className="underline" onClick={config.reload}>
+                Try again
+              </button>
             </p>
           ) : (
-            workflows.map((wf) => {
-              const roleId = wf.requiredApproverRoleIds[0] ?? '';
-              return (
-                <Card key={wf.entityType} data-testid={`workflow-${wf.entityType}`}>
-                  <CardContent className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-content-strong">{wf.entityType}</span>
-                      <Badge tone={wf.isActive ? 'success' : 'neutral'}>{wf.isActive ? 'Active' : 'Inactive'}</Badge>
-                    </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="workflow-config">
+              {!config.data
+                ? APPROVAL_KINDS.map((kind) => (
+                    <Card key={kind.entityType}>
+                      <CardContent>
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="mt-3 h-3 w-24" />
+                      </CardContent>
+                    </Card>
+                  ))
+                : settings.map((setting) => {
+                    const kind = APPROVAL_KINDS.find((k) => k.entityType === setting.entityType)!;
+                    const saving = savingKind === setting.entityType;
+                    const problem = kindError[setting.entityType];
+                    return (
+                      <Card key={setting.entityType} data-testid={`workflow-${setting.entityType}`}>
+                        <CardContent className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-content-strong">{kind.title}</span>
+                            <Badge tone={setting.isActive ? 'success' : 'neutral'}>{setting.isActive ? 'On' : 'Off'}</Badge>
+                          </div>
+                          <p className="text-xs text-content-muted">{kind.about}</p>
 
-                    <label className="flex items-center justify-between gap-2 border-t border-border-divider pt-3 text-sm">
-                      <span className="text-content-muted">Active</span>
-                      <input
-                        type="checkbox"
-                        data-testid={`workflow-active-${wf.entityType}`}
-                        checked={wf.isActive}
-                        onChange={(e) => void saveWorkflow(wf.entityType, { isActive: e.target.checked })}
-                        className="h-4 w-4 accent-accent-primary"
-                      />
-                    </label>
+                          <fieldset className="flex flex-col gap-1.5 border-t border-border-divider pt-3 text-sm" disabled={saving}>
+                            <legend className="sr-only">Who can approve {kind.title.toLowerCase()}</legend>
+                            <span className="text-content-muted">Who can approve</span>
+                            {(config.data?.roles ?? []).map((role) => (
+                              <label key={role.id} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  data-testid={`workflow-${setting.entityType}-role-${role.name}`}
+                                  checked={setting.requiredApproverRoleIds.includes(role.id)}
+                                  onChange={() =>
+                                    void saveWorkflow(setting, {
+                                      requiredApproverRoleIds: toggleApproverRole(setting.requiredApproverRoleIds, role.id),
+                                    })
+                                  }
+                                  className="h-4 w-4 accent-accent-primary"
+                                />
+                                <span>{role.name}</span>
+                              </label>
+                            ))}
+                          </fieldset>
 
-                    <label className="flex flex-col gap-1 text-sm">
-                      <span className="text-content-muted">Approver role</span>
-                      <Select
-                        data-testid={`workflow-role-${wf.entityType}`}
-                        value={roleId}
-                        onChange={(e) =>
-                          void saveWorkflow(wf.entityType, {
-                            requiredApproverRoleIds: e.target.value ? [e.target.value] : [],
-                          })
-                        }
-                      >
-                        <option value="">No approver role</option>
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </label>
+                          <label className="flex items-center justify-between gap-2 text-sm">
+                            <span className="text-content-muted">Every chosen role must approve</span>
+                            <input
+                              type="checkbox"
+                              data-testid={`workflow-require-all-${setting.entityType}`}
+                              checked={setting.requireAll}
+                              disabled={saving}
+                              onChange={(e) => void saveWorkflow(setting, { requireAll: e.target.checked })}
+                              className="h-4 w-4 accent-accent-primary"
+                            />
+                          </label>
 
-                    <label className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-content-muted">Require all approvers</span>
-                      <input
-                        type="checkbox"
-                        data-testid={`workflow-require-all-${wf.entityType}`}
-                        checked={wf.requireAll}
-                        onChange={(e) => void saveWorkflow(wf.entityType, { requireAll: e.target.checked })}
-                        className="h-4 w-4 accent-accent-primary"
-                      />
-                    </label>
-                  </CardContent>
-                </Card>
-              );
-            })
+                          <label className="flex items-center justify-between gap-2 border-t border-border-divider pt-3 text-sm">
+                            <span className="font-medium text-content-strong">Require approval</span>
+                            <input
+                              type="checkbox"
+                              data-testid={`workflow-active-${setting.entityType}`}
+                              checked={setting.isActive}
+                              disabled={saving}
+                              onChange={(e) => void saveWorkflow(setting, { isActive: e.target.checked })}
+                              className="h-4 w-4 accent-accent-primary"
+                            />
+                          </label>
+                          {problem && (
+                            <p className="text-xs text-status-critical" role="alert" data-testid={`workflow-problem-${setting.entityType}`}>
+                              {problem}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+            </div>
           )}
-        </div>
-      </RequirePermission>
+        </>
+      )}
 
-      <SectionLabel>Pending requests</SectionLabel>
+      <SectionLabel>Waiting</SectionLabel>
       <div className="space-y-3" data-testid="pending-requests">
         {loading ? (
           Array.from({ length: 2 }).map((_, i) => (
@@ -308,80 +369,81 @@ export default function ApprovalsPage() {
               </CardContent>
             </Card>
           ))
-        ) : requests.length === 0 ? (
-          <EmptyState
-            data-testid="pending-empty"
-            title="All caught up"
-            description="No requests are waiting on your decision."
-          />
+        ) : pending.length === 0 ? (
+          <div data-testid="pending-empty">
+            <EmptyState title="Nothing is waiting" description="Changes that need approval will appear here." />
+          </div>
         ) : (
-          requests.map((req) => {
-            const isRequester = currentUserId !== null && req.requesterUserId === currentUserId;
+          pending.map((req) => {
+            const standing = requestStanding(req, currentUserId);
+            const busy = busyId === req.id;
+            const hasBefore = req.currentPayload !== null && req.currentPayload !== undefined;
             return (
               <Card key={req.id} data-testid={`request-${req.id}`}>
                 <CardContent className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold text-content-strong">{req.entityType}</div>
+                      <RequestTitle request={req} />
                       <div className="mt-1 text-xs text-content-muted">
-                        Status: <span className="font-medium text-content">{req.status}</span> ·{' '}
-                        <span className="text-accent-primary">you&apos;re an approver</span>
+                        Asked by {standing === 'mine' ? 'you' : (req.requesterName ?? 'someone who has left')} on{' '}
+                        {new Date(req.createdAt).toLocaleDateString()} ·{' '}
+                        {standing === 'decide' ? (
+                          <span className="text-accent-primary">Waiting for your decision</span>
+                        ) : (
+                          <span>Waiting for an approver</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        data-testid={`approve-${req.id}`}
-                        onClick={() => decide(req.id, 'approve')}
-                        leftIcon={<Check className="h-3.5 w-3.5" aria-hidden />}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        data-testid={`reject-${req.id}`}
-                        onClick={() => decide(req.id, 'reject')}
-                        leftIcon={<X className="h-3.5 w-3.5" aria-hidden />}
-                      >
-                        Reject
-                      </Button>
-                      {isRequester && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          data-testid={`cancel-${req.id}`}
-                          onClick={() => cancel(req.id)}
-                        >
-                          Cancel
+                      {standing === 'decide' && (
+                        <>
+                          <Button
+                            size="sm"
+                            data-testid={`approve-${req.id}`}
+                            disabled={busy}
+                            onClick={() => void act(req, 'approve')}
+                            leftIcon={<Check className="h-3.5 w-3.5" aria-hidden />}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            data-testid={`reject-${req.id}`}
+                            disabled={busy}
+                            onClick={() => void act(req, 'reject')}
+                            leftIcon={<X className="h-3.5 w-3.5" aria-hidden />}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {currentUserId !== null && req.requesterUserId === currentUserId && (
+                        <Button size="sm" variant="ghost" data-testid={`cancel-${req.id}`} disabled={busy} onClick={() => void act(req, 'cancel')}>
+                          Cancel request
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {(() => {
-                    const hasBefore = req.currentPayload !== null && req.currentPayload !== undefined;
-                    return (
-                      <div data-testid={`approval-diff-${req.id}`}>
-                        <div className="kn-eyebrow mb-1.5">
-                          {hasBefore ? 'Before → after' : 'Proposed changes'}
-                        </div>
-                        {hasBefore ? (
-                          <BeforeAfterDiff current={req.currentPayload} proposed={req.proposedPayload} />
-                        ) : (
-                          <ProposedChangesDiff payload={req.proposedPayload} />
-                        )}
-                      </div>
-                    );
-                  })()}
+                  <div data-testid={`approval-diff-${req.id}`}>
+                    <div className="kn-eyebrow mb-1.5">{hasBefore ? 'Before → after' : 'Proposed changes'}</div>
+                    {hasBefore ? (
+                      <BeforeAfterDiff current={req.currentPayload} proposed={req.proposedPayload} />
+                    ) : (
+                      <ProposedChangesDiff payload={req.proposedPayload} />
+                    )}
+                  </div>
 
-                  <Input
-                    data-testid={`comment-${req.id}`}
-                    value={comments[req.id] ?? ''}
-                    onChange={(e) => setComments((c) => ({ ...c, [req.id]: e.target.value }))}
-                    placeholder="Add a comment (optional)…"
-                    aria-label="Decision comment"
-                  />
+                  {standing === 'decide' && (
+                    <Input
+                      data-testid={`comment-${req.id}`}
+                      value={comments[req.id] ?? ''}
+                      onChange={(e) => setComments((c) => ({ ...c, [req.id]: e.target.value }))}
+                      placeholder="Add a comment (optional)…"
+                      aria-label="Decision comment"
+                    />
+                  )}
                 </CardContent>
               </Card>
             );
@@ -389,7 +451,7 @@ export default function ApprovalsPage() {
         )}
       </div>
 
-      <SectionLabel>Resolved requests</SectionLabel>
+      <SectionLabel>Decided</SectionLabel>
       <div className="space-y-3" data-testid="resolved-requests">
         {loading ? (
           <Card>
@@ -398,18 +460,18 @@ export default function ApprovalsPage() {
             </CardContent>
           </Card>
         ) : resolved.length === 0 ? (
-          <EmptyState title="No resolved requests" description="Decisions you've made will appear here." />
+          <EmptyState title="Nothing decided yet" description="Approved, rejected and cancelled requests are kept here." />
         ) : (
           resolved.map((req) => (
             <Card key={req.id} data-testid={`resolved-${req.id}`}>
               <CardContent className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-content-strong">{req.entityType}</div>
+                  <RequestTitle request={req} />
                   <div className="mt-1 text-xs tabular-nums text-content-muted">
-                    {new Date(req.createdAt).toLocaleDateString()}
+                    Asked by {req.requesterName ?? 'someone who has left'} on {new Date(req.createdAt).toLocaleDateString()}
                   </div>
                 </div>
-                <Badge tone={RESOLVED_TONE[req.status] ?? 'neutral'}>{req.status}</Badge>
+                <Badge tone={RESOLVED_TONE[req.status] ?? 'neutral'}>{statusLabel(req.status)}</Badge>
               </CardContent>
             </Card>
           ))

@@ -191,6 +191,11 @@ export interface ApprovalRequest {
   status: ApprovalRequestStatus;
   decisions: Array<{ userId: string; decision: string; comment?: string; decidedAt: string }>;
   createdAt: string;
+  /** Whether the person asking may approve or reject this request. */
+  canDecide?: boolean;
+  requesterName?: string | null;
+  /** The KPI or role the change is about, by name; null if it no longer exists. */
+  entityLabel?: string | null;
 }
 
 export function listApprovalWorkflows(): Promise<ApprovalWorkflow[]> {

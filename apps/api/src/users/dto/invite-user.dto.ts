@@ -5,6 +5,8 @@ export const InviteUserDtoSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
   roleId: z.string().optional(),
   positionId: z.string().optional(),
+  /** Who the new person reports to. */
+  managerId: z.string().optional(),
 });
 
 export type InviteUserDto = z.infer<typeof InviteUserDtoSchema>;

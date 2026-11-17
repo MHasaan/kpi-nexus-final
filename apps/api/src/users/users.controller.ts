@@ -114,6 +114,30 @@ export class UsersController {
     return this.users.invite(parse(InviteUserDtoSchema, body));
   }
 
+  /** Send a fresh invitation link; the previous one stops working. INVITED only. */
+  @Post(':id/resend-invite')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  resendInvite(@Param('id') id: string): Promise<Omit<InviteResult, 'user'>> {
+    return this.users.resendInvite(id);
+  }
+
+  /** Withdraw an invitation nobody accepted; the address can be invited again. INVITED only. */
+  @Post(':id/cancel-invite')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  cancelInvite(@Param('id') id: string): Promise<void> {
+    return this.users.cancelInvite(id);
+  }
+
+  /** Bring an ARCHIVED person back (ACTIVE, or INVITED if they never accepted). */
+  @Post(':id/restore')
+  @RequirePermissions(PermissionKey.USERS_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  restore(@Param('id') id: string): Promise<PublicUser> {
+    return this.users.restore(id);
+  }
+
   /** Offboard a user: transfer KPIs, reparent reports, vacate units, optionally archive. */
   @Post(':id/offboard')
   @RequirePermissions(PermissionKey.USERS_MANAGE)

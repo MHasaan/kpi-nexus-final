@@ -400,7 +400,7 @@ export interface UserSummary {
   id: string;
   email: string;
   fullName: string;
-  status: 'INVITED' | 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED' | 'DELETED';
+  status: 'INVITED' | 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED' | 'DELETED' | 'PURGED';
   roleId: string | null;
   managerId: string | null;
   positionId: string | null;
@@ -411,6 +411,8 @@ export interface InviteResult {
   user: UserSummary;
   inviteToken?: string;
   acceptUrl?: string;
+  /** Whether the invitation email was handed to the mail server. */
+  emailSent?: boolean;
 }
 
 export async function listUsers(): Promise<UserSummary[]> {
@@ -426,6 +428,7 @@ export async function inviteUser(body: {
   fullName: string;
   roleId?: string;
   positionId?: string;
+  managerId?: string;
 }): Promise<InviteResult> {
   return api('/users', { method: 'POST', body: JSON.stringify(body) });
 }

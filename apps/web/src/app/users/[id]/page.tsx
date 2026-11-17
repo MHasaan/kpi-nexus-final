@@ -65,6 +65,7 @@ const USER_STATUS_META: Record<
   SUSPENDED: { label: 'SUSPENDED', tone: 'warning' },
   ARCHIVED: { label: 'ARCHIVED', tone: 'neutral' },
   DELETED: { label: 'DELETED', tone: 'neutral' },
+  PURGED: { label: 'REMOVED', tone: 'neutral' },
 };
 
 function UserStatusBadge({ status }: { status: UserSummary['status'] }) {

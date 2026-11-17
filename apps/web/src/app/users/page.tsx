@@ -40,15 +40,19 @@ import {
   clearTokens,
   getAccessToken,
   inviteUser,
+  listPositions,
   listRoles,
   listUsers,
   offboardUser,
   purgeUser,
   reactivateUser,
   suspendUser,
+  type PositionSummary,
   type RoleSummary,
   type UserSummary,
 } from '../../lib/api-client';
+import { inviteFeedback, type InviteFeedback } from '../../lib/invite-feedback';
+import { useToast } from '../../lib/use-toast';
 import {
   pluralize,
   useTerminology,
@@ -66,6 +70,8 @@ function UsersPageInner() {
   const router = useRouter();
   const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
+  const [positions, setPositions] = useState<PositionSummary[]>([]);
+  const toast = useToast();
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Lifecycle filter + per-row action state
@@ -76,9 +82,11 @@ function UsersPageInner() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRoleId, setInviteRoleId] = useState('');
+  const [inviteManagerId, setInviteManagerId] = useState('');
+  const [invitePositionId, setInvitePositionId] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<InviteFeedback | null>(null);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -91,9 +99,18 @@ function UsersPageInner() {
   async function refresh() {
     setLoadError(null);
     try {
-      const [usersData, rolesData] = await Promise.all([listUsers(), listRoles()]);
+      const [usersData, rolesData, positionsData] = await Promise.all([
+        listUsers(),
+        listRoles(),
+        // Positions only fill a picker: without them the page still works.
+        listPositions().catch((err: unknown) => {
+          if (err instanceof ApiError && err.status === 403) return [];
+          throw err;
+        }),
+      ]);
       setUsers(usersData);
       setRoles(rolesData);
+      setPositions(positionsData);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -109,21 +126,27 @@ function UsersPageInner() {
     event.preventDefault();
     setInviting(true);
     setInviteError(null);
-    setLastInviteUrl(null);
+    setInviteNotice(null);
+    const email = inviteEmail.trim();
     try {
       const result = await inviteUser({
-        email: inviteEmail.trim(),
+        email,
         fullName: inviteName.trim(),
-        roleId: inviteRoleId.trim() || undefined,
+        roleId: inviteRoleId || undefined,
+        managerId: inviteManagerId || undefined,
+        positionId: invitePositionId || undefined,
       });
       setInviteEmail('');
       setInviteName('');
       setInviteRoleId('');
-      if (result.acceptUrl) {
-        // dev mode — surface the link so the admin can copy/test it without
-        // reading the api log
-        setLastInviteUrl(result.acceptUrl);
-      }
+      setInviteManagerId('');
+      setInvitePositionId('');
+      // Say whether the email really went out (UI-016). A link the server hands
+      // back (outside production), or an unsent invitation, stays on the page.
+      const feedback = inviteFeedback(result, email);
+      if (feedback.tone === 'success') toast.success(feedback.title, feedback.description);
+      else toast.error(feedback.title, feedback.description);
+      setInviteNotice(feedback.url || feedback.tone === 'error' ? feedback : null);
       await refresh();
     } catch (err) {
       setInviteError(err instanceof ApiError ? err.message : 'Failed to invite user');
@@ -163,6 +186,12 @@ function UsersPageInner() {
         : u.status !== 'ARCHIVED' && u.status !== 'DELETED',
     );
   }, [users, statusFilter]);
+
+  // Someone can report to anyone who is still part of the organisation.
+  const managerCandidates = useMemo(
+    () => (users ?? []).filter((u) => u.status === 'ACTIVE' || u.status === 'INVITED' || u.status === 'PENDING_VERIFICATION'),
+    [users],
+  );
 
   return (
     <AppShell title={memberLabelPlural} crumbs={['People', memberLabelPlural]}>
@@ -394,6 +423,42 @@ function UsersPageInner() {
                       ))}
                     </Select>
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="invite-manager-select">Reports to</Label>
+                    <Select
+                      id="invite-manager-select"
+                      value={inviteManagerId}
+                      onChange={(e) => setInviteManagerId(e.target.value)}
+                      disabled={inviting || !users}
+                      data-testid="invite-manager-select"
+                    >
+                      <option value="">(nobody)</option>
+                      {managerCandidates.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.fullName}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  {positions.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="invite-position-select">Position</Label>
+                      <Select
+                        id="invite-position-select"
+                        value={invitePositionId}
+                        onChange={(e) => setInvitePositionId(e.target.value)}
+                        disabled={inviting}
+                        data-testid="invite-position-select"
+                      >
+                        <option value="">(no position)</option>
+                        {positions.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                   <Button
                     type="submit"
                     isLoading={inviting}
@@ -411,21 +476,27 @@ function UsersPageInner() {
                       {inviteError}
                     </p>
                   )}
-                  {lastInviteUrl && (
+                  {inviteNotice && (
                     <div
-                      data-testid="invite-success"
-                      className="rounded-md border border-status-success/40 bg-status-success-bg px-3 py-2.5 text-sm text-status-success"
+                      role={inviteNotice.tone === 'error' ? 'alert' : 'status'}
+                      data-testid={inviteNotice.tone === 'error' ? 'invite-email-warning' : 'invite-success'}
+                      className={
+                        inviteNotice.tone === 'error'
+                          ? 'rounded-md border border-status-warning/40 bg-status-warning-bg px-3 py-2.5 text-sm text-content-strong'
+                          : 'rounded-md border border-status-success/40 bg-status-success-bg px-3 py-2.5 text-sm text-status-success'
+                      }
                     >
-                      <p className="font-medium">
-                        Invite created — share the accept URL:
-                      </p>
-                      <a
-                        href={lastInviteUrl}
-                        className="mt-1 block break-all font-mono text-xs underline"
-                        data-testid="invite-accept-url"
-                      >
-                        {lastInviteUrl}
-                      </a>
+                      <p className="font-medium">{inviteNotice.title}</p>
+                      <p className="mt-0.5 text-xs">{inviteNotice.description}</p>
+                      {inviteNotice.url && (
+                        <a
+                          href={inviteNotice.url}
+                          className="mt-1 block break-all font-mono text-xs underline"
+                          data-testid="invite-accept-url"
+                        >
+                          {inviteNotice.url}
+                        </a>
+                      )}
                     </div>
                   )}
                 </form>
@@ -518,6 +589,7 @@ const USER_STATUS_META: Record<
   SUSPENDED: { label: 'SUSPENDED', tone: 'warning' },
   ARCHIVED: { label: 'ARCHIVED', tone: 'neutral' },
   DELETED: { label: 'DELETED', tone: 'neutral' },
+  PURGED: { label: 'REMOVED', tone: 'neutral' },
 };
 
 function UserStatusBadge({ status }: { status: UserSummary['status'] }) {

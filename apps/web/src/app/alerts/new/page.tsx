@@ -55,10 +55,11 @@ export default function NewAlertRulePage() {
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
   const { ready, has } = usePermissions();
   // Each list is asked for only by someone allowed to read it (FE-014).
-  const kpis = useAsyncData(() => listKpis(), [], { enabled: signedIn });
-  const roles = useAsyncData(() => listRoles(), [], { enabled: signedIn });
-  const users = useAsyncData(() => listUsers(), [], { enabled: signedIn && ready && has('USERS_VIEW') });
-  const channels = useAsyncData(() => listNotificationChannels(), [], { enabled: signedIn && ready && has('ORG_SETTINGS') });
+  const allowed = signedIn && ready && has('KPI_EDIT');
+  const kpis = useAsyncData(() => listKpis(), [], { enabled: allowed });
+  const roles = useAsyncData(() => listRoles(), [], { enabled: allowed });
+  const users = useAsyncData(() => listUsers(), [], { enabled: allowed && has('USERS_VIEW') });
+  const channels = useAsyncData(() => listNotificationChannels(), [], { enabled: allowed && has('ORG_SETTINGS') });
 
   const [form, setForm] = useState<AlertRuleForm>(EMPTY_ALERT_RULE_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -101,8 +102,9 @@ export default function NewAlertRulePage() {
     }
   }
 
+  // Creating a rule is KPI_EDIT on the API: the page asks for what its Save needs (UI-013).
   return (
-    <RequirePermission permission="ALERTS_VIEW">
+    <RequirePermission permission="KPI_EDIT">
     <AppShell>
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold tracking-tight text-content-strong" data-testid="new-rule-heading">

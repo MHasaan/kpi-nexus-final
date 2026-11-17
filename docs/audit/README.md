@@ -364,6 +364,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | X-10 (plan 7.6): the alert filters and the dashboard date range had a second, invisible set of buttons holding the test ids; five empty lists carried the list's test id on a hidden element; an unused chart file was kept | ✅ Fixed — the ids are on the real options (`Segmented testIdPrefix`), each empty state has its own id on the visible card, the stand-ins and `series-chart.tsx` are removed | #231 | `e2e/real-controls.spec.ts`; whole web e2e suite |
 | Page crawl 2026-11-17: eleven pages asked the API before their permission check finished, so a contributor's visit ended in 'not allowed' only after a refused request (16 across the pages); two requests were made while signed out | ✅ Fixed — each page waits until the person is known to be allowed (`lib/use-allowed.ts`); the signed-out requests are not made | #232 | `e2e/no-requests-before-access.spec.ts` (16 refused before, 0 after); whole web e2e suite. The crawl has not been re-run on this change |
 | Plan 7.4 (busy state): eight forms — seven on the KPI detail tabs and 'save view' on the KPI list — had no busy state, so a slow save could be sent twice | ✅ Fixed — `BusyForm` / `BusySubmit`: the button is disabled with a spinner until the handler settles and a second submit is ignored | #233 | `e2e/busy-on-submit.spec.ts` (one request for three presses); whole web e2e suite |
+| X-06 (last part): the new-connector form asked for a KPI id to be typed | ✅ Fixed — it lists the KPIs the person can see, by name | #234 | `e2e/connector-kpi-choice.spec.ts` (the saved connector carries the chosen KPI's id) |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -376,7 +377,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-02 (remainder) failures still swallowed: the KPI picker on the tasks page, the watch button, the report-form pickers, clipboard copy on API keys and webhooks | Low | 🟡 partly | 7.2 |
 | X-04 page ↔ API permission table | High | ⬜ open | 5.2 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
-| X-06 forms: one typed id left — the connector form asks for a KPI id instead of offering the KPIs (busy state, blank-as-0 and clearable fields are fixed) | Low | ⬜ open | 7.4 |
 | X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
 | X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
 

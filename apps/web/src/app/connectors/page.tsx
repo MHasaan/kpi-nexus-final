@@ -19,6 +19,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { RequireAnyPermission } from '../../components/auth/require-permission';
+import { useKpiNames } from '../../lib/use-kpi-names';
 import { usePermissions } from '../../lib/use-permissions';
 
 export default function ConnectorsPage() {
@@ -35,6 +36,8 @@ export default function ConnectorsPage() {
   const [url, setUrl] = useState('');
   const [valuePath, setValuePath] = useState('');
   const [kpiId, setKpiId] = useState('');
+  // The KPIs to choose from — the form used to ask for an id to be typed.
+  const { kpis } = useKpiNames();
   const [schedule, setSchedule] = useState('');
 
   const load = useCallback(async () => {
@@ -135,7 +138,12 @@ export default function ConnectorsPage() {
             </select>
             <input data-testid="connector-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
             <input data-testid="connector-valuepath" value={valuePath} onChange={(e) => setValuePath(e.target.value)} placeholder="value JSON path (e.g. stargazers_count)" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
-            <input data-testid="connector-kpiid" value={kpiId} onChange={(e) => setKpiId(e.target.value)} placeholder="KPI id" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
+            <select data-testid="connector-kpi" aria-label="KPI the value is recorded on" value={kpiId} onChange={(e) => setKpiId(e.target.value)} className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong">
+              <option value="">{kpis.length === 0 ? 'No KPIs you can see' : 'Record the value on…'}</option>
+              {kpis.map((k) => (
+                <option key={k.id} value={k.id}>{k.name}</option>
+              ))}
+            </select>
             <input data-testid="connector-schedule" value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="cron (optional, e.g. 0 8 * * *)" className="rounded border border-border bg-surface-bg px-2 py-1.5 text-sm text-content-strong" />
           </div>
           <button type="button" data-testid="connector-create" onClick={create} className="mt-3 rounded bg-accent-primary px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">Create connector</button>

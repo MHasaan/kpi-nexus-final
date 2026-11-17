@@ -773,6 +773,7 @@ function DataPointRow({
 }
 
 function TargetsTab({ kpiId }: { kpiId: string }) {
+  const confirm = useConfirm();
   const [targets, reload, loadError] = useAsync(() => listTargets(kpiId), [kpiId]);
   const [value, setValue] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -838,7 +839,19 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteTarget(kpiId, t.id).then(reload)}
+                onClick={() =>
+                  void confirm({
+                    title: `Delete the ${t.type.toLowerCase()} target?`,
+                    description: 'The KPI is measured against its remaining targets, or none. Recorded values are kept.',
+                    confirmLabel: 'Delete target',
+                    tone: 'danger',
+                    testId: 'target-delete-confirm',
+                    action: async () => {
+                      await deleteTarget(kpiId, t.id);
+                      reload();
+                    },
+                  })
+                }
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
@@ -853,6 +866,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
 }
 
 function ThresholdsTab({ kpiId }: { kpiId: string }) {
+  const confirm = useConfirm();
   const [bands, reload, loadError] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
   const [status] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
   const [form, setForm] = useState({ name: '', lower: '', upper: '', color: '#16a34a', order: '0' });
@@ -942,7 +956,19 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteThresholdBand(kpiId, b.id).then(reload)}
+                onClick={() =>
+                  void confirm({
+                    title: `Delete the band “${b.name}”?`,
+                    description: 'The KPI’s status is worked out from the bands that remain.',
+                    confirmLabel: 'Delete band',
+                    tone: 'danger',
+                    testId: 'band-delete-confirm',
+                    action: async () => {
+                      await deleteThresholdBand(kpiId, b.id);
+                      reload();
+                    },
+                  })
+                }
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
@@ -957,6 +983,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
 }
 
 function BenchmarksTab({ kpiId }: { kpiId: string }) {
+  const confirm = useConfirm();
   const [benchmarks, reload, loadError] = useAsync(() => listBenchmarks(kpiId), [kpiId]);
   const [form, setForm] = useState({ kind: 'EXTERNAL_INDUSTRY', value: '', source: '' });
   const [err, setErr] = useState<string | null>(null);
@@ -1039,7 +1066,19 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteBenchmark(kpiId, b.id).then(reload)}
+                onClick={() =>
+                  void confirm({
+                    title: `Delete the ${b.kind.toLowerCase().replace(/_/g, ' ')} benchmark?`,
+                    description: 'It is no longer shown against this KPI. Recorded values are kept.',
+                    confirmLabel: 'Delete benchmark',
+                    tone: 'danger',
+                    testId: 'benchmark-delete-confirm',
+                    action: async () => {
+                      await deleteBenchmark(kpiId, b.id);
+                      reload();
+                    },
+                  })
+                }
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Delete
@@ -1169,6 +1208,7 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
 }
 
 function CascadeTab({ kpiId }: { kpiId: string }) {
+  const confirm = useConfirm();
   const [edges, reload, loadError] = useAsync(() => listCascades(), [kpiId]);
   const [names] = useAsync(
     () => listKpis().then((ks) => Object.fromEntries(ks.map((k) => [k.id, k.name]))),
@@ -1193,7 +1233,19 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteCascade(e.id).then(reload)}
+                onClick={() =>
+                  void confirm({
+                    title: `Detach from “${nm(e.parentKpiId)}”?`,
+                    description: 'This KPI stops feeding into it. Both KPIs and their values are kept.',
+                    confirmLabel: 'Detach',
+                    tone: 'danger',
+                    testId: 'cascade-detach-confirm',
+                    action: async () => {
+                      await deleteCascade(e.id);
+                      reload();
+                    },
+                  })
+                }
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Detach
@@ -1217,7 +1269,19 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
-                onClick={() => deleteCascade(e.id).then(reload)}
+                onClick={() =>
+                  void confirm({
+                    title: `Detach “${nm(e.childKpiId)}”?`,
+                    description: 'It stops feeding into this KPI. Both KPIs and their values are kept.',
+                    confirmLabel: 'Detach',
+                    tone: 'danger',
+                    testId: 'cascade-detach-confirm',
+                    action: async () => {
+                      await deleteCascade(e.id);
+                      reload();
+                    },
+                  })
+                }
                 className="text-status-critical hover:bg-status-critical-bg"
               >
                 Detach

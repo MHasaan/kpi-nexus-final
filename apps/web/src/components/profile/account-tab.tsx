@@ -5,8 +5,11 @@ import { type FormEvent, useState } from 'react';
 import {
   ApiError,
   type AuthUser,
+  listRoles,
   updateMyProfile,
 } from '../../lib/api-client';
+import { USER_STATUS_LABELS, labelFor } from '../../lib/labels';
+import { useAsyncData } from '../../lib/use-async-data';
 import {
   Avatar,
   Badge,
@@ -42,6 +45,9 @@ export function AccountTab({ user, onUserChange }: AccountTabProps) {
   const unchanged = trimmed === user.fullName;
   const empty = trimmed.length === 0;
   const status = user.status ?? 'ACTIVE';
+  // The role by its name — the page used to print the role's id.
+  const roles = useAsyncData(() => listRoles(), []);
+  const roleName = !user.roleId ? 'No role' : (roles.data?.find((r) => r.id === user.roleId)?.name ?? (roles.data || roles.error ? 'A role you cannot see' : '…'));
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,10 +148,10 @@ export function AccountTab({ user, onUserChange }: AccountTabProps) {
               <span className="text-sm text-content-strong">{user.email}</span>
             </Field>
             <Field label="Status">
-              <Badge tone={statusTone(status)}>{status}</Badge>
+              <Badge tone={statusTone(status)}>{labelFor(USER_STATUS_LABELS, status)}</Badge>
             </Field>
             <Field label="Role">
-              <span className="text-sm text-content-strong">{user.roleId ?? '—'}</span>
+              <span className="text-sm text-content-strong" data-testid="profile-role">{roleName}</span>
             </Field>
             <Field label="User ID">
               <span className="font-mono text-xs text-content-muted">{user.id}</span>

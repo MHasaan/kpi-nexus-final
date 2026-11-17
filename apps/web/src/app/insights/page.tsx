@@ -27,6 +27,7 @@ import {
   EmptyState,
   Skeleton,
 } from '../../components/ui';
+import { useKpiNames } from '../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 type SortKey = 'confidence' | 'recency';
@@ -39,6 +40,7 @@ const MIN_CONFIDENCE_OPTIONS = [
 
 export default function InsightsPage() {
   const router = useRouter();
+  const { nameOf } = useKpiNames();
   const [rows, setRows] = useState<Insight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -200,7 +202,7 @@ export default function InsightsPage() {
                       href={`/kpis/${r.kpiId}`}
                       className="text-xs font-medium text-accent-primary hover:underline"
                     >
-                      KPI {r.kpiId.slice(0, 8)}…
+                      {nameOf(r.kpiId)}
                     </Link>
                     <div className="flex items-center gap-1">
                       <PermissionGuard permission="INSIGHTS_VIEW">

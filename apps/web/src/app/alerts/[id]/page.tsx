@@ -31,6 +31,8 @@ import {
   type AlertStatus,
   type NotificationDelivery,
 } from '../../../lib/api-client';
+import { ALERT_STATUS_LABELS, labelFor } from '../../../lib/labels';
+import { useKpiNames } from '../../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
 
@@ -111,6 +113,8 @@ function LinkField({ label, value, href }: { label: string; value: string; href:
 
 export default function AlertDetailPage() {
   const router = useRouter();
+  const { nameOf } = useKpiNames();
+  const [ruleName, setRuleName] = useState<string | null>(null);
   const params = useParams<{ id: string }>();
   const alertId = params.id;
   const [alert, setAlert] = useState<Alert | null>(null);
@@ -165,6 +169,7 @@ export default function AlertDetailPage() {
       try {
         const rule = await getAlertRule(rId);
         if (!cancelled) {
+          setRuleName(rule.name);
           setEscalationLevels(narrowEscalationLevels(rule.escalationRule?.levels));
         }
       } catch {
@@ -236,7 +241,7 @@ export default function AlertDetailPage() {
                     {severityMeta.label}
                   </Badge>
                   <Badge tone={STATUS_TONE[alert.status]} data-testid="alert-detail-status">
-                    {alert.status}
+                    {labelFor(ALERT_STATUS_LABELS, alert.status)}
                   </Badge>
                 </div>
                 <h1
@@ -281,8 +286,8 @@ export default function AlertDetailPage() {
               </CardHeader>
               <CardContent>
                 <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                  <LinkField label="KPI" value={alert.kpiId} href={`/kpis/${alert.kpiId}`} />
-                  <Field label="Rule" value={alert.alertRuleId ?? '—'} />
+                  <LinkField label="KPI" value={nameOf(alert.kpiId)} href={`/kpis/${alert.kpiId}`} />
+                  <Field label="Rule" value={alert.alertRuleId ? (ruleName ?? 'A rule that has since been deleted') : 'No rule (raised directly)'} />
                   <Field
                     label="Acknowledged"
                     value={alert.acknowledgedAt ? new Date(alert.acknowledgedAt).toLocaleString() : '—'}

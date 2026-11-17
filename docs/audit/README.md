@@ -331,6 +331,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 4.7: 'Send test' said 'sent' for channels that send nothing (email with no recipients, SMS) and gave a bare 500 on a failed delivery; the page showed every outcome in green; channels could not be edited; Delete fired on one click | ✅ Fixed — the test answers sent or not with the reason; configs are checked on save; channels show where they send (host only for webhooks), can be edited, and deletion asks first; SMS is not offered | `ff06817` | `notification-channels.service.spec.ts`, `channel-config.spec.ts`, `channel-form.spec.ts`, `e2e/alerts-channels.spec.ts` (both failed before), `test/integration/alerting.spec.ts` (empty email channel 400; SMS test not sent)
 | UI-012 (part 1) My KPIs, My team, Automations, Connectors, Plugins and Billing had no link; the mentions bell never showed there was anything to read | ✅ Fixed — six sidebar links, each gated as its page is; unread count on the bell | `0d1f075` | `e2e/nav-links.spec.ts` (each link opens its page for an administrator; an employee sees only their own; a mention shows as 1), `app-shell.spec.tsx`
 | UI-012 (part 2) a KPI's own page had no Edit, no Delete and no way to its forecast, anomalies, what-if or embed pages; the open tab was not in the address, so 'Edit cascades' on the KPI tree landed on Overview | ✅ Fixed — header actions gated as the API is; Delete asks first and says the KPI goes to the archive; `?tab=` | `4f1f005` | `e2e/kpi-detail-actions.spec.ts` (tab from the address and kept on reload; each analysis page opens; edit opens; delete cancelled keeps, confirmed removes), `kpi-detail-tabs.spec.ts`
+| UI-012 (part 3) a widget's detail view, the board pack, and from Settings the connected apps, data connectors, alert channels, automations and plugins had no link | ✅ Fixed — widget title opens the detail view (and shows the kind in words when untitled); Board pack button on Reports; five links on Settings | `ec9dd20` | `e2e/onward-links.spec.ts` (each link is there and opens its page)
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -338,7 +339,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-012 (remainder) pages no link leads to: widget drill-down, board pack, and from Settings: Integrations, Alert channels, Automations | Medium | 🟡 partly | 5.1 |
 | UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |

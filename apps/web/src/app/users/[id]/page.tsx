@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Archive, ArrowLeft, Ban, Play, Trash2, UserSquare2 } from 'lucide-react';
 
@@ -14,8 +14,11 @@ import {
   Button,
   Card,
   EmptyState,
+  Input,
+  Label,
   PageHeader,
   ScopeBadge,
+  Select,
   Skeleton,
   StatusBadge,
   type BadgeTone,
@@ -23,7 +26,10 @@ import {
 } from '../../../components/ui';
 import {
   ApiError,
+  assignKpiToUser,
   getAccessToken,
+  getUser,
+  listKpis,
   listRoles,
   listUserKpis,
   listUsers,
@@ -31,11 +37,37 @@ import {
   purgeUser,
   reactivateUser,
   suspendUser,
+  unassignUserKpi,
   type MyKpiRow,
-  type RoleSummary,
   type UserSummary,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { canHoldKpis, personKpiCandidates } from '../../../lib/person-kpi-candidates';
+import { useAsyncData } from '../../../lib/use-async-data';
+import { useConfirm } from '../../../lib/use-confirm';
+import { useToast } from '../../../lib/use-toast';
+
+/** The person, or the fact that there is nobody with this id (or nobody the caller may see). */
+type PersonLoad = { found: true; user: UserSummary } | { found: false };
+
+async function loadPerson(id: string): Promise<PersonLoad> {
+  try {
+    return { found: true, user: await getUser(id) };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return { found: false };
+    throw err;
+  }
+}
+
+/** A list that only decorates the page: without it the page still works. */
+async function optional<T>(load: Promise<T[]>): Promise<T[]> {
+  try {
+    return await load;
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) return [];
+    throw err;
+  }
+}
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -80,35 +112,33 @@ function UserStatusBadge({ status }: { status: UserSummary['status'] }) {
 export default function UserKpiPanelPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [rows, setRows] = useState<MyKpiRow[] | null>(null);
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
-  const [roles, setRoles] = useState<RoleSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
+  // Each request stands alone (plan 2.10): the person is loaded by id, and a
+  // role or directory list the caller may not read no longer blanks the page.
+  const person = useAsyncData(() => loadPerson(params.id), [params.id]);
+  const kpiRows = useAsyncData(() => listUserKpis(params.id), [params.id]);
+  const people = useAsyncData(() => optional(listUsers()), []);
+  const roleList = useAsyncData(() => optional(listRoles()), []);
+  const allKpis = useAsyncData(() => optional(listKpis()), []);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const confirm = useConfirm();
+  const toast = useToast();
 
-  async function refresh() {
-    setError(null);
-    try {
-      const [kpiRows, usersData, rolesData] = await Promise.all([
-        listUserKpis(params.id),
-        listUsers(),
-        listRoles(),
-      ]);
-      setRows(kpiRows);
-      setUsers(usersData);
-      setRoles(rolesData);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to load');
-    }
-  }
+  const [assignKpiId, setAssignKpiId] = useState('');
+  const [assignTarget, setAssignTarget] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.replace(currentLoginRedirect());
-      return;
-    }
-    void refresh();
-  }, [params.id, router]);
+    if (!signedIn) router.replace(currentLoginRedirect());
+  }, [signedIn, router]);
+
+  const refresh = async () => {
+    person.reload();
+    kpiRows.reload();
+  };
+  const setError = setActionError;
 
   async function runLifecycleAction(action: () => Promise<unknown>) {
     setActionBusy(true);
@@ -124,13 +154,56 @@ export default function UserKpiPanelPage() {
     }
   }
 
-  const user = users?.find((u) => u.id === params.id) ?? null;
-  const roleName = user
-    ? (roles?.find((r) => r.id === user.roleId)?.name ?? null)
-    : null;
+  const notFound = person.data?.found === false;
+  const user = person.data?.found ? person.data.user : null;
+  const rows: MyKpiRow[] | null = notFound ? null : kpiRows.data;
+  const error = actionError ?? person.error ?? (notFound ? null : kpiRows.error);
+  const roleName = user ? (roleList.data?.find((r) => r.id === user.roleId)?.name ?? null) : null;
   const managerName = user?.managerId
-    ? (users?.find((u) => u.id === user.managerId)?.fullName ?? null)
+    ? (people.data?.find((u) => u.id === user.managerId)?.fullName ?? null)
     : null;
+  const candidates = personKpiCandidates(allKpis.data ?? [], rows ?? []);
+
+  const assign = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!user) return;
+    setAssignError(null);
+    const kpiId = assignKpiId || candidates[0]?.id;
+    if (!kpiId) return;
+    const targetValue = assignTarget.trim() === '' ? undefined : Number(assignTarget);
+    if (targetValue !== undefined && !Number.isFinite(targetValue)) {
+      setAssignError('The target must be a number.');
+      return;
+    }
+    setAssigning(true);
+    try {
+      await assignKpiToUser(user.id, kpiId, targetValue);
+      setAssignKpiId('');
+      setAssignTarget('');
+      kpiRows.reload();
+      toast.success('KPI assigned');
+    } catch (e) {
+      setAssignError(e instanceof ApiError ? e.message : 'Could not assign this KPI.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const removeKpi = async (row: MyKpiRow) => {
+    if (!user) return;
+    await confirm({
+      title: `Remove ${row.name} from ${user.fullName}?`,
+      description: 'They stop holding this KPI. Values they already recorded are kept.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      testId: 'user-kpi-remove-confirm',
+      action: async () => {
+        await unassignUserKpi(row.assignmentId);
+        kpiRows.reload();
+        toast.success('KPI removed');
+      },
+    });
+  };
 
   return (
     <AppShell title="User profile" crumbs={['People', 'Users', 'Profile']}>
@@ -144,9 +217,9 @@ export default function UserKpiPanelPage() {
               <ArrowLeft aria-hidden className="h-4 w-4" /> Back to users
             </Link>
             <PageHeader
-              eyebrow="PER_USER KPI assignments"
-              title="Assigned KPIs"
-              subtitle="This person's personally-assigned KPIs with their recorded values."
+              eyebrow="Person"
+              title={user?.fullName ?? 'Profile'}
+              subtitle="Their own KPIs, with what they have recorded."
             />
           </div>
 
@@ -160,7 +233,20 @@ export default function UserKpiPanelPage() {
             </div>
           )}
 
-          {user === null && users === null && !error ? (
+          {notFound ? (
+            <Card data-testid="user-not-found">
+              <EmptyState
+                icon={UserSquare2}
+                title="Person not found"
+                description="There is nobody with this address in your organisation, or they are outside what you can see."
+                action={
+                  <Link href="/users" className="text-sm font-semibold text-accent-primary hover:underline">
+                    Back to people
+                  </Link>
+                }
+              />
+            </Card>
+          ) : user === null && !error ? (
             <Card>
               <div className="flex items-center gap-4 p-4">
                 <Skeleton className="h-12 w-12 rounded-full" />
@@ -292,7 +378,72 @@ export default function UserKpiPanelPage() {
             </Card>
           ) : null}
 
-          {rows === null && !error ? (
+          {user && canHoldKpis(user.status) && (
+            <PermissionGuard permission="KPI_CREATE">
+              <PermissionGuard permission="USERS_MANAGE">
+                <Card data-testid="user-kpi-assign-section">
+                  <form onSubmit={assign} className="grid gap-3 p-4 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="user-kpi-assign-select">Assign a KPI</Label>
+                      <Select
+                        id="user-kpi-assign-select"
+                        value={assignKpiId || candidates[0]?.id || ''}
+                        onChange={(e) => setAssignKpiId(e.target.value)}
+                        disabled={assigning || candidates.length === 0}
+                        data-testid="user-kpi-assign-select"
+                      >
+                        {candidates.map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.name}
+                          </option>
+                        ))}
+                        {candidates.length === 0 && <option value="">No per-person KPI left to assign</option>}
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="user-kpi-assign-target">Target (optional)</Label>
+                      <Input
+                        id="user-kpi-assign-target"
+                        type="number"
+                        step="any"
+                        value={assignTarget}
+                        onChange={(e) => setAssignTarget(e.target.value)}
+                        disabled={assigning || candidates.length === 0}
+                        data-testid="user-kpi-assign-target"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      isLoading={assigning}
+                      disabled={candidates.length === 0}
+                      data-testid="user-kpi-assign-button"
+                    >
+                      Assign
+                    </Button>
+                    {candidates.length === 0 && allKpis.data && (
+                      <p className="text-xs text-content-muted sm:col-span-3">
+                        Only KPIs recorded per person can be assigned here.{' '}
+                        <Link href="/kpis/new" className="font-medium text-accent-primary hover:underline">
+                          Create one
+                        </Link>
+                      </p>
+                    )}
+                    {assignError && (
+                      <p
+                        role="alert"
+                        data-testid="user-kpi-assign-error"
+                        className="text-sm text-status-critical sm:col-span-3"
+                      >
+                        {assignError}
+                      </p>
+                    )}
+                  </form>
+                </Card>
+              </PermissionGuard>
+            </PermissionGuard>
+          )}
+
+          {notFound ? null : rows === null && !error ? (
             <Card>
               <div className="flex flex-col gap-3 p-4">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -305,7 +456,7 @@ export default function UserKpiPanelPage() {
               <EmptyState
                 icon={UserSquare2}
                 title="No KPIs assigned"
-                description="This user has no PER_USER KPI assignments yet."
+                description="This person holds no KPIs of their own yet."
               />
               <span data-testid="user-kpis-empty" className="sr-only" />
             </Card>
@@ -315,7 +466,7 @@ export default function UserKpiPanelPage() {
                 <div
                   key={r.assignmentId}
                   className={
-                    'grid grid-cols-[2fr_1fr_1.1fr] items-center gap-3 px-4 py-3.5' +
+                    'grid grid-cols-[2fr_1fr_1.1fr_auto] items-center gap-3 px-4 py-3.5' +
                     (i ? ' border-t border-border-divider' : '')
                   }
                 >
@@ -340,6 +491,19 @@ export default function UserKpiPanelPage() {
                   <span className="justify-self-end">
                     <StatusBadge status={toStatus(r.status)} />
                   </span>
+                  <PermissionGuard permission="KPI_CREATE">
+                    <PermissionGuard permission="USERS_MANAGE">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-status-critical hover:bg-status-critical-bg"
+                        data-testid={`user-kpi-remove-${r.assignmentId}`}
+                        onClick={() => void removeKpi(r)}
+                      >
+                        Remove
+                      </Button>
+                    </PermissionGuard>
+                  </PermissionGuard>
                 </div>
               ))}
             </Card>

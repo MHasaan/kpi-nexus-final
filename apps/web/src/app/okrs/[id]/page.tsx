@@ -686,6 +686,8 @@ export default function ObjectiveDetailPage() {
             <Card data-testid="kr-list">
               <CardHeader className="flex items-center justify-between gap-2">
                 <CardTitle>Key results</CardTitle>
+                {/* Syncing writes key-result values: KPI_EDIT on the API (UI-013). */}
+                <PermissionGuard permission="KPI_EDIT">
                 <Button
                   variant="secondary"
                   size="sm"
@@ -698,6 +700,7 @@ export default function ObjectiveDetailPage() {
                 >
                   Sync from linked KPIs
                 </Button>
+                </PermissionGuard>
               </CardHeader>
               <CardContent className="p-0">
                 {krs.length === 0 ? (

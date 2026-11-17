@@ -417,7 +417,8 @@ export default function OkrsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <PermissionGuard permission="KPI_CREATE">
+            {/* Saving an edit is KPI_EDIT on the API — not KPI_CREATE, which this used to ask for (UI-013). */}
+            <PermissionGuard permission="KPI_EDIT">
               <Button
                 size="sm"
                 variant="ghost"

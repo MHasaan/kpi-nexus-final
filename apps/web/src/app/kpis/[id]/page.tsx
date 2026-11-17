@@ -98,6 +98,7 @@ import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
 import { useToast } from '../../../lib/use-toast';
+import { BusyForm, BusySubmit } from '../../../components/busy-form';
 
 export default function KpiDetailPage() {
   const params = useParams<{ id: string }>();
@@ -739,7 +740,7 @@ function DataPointRow({
         <TableRow>
           <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="bg-surface-bg">
             {editing && (
-              <form onSubmit={save} className="flex flex-wrap items-end gap-3">
+              <BusyForm onSubmit={save} className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`correct-value-${p.id}`}>Correct value</Label>
                   <Input id={`correct-value-${p.id}`} type="number" step="any" required value={value} onChange={(e) => setValue(e.target.value)} data-testid="correct-value" />
@@ -748,9 +749,9 @@ function DataPointRow({
                   <Label htmlFor={`correct-reason-${p.id}`}>Reason</Label>
                   <Input id={`correct-reason-${p.id}`} required minLength={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it changed" data-testid="correct-reason" />
                 </div>
-                <Button type="submit" size="sm" data-testid="correct-save">Save correction</Button>
+                <BusySubmit size="sm" data-testid="correct-save">Save correction</BusySubmit>
                 <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-              </form>
+              </BusyForm>
             )}
             {err && <p className="mt-2 text-sm text-status-critical" role="alert">{err}</p>}
             {history && (
@@ -797,7 +798,7 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
       <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
-          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="flex items-end gap-3">
+          <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="flex items-end gap-3">
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="target-value-input">Static target value</Label>
               <Input
@@ -810,10 +811,10 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
                 data-testid="target-value"
               />
             </div>
-            <Button type="submit" data-testid="target-add">
+            <BusySubmit data-testid="target-add">
               Add target
-            </Button>
-          </form></PermissionGuard>
+            </BusySubmit>
+          </BusyForm></PermissionGuard>
           {pending && (
             <div className="mt-3">
               <ApprovalPendingNotice what="This target" testId="target-approval-pending" />
@@ -901,7 +902,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       </UICard>
       <UICard>
         <CardContent>
-          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Input
               placeholder="name"
               value={form.name}
@@ -928,10 +929,10 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
               onChange={(e) => setForm({ ...form, order: e.target.value })}
               type="number"
             />
-            <Button type="submit" data-testid="band-add">
+            <BusySubmit data-testid="band-add">
               Add band
-            </Button>
-          </form></PermissionGuard>
+            </BusySubmit>
+          </BusyForm></PermissionGuard>
           {err && (
             <p role="alert" data-testid="band-error" className="mt-2 text-sm text-status-critical">
               {err}
@@ -1023,7 +1024,7 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
               Auto-compute (30d)
             </Button></PermissionGuard>
           </div>
-          <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
               <option value="EXTERNAL_INDUSTRY">Industry</option>
               <option value="EXTERNAL_PEER">Peer</option>
@@ -1042,10 +1043,10 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
               value={form.source}
               onChange={(e) => setForm({ ...form, source: e.target.value })}
             />
-            <Button type="submit" data-testid="benchmark-add">
+            <BusySubmit data-testid="benchmark-add">
               Add
-            </Button>
-          </form></PermissionGuard>
+            </BusySubmit>
+          </BusyForm></PermissionGuard>
           {err && (
             <p role="alert" data-testid="benchmark-error" className="mt-2 text-sm text-status-critical">
               {err}
@@ -1170,7 +1171,7 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
           A formula derives this KPI from other KPIs (referenced by name). Example:{' '}
           <code className="rounded bg-surface-2 px-1 font-mono">revenue - cost</code>
         </p>
-        <PermissionGuard permission="KPI_EDIT"><form onSubmit={save} className="mt-3 space-y-3">
+        <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={save} className="mt-3 space-y-3">
           <Textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
@@ -1180,16 +1181,16 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
             data-testid="formula-raw"
           />
           <div className="flex gap-2">
-            <Button type="submit" data-testid="formula-save">
+            <BusySubmit data-testid="formula-save">
               Save formula
-            </Button>
+            </BusySubmit>
             {formula && (
               <Button type="button" variant="secondary" onClick={clear}>
                 Clear
               </Button>
             )}
           </div>
-        </form></PermissionGuard>
+        </BusyForm></PermissionGuard>
         {!canEdit &&
           (formula ? (
             <pre className="mt-3 overflow-x-auto rounded-md border border-border-divider bg-surface-1 px-3 py-2 font-mono text-sm text-content-strong" data-testid="formula-readonly">
@@ -1328,7 +1329,7 @@ function AddChildForm({
   };
   return (
     <>
-      <PermissionGuard permission="KPI_EDIT"><form onSubmit={add} className="mt-3 flex gap-2">
+      <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="mt-3 flex gap-2">
         <Select
           value={childKpiId}
           onChange={(e) => setChildKpiId(e.target.value)}
@@ -1342,10 +1343,10 @@ function AddChildForm({
             </option>
           ))}
         </Select>
-        <Button type="submit" data-testid="cascade-add">
+        <BusySubmit data-testid="cascade-add">
           Attach
-        </Button>
-      </form></PermissionGuard>
+        </BusySubmit>
+      </BusyForm></PermissionGuard>
       {err && (
         <p role="alert" data-testid="cascade-error" className="mt-2 text-sm text-status-critical">
           {err}
@@ -1435,10 +1436,10 @@ function SnapshotsCard({ kpiId }: { kpiId: string }) {
           <p className="text-xs text-content-muted">Freeze this KPI and the values you can see, for later reference. Only you (and admins) can open your snapshots.</p>
         </div>
         <PermissionGuard permission="KPI_EDIT">
-          <form onSubmit={take} className="flex flex-wrap items-end gap-2">
+          <BusyForm onSubmit={take} className="flex flex-wrap items-end gap-2">
             <Input aria-label="Reason for the snapshot" placeholder="Reason (optional)" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="max-w-sm" data-testid="snapshot-reason" />
-            <Button type="submit" size="sm" data-testid="snapshot-take">Take snapshot</Button>
-          </form>
+            <BusySubmit size="sm" data-testid="snapshot-take">Take snapshot</BusySubmit>
+          </BusyForm>
         </PermissionGuard>
         {err && <p className="text-sm text-status-critical" role="alert">{err}</p>}
         <ul className="divide-y divide-border text-sm" data-testid="snapshot-list">

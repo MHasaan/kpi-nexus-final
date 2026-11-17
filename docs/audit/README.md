@@ -347,6 +347,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-013 (anomalies; owner sign-off 2026-11-17) the page asked for ANALYTICS_VIEW and its API for INSIGHTS_VIEW; Confirm was offered to readers and refused | ✅ Fixed — list and detect ask for ANALYTICS_VIEW; Confirm is shown only with KPI_EDIT; the page loads after its gate | #212 | `e2e/anomalies-permission.spec.ts`: the analytics key alone works end to end with no Confirm; with KPI_EDIT Confirm works; the insights key alone gets 403 from the API and is turned away from the page without a refused call
 | UI-013 (scheduled reports; owner sign-off 2026-11-17) creating, pausing and deleting a report needed ORG_SETTINGS while the page offered them to every reader; REPORTS_MANAGE gated nothing | ✅ Fixed — the three routes, `/reports/new` and the buttons use REPORTS_MANAGE. A data migration keeps the key only on roles that could manage reports before (those that also hold ORG_SETTINGS), so nobody gains it by this change; administrators grant it from the Roles page | #213 | `e2e/reports-permission.spec.ts`: a reader is offered nothing that changes a report and gets 403; a report manager who is no administrator creates and pauses; ORG_SETTINGS alone no longer creates. `scheduled-report.spec.ts`
 | UI-013 (admin pages) Integrations and Audit asked for ORG_SETTINGS only though their sidebar links and API accept INTEGRATIONS_MANAGE / AUDIT_VIEW; Connectors hid its form the same way; Positions had no gate | ✅ Fixed — either-key gates as the API has; Positions asks for POSITIONS_MANAGE | #214 | `e2e/admin-pages-permission.spec.ts` (failed before): an integrations-only role and an auditor reach working pages from the sidebar with nothing refused; a reader is turned away from all four without a refused call
+| UI-013 (KPI detail tabs) Targets, Thresholds, Benchmarks, Formula and Cascade showed their forms, Auto-compute and delete buttons to every reader; the API asks for KPI_EDIT | ✅ Fixed — all behind KPI_EDIT; a reader sees the formula as text. This closes UI-013 | #215 | `e2e/kpi-detail-tabs-permission.spec.ts`: an editor has every form; a reader has none, still sees what is saved, and is refused nothing
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -354,7 +355,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-013 page and API disagree on the permission needed (Ask, Dashboards, the alerts bell, Alerts / AI, OKRs, the KPI side pages and the admin pages are done; the KPI detail tabs are left). The owner signed off the three API permission changes on 2026-11-17: forecast / what-if, anomalies and reports are all done | High | 🟡 partly | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
 | X-01 deletes with no confirmation; `window.confirm` still in five places (the `/users` list is done) | Medium | 🟡 partly | 7.1 |

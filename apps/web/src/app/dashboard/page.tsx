@@ -527,6 +527,10 @@ export default function DashboardPage() {
                 description="Create your first KPI to start tracking what matters across your organization."
                 action={<NewKpiAction />}
               />
+              {/* A new organisation lands here first: this is where "what next" matters most. */}
+              <div className="mt-4">
+                <SetupChecklistCard />
+              </div>
             </div>
           ) : (
             <>

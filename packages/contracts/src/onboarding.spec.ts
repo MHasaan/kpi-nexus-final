@@ -217,3 +217,60 @@ describe('KPIs in the draft: units, target (plan 3.2b)', () => {
     expect(OnboardingDraftPatchSchema.safeParse({ kpis: [perUnit({ targetValue: Number.POSITIVE_INFINITY })] }).success).toBe(false);
   });
 });
+
+describe('the team in the draft (plan 3.2c)', () => {
+  const withTeam = (team: unknown[]) => ({ ...ready(), team });
+  const lead = { email: 'lead@acme.test', fullName: 'Lena Lead', role: 'Member', position: 'Engineer', unit: 'Engineering' };
+
+  test('people can be invited with a role, position, unit and manager', () => {
+    const draft = withTeam([lead, { email: 'dev@acme.test', fullName: 'Dev Person', manager: 'LEAD@acme.test' }]);
+    expect(OnboardingDraftPatchSchema.safeParse(draft).success).toBe(true);
+    expect(validateOnboardingDraft(draft)).toEqual([]);
+  });
+
+  test('a half-typed row saves, but cannot be completed', () => {
+    const draft = withTeam([{ email: '', fullName: '' }]);
+    expect(OnboardingDraftPatchSchema.safeParse(draft).success).toBe(true);
+    expect(validateOnboardingDraft(draft).map((p) => [p.section, p.index, p.field])).toEqual([
+      ['team', 0, 'email'],
+      ['team', 0, 'fullName'],
+    ]);
+  });
+
+  test('an address must be an address, and appear once', () => {
+    const problems = validateOnboardingDraft(withTeam([lead, { email: 'not-an-email', fullName: 'Bad Mail' }, { ...lead, email: 'Lead@Acme.test' }]));
+    expect(problems.map((p) => [p.index, p.field])).toEqual([[1, 'email'], [2, 'email']]);
+    expect(problems[1]!.message).toContain('twice');
+  });
+
+  test('a role, position, unit or manager that does not exist is a problem on its field', () => {
+    const problems = validateOnboardingDraft(
+      withTeam([{ email: 'x@acme.test', fullName: 'Ex Ample', role: 'Wizard', position: 'Seer', unit: 'Tower', manager: 'nobody@acme.test' }]),
+    );
+    expect(problems.map((p) => p.field)).toEqual(['role', 'position', 'unit', 'manager']);
+  });
+
+  test('nobody reports to themself, or in a loop', () => {
+    expect(validateOnboardingDraft(withTeam([{ ...lead, manager: lead.email }]))).toEqual([
+      expect.objectContaining({ section: 'team', index: 0, field: 'manager' }),
+    ]);
+    const loop = withTeam([
+      { email: 'a@acme.test', fullName: 'Aa Aa', manager: 'b@acme.test' },
+      { email: 'b@acme.test', fullName: 'Bb Bb', manager: 'a@acme.test' },
+    ]);
+    expect(validateOnboardingDraft(loop).filter((p) => p.message.includes('loop')).map((p) => p.index)).toEqual([0, 1]);
+  });
+
+  test('the administrator can be named as a manager, but is not invited to their own organisation', () => {
+    const adminEmail = 'boss@acme.test';
+    expect(validateOnboardingDraft(withTeam([{ ...lead, manager: 'Boss@acme.test' }]), { adminEmail })).toEqual([]);
+    expect(validateOnboardingDraft(withTeam([{ ...lead, email: adminEmail }]), { adminEmail })).toEqual([
+      expect.objectContaining({ section: 'team', index: 0, field: 'email' }),
+    ]);
+  });
+
+  test('setup invites a team, not a mailing list', () => {
+    const many = Array.from({ length: 51 }, (_, i) => ({ email: `p${i}@acme.test`, fullName: `Person ${i}` }));
+    expect(OnboardingDraftPatchSchema.safeParse(withTeam(many)).success).toBe(false);
+  });
+});

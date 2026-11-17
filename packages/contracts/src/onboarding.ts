@@ -135,6 +135,26 @@ export const DraftKpiSchema = z.object({
   units: z.array(name).max(DRAFT_SECTION_MAX).optional(),
 });
 
+/**
+ * How many people setup may invite. Each is sent an email before the
+ * organisation has done anything else, so this is a team, not a mailing list;
+ * more are invited from the People page afterwards.
+ */
+export const DRAFT_TEAM_MAX = 50;
+
+export const DraftTeamMemberSchema = z.object({
+  email: z.string().max(254),
+  fullName: z.string().max(160),
+  /** A role from the draft, by name. */
+  role: name.optional(),
+  /** A position from the draft, by name. */
+  position: name.optional(),
+  /** The unit they belong to, by name. */
+  unit: name.optional(),
+  /** Who they report to: another team member's email, or the administrator's. */
+  manager: z.string().max(254).optional(),
+});
+
 const list = <T extends z.ZodType>(item: T) => z.array(item).max(DRAFT_SECTION_MAX);
 
 /** Every section the draft can hold. A write may carry any subset; unknown sections are refused. */
@@ -147,6 +167,7 @@ export const OnboardingDraftPatchSchema = z
     orgUnits: list(DraftOrgUnitSchema),
     kpiCategories: list(DraftKpiCategorySchema),
     kpis: list(DraftKpiSchema),
+    team: z.array(DraftTeamMemberSchema).max(DRAFT_TEAM_MAX),
   })
   .partial()
   .strict();
@@ -158,6 +179,7 @@ export type DraftOrgUnitType = z.infer<typeof DraftOrgUnitTypeSchema>;
 export type DraftOrgUnit = z.infer<typeof DraftOrgUnitSchema>;
 export type DraftKpiCategory = z.infer<typeof DraftKpiCategorySchema>;
 export type DraftKpi = z.infer<typeof DraftKpiSchema>;
+export type DraftTeamMember = z.infer<typeof DraftTeamMemberSchema>;
 
 export const DRAFT_SECTIONS = [
   'organization',
@@ -167,6 +189,7 @@ export const DRAFT_SECTIONS = [
   'orgUnits',
   'kpiCategories',
   'kpis',
+  'team',
 ] as const;
 export type DraftSection = (typeof DRAFT_SECTIONS)[number];
 
@@ -196,6 +219,9 @@ export function draftShapeProblems(issues: readonly { path: PropertyKey[]; messa
 }
 
 const key = (value: string): string => value.trim().toLowerCase();
+
+// One @, something either side, a dot in the domain. The invitation email is the real test.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Whether the runtime knows this IANA time zone. */
 export function isTimeZone(value: string): boolean {
@@ -245,7 +271,7 @@ const PERMISSION_KEYS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
  * Takes anything (a draft is a JSON column): a draft that does not even have
  * the right shape reports that, instead of throwing.
  */
-export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
+export function validateOnboardingDraft(raw: unknown, options: { adminEmail?: string } = {}): DraftProblem[] {
   const parsed = OnboardingDraftPatchSchema.safeParse(raw ?? {});
   if (!parsed.success) return draftShapeProblems(parsed.error.issues);
 
@@ -268,7 +294,7 @@ export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
   }
 
   const roles = draft.roles ?? [];
-  namedRows('roles', roles, 'role', problems);
+  const roleNames = namedRows('roles', roles, 'role', problems);
   if (!roles.some((r) => r.isAdmin)) {
     problems.push({
       section: 'roles',
@@ -288,7 +314,7 @@ export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
     }
   });
 
-  namedRows('positions', draft.positions ?? [], 'position', problems);
+  const positionNames = namedRows('positions', draft.positions ?? [], 'position', problems);
 
   const typeNames = namedRows('orgUnitTypes', draft.orgUnitTypes ?? [], 'unit type', problems);
 
@@ -366,6 +392,56 @@ export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
       if (!unitNames.has(key(unit))) {
         problems.push({ section: 'kpis', index, field: 'units', message: `There is no unit called "${unit.trim()}".` });
       }
+    }
+  });
+
+  // --- team: the people invited as part of setup --------------------------
+  const team = draft.team ?? [];
+  const adminEmail = options.adminEmail ? key(options.adminEmail) : '';
+  const emails = new Set<string>();
+  const reportsTo = new Map<string, string>();
+  team.forEach((person, index) => {
+    const at = (field: string, message: string) => problems.push({ section: 'team', index, field, message });
+    const email = key(person.email);
+    if (!email) at('email', 'Enter their email.');
+    else if (!EMAIL.test(email)) at('email', `"${person.email.trim()}" is not an email address.`);
+    else if (email === adminEmail) at('email', 'That is your own email — you are already the administrator.');
+    else if (emails.has(email)) at('email', `${person.email.trim()} is on the list twice.`);
+    else emails.add(email);
+
+    if (person.fullName.trim().length < 2) at('fullName', 'Enter their name.');
+    if (person.role?.trim() && !roleNames.has(key(person.role))) at('role', `"${person.role.trim()}" is not one of the roles.`);
+    if (person.position?.trim() && !positionNames.has(key(person.position))) {
+      at('position', `"${person.position.trim()}" is not one of the positions.`);
+    }
+    if (person.unit?.trim() && !unitNames.has(key(person.unit))) at('unit', `There is no unit called "${person.unit.trim()}".`);
+  });
+  team.forEach((person, index) => {
+    const manager = person.manager ? key(person.manager) : '';
+    if (!manager) return;
+    const self = key(person.email);
+    if (manager === self) {
+      problems.push({ section: 'team', index, field: 'manager', message: 'Nobody reports to themself.' });
+    } else if (manager !== adminEmail && !emails.has(manager)) {
+      problems.push({
+        section: 'team',
+        index,
+        field: 'manager',
+        message: `${person.manager!.trim()} is not on the list. A manager is someone you are inviting, or you.`,
+      });
+    } else if (self && manager !== adminEmail) {
+      reportsTo.set(self, manager);
+    }
+  });
+  team.forEach((person, index) => {
+    const start = key(person.email);
+    let cursor = reportsTo.get(start);
+    for (let hops = 0; cursor && hops <= team.length; hops += 1) {
+      if (cursor === start) {
+        problems.push({ section: 'team', index, field: 'manager', message: 'These people report to each other in a loop.' });
+        break;
+      }
+      cursor = reportsTo.get(cursor);
     }
   });
 

@@ -318,3 +318,106 @@ test('onboarding: a per-unit KPI is given to its units (and the units below them
   });
   expect(recorded.status()).toBe(201);
 });
+
+// ---- Plan 3.2c: the team is invited as part of setup -----------------------
+
+test('onboarding: the team in the draft is invited, with roles, units and reporting lines', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  const adminEmail = `admin-${stamp}@onb.test.local`;
+  const mail = (who: string) => `${who}-${stamp}@onb.test.local`;
+  expect((await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        roles: [{ name: 'Admin', isAdmin: true }, { name: 'Member', permissions: ['KPI_VIEW'] }],
+        positions: [{ name: 'Engineer' }],
+        orgUnitTypes: [{ name: 'Department' }],
+        orgUnits: [{ name: 'Engineering', type: 'Department' }],
+        team: [
+          // Listed before the person they report to: order must not matter.
+          { email: mail('dev'), fullName: 'Dev Person', role: 'member', manager: mail('LEAD') },
+          { email: mail('lead'), fullName: 'Lena Lead', role: 'Member', position: 'Engineer', unit: 'engineering', manager: adminEmail },
+          { email: mail('solo'), fullName: 'Solo Person' },
+        ],
+      },
+    },
+  })).status()).toBe(200);
+
+  // The administrator's own address is a manager here, not a problem — once we know it.
+  const { problems } = (await (await anon.get(`/onboarding/${sessionId}/validate`, { headers: hdr })).json()) as { problems: Problem[] };
+  expect(problems).toEqual([]);
+
+  const done = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(done.status()).toBe(201);
+  const body = (await done.json()) as {
+    accessToken: string;
+    user: { id: string };
+    invites: Array<{ email: string; invited: boolean; emailSent?: boolean; inviteToken?: string }>;
+  };
+  expect(body.invites.map((i) => [i.email, i.invited]).sort()).toEqual([[mail('dev'), true], [mail('lead'), true], [mail('solo'), true]]);
+  expect(body.invites.every((i) => i.emailSent === true)).toBe(true);
+
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${body.accessToken}` } });
+  type U = { id: string; email: string; status: string; roleId: string | null; managerId: string | null; positionId: string | null };
+  const users = (await (await api.get('/users')).json()) as U[];
+  expect(users).toHaveLength(4);
+  const by = (who: string) => users.find((u) => u.email === mail(who))!;
+  expect([by('dev').status, by('lead').status, by('solo').status]).toEqual(['INVITED', 'INVITED', 'INVITED']);
+  expect(by('lead').managerId).toBe(body.user.id);
+  expect(by('dev').managerId).toBe(by('lead').id);
+  expect(by('solo').managerId).toBeNull();
+  const roles = (await (await api.get('/roles')).json()) as Array<{ id: string; name: string }>;
+  expect(by('dev').roleId).toBe(roles.find((r) => r.name === 'Member')!.id);
+  expect(by('lead').positionId).toBeTruthy();
+  const units = (await (await api.get('/org-units')).json()) as Array<{ id: string; name: string }>;
+  const members = (await (await api.get(`/org-units/${units.find((u) => u.name === 'Engineering')!.id}/members`)).json()) as Array<{ userId: string }>;
+  expect(members.map((m) => m.userId)).toEqual([by('lead').id]);
+
+  // The link each of them was sent works.
+  const accept = await anon.post('/auth/accept-invitation', {
+    data: { token: body.invites.find((i) => i.email === mail('dev'))!.inviteToken, password: 'correct-horse-battery-staple' },
+  });
+  expect(accept.status()).toBe(200);
+
+  // My team: the administrator's direct report is there.
+  const team = (await (await api.get('/user-kpis/team')).json()) as Array<{ userId: string }>;
+  expect(team.map((t) => t.userId)).toEqual([by('lead').id]);
+});
+
+test('onboarding: a team member with the administrator\'s own address, or a manager nobody invited, stops the draft', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const stamp = suffix();
+  const anon = await request.newContext({ baseURL: API_URL });
+  const { sessionId, draftToken } = await startSession(anon, stamp);
+  const hdr = { 'x-draft-token': draftToken };
+  const adminEmail = `admin-${stamp}@onb.test.local`; // the address the session was started with
+  await anon.put(`/onboarding/${sessionId}`, {
+    headers: hdr,
+    data: {
+      patch: {
+        roles: [{ name: 'Admin', isAdmin: true }],
+        team: [
+          { email: adminEmail, fullName: 'Me Again' },
+          { email: `x-${stamp}@onb.test.local`, fullName: 'Ex Ample', manager: `ghost-${stamp}@onb.test.local` },
+        ],
+      },
+    },
+  });
+  const refused = await anon.post(`/onboarding/${sessionId}/complete`, {
+    headers: hdr,
+    data: { adminEmail, adminPassword: 'correct-horse-battery-staple', adminFullName: 'Onb Admin', slug: `onb-${stamp}` },
+  });
+  expect(refused.status()).toBe(400);
+  const body = (await refused.json()) as { details: { problems: Problem[] } };
+  expect(body.details.problems.map((p) => [p.section, p.index, p.field])).toEqual([
+    ['team', 0, 'email'],
+    ['team', 1, 'manager'],
+  ]);
+});

@@ -123,3 +123,35 @@ describe('KpiDataService read window (UI-002)', () => {
     expect(Math.abs(floor.getTime() - (Date.now() - 30 * 86_400_000))).toBeLessThan(5_000);
   });
 });
+
+describe('KpiDataService dashboard sparkline (1.5)', () => {
+  it('carries the recent periods oldest-first, so a sparkline reads left to right', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([
+      { value: 300, periodStart: new Date('2026-03-01'), recordedAt: new Date('2026-03-02') },
+      { value: 200, periodStart: new Date('2026-02-01'), recordedAt: new Date('2026-02-02') },
+      { value: 100, periodStart: new Date('2026-01-01'), recordedAt: new Date('2026-01-02') },
+    ]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.spark).toEqual([100, 200, 300]);
+  });
+
+  it('keeps the most recent periods, not the first ones ever recorded', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue(
+      Array.from({ length: 30 }, (_, i) => ({
+        value: 30 - i, // newest first: 30, 29, … 1
+        periodStart: new Date(2026, 0, 30 - i),
+        recordedAt: new Date(2026, 0, 30 - i),
+      })),
+    );
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.spark).toHaveLength(12);
+    expect(row!.spark.at(-1)).toBe(30); // the newest period is last
+    expect(row!.spark[0]).toBe(19); // twelve periods back
+  });
+
+  it('a KPI with no values has nothing to draw', async () => {
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.spark).toEqual([]);
+  });
+});

@@ -998,6 +998,8 @@ export interface DashboardSummaryRow {
   status: BoardPackStatus;
   /** Direction-aware % of target achieved, or null. */
   attainmentPct: number | null;
+  /** The last periods oldest-first, for a sparkline. */
+  spark: number[];
 }
 
 export async function getDashboardSummary(

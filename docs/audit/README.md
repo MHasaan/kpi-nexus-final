@@ -332,6 +332,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-012 (part 1) My KPIs, My team, Automations, Connectors, Plugins and Billing had no link; the mentions bell never showed there was anything to read | ✅ Fixed — six sidebar links, each gated as its page is; unread count on the bell | `0d1f075` | `e2e/nav-links.spec.ts` (each link opens its page for an administrator; an employee sees only their own; a mention shows as 1), `app-shell.spec.tsx`
 | UI-012 (part 2) a KPI's own page had no Edit, no Delete and no way to its forecast, anomalies, what-if or embed pages; the open tab was not in the address, so 'Edit cascades' on the KPI tree landed on Overview | ✅ Fixed — header actions gated as the API is; Delete asks first and says the KPI goes to the archive; `?tab=` | `4f1f005` | `e2e/kpi-detail-actions.spec.ts` (tab from the address and kept on reload; each analysis page opens; edit opens; delete cancelled keeps, confirmed removes), `kpi-detail-tabs.spec.ts`
 | UI-012 (part 3) a widget's detail view, the board pack, and from Settings the connected apps, data connectors, alert channels, automations and plugins had no link | ✅ Fixed — widget title opens the detail view (and shows the kind in words when untitled); Board pack button on Reports; five links on Settings | `ec9dd20` | `e2e/onward-links.spec.ts` (each link is there and opens its page)
+| QA-M9 (plan 4.9) choosing Prophet or ARIMA on too little history silently gave a simple-trend forecast; the page did not say which model ran | ✅ Fixed — a notice names the model asked for, says it could not be fitted, and which one ran; models are named in words | `f1fc1c5` | `e2e/ai-analytics-ui.spec.ts` (three values + Prophet → notice; simple trend → none), `forecast-model.spec.ts`
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -363,7 +364,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | QA-M4 Department Manager sees fewer OKRs than Contributor, because the seeded role sets an OKR scope of "their units" while Contributor has no override | Medium | ⬜ open | new 5.6 |
 | QA-M5 Billing shows "Users 0 / ∞" with active users: only KPIs and dashboards are counted live | Medium | ⬜ open | 6.11 |
 | QA-M6 insights pile up as duplicates — 52 insights for 22 KPIs, up to 5 near-identical per KPI; "Generate" never replaces the old ones | Medium | ⬜ open | new 4.8 |
-| QA-M9 choosing Prophet silently returns a NAIVE forecast when the sidecar's Stan backend fails; the page does not say which model ran | Medium | ⬜ open | new 4.9 |
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
 | QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |

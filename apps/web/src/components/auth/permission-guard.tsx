@@ -34,3 +34,19 @@ export function PermissionGuard({ permission, children }: PermissionGuardProps) 
   if (!has(permission)) return null;
   return <>{children}</>;
 }
+
+interface AnyPermissionGuardProps {
+  /** The user must hold at least one of these. */
+  permissions: string[];
+  children: ReactNode;
+}
+
+/**
+ * {@link PermissionGuard} for an action the API allows with any one of several
+ * keys (its route uses `@RequireAnyPermission`).
+ */
+export function AnyPermissionGuard({ permissions, children }: AnyPermissionGuardProps) {
+  const { hasAny } = usePermissions();
+  if (!hasAny(permissions)) return null;
+  return <>{children}</>;
+}

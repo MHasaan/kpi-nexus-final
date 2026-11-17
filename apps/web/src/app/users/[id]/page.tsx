@@ -115,11 +115,11 @@ export default function UserKpiPanelPage() {
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
   // Each request stands alone (plan 2.10): the person is loaded by id, and a
   // role or directory list the caller may not read no longer blanks the page.
-  const person = useAsyncData(() => loadPerson(params.id), [params.id]);
-  const kpiRows = useAsyncData(() => listUserKpis(params.id), [params.id]);
-  const people = useAsyncData(() => optional(listUsers()), []);
-  const roleList = useAsyncData(() => optional(listRoles()), []);
-  const allKpis = useAsyncData(() => optional(listKpis()), []);
+  const person = useAsyncData(() => loadPerson(params.id), [params.id], { enabled: signedIn });
+  const kpiRows = useAsyncData(() => listUserKpis(params.id), [params.id], { enabled: signedIn });
+  const people = useAsyncData(() => optional(listUsers()), [], { enabled: signedIn });
+  const roleList = useAsyncData(() => optional(listRoles()), [], { enabled: signedIn });
+  const allKpis = useAsyncData(() => optional(listKpis()), [], { enabled: signedIn });
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const confirm = useConfirm();

@@ -35,13 +35,22 @@ export function loadErrorMessage(err: unknown): string {
  * Load data when `deps` change and on `reload()`. Unlike a bare
  * `fn().catch(() => setData(null))`, a failure is reported in `error` instead of
  * looking like "nothing here". A slow earlier request never overwrites a newer one.
+ *
+ * `enabled: false` asks for nothing — for a page that has found there is no
+ * session and is on its way to sign-in.
  */
-export function useAsyncData<T>(fn: () => Promise<T>, deps: DependencyList): AsyncData<T> & { reload: () => void } {
+export function useAsyncData<T>(
+  fn: () => Promise<T>,
+  deps: DependencyList,
+  options: { enabled?: boolean } = {},
+): AsyncData<T> & { reload: () => void } {
   const [state, dispatch] = useReducer(asyncDataReducer<T>, IDLE as AsyncData<T>);
   const latest = useRef(0);
+  const enabled = options.enabled !== false;
 
   // `fn` is recreated every render; `deps` says when its inputs really changed.
   const reload = useCallback(() => {
+    if (!enabled) return;
     latest.current += 1;
     const run = latest.current;
     dispatch({ type: 'start' });
@@ -53,7 +62,7 @@ export function useAsyncData<T>(fn: () => Promise<T>, deps: DependencyList): Asy
         if (run === latest.current) dispatch({ type: 'fail', error: loadErrorMessage(err) });
       },
     );
-  }, deps);
+  }, [...deps, enabled]);
 
   useEffect(() => {
     reload();

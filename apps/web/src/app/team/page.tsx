@@ -41,7 +41,9 @@ function toStatus(raw: string | null | undefined): KpiStatus {
 
 export default function TeamPage() {
   const router = useRouter();
-  const { data: team, error, reload } = useAsyncData(() => listTeamKpis(), []);
+  // Nobody signed in: ask for nothing, the effect below goes to sign-in.
+  const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
+  const { data: team, error, reload } = useAsyncData(() => listTeamKpis(), [], { enabled: signedIn });
 
   useEffect(() => {
     if (!getAccessToken()) router.replace(currentLoginRedirect());

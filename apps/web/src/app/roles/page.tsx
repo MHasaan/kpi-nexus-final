@@ -47,6 +47,7 @@ import {
   useTerminology,
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { ApprovalPendingNotice } from '../../components/approval-pending-notice';
 import { isApprovalPending } from '../../lib/role-permissions';
 import { usePermissions } from '../../lib/use-permissions';
 
@@ -122,7 +123,7 @@ function RolesPageInner() {
   const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [applyFeedback, setApplyFeedback] = useState<
-    Record<string, { ok: boolean; msg: string }>
+    Record<string, { ok: boolean; msg: string; pending?: boolean }>
   >({});
 
   useEffect(() => {
@@ -215,9 +216,8 @@ function RolesPageInner() {
         ...prev,
         [role.id]: {
           ok: true,
-          msg: pending
-            ? `Preset ${label} submitted for approval — it applies once approved.`
-            : `Preset applied — ${label}`,
+          pending,
+          msg: pending ? `The ${label} preset for ${role.name}` : `Preset applied — ${label}`,
         },
       }));
     } catch (err) {
@@ -472,7 +472,15 @@ function RolesPageInner() {
                     </PermissionGuard>
                   </div>
 
-                  {applyFeedback[selectedRole.id] && (
+                  {applyFeedback[selectedRole.id]?.pending && (
+                    <div className="mt-2">
+                      <ApprovalPendingNotice
+                        what={applyFeedback[selectedRole.id]?.msg ?? 'This preset'}
+                        testId={`preset-approval-pending-${selectedRole.name}`}
+                      />
+                    </div>
+                  )}
+                  {applyFeedback[selectedRole.id] && !applyFeedback[selectedRole.id]?.pending && (
                     <p
                       role="status"
                       data-testid={`preset-feedback-${selectedRole.name}`}

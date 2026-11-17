@@ -391,6 +391,8 @@ export class AuthService {
       if (!user || (user.status === 'ACTIVE' && user.passwordHash !== null)) {
         throw notFound;
       }
+      // A withdrawn invitation cannot be accepted (BE-046), so do not present it as live.
+      if (isWithdrawnInvitee(user.status)) throw notFound;
 
       return {
         email: user.email,

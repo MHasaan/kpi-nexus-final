@@ -1,6 +1,7 @@
 'use client';
 
 import { Building2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
 
@@ -36,6 +37,8 @@ function AcceptInvitationInner() {
   const [submitting, setSubmitting] = useState(false);
   const [tokenMissing, setTokenMissing] = useState(false);
   const [preview, setPreview] = useState<InvitePreview | null>(null);
+  // The server says this link is unknown, used, expired or withdrawn.
+  const [linkDead, setLinkDead] = useState(false);
 
   useEffect(() => {
     setTokenMissing(token.trim().length === 0);
@@ -43,6 +46,7 @@ function AcceptInvitationInner() {
 
   useEffect(() => {
     const trimmed = token.trim();
+    setLinkDead(false);
     if (trimmed.length === 0) {
       setPreview(null);
       return;
@@ -52,9 +56,12 @@ function AcceptInvitationInner() {
       .then((res) => {
         if (active) setPreview(res);
       })
-      .catch(() => {
-        // 404 / expired / any error: silently render nothing — the form still works.
-        if (active) setPreview(null);
+      .catch((err: unknown) => {
+        if (!active) return;
+        setPreview(null);
+        // 404: the link cannot be used — say so now, not after a password has
+        // been chosen. Anything else (a network blip) leaves the form usable.
+        if (err instanceof ApiError && err.status === 404) setLinkDead(true);
       });
     return () => {
       active = false;
@@ -93,10 +100,24 @@ function AcceptInvitationInner() {
         <p className="mt-3 text-sm text-content-muted">
           The link from your email should look like
           <code className="ml-1 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs">
-            /auth/accept-invitation?token=…
+            /accept-invitation?token=…
           </code>
           . Please copy the full URL from the email and try again.
         </p>
+        <SignInInstead />
+      </div>
+    );
+  }
+
+  if (linkDead) {
+    return (
+      <div data-testid="invite-invalid">
+        <h2 className="text-xl font-semibold text-content-strong">This invitation can no longer be used</h2>
+        <p className="mt-3 text-sm text-content-muted">
+          The link has expired, was already used, or was withdrawn. Ask the person who invited you to send a new
+          one.
+        </p>
+        <SignInInstead />
       </div>
     );
   }
@@ -184,7 +205,19 @@ function AcceptInvitationInner() {
           {submitting ? 'Accepting…' : 'Accept invitation'}
         </button>
       </form>
+      <SignInInstead />
     </div>
+  );
+}
+
+function SignInInstead() {
+  return (
+    <p className="mt-6 text-center text-sm text-content-muted">
+      Already have an account?{' '}
+      <Link href="/login" className="font-medium text-accent-primary hover:underline" data-testid="invite-signin-link">
+        Sign in
+      </Link>
+    </p>
   );
 }
 

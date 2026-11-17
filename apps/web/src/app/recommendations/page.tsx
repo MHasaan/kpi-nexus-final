@@ -7,6 +7,7 @@ import { Lightbulb, AlertTriangle } from 'lucide-react';
 
 import {
   ApiError,
+  generateRecommendation,
   getAccessToken,
   listRecommendations,
   setRecommendationStatus,
@@ -29,6 +30,7 @@ import {
   type BadgeTone,
 } from '../../components/ui';
 import { useKpiNames } from '../../lib/use-kpi-names';
+import { useToast } from '../../lib/use-toast';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 
 // Status → Badge tone (icon/label keeps it readable; never colour-only).
@@ -68,7 +70,10 @@ type SortKey = 'priority' | 'recency';
 
 export default function RecommendationsPage() {
   const canAct = usePermissions().has('KPI_EDIT');
-  const { nameOf } = useKpiNames();
+  const { nameOf, kpis } = useKpiNames();
+  const toast = useToast();
+  const [askKpiId, setAskKpiId] = useState('');
+  const [asking, setAsking] = useState(false);
   const router = useRouter();
   const [rows, setRows] = useState<Recommendation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +92,23 @@ export default function RecommendationsPage() {
     }
     load();
   }, [load, router]);
+
+  // The page listed recommendations and had no way to ask for one (plan 7.7).
+  const ask = async () => {
+    if (!askKpiId) return;
+    setAsking(true);
+    setError(null);
+    try {
+      await generateRecommendation(askKpiId);
+      toast.success('Recommendation ready', `For ${nameOf(askKpiId)}.`);
+      setAskKpiId('');
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? `No recommendation was made: ${e.message}` : 'No recommendation was made. Try again.');
+    } finally {
+      setAsking(false);
+    }
+  };
 
   const setStatus = async (id: string, status: 'ACTIONED' | 'DISMISSED') => {
     setError(null);
@@ -123,6 +145,24 @@ export default function RecommendationsPage() {
           title="AI Recommendations"
           subtitle="Suggested actions generated from alerts and confirmed anomalies."
         />
+
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface-1 p-4" data-testid="recs-ask">
+          <label className="grid gap-1 text-xs font-medium text-content-muted">
+            Ask for a recommendation about
+            <Select data-testid="recs-ask-kpi" value={askKpiId} onChange={(e) => setAskKpiId(e.target.value)} className="h-9 w-64" disabled={asking}>
+              <option value="">Choose a KPI…</option>
+              {kpis.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <Button type="button" onClick={() => void ask()} disabled={!askKpiId || asking} isLoading={asking} data-testid="recs-ask-submit">
+            {asking ? 'Thinking…' : 'Get a recommendation'}
+          </Button>
+          <p className="basis-full text-xs text-content-muted">It looks at the KPI’s recent values and uses your organisation’s AI budget.</p>
+        </div>
 
         {error && (
           <div

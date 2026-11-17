@@ -1,3 +1,4 @@
+import { BillingModule } from '../billing/billing.module.js';
 import { Module } from '@nestjs/common';
 
 import { AuditModule } from '../audit/audit.module.js';
@@ -10,7 +11,7 @@ import { SnapshotService } from './snapshots.service.js';
 import { WidgetsService } from './widgets.service.js';
 
 @Module({
-  imports: [AuditModule, RbacModule],
+  imports: [AuditModule, RbacModule, BillingModule],
   controllers: [DashboardsController, PublicDashboardsController],
   providers: [DashboardsService, WidgetsService, SnapshotService, ShareLinksService],
   exports: [DashboardsService, WidgetsService, SnapshotService, ShareLinksService],

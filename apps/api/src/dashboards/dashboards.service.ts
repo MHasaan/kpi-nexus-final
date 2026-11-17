@@ -7,6 +7,7 @@ import {
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
+import { BillingService } from '../billing/billing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { scopedUserIds } from '../rbac/visibility/domain-visibility.js';
@@ -73,6 +74,7 @@ export class DashboardsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessContext: AccessContextService,
+    private readonly billing: BillingService,
   ) {}
 
   /**
@@ -159,6 +161,8 @@ export class DashboardsService {
 
   async create(dto: CreateDashboardDto): Promise<PublicDashboard> {
     const ctx = RequestContextStore.require();
+    // The plan's dashboards limit: 402 QUOTA_EXCEEDED past it (the Billing page shows the limit).
+    await this.billing.assertWithinQuota('dashboards', 1);
     try {
       const created = await this.prisma.dashboard.create({
         data: {

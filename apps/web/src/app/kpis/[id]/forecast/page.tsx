@@ -29,6 +29,7 @@ import {
 } from '../../../../components/ui';
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { FORECAST_MODELS, forecastFallbackNotice, forecastModelLabel } from '../../../../lib/forecast-model';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 interface Prediction {
@@ -92,6 +93,8 @@ export default function ForecastPage() {
   const router = useRouter();
   const [horizon, setHorizon] = useState('14');
   const [model, setModel] = useState('naive');
+  // The model the shown forecast was asked for — the picker may have moved on since.
+  const [asked, setAsked] = useState<string | null>(null);
   const [fc, setFc] = useState<Forecast | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -123,12 +126,15 @@ export default function ForecastPage() {
         body: JSON.stringify({ horizon: Number(horizon), model }),
       });
       setFc(res);
+      setAsked(model);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Forecast failed');
     } finally {
       setBusy(false);
     }
   };
+
+  const fallbackNotice = fc && asked ? forecastFallbackNotice(asked, fc.model) : null;
 
   const forecastBand = useMemo(() => {
     if (!fc) return undefined;
@@ -167,12 +173,15 @@ export default function ForecastPage() {
             <div className="space-y-1.5">
               <Label htmlFor="fc-model">Model</Label>
               <Select id="fc-model" data-testid="fc-model" value={model} onChange={(e) => setModel(e.target.value)}>
-                {/* With too little history the sidecar runs naive instead; the
-                    result's Model card shows what actually ran (OT-005). */}
-                <option value="naive">Naive (trend)</option>
-                <option value="prophet">Prophet (trend + seasonality)</option>
-                <option value="arima">ARIMA (autoregressive)</option>
+                {/* With too little history the service runs the simple trend
+                    instead; the result says so (OT-005, QA-M9). */}
+                {FORECAST_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
               </Select>
+              <p className="text-xs text-content-muted">{FORECAST_MODELS.find((m) => m.value === model)?.about}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="fc-horizon">Horizon (periods)</Label>
@@ -228,10 +237,15 @@ export default function ForecastPage() {
 
           {fc && (
             <>
+              {fallbackNotice && (
+                <div role="status" data-testid="fc-fallback" className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-content-strong">
+                  {fallbackNotice}
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-4" data-testid="fc-metrics">
                 <Card>
                   <CardContent className="p-4">
-                    <Metric label="Model" value={fc.model} size="sm" />
+                    <Metric label="Model that ran" value={forecastModelLabel(fc.model)} size="sm" />
                   </CardContent>
                 </Card>
                 <Card>

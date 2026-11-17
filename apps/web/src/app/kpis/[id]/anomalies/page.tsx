@@ -30,6 +30,7 @@ import {
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { usePermissions } from '../../../../lib/use-permissions';
 
 interface DataPoint {
   value: number;
@@ -117,13 +118,18 @@ export default function AnomaliesPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Load only once the page gate passes, so someone without access is sent
+  // away without first drawing a 403 from the api (FE-014).
+  const { ready, has } = usePermissions();
+  const allowed = ready && has('ANALYTICS_VIEW');
+  const canConfirm = has('KPI_EDIT');
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
       return;
     }
-    load();
-  }, [load, router]);
+    if (allowed) load();
+  }, [load, router, allowed]);
 
   const detect = async (persist: boolean) => {
     setError(null);
@@ -333,6 +339,11 @@ export default function AnomaliesPage() {
                           {a.isConfirmed ? (
                             <Badge tone="success" data-testid={`anom-confirmed-${a.id}`}>
                               Confirmed
+                            </Badge>
+                          ) : !canConfirm ? (
+                            // Confirming is KPI_EDIT on the API; a reader sees the state, not a button that would be refused.
+                            <Badge tone="neutral" data-testid={`anom-unconfirmed-${a.id}`}>
+                              Not confirmed
                             </Badge>
                           ) : (
                             <Button

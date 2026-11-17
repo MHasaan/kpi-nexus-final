@@ -7751,7 +7751,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "INSIGHTS_VIEW"
+            "ANALYTICS_VIEW"
           ]
         }
       }
@@ -7869,7 +7869,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "INSIGHTS_VIEW"
+            "ANALYTICS_VIEW"
           ]
         }
       }

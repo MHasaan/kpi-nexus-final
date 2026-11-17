@@ -12,11 +12,16 @@ import {
   acceptedSectionsPatch,
   applyJsonPatch,
   copilotErrorMessage,
+  defaultAccepted,
+  describeOps,
   groupPatchBySection,
+  previewNames,
+  renamesOrganization,
+  sectionLabel,
   suggestionPatch,
 } from './copilot';
 import type { DraftPayload } from './onboarding-client';
-import type { PatchOp } from './copilot';
+import type { PatchOp, SectionGroup } from './copilot';
 
 const draft: DraftPayload = {
   organization: { name: 'Acme', industry: 'SaaS' },
@@ -133,5 +138,77 @@ describe('copilotErrorMessage', () => {
   test('AI unavailable and unknown errors get plain messages', () => {
     expect(copilotErrorMessage(new ApiError(503, 'AI providers unavailable', 'AI_UNAVAILABLE'))).toBe('The AI co-pilot is unavailable right now. Try again later.');
     expect(copilotErrorMessage(new Error('boom'))).toBe('Something went wrong. Try again.');
+  });
+});
+
+// ---- Plan 3.8: what a proposal contains, in words --------------------------
+
+describe('sectionLabel', () => {
+  test('every draft section has a name a person would use', () => {
+    expect(sectionLabel('orgUnits')).toBe('Units');
+    expect(sectionLabel('kpiCategories')).toBe('KPI categories');
+    expect(sectionLabel('organization')).toBe('Organization details');
+    expect(sectionLabel('somethingNew')).toBe('somethingNew');
+  });
+});
+
+describe('previewNames', () => {
+  const preview = {
+    organization: { name: 'Acme', industry: 'Software', type: 'B2B SaaS' },
+    roles: [{ name: 'Admin' }, { name: 'Engineer' }, { name: '' }],
+    kpis: [{ name: 'MRR' }],
+  };
+
+  test('lists the rows of a section by name', () => {
+    expect(previewNames(preview, 'roles')).toEqual(['Admin', 'Engineer', 'unnamed']);
+    expect(previewNames(preview, 'kpis')).toEqual(['MRR']);
+  });
+
+  test('the organisation is listed as the details it would fill in — not its name, which is yours', () => {
+    expect(previewNames(preview, 'organization')).toEqual(['Industry: Software', 'Type: B2B SaaS']);
+  });
+
+  test('a section the proposal does not have is empty, not an error', () => {
+    expect(previewNames(preview, 'positions')).toEqual([]);
+    expect(previewNames(undefined, 'roles')).toEqual([]);
+  });
+});
+
+describe('describeOps', () => {
+  test('says what each change does', () => {
+    const ops: PatchOp[] = [
+      { op: 'add', path: '/roles/-', value: { name: 'Head of Design' } },
+      { op: 'replace', path: '/organization/name', value: 'New Name' },
+      { op: 'replace', path: '/roles/1/name', value: 'Staff' },
+      { op: 'remove', path: '/roles/1' },
+    ];
+    expect(describeOps(draft, ops)).toEqual(['Add “Head of Design”', 'Change name to “New Name”', 'Change name of “Engineer” to “Staff”', 'Remove “Engineer”']);
+  });
+});
+
+describe('renamesOrganization', () => {
+  test('a change to the name, or to the whole organisation, renames it', () => {
+    expect(renamesOrganization([{ op: 'replace', path: '/organization/name', value: 'X' }])).toBe(true);
+    expect(renamesOrganization([{ op: 'replace', path: '/organization', value: { name: 'X' } }])).toBe(true);
+    expect(renamesOrganization([{ op: 'add', path: '/organization/industry', value: 'Retail' }])).toBe(false);
+  });
+});
+
+describe('defaultAccepted', () => {
+  const group = (section: 'organization' | 'roles', ops: PatchOp[]): SectionGroup => ({ section, ops, summary: { add: 0, replace: 0, remove: 0 } });
+
+  test('everything is accepted by default, except a rename of an organisation that already has a name', () => {
+    const groups = [group('roles', [{ op: 'add', path: '/roles/-', value: { name: 'X' } }]), group('organization', [{ op: 'replace', path: '/organization/name', value: 'Other' }])];
+    expect([...defaultAccepted(draft, groups)]).toEqual(['roles']);
+  });
+
+  test('an organisation change that is not a rename stays accepted', () => {
+    const groups = [group('organization', [{ op: 'add', path: '/organization/type', value: 'B2B' }])];
+    expect([...defaultAccepted(draft, groups)]).toEqual(['organization']);
+  });
+
+  test('with no name yet, a proposed name is accepted', () => {
+    const groups = [group('organization', [{ op: 'replace', path: '/organization/name', value: 'Other' }])];
+    expect([...defaultAccepted({ organization: { name: ' ' } }, groups)]).toEqual(['organization']);
   });
 });

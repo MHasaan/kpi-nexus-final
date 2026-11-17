@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
@@ -6,10 +6,12 @@ import { BillingController } from './billing.controller.js';
 import { BillingService } from './billing.service.js';
 
 /**
- * BillingModule — plan catalog, quota enforcement, feature gating. Exports
+ * BillingModule — plan catalog, quota enforcement, feature gating. Global, so any
+ * service can ask whether the plan allows something. Exports
  * BillingService so KpisModule can assert quota on KPI create (one-way import;
  * BillingModule only depends on Prisma, so no cycle).
  */
+@Global()
 @Module({
   imports: [PrismaModule, RbacModule],
   controllers: [BillingController],

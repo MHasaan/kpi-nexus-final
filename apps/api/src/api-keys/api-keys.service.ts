@@ -1,3 +1,4 @@
+import { BillingService } from '../billing/billing.service.js';
 import { randomBytes, createHash } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
@@ -39,6 +40,7 @@ export class ApiKeysService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly billing: BillingService,
   ) {}
 
   async list(): Promise<PublicApiKey[]> {
@@ -57,6 +59,8 @@ export class ApiKeysService {
     expiresAt?: Date;
   }): Promise<{ apiKey: PublicApiKey; plaintext: string }> {
     const ctx = RequestContextStore.require();
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('api_keys');
     const random = randomBytes(24).toString('base64url'); // ~32 chars
     const plaintext = `${API_KEY_PREFIX}${random}`;
     const keyPrefix = random.slice(0, 12);

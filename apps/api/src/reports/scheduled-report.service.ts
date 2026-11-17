@@ -1,3 +1,4 @@
+import { BillingService } from '../billing/billing.service.js';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -36,6 +37,7 @@ export class ScheduledReportService {
     private readonly audit: AuditService,
     @InjectQueue(QUEUE_NAME) private readonly queue: Queue<ScheduledReportJobData>,
     private readonly accessContext: AccessContextService,
+    private readonly billing: BillingService,
   ) {}
 
   // ── helpers ────────────────────────────────────────────────────────────────
@@ -102,6 +104,8 @@ export class ScheduledReportService {
 
   async create(dto: CreateScheduledReportDto) {
     const ctx = RequestContextStore.require();
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('scheduled_reports');
 
     const row = await this.prisma.scheduledReport.create({
       data: {

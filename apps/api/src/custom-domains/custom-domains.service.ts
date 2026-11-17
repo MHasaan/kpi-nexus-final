@@ -1,3 +1,4 @@
+import { BillingService } from '../billing/billing.service.js';
 import { resolveTxt } from 'node:dns/promises';
 
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
@@ -27,6 +28,7 @@ export class CustomDomainsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly billing: BillingService,
   ) {}
 
   list(): Promise<PublicCustomDomain[]> {
@@ -40,6 +42,8 @@ export class CustomDomainsService {
 
   async register(domainInput: string): Promise<PublicCustomDomain> {
     const ctx = RequestContextStore.require();
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('custom_domain');
     const domain = normalizeDomain(domainInput);
     const challenge = buildChallenge(domain, ctx.organizationId);
     try {

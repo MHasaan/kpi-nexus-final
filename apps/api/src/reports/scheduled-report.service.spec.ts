@@ -207,6 +207,7 @@ describe('ScheduledReportService', () => {
       fakeAudit as unknown as AuditService,
       queue as never, // Queue<ScheduledReportJobData>
       accessContext as unknown as AccessContextService,
+      { assertFeature: async () => undefined } as never,
     );
     vi.clearAllMocks();
     // Reset internal state

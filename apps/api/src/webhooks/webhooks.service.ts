@@ -1,3 +1,4 @@
+import { BillingService } from '../billing/billing.service.js';
 import { randomBytes } from 'node:crypto';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -46,6 +47,7 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @InjectQueue(OUTBOUND_WEBHOOK_QUEUE) private readonly queue: Queue<OutboundWebhookJobData>,
+    private readonly billing: BillingService,
   ) {}
 
   async list(): Promise<PublicWebhook[]> {
@@ -63,6 +65,8 @@ export class WebhooksService {
     url: string;
     events: string[];
   }): Promise<{ webhook: PublicWebhook; secret: string }> {
+    // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
+    await this.billing.assertFeature('webhooks');
     await assertOutboundUrl(input.url);
     const ctx = RequestContextStore.require();
     const secret = newSecret();

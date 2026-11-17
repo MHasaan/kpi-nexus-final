@@ -11,6 +11,7 @@ import {
   type KpiTemplate,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import {
@@ -192,13 +193,16 @@ export default function TemplatesPage() {
                       </span>
                     )}
                   </div>
-                  <Link
-                    href={`/kpis/new?template=${t.id}`}
-                    className="mt-4 block"
-                    data-testid={`tmpl-use-${t.slug}`}
-                  >
-                    <Button className="w-full">Use template</Button>
-                  </Link>
+                  {/* Making a KPI from a template is KPI_CREATE on the API (UI-013). */}
+                  <PermissionGuard permission="KPI_CREATE">
+                    <Link
+                      href={`/kpis/new?template=${t.id}`}
+                      className="mt-4 block"
+                      data-testid={`tmpl-use-${t.slug}`}
+                    >
+                      <Button className="w-full">Use template</Button>
+                    </Link>
+                  </PermissionGuard>
                 </CardContent>
               </Card>
             ))}

@@ -174,7 +174,8 @@ export default function KpiCategoriesPage() {
 
         <KpiSubnav />
 
-        <PermissionGuard permission="KPI_EDIT">
+        {/* Adding a category is KPI_CREATE on the API, not KPI_EDIT (UI-013). */}
+        <PermissionGuard permission="KPI_CREATE">
         <Card className="p-0">
           <div className="border-b border-border-divider px-5 py-4">
             <h2 className="text-sm font-semibold text-content-strong">Add category</h2>
@@ -409,8 +410,8 @@ export default function KpiCategoriesPage() {
                           </Button>
                         </div>
                       ) : (
-                      <PermissionGuard permission="KPI_EDIT">
                       <div className="inline-flex items-center gap-2">
+                        <PermissionGuard permission="KPI_EDIT">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -421,6 +422,9 @@ export default function KpiCategoriesPage() {
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                           Edit
                         </Button>
+                        </PermissionGuard>
+                        {/* Deleting is KPI_DELETE on the API, not KPI_EDIT (UI-013). */}
+                        <PermissionGuard permission="KPI_DELETE">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -432,8 +436,8 @@ export default function KpiCategoriesPage() {
                         >
                           Delete
                         </Button>
+                        </PermissionGuard>
                       </div>
-                      </PermissionGuard>
                       )}
                       {isEditing && editError && (
                         <p

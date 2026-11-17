@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '../../lib/cn';
+import { usePermissions } from '../../lib/use-permissions';
 
 const TABS = [
   { href: '/kpis', label: 'Catalog' },
@@ -11,19 +12,21 @@ const TABS = [
   { href: '/kpis/templates', label: 'Templates' },
   { href: '/kpis/tree', label: 'Tree' },
   { href: '/kpis/scorecard', label: 'Scorecard' },
-  { href: '/kpis/import', label: 'Import' },
+  // Importing is KPI_CREATE on the API; the tab is shown only with it (UI-013).
+  { href: '/kpis/import', label: 'Import', permission: 'KPI_CREATE' },
   { href: '/kpis/archive', label: 'Archive' },
-] as const;
+] as const satisfies ReadonlyArray<{ href: string; label: string; permission?: string }>;
 
 export function KpiSubnav() {
   const pathname = usePathname();
+  const { has } = usePermissions();
   return (
     <nav
       aria-label="KPI sections"
       className="flex flex-wrap items-center gap-1 border-b border-border-divider"
       data-testid="kpi-subnav"
     >
-      {TABS.map((t) => {
+      {TABS.filter((t) => !('permission' in t) || has(t.permission)).map((t) => {
         const active = t.href === '/kpis' ? pathname === '/kpis' : pathname.startsWith(t.href);
         return (
           <Link

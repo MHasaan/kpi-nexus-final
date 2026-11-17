@@ -12,6 +12,7 @@ import {
   type KpiSummary,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Button, Card, EmptyState, ScopeBadge, Skeleton } from '../../../components/ui';
@@ -178,6 +179,8 @@ export default function ArchivePage() {
                     </>
                   ) : (
                     <>
+                      {/* Restore is KPI_EDIT and purge KPI_DELETE on the API (UI-013). */}
+                      <PermissionGuard permission="KPI_EDIT">
                       <Button
                         variant="secondary"
                         size="sm"
@@ -188,6 +191,8 @@ export default function ArchivePage() {
                       >
                         Restore
                       </Button>
+                      </PermissionGuard>
+                      <PermissionGuard permission="KPI_DELETE">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -201,6 +206,7 @@ export default function ArchivePage() {
                       >
                         Purge now
                       </Button>
+                      </PermissionGuard>
                     </>
                   )}
                 </div>

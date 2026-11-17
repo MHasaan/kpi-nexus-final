@@ -13,6 +13,8 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   /** "danger" for anything that deletes or cannot be undone. */
   tone?: 'default' | 'danger';
+  /** Choices that go with the question, shown under the description. */
+  body?: ReactNode;
   /** The user must type this text first (for purges). */
   confirmText?: string;
   testId?: string;
@@ -113,7 +115,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         error={state.error}
         onConfirm={() => void onConfirm()}
         onCancel={() => settle(false)}
-      />
+      >
+        {request?.body}
+      </ConfirmDialog>
     </ConfirmContext.Provider>
   );
 }

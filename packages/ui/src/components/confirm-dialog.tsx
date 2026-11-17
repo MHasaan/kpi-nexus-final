@@ -24,6 +24,8 @@ export interface ConfirmDialogProps {
   error?: ReactNode;
   /** When set, Confirm stays disabled until the user types exactly this text. */
   confirmText?: string;
+  /** Choices that go with the question (e.g. who takes over), shown under the description. */
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
   /** Test id of the dialog; its parts are `<id>-confirm`, `<id>-cancel`, `<id>-input`. */
@@ -47,7 +49,8 @@ export function trapFocusIndex(count: number, current: number, shift: boolean): 
   return (current + (shift ? count - 1 : 1)) % count;
 }
 
-const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 /**
  * A modal question before a destructive or irreversible action. Focus starts on
@@ -64,6 +67,7 @@ export function ConfirmDialog({
   busy = false,
   error,
   confirmText,
+  children,
   onConfirm,
   onCancel,
   testId = 'confirm-dialog',
@@ -137,6 +141,7 @@ export function ConfirmDialog({
                 {description}
               </p>
             )}
+            {children && <div className="mt-2 flex flex-col gap-3 text-sm text-content">{children}</div>}
             {confirmText !== undefined && (
               <label className="mt-2 flex flex-col gap-1.5 text-sm text-content">
                 <span>

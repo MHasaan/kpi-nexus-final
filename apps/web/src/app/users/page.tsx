@@ -2,12 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Archive,
   Ban,
+  MailX,
   Pencil,
   Play,
+  RotateCcw,
+  Send,
   Trash2,
   UserPlus,
   Users as UsersIcon,
@@ -39,6 +42,7 @@ import {
 } from '../../components/ui';
 import {
   ApiError,
+  cancelInvite,
   clearTokens,
   getAccessToken,
   inviteUser,
@@ -49,13 +53,17 @@ import {
   offboardUser,
   purgeUser,
   reactivateUser,
+  resendInvite,
+  restoreUser,
   suspendUser,
   type PositionSummary,
   type RoleSummary,
   type UserSummary,
 } from '../../lib/api-client';
 import { inviteFeedback, type InviteFeedback } from '../../lib/invite-feedback';
+import { useConfirm } from '../../lib/use-confirm';
 import { useToast } from '../../lib/use-toast';
+import { directoryTab, successorCandidates, userActions } from '../../lib/user-directory';
 import {
   pluralize,
   useTerminology,
@@ -77,6 +85,9 @@ function UsersPageInner() {
   const [meId, setMeId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
+  // What the archive dialog's two pickers hold; read when it is confirmed.
+  const archiveChoice = useRef({ transferKpisTo: '', reparentDirectReportsTo: '' });
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Lifecycle filter + per-row action state
@@ -186,15 +197,114 @@ function UsersPageInner() {
   const memberLabelPlural = pluralize(terminology.memberLabel);
   const memberLabelLower = terminology.memberLabel.toLowerCase();
 
-  // Default hides ARCHIVED/DELETED; the "Archived" toggle reveals ARCHIVED/SUSPENDED.
+  // Suspended people stay under Active; purged people and withdrawn invitations are in neither list.
   const visibleUsers = useMemo(() => {
     if (!users) return users;
-    return users.filter((u) =>
-      statusFilter === 'archived'
-        ? u.status === 'ARCHIVED' || u.status === 'SUSPENDED'
-        : u.status !== 'ARCHIVED' && u.status !== 'DELETED',
-    );
+    return users.filter((u) => directoryTab(u.status) === statusFilter);
   }, [users, statusFilter]);
+
+  async function handleResend(user: UserSummary) {
+    setBusyUserId(user.id);
+    try {
+      const feedback = inviteFeedback(await resendInvite(user.id), user.email);
+      if (feedback.tone === 'success') toast.success(feedback.title, feedback.description);
+      else toast.error(feedback.title, feedback.description);
+      setInviteNotice(feedback.url || feedback.tone === 'error' ? feedback : null);
+    } catch (err) {
+      toast.error('Could not resend the invitation', err instanceof ApiError ? err.message : undefined);
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  const handleCancelInvite = (user: UserSummary) =>
+    confirm({
+      title: `Cancel the invitation for ${user.fullName}?`,
+      description: `The link sent to ${user.email} stops working. You can invite this address again later.`,
+      confirmLabel: 'Cancel invitation',
+      cancelLabel: 'Keep it',
+      tone: 'danger',
+      testId: 'user-cancel-invite-confirm',
+      action: async () => {
+        await cancelInvite(user.id);
+        if (editingId === user.id) setEditingId(null);
+        await refresh();
+        toast.success('Invitation cancelled');
+      },
+    });
+
+  const handleArchive = (user: UserSummary) => {
+    archiveChoice.current = { transferKpisTo: '', reparentDirectReportsTo: '' };
+    const successors = successorCandidates(users ?? [], user.id);
+    const picker = (key: 'transferKpisTo' | 'reparentDirectReportsTo', label: string, none: string, testId: string) => (
+      <label className="flex flex-col gap-1.5">
+        <span className="font-medium text-content-strong">{label}</span>
+        <Select
+          defaultValue=""
+          onChange={(e) => {
+            archiveChoice.current[key] = e.target.value;
+          }}
+          data-testid={testId}
+        >
+          <option value="">{none}</option>
+          {successors.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.fullName}
+            </option>
+          ))}
+        </Select>
+      </label>
+    );
+    return confirm({
+      title: `Archive ${user.fullName}?`,
+      description:
+        'They can no longer sign in and leave their units. What they recorded is kept, and you can restore them later.',
+      body: (
+        <>
+          {picker('transferKpisTo', 'Hand the KPIs they own to', '(nobody — leave them without an owner)', 'archive-transfer-kpis')}
+          {picker('reparentDirectReportsTo', 'People who report to them now report to', '(nobody)', 'archive-reassign-reports')}
+        </>
+      ),
+      confirmLabel: 'Archive',
+      tone: 'danger',
+      testId: 'user-archive-confirm',
+      action: async () => {
+        const { transferKpisTo, reparentDirectReportsTo } = archiveChoice.current;
+        await offboardUser(user.id, {
+          ...(transferKpisTo ? { transferKpisTo } : {}),
+          ...(reparentDirectReportsTo ? { reparentDirectReportsTo } : {}),
+        });
+        if (editingId === user.id) setEditingId(null);
+        await refresh();
+        toast.success(`${user.fullName} was archived`);
+      },
+    });
+  };
+
+  const handleRestore = (user: UserSummary) =>
+    runLifecycleAction(user.id, async () => {
+      const restored = await restoreUser(user.id);
+      toast.success(
+        `${user.fullName} was restored`,
+        restored.status === 'INVITED' ? 'They never accepted their invitation — send it again.' : undefined,
+      );
+    });
+
+  const handlePurge = (user: UserSummary) =>
+    confirm({
+      title: `Permanently remove ${user.fullName}?`,
+      description:
+        'Their name, email and sign-in are erased and cannot be recovered. What they recorded stays, without their name.',
+      confirmLabel: 'Remove permanently',
+      tone: 'danger',
+      confirmText: user.email,
+      testId: 'user-purge-confirm',
+      action: async () => {
+        await purgeUser(user.id);
+        await refresh();
+        toast.success('Person removed');
+      },
+    });
 
   // Someone can report to anyone who is still part of the organisation.
   const managerCandidates = useMemo(
@@ -277,7 +387,7 @@ function UsersPageInner() {
                     }
                     description={
                       statusFilter === 'archived'
-                        ? `Suspended and archived ${memberLabelPlural.toLowerCase()} will appear here.`
+                        ? `Archived ${memberLabelPlural.toLowerCase()} appear here, and can be restored.`
                         : `Invite your first ${memberLabelLower} to get started.`
                     }
                   />
@@ -340,6 +450,8 @@ function UsersPageInner() {
                                   user={user}
                                   busy={busyUserId === user.id}
                                   onEdit={() => setEditingId(user.id)}
+                                  onResend={() => void handleResend(user)}
+                                  onCancelInvite={() => void handleCancelInvite(user)}
                                   onSuspend={() =>
                                     runLifecycleAction(user.id, () =>
                                       suspendUser(user.id),
@@ -350,22 +462,9 @@ function UsersPageInner() {
                                       reactivateUser(user.id),
                                     )
                                   }
-                                  onArchive={() =>
-                                    runLifecycleAction(user.id, () =>
-                                      offboardUser(user.id),
-                                    )
-                                  }
-                                  onPurge={() => {
-                                    if (
-                                      !window.confirm(
-                                        `Permanently purge ${user.fullName}? This cannot be undone.`,
-                                      )
-                                    )
-                                      return;
-                                    void runLifecycleAction(user.id, () =>
-                                      purgeUser(user.id),
-                                    );
-                                  }}
+                                  onArchive={() => void handleArchive(user)}
+                                  onRestore={() => void handleRestore(user)}
+                                  onPurge={() => void handlePurge(user)}
                                 />
                               </TableCell>
                             </PermissionGuard>
@@ -539,23 +638,30 @@ function UserLifecycleActions({
   user,
   busy,
   onEdit,
+  onResend,
+  onCancelInvite,
   onSuspend,
   onReactivate,
   onArchive,
+  onRestore,
   onPurge,
 }: {
   user: UserSummary;
   busy: boolean;
   onEdit: () => void;
+  onResend: () => void;
+  onCancelInvite: () => void;
   onSuspend: () => void;
   onReactivate: () => void;
   onArchive: () => void;
+  onRestore: () => void;
   onPurge: () => void;
 }) {
-  const archived = user.status === 'ARCHIVED' || user.status === 'DELETED';
+  const actions = userActions(user.status);
+  const can = (action: (typeof actions)[number]) => actions.includes(action);
   return (
-    <div className="inline-flex items-center justify-end gap-1.5">
-      {!archived && user.status !== 'PURGED' && (
+    <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+      {can('edit') && (
         <Button
           size="sm"
           variant="ghost"
@@ -566,7 +672,31 @@ function UserLifecycleActions({
           Edit
         </Button>
       )}
-      {user.status === 'ACTIVE' && (
+      {can('resend') && (
+        <Button
+          size="sm"
+          variant="secondary"
+          isLoading={busy}
+          onClick={onResend}
+          leftIcon={<Send aria-hidden className="h-3.5 w-3.5" />}
+          data-testid={`user-resend-${user.email}`}
+        >
+          Resend invite
+        </Button>
+      )}
+      {can('cancel-invite') && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onCancelInvite}
+          leftIcon={<MailX aria-hidden className="h-3.5 w-3.5" />}
+          data-testid={`user-cancel-invite-${user.email}`}
+          className="text-status-critical hover:bg-status-critical-bg"
+        >
+          Cancel invite
+        </Button>
+      )}
+      {can('suspend') && (
         <Button
           size="sm"
           variant="secondary"
@@ -578,7 +708,7 @@ function UserLifecycleActions({
           Suspend
         </Button>
       )}
-      {user.status === 'SUSPENDED' && (
+      {can('reactivate') && (
         <Button
           size="sm"
           variant="secondary"
@@ -590,11 +720,10 @@ function UserLifecycleActions({
           Reactivate
         </Button>
       )}
-      {!archived && (
+      {can('archive') && (
         <Button
           size="sm"
           variant="ghost"
-          isLoading={busy}
           onClick={onArchive}
           leftIcon={<Archive aria-hidden className="h-3.5 w-3.5" />}
           data-testid={`user-archive-${user.email}`}
@@ -602,11 +731,22 @@ function UserLifecycleActions({
           Archive
         </Button>
       )}
-      {user.status === 'ARCHIVED' && (
+      {can('restore') && (
+        <Button
+          size="sm"
+          variant="secondary"
+          isLoading={busy}
+          onClick={onRestore}
+          leftIcon={<RotateCcw aria-hidden className="h-3.5 w-3.5" />}
+          data-testid={`user-restore-${user.email}`}
+        >
+          Restore
+        </Button>
+      )}
+      {can('purge') && (
         <Button
           size="sm"
           variant="danger"
-          isLoading={busy}
           onClick={onPurge}
           leftIcon={<Trash2 aria-hidden className="h-3.5 w-3.5" />}
           data-testid={`user-purge-${user.email}`}

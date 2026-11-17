@@ -110,7 +110,7 @@ test('wizard: each step shows what the draft already holds', async ({ page }) =>
   await page.getByTestId('wizard-step-roles').click();
   await expect(page.getByTestId('role-name-1')).toHaveValue(tpl.payload.roles[1]!.name);
   await page.getByTestId('wizard-step-kpis').click();
-  await expect(page.getByTestId('wizard-step-content')).toContainText(tpl.payload.kpis[0]!.name);
+  await expect(page.getByTestId('kpi-name-0')).toHaveValue(tpl.payload.kpis[0]!.name);
 
   // Nothing is wrong with a template: review says so.
   await page.getByTestId('wizard-step-review').click();

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { AiCopilotRail } from '../../../components/onboarding/ai-copilot-rail';
 import { DraftStatusBadge, OfflineBanner, useDraftSync } from '../../../components/onboarding/draft-sync-ui';
+import { KpisStep } from '../../../components/onboarding/wizard/kpis-step';
 import { OrganizationStep } from '../../../components/onboarding/wizard/organization-step';
 import { type AdminAccount, ReviewStep } from '../../../components/onboarding/wizard/review-step';
 import { RolesStep } from '../../../components/onboarding/wizard/roles-step';
@@ -210,12 +211,7 @@ function Wizard() {
 
             {step === 'roles' && <RolesStep draft={draft} problems={grouped.roles} onChange={update} />}
 
-            {step === 'kpis' && (
-              <>
-                <SectionList title="KPI categories" items={draft.kpiCategories ?? []} empty="No categories yet. Categories group KPIs, for example Sales or Quality." />
-                <SectionList title="KPIs" items={draft.kpis ?? []} empty="No KPIs yet. You can also add them after setup." />
-              </>
-            )}
+            {step === 'kpis' && <KpisStep draft={draft} problems={grouped.kpis} onChange={update} onGo={go} />}
 
             {step === 'team' && (
               <SectionList title="People to invite" items={draft.team ?? []} empty="Nobody yet. You can invite people after setup, from the People page." />

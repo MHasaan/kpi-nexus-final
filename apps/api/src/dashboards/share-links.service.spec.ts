@@ -237,6 +237,8 @@ class FakePrisma {
         where: {
           organizationId: string;
           kpiId: string;
+          orgUnitId?: null;
+          userId?: null;
           recordedAt?: { gte?: Date };
         };
       }) => {
@@ -246,6 +248,8 @@ class FakePrisma {
             (d) =>
               d.organizationId === where.organizationId &&
               d.kpiId === where.kpiId &&
+              (!('orgUnitId' in where) || (d.orgUnitId ?? null) === null) &&
+              (!('userId' in where) || (d.userId ?? null) === null) &&
               (gte === undefined || d.recordedAt.getTime() >= gte.getTime()),
           )
           // newest-first to mirror orderBy: { recordedAt: 'desc' }
@@ -1084,6 +1088,34 @@ describe('ShareLinksService.resolve', () => {
     expect(result.kpis['kpi_calls']).toMatchObject({ name: 'Calls made', status: null, series: [] });
     expect(JSON.stringify(result.kpis)).not.toContain('37');
     expect(JSON.stringify(result.kpis)).not.toContain('someone');
+  });
+
+  test("BE-047: the bare latest value is the organisation's, never one unit's or one person's", async () => {
+    const prisma = new FakePrisma();
+    seedValidLink(prisma);
+    prisma.dashboardStore[0]!.widgets = [
+      widget('w_person', 'kpi_card', { kpiId: 'kpi_calls' }),
+      widget('w_unit', 'kpi_card', { kpiId: 'kpi_unit' }),
+      widget('w_org', 'kpi_card', { kpiId: 'kpi_org' }),
+    ];
+    // Fixed dates and unmistakable values: the whole payload is searched for
+    // them below, and a clock-dependent timestamp could contain a short number.
+    const recordedAt = new Date('2026-01-03T00:00:00.000Z');
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: 'kpi_calls', value: 7777777, recordedAt, userId: 'someone' },
+      { organizationId: ORG, kpiId: 'kpi_unit', value: 8888888, recordedAt, orgUnitId: 'unit_1' },
+      { organizationId: ORG, kpiId: 'kpi_org', value: 12, recordedAt },
+    );
+    const { service } = makeService({ prisma });
+
+    const result = await service.resolve('valid_token');
+
+    expect(result.kpiValues['kpi_calls']).toEqual({ latestValue: null, latestRecordedAt: null });
+    expect(result.kpiValues['kpi_unit']).toEqual({ latestValue: null, latestRecordedAt: null });
+    expect(result.kpiValues['kpi_org']).toMatchObject({ latestValue: 12 });
+    const sent = JSON.stringify(result);
+    expect(sent).not.toContain('7777777');
+    expect(sent).not.toContain('8888888');
   });
 
   test('a KPI in a category the link\'s creator may not see is absent — name included', async () => {

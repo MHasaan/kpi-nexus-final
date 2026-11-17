@@ -105,6 +105,43 @@ describe('eventMatchesFilter — dashboardId filter', () => {
 });
 
 // ---------------------------------------------------------------------------
+// dashboardId filter with the dashboard's KPIs known (UI-006)
+// ---------------------------------------------------------------------------
+
+describe('eventMatchesFilter — a dashboard subscription hears about its own KPIs', () => {
+  const filters: RealtimeStreamQuery = { dashboardId: 'dash-1' };
+
+  test('a value for a KPI on the dashboard is delivered, though the event names no dashboard', () => {
+    const event = makeDataPointEvent({ kpiId: 'kpi-on-board' }); // no dashboardId, as published
+    expect(eventMatchesFilter(event, filters, new Set(['kpi-on-board', 'kpi-other']))).toBe(true);
+  });
+
+  test('a value for a KPI that is not on the dashboard is held back', () => {
+    const event = makeDataPointEvent({ kpiId: 'kpi-elsewhere' });
+    expect(eventMatchesFilter(event, filters, new Set(['kpi-on-board']))).toBe(false);
+  });
+
+  test('a dashboard that summarises every KPI hears about every KPI', () => {
+    expect(eventMatchesFilter(makeDataPointEvent({ kpiId: 'anything' }), filters, 'all')).toBe(true);
+  });
+
+  test('an empty dashboard hears nothing but pings', () => {
+    expect(eventMatchesFilter(makeDataPointEvent(), filters, new Set())).toBe(false);
+    expect(eventMatchesFilter(makePingEvent(), filters, new Set())).toBe(true);
+  });
+
+  test('a correction to a value on the dashboard is delivered too', () => {
+    const event = { ...makeDataPointEvent({ kpiId: 'kpi-on-board' }), type: 'data_point_updated' as const, previousValue: 1 };
+    expect(eventMatchesFilter(event as RealtimeEvent, filters, new Set(['kpi-on-board']))).toBe(true);
+  });
+
+  test('a kpiId filter still narrows it', () => {
+    const event = makeDataPointEvent({ kpiId: 'kpi-on-board' });
+    expect(eventMatchesFilter(event, { dashboardId: 'dash-1', kpiId: 'kpi-other' }, new Set(['kpi-on-board', 'kpi-other']))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Combined kpiId + dashboardId filters (AND logic)
 // ---------------------------------------------------------------------------
 

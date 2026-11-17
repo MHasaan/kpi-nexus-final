@@ -128,47 +128,66 @@ test.describe('UC-05: Real-Time Dashboard', () => {
       await expect(page.getByTestId('dashboard-detail-heading')).toBeVisible();
       await expect(page.getByTestId(`widget-card-${widget.id}`)).toBeVisible();
 
+      // The board shows the last 30 days by default: record for this month.
+      const today = new Date().toISOString().slice(0, 10);
+      const monthStart = `${today.slice(0, 8)}01`;
+
+      // The page says it is live once the stream is open.
+      await expect(page.getByTestId('dashboard-live')).toBeVisible({ timeout: 10_000 });
+      const card = page.getByTestId(`widget-render-${widget.id}`);
+      await expect(card).not.toContainText('850');
+
+      // No navigation or reload may happen from here on: the value has to arrive live.
+      let navigations = 0;
+      page.on('framenavigated', (frame) => {
+        if (frame === page.mainFrame()) navigations += 1;
+      });
+
       // 5. Record a data point via the API (simulating an external data push)
       const dpRes = await apiCtx.post(`/kpis/${kpi.id}/data`, {
         data: {
           value: 850,
-          periodStart: '2026-01-01',
-          periodEnd: '2026-01-31',
+          periodStart: monthStart,
+          periodEnd: today,
         },
       });
       expect(dpRes.status()).toBe(201);
 
-      // 6. The RealtimeRefresh component subscribes to SSE. Wait up to 5 s for
-      //    the page to re-fetch. We use waitForResponse to detect the re-fetch.
-      //    If SSE does not fire in the headless env (which is acceptable), we
-      //    manually navigate away and back to prove the data exists.
-      let realtimeFired = false;
-      try {
-        await page.waitForResponse(
-          (resp) =>
-            resp.url().includes(`/dashboards/${dash.id}`) &&
-            resp.request().method() === 'GET',
-          { timeout: 6000 },
-        );
-        realtimeFired = true;
-      } catch {
-        // SSE-driven refresh did not fire within 6 s — fall back to manual reload
-      }
+      // 6. The card shows the new value, with no reload (UI-006).
+      await expect(card).toContainText('850', { timeout: 10_000 });
+      expect(navigations).toBe(0);
 
-      if (!realtimeFired) {
-        // Manual reload to verify data is persisted (single-tab invariant)
-        await page.reload();
-        await expect(page.getByTestId('dashboard-detail-heading')).toBeVisible();
-      }
+      // 7. A value for a KPI that is NOT on this dashboard does not disturb it.
+      const otherRes = await apiCtx.post('/kpis', {
+        data: { name: `Elsewhere ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', aggregationMethod: 'LAST' },
+      });
+      const other = (await otherRes.json()) as { id: string };
+      let refetches = 0;
+      page.on('request', (r) => {
+        if (r.url().includes(`/kpis/${kpi.id}/data`)) refetches += 1;
+      });
+      expect((await apiCtx.post(`/kpis/${other.id}/data`, {
+        data: { value: 1, periodStart: monthStart, periodEnd: today },
+      })).status()).toBe(201);
+      await page.waitForTimeout(2500);
+      expect(refetches).toBe(0);
 
-      // 7. Widget is still present after the refresh / reload
-      await expect(page.getByTestId(`widget-card-${widget.id}`)).toBeVisible();
+      // A correction to the value on the board arrives live too.
+      const points = (await (await apiCtx.get(`/kpis/${kpi.id}/data`)).json()) as Array<{ id: string; value: number }>;
+      const corrected = await apiCtx.patch(`/kpis/${kpi.id}/data/${points.find((p) => p.value === 850)!.id}`, {
+        data: { value: 900, reason: 'typo' },
+      });
+      if (corrected.ok()) {
+        await expect(card).toContainText('900', { timeout: 10_000 });
+        expect(navigations).toBe(0);
+      }
 
       // 8. Verify the data point was recorded correctly (via API)
       const dpListRes = await apiCtx.get(`/kpis/${kpi.id}/data`);
       expect(dpListRes.status()).toBe(200);
       const dpList = (await dpListRes.json()) as Array<{ value: number }>;
-      expect(dpList.some((dp) => dp.value === 850)).toBe(true);
+      // 850 as recorded, or 900 once the correction above was accepted.
+      expect(dpList.some((dp) => dp.value === 850 || dp.value === 900)).toBe(true);
     },
   );
 

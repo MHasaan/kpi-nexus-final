@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Archive,
   Ban,
+  Pencil,
   Play,
   Trash2,
   UserPlus,
@@ -15,6 +16,7 @@ import {
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { RequirePermission } from '../../components/auth/require-permission';
+import { UserEditPanel } from '../../components/users/user-edit-panel';
 import {
   Avatar,
   Badge,
@@ -43,6 +45,7 @@ import {
   listPositions,
   listRoles,
   listUsers,
+  meRequest,
   offboardUser,
   purgeUser,
   reactivateUser,
@@ -71,6 +74,8 @@ function UsersPageInner() {
   const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
   const [positions, setPositions] = useState<PositionSummary[]>([]);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const toast = useToast();
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -94,6 +99,10 @@ function UsersPageInner() {
       return;
     }
     void refresh();
+    // Who is signed in: they cannot change their own role (the API refuses it).
+    meRequest()
+      .then(({ user }) => setMeId(user.id))
+      .catch(() => undefined);
   }, [router]);
 
   async function refresh() {
@@ -192,6 +201,8 @@ function UsersPageInner() {
     () => (users ?? []).filter((u) => u.status === 'ACTIVE' || u.status === 'INVITED' || u.status === 'PENDING_VERIFICATION'),
     [users],
   );
+
+  const editingUser = users?.find((u) => u.id === editingId) ?? null;
 
   return (
     <AppShell title={memberLabelPlural} crumbs={['People', memberLabelPlural]}>
@@ -328,6 +339,7 @@ function UsersPageInner() {
                                 <UserLifecycleActions
                                   user={user}
                                   busy={busyUserId === user.id}
+                                  onEdit={() => setEditingId(user.id)}
                                   onSuspend={() =>
                                     runLifecycleAction(user.id, () =>
                                       suspendUser(user.id),
@@ -367,7 +379,20 @@ function UsersPageInner() {
             </section>
 
             <PermissionGuard permission="USERS_MANAGE">
-              <Card data-testid="invite-section" className="lg:sticky lg:top-2">
+              <div className="flex flex-col gap-6 lg:sticky lg:top-2">
+              {editingUser && (
+                <UserEditPanel
+                  user={editingUser}
+                  isSelf={editingUser.id === meId}
+                  roles={roles ?? []}
+                  positions={positions}
+                  people={managerCandidates}
+                  roleLabel={terminology.roleLabel}
+                  onSaved={refresh}
+                  onClose={() => setEditingId(null)}
+                />
+              )}
+              <Card data-testid="invite-section">
                 <div className="border-b border-border-divider px-4 py-3.5">
                   <h2 className="text-sm font-semibold text-content-strong">
                     Invite a {memberLabelLower}
@@ -501,6 +526,7 @@ function UsersPageInner() {
                   )}
                 </form>
               </Card>
+              </div>
             </PermissionGuard>
           </div>
         </div>
@@ -512,6 +538,7 @@ function UsersPageInner() {
 function UserLifecycleActions({
   user,
   busy,
+  onEdit,
   onSuspend,
   onReactivate,
   onArchive,
@@ -519,6 +546,7 @@ function UserLifecycleActions({
 }: {
   user: UserSummary;
   busy: boolean;
+  onEdit: () => void;
   onSuspend: () => void;
   onReactivate: () => void;
   onArchive: () => void;
@@ -527,6 +555,17 @@ function UserLifecycleActions({
   const archived = user.status === 'ARCHIVED' || user.status === 'DELETED';
   return (
     <div className="inline-flex items-center justify-end gap-1.5">
+      {!archived && user.status !== 'PURGED' && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onEdit}
+          leftIcon={<Pencil aria-hidden className="h-3.5 w-3.5" />}
+          data-testid={`user-edit-${user.email}`}
+        >
+          Edit
+        </Button>
+      )}
       {user.status === 'ACTIVE' && (
         <Button
           size="sm"

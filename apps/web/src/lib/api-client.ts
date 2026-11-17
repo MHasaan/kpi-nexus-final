@@ -433,6 +433,14 @@ export async function inviteUser(body: {
   return api('/users', { method: 'POST', body: JSON.stringify(body) });
 }
 
+/** Change a person's name, role, manager or position. `null` clears a manager or a position. */
+export async function updateUser(
+  id: string,
+  body: { fullName?: string; roleId?: string; managerId?: string | null; positionId?: string | null },
+): Promise<UserSummary> {
+  return api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 /**
  * User lifecycle (all USERS_MANAGE). Suspend/reactivate flip sign-in access
  * reversibly; offboard archives the user (reassigning ownership); purge

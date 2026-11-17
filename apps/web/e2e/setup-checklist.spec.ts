@@ -70,6 +70,35 @@ test('setup checklist: 14 lazy pending, complete/dismiss/reset persist', async (
   expect((await api.post('/setup-checklist/not_a_task/complete')).status()).toBe(400);
 });
 
+test('setup checklist: a task is done once the organisation has done it, and says where to do it', async () => {
+  test.skip(!apiAvailable, 'api not reachable');
+  const api = await adminApi();
+  type Item = { key: string; status: string; detected: boolean; href: string; label: string };
+  const items = async () => ((await (await api.get('/setup-checklist')).json()) as { items: Item[]; complete: number });
+
+  const before = await items();
+  expect(before.items.every((i) => i.href.startsWith('/'))).toBe(true);
+  expect(before.items.some((i) => /post-P/i.test(i.label))).toBe(false);
+  expect(before.items.find((i) => i.key === 'remaining_invites')).toMatchObject({ status: 'pending', detected: false, href: '/users' });
+
+  // Do two of the things — nobody ticks anything.
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  expect((await api.post('/users', { data: { email: `mate-${stamp}@checklist.test.local`, fullName: 'Team Mate' } })).status()).toBe(201);
+  const me = (await (await api.get('/auth/me')).json()) as { user: { id: string } };
+  expect((await api.post('/objectives', {
+    data: { name: `Grow ${stamp}`, ownerUserId: me.user.id, periodStart: '2026-10-01', periodEnd: '2026-12-31' },
+  })).status()).toBe(201);
+
+  const after = await items();
+  expect(after.items.find((i) => i.key === 'remaining_invites')).toMatchObject({ status: 'complete', detected: true });
+  expect(after.items.find((i) => i.key === 'okrs')).toMatchObject({ status: 'complete', detected: true });
+  expect(after.complete).toBe(2);
+
+  // "Undo" cannot un-do work that exists.
+  const reset = (await (await api.post('/setup-checklist/okrs/reset')).json()) as { items: Item[] };
+  expect(reset.items.find((i) => i.key === 'okrs')!.status).toBe('complete');
+});
+
 test('setup checklist requires auth (401)', async () => {
   test.skip(!apiAvailable, 'api not reachable');
   const anon = await request.newContext({ baseURL: API_URL });

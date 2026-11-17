@@ -15467,7 +15467,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "ORG_SETTINGS"
+            "REPORTS_MANAGE"
           ]
         }
       }
@@ -15507,7 +15507,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "ORG_SETTINGS"
+            "REPORTS_MANAGE"
           ]
         }
       },
@@ -15643,7 +15643,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "ORG_SETTINGS"
+            "REPORTS_MANAGE"
           ]
         }
       }

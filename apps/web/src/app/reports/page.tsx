@@ -166,7 +166,7 @@ export default function ReportsPage() {
             >
               Board pack
             </Link>
-            <PermissionGuard permission="REPORTS_VIEW">
+            <PermissionGuard permission="REPORTS_MANAGE">
               <Link href="/reports/new" data-testid="reports-new-link">
                 <Button leftIcon={<Plus className="h-4 w-4" aria-hidden />}>New report</Button>
               </Link>
@@ -210,7 +210,7 @@ export default function ReportsPage() {
             title="No scheduled reports yet"
             description="Create your first report to deliver KPIs to stakeholders on a schedule."
             action={
-              <PermissionGuard permission="REPORTS_VIEW">
+              <PermissionGuard permission="REPORTS_MANAGE">
                 <Link href="/reports/new">
                   <Button leftIcon={<Plus className="h-4 w-4" aria-hidden />}>New report</Button>
                 </Link>
@@ -291,6 +291,8 @@ export default function ReportsPage() {
                     >
                       Run now
                     </Button>
+                    {/* Pausing and deleting are REPORTS_MANAGE on the API (UI-013). */}
+                    <PermissionGuard permission="REPORTS_MANAGE">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -317,6 +319,7 @@ export default function ReportsPage() {
                     >
                       Delete
                     </Button>
+                    </PermissionGuard>
                   </div>
                 </div>
               </Card>

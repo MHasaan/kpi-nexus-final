@@ -2,7 +2,7 @@
  * Guards the demo seed's RBAC data against the canonical contracts
  * (audit BE-002 / BE-011). Pure — no database.
  */
-import { DomainSchema, PermissionKey, ScopeSchema } from '@kpi-nexus/contracts';
+import { DOMAIN_DEFAULT_SCOPE, DomainSchema, PermissionKey, ScopeSchema } from '@kpi-nexus/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { ALL_PERMISSIONS, ROLE_INHERITANCE, ROLE_SPECS } from './seed-roles.js';
@@ -56,4 +56,29 @@ describe('seed role inheritance (BE-002): never grants more than a role declares
       expect(contributor.has(p), p).toBe(false);
     }
   });
+});
+
+// QA-M4 (plan 5.6): the seeded Department Manager saw fewer OKRs than the
+// Contributor, because the manager's role narrowed OKRs to "their units" while
+// the contributor's left the default — the whole organisation.
+describe('seed role scopes: a more senior role never sees less than a more junior one', () => {
+  const rank = (scope: string) => ScopeSchema.options.indexOf(scope as (typeof ScopeSchema.options)[number]);
+  const effective = (role: (typeof ROLE_SPECS)[number], domain: (typeof DomainSchema.options)[number]) =>
+    (role.scopeConfig as Record<string, string> | undefined)?.[domain] ?? DOMAIN_DEFAULT_SCOPE[domain];
+  const ranked = ROLE_SPECS.filter((r) => !r.isAdmin);
+
+  for (const domain of DomainSchema.options) {
+    it(`${domain}: scope does not shrink with seniority`, () => {
+      const offenders: string[] = [];
+      for (const senior of ranked) {
+        for (const junior of ranked) {
+          if (senior.level >= junior.level) continue; // a lower level number is more senior
+          const s = effective(senior, domain);
+          const j = effective(junior, domain);
+          if (rank(s) < rank(j)) offenders.push(`${senior.name} (${s}) < ${junior.name} (${j})`);
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
 });

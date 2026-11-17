@@ -14777,6 +14777,67 @@
         }
       }
     },
+    "/retention-policies/{entityType}": {
+      "put": {
+        "operationId": "RetentionController_update",
+        "tags": [
+          "Retention"
+        ],
+        "summary": "PUT /retention-policies/:entityType",
+        "parameters": [
+          {
+            "name": "entityType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 36500
+                  },
+                  "purging": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "ORG_SETTINGS"
+          ]
+        }
+      }
+    },
     "/retention-policies/apply-tier": {
       "post": {
         "operationId": "RetentionController_applyTier",
@@ -14802,6 +14863,55 @@
                 },
                 "required": [
                   "tier"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "ORG_SETTINGS"
+          ]
+        }
+      }
+    },
+    "/retention-policies/run": {
+      "post": {
+        "operationId": "RetentionController_run",
+        "tags": [
+          "Retention"
+        ],
+        "summary": "POST /retention-policies/run",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "dryRun"
                 ],
                 "additionalProperties": false
               }

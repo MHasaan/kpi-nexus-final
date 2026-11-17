@@ -3496,6 +3496,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/retention-policies/{entityType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** PUT /retention-policies/:entityType */
+        put: operations["RetentionController_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/retention-policies/apply-tier": {
         parameters: {
             query?: never;
@@ -3507,6 +3524,23 @@ export interface paths {
         put?: never;
         /** POST /retention-policies/apply-tier */
         post: operations["RetentionController_applyTier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/retention-policies/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /retention-policies/run */
+        post: operations["RetentionController_run"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14616,6 +14650,47 @@ export interface operations {
             };
         };
     };
+    RetentionController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    days?: number;
+                    purging?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     RetentionController_applyTier: {
         parameters: {
             query?: never;
@@ -14628,6 +14703,44 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     tier: "FREE" | "PRO" | "ENTERPRISE";
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RetentionController_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dryRun: boolean;
                 };
             };
         };

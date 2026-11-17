@@ -66,6 +66,19 @@ export interface RetentionPolicyRow {
   id: string;
   entityType: string;
   days: number;
+  /** When an administrator turned purging on; null = off, which is where every policy starts. */
+  purgeEnabledAt: string | null;
+  lastRunAt: string | null;
+  /** Rows the last purge removed. */
+  lastRunDeleted: number | null;
+}
+
+/** What one policy would delete if it ran now. */
+export interface RetentionPreviewRow {
+  entityType: string;
+  days: number;
+  purging: boolean;
+  rows: number;
 }
 export function listRetention(): Promise<RetentionPolicyRow[]> {
   return api('/retention-policies');
@@ -75,6 +88,19 @@ export function listRetentionTiers(): Promise<Array<{ tier: string; days: number
 }
 export function applyRetentionTier(tier: string): Promise<RetentionPolicyRow[]> {
   return api('/retention-policies/apply-tier', { method: 'POST', body: JSON.stringify({ tier }) });
+}
+/** Set a policy's days and/or turn its purging on or off. Changing the days turns purging off. */
+export function updateRetentionPolicy(entityType: string, body: { days?: number; purging?: boolean }): Promise<RetentionPolicyRow[]> {
+  return api(`/retention-policies/${encodeURIComponent(entityType)}`, { method: 'PUT', body: JSON.stringify(body) });
+}
+/** Count what each policy would delete now. Deletes nothing. */
+export async function previewRetention(): Promise<RetentionPreviewRow[]> {
+  const res = await api<{ preview: RetentionPreviewRow[] }>('/retention-policies/run', { method: 'POST', body: JSON.stringify({ dryRun: true }) });
+  return res.preview;
+}
+/** Run the purge now, for the policies that are turned on. */
+export function runRetentionPurge(): Promise<{ policies: number; deleted: number }> {
+  return api('/retention-policies/run', { method: 'POST', body: JSON.stringify({ dryRun: false }) });
 }
 
 // --- SSO config ---

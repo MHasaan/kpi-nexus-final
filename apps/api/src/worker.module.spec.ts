@@ -23,6 +23,7 @@ const PROCESSORS = [
   'OnboardingCleanupProcessor',
   'OutboundWebhookProcessor',
   'ReembedProcessor',
+  'RetentionPurgeProcessor',
   'ScheduledReportProcessor',
   'SlackCommandProcessor',
 ].sort();

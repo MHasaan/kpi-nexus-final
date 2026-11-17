@@ -18,6 +18,7 @@ export const RETENTION_ENTITY_TYPES = [
   'report_run',
   'ingestion_job',
 ] as const;
+export type RetentionEntityType = (typeof RETENTION_ENTITY_TYPES)[number];
 
 export function resolveTierDays(tier: RetentionTier): number {
   const days = RETENTION_TIERS[tier];

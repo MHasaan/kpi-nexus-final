@@ -729,7 +729,12 @@ model RetentionPolicy {
   entityType     String
   days           Int
   isActive       Boolean      @default(true)
+  // When an administrator turned purging on for this policy; null = off (the default).
+  // The daily purge only runs for policies where this is set.
+  purgeEnabledAt DateTime?
   lastRunAt      DateTime?
+  // Rows the last purge removed.
+  lastRunDeleted Int?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

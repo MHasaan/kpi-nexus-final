@@ -42,6 +42,7 @@ const row = (kpiId: string, latestValue: number | null, extra: Partial<SummaryRo
   direction: 'HIGHER_IS_BETTER',
   status: (latestValue === null ? 'NO_DATA' : 'NO_TARGET') as KpiHealthStatus,
   attainmentPct: null,
+  spark: latestValue === null ? [] : [latestValue],
   ...extra,
 });
 

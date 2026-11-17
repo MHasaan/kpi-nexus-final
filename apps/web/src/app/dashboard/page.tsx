@@ -250,15 +250,14 @@ function KpiRow({
           <span className="text-[11.5px] text-content-muted">{row.scorecardQuadrant}</span>
         ) : null}
       </div>
-      <Sparkline
-        data={
-          row.latestValue !== null && row.aggregatedValue !== null
-            ? [row.aggregatedValue, row.latestValue]
-            : [0, 0]
-        }
-        width={88}
-        height={28}
-      />
+      {/* The real series for this KPI, oldest period first. A single period
+          has no shape to draw, so leave the space empty rather than inventing
+          a line from the aggregate. */}
+      {row.spark.length > 1 ? (
+        <Sparkline data={row.spark} width={88} height={28} />
+      ) : (
+        <span aria-hidden className="inline-block h-[28px] w-[88px]" />
+      )}
       <span
         data-testid={`${testidPrefix}-value-${row.name}`}
         className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-content-strong"

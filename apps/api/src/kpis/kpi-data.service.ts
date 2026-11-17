@@ -100,6 +100,9 @@ function aggregate(values: number[], method: string): number | null {
   }
 }
 
+/** How many periods a dashboard-summary row carries for its sparkline. */
+const SPARK_POINTS = 12;
+
 @Injectable()
 export class KpiDataService {
   private readonly logger = new Logger(KpiDataService.name);
@@ -343,6 +346,8 @@ export class KpiDataService {
       status: KpiHealthStatus;
       /** Direction-aware % of target achieved, or null. */
       attainmentPct: number | null;
+      /** The last periods oldest-first, for a sparkline. */
+      spark: number[];
     }>
   > {
     const ctx = RequestContextStore.require();
@@ -423,6 +428,9 @@ export class KpiDataService {
             bands: bandsByKpi.get(kpi.id) ?? [],
           }),
           attainmentPct: attainmentPct(points[0]?.value ?? null, kpi.targetValue, kpi.direction),
+          // The last periods oldest-first, for a sparkline. `points` is newest
+          // first, so take from the front and reverse.
+          spark: points.slice(0, SPARK_POINTS).map((p) => p.value).reverse(),
         };
       }),
     );

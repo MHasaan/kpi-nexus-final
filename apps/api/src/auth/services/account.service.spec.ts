@@ -38,6 +38,7 @@ const baseDbUser = {
   mfaEnabled: false,
   status: 'ACTIVE',
   notificationSettings: null,
+  onboardingCompletedAt: null as Date | null,
 };
 
 interface Mocks {
@@ -110,6 +111,28 @@ describe('AccountService.updateProfile', () => {
     expect(result.roleId).toBe('role_1');
     expect(result.status).toBe('ACTIVE');
     expect(Array.isArray(result.permissions)).toBe(true);
+  });
+
+  test('tourCompleted stamps onboardingCompletedAt and nothing else (plan 3.4)', async () => {
+    const { service, updateMock, auditMock } = makeMocks();
+
+    const result = await RequestContextStore.run(fakeCtx, () => service.updateProfile({ tourCompleted: true }));
+
+    const call = updateMock.mock.calls[0]![0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where).toEqual({ id: 'user_1', organizationId: 'org_1' });
+    expect(Object.keys(call.data)).toEqual(['onboardingCompletedAt']);
+    expect(call.data.onboardingCompletedAt).toBeInstanceOf(Date);
+    expect(result.onboardingCompletedAt).toBeInstanceOf(Date);
+    // Finishing a tour is not a profile change worth an audit row.
+    expect(auditMock).not.toHaveBeenCalled();
+  });
+
+  test('a rename and a finished tour can arrive together', async () => {
+    const { service, updateMock, auditMock } = makeMocks();
+    await RequestContextStore.run(fakeCtx, () => service.updateProfile({ fullName: 'Jane Q. Doe', tourCompleted: true }));
+    const call = updateMock.mock.calls[0]![0] as { data: Record<string, unknown> };
+    expect(Object.keys(call.data).sort()).toEqual(['fullName', 'onboardingCompletedAt']);
+    expect(auditMock).toHaveBeenCalledTimes(1);
   });
 
   test('admin principal — returns all canonical permissions', async () => {

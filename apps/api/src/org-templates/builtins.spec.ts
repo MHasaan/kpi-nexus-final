@@ -1,3 +1,4 @@
+import { OnboardingDraftPatchSchema, validateOnboardingDraft } from '@kpi-nexus/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { BUILTIN_TEMPLATES } from './builtins.js';
@@ -12,6 +13,13 @@ describe('builtin templates', () => {
   it('every builtin payload is referentially valid', () => {
     for (const t of BUILTIN_TEMPLATES) {
       expect(validateTemplatePayload(t.payload), `${t.slug} should be valid`).toEqual([]);
+    }
+  });
+
+  it('every builtin payload is a valid onboarding draft, so applying it can never be refused (plan 3.1)', () => {
+    for (const t of BUILTIN_TEMPLATES) {
+      expect(OnboardingDraftPatchSchema.safeParse(t.payload).success, `${t.slug} has the draft shape`).toBe(true);
+      expect(validateOnboardingDraft(t.payload), `${t.slug} is ready to complete`).toEqual([]);
     }
   });
 

@@ -28,6 +28,7 @@ import {
   Label,
   PageHeader,
 } from '../../../../components/ui';
+import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 function copyToClipboard(text: string): Promise<void> {
@@ -36,6 +37,7 @@ function copyToClipboard(text: string): Promise<void> {
 
 export default function DashboardSharePage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const params = useParams<{ id: string }>();
   const dashboardId = params.id;
 
@@ -106,7 +108,14 @@ export default function DashboardSharePage() {
   }
 
   async function handleRevoke(linkId: string) {
-    if (!window.confirm('Revoke this share link? It will no longer be accessible.')) return;
+    const ok = await confirm({
+      title: 'Revoke this share link?',
+      description: 'Anyone who has the link will see “link not found” from now on. This cannot be undone; you can create a new link.',
+      confirmLabel: 'Revoke link',
+      tone: 'danger',
+      testId: 'share-revoke-confirm',
+    });
+    if (!ok) return;
     setRevokingId(linkId);
     setActionError(null);
     try {

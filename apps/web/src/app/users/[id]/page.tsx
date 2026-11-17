@@ -342,12 +342,14 @@ export default function UserKpiPanelPage() {
                         variant="danger"
                         isLoading={actionBusy}
                         onClick={async () => {
-                          if (
-                            !window.confirm(
-                              `Permanently purge ${user.fullName}? This cannot be undone.`,
-                            )
-                          )
-                            return;
+                          const ok = await confirm({
+                            title: `Permanently remove ${user.fullName}?`,
+                            description: 'Their account and personal details are erased. This cannot be undone.',
+                            confirmLabel: 'Remove permanently',
+                            tone: 'danger',
+                            testId: 'user-purge-confirm',
+                          });
+                          if (!ok) return;
                           // After a successful purge the user is gone — return to
                           // the directory rather than refetching a 404 profile.
                           setActionBusy(true);

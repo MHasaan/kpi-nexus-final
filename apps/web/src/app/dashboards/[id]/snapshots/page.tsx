@@ -30,6 +30,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../../../../components/ui';
+import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 
 export default function SnapshotsPage() {
@@ -40,6 +41,7 @@ export default function SnapshotsPage() {
 
 function SnapshotsInner() {
   const router = useRouter();
+  const confirm = useConfirm();
   const params = useParams<{ id: string }>();
   const dashboardId = params.id;
 
@@ -147,7 +149,14 @@ function SnapshotsInner() {
   }
 
   async function handleDelete(snap: DashboardSnapshot) {
-    if (!window.confirm(`Delete snapshot "${snap.label ?? snap.id}"?`)) return;
+    const ok = await confirm({
+      title: `Delete the snapshot “${snap.label ?? new Date(snap.takenAt).toLocaleString()}”?`,
+      description: 'The saved copy is removed for everyone. The dashboard itself is not affected.',
+      confirmLabel: 'Delete snapshot',
+      tone: 'danger',
+      testId: 'snapshot-delete-confirm',
+    });
+    if (!ok) return;
     setDeletingId(snap.id);
     setDeleteError(null);
     try {

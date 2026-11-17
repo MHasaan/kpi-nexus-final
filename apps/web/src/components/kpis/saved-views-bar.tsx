@@ -11,6 +11,7 @@ import {
   deleteKpiSavedView,
   listKpiSavedViews,
 } from '@/lib/api-client';
+import { BusyForm, BusySubmit } from '../busy-form';
 
 export interface SavedViewsBarProps {
   /** The toolbar's current filters (what Save stores). */
@@ -104,7 +105,7 @@ export function SavedViewsBar({ current, canSave, onApply }: SavedViewsBarProps)
           </Button>
         )}
         {canSave && (
-          <form onSubmit={save} className="flex flex-wrap items-center gap-2">
+          <BusyForm onSubmit={save} className="flex flex-wrap items-center gap-2">
             <Input
               aria-label="Name for this view"
               placeholder="Save filters as…"
@@ -119,10 +120,10 @@ export function SavedViewsBar({ current, canSave, onApply }: SavedViewsBarProps)
               <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} data-testid="saved-view-shared" />
               Share
             </label>
-            <Button type="submit" size="sm" variant="secondary" data-testid="saved-view-save">
+            <BusySubmit size="sm" variant="secondary" data-testid="saved-view-save">
               Save view
-            </Button>
-          </form>
+            </BusySubmit>
+          </BusyForm>
         )}
       </div>
       {error && <p className="text-xs text-status-critical" role="alert">{error}</p>}

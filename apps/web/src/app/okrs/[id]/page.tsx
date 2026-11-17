@@ -278,9 +278,19 @@ export default function ObjectiveDetailPage() {
   };
 
   // --- KR quick current value ---
-  const updateCurrent = async (krId: string, value: string) => {
+  const updateCurrent = async (krId: string, value: string, input?: HTMLInputElement) => {
+    // A blank box is not zero: saving it as 0 would report a key result as having
+    // slipped to nothing. Put the saved value back and say why (plan 7.4).
+    if (value.trim() === '' || !Number.isFinite(Number(value))) {
+      setError('Enter a number for the current value. The saved value was kept.');
+      // Show the saved value again, so the box does not go on looking empty.
+      const saved = krs.find((k) => k.id === krId)?.currentValue;
+      if (input) input.value = saved == null ? '' : String(saved);
+      return;
+    }
     try {
-      await updateKeyResult(id, krId, { currentValue: value.trim() === '' ? 0 : Number(value) });
+      await updateKeyResult(id, krId, { currentValue: Number(value) });
+      setError(null);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not update key result');
@@ -861,7 +871,7 @@ export default function ObjectiveDetailPage() {
                                   data-testid={`kr-current-${kr.id}`}
                                   type="number"
                                   defaultValue={kr.currentValue ?? ''}
-                                  onBlur={(e) => updateCurrent(kr.id, e.target.value)}
+                                  onBlur={(e) => updateCurrent(kr.id, e.target.value, e.target)}
                                   className="h-8 w-28"
                                 />
                               </span>

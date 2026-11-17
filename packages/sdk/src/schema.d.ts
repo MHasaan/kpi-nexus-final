@@ -8938,9 +8938,9 @@ export interface operations {
             content: {
                 "application/json": {
                     name?: string;
-                    description?: string;
-                    unit?: string;
-                    categoryId?: string;
+                    description?: string | null;
+                    unit?: string | null;
+                    categoryId?: string | null;
                     /** @enum {string} */
                     scope?: "ORG_WIDE" | "PER_UNIT" | "PER_USER";
                     /** @enum {string} */
@@ -8953,13 +8953,12 @@ export interface operations {
                     aggregationMethod?: "SUM" | "AVG" | "MIN" | "MAX" | "MEDIAN" | "P25" | "P75" | "P90" | "P95" | "P99" | "LAST" | "FIRST" | "COUNT" | "COUNT_DISTINCT" | "STDEV";
                     /** @enum {string} */
                     status?: "DRAFT" | "PROPOSED" | "APPROVED" | "ACTIVE" | "PAUSED" | "DEPRECATED" | "ARCHIVED";
-                    targetValue?: number;
-                    warningThreshold?: number;
-                    criticalThreshold?: number;
+                    targetValue?: number | null;
+                    warningThreshold?: number | null;
+                    criticalThreshold?: number | null;
                     allowNegative?: boolean;
-                    /** @enum {string} */
-                    scorecardQuadrant?: "FINANCIAL" | "CUSTOMER" | "INTERNAL_PROCESS" | "LEARNING_GROWTH";
-                    ownerUserId?: string;
+                    scorecardQuadrant?: ("FINANCIAL" | "CUSTOMER" | "INTERNAL_PROCESS" | "LEARNING_GROWTH") | null;
+                    ownerUserId?: string | null;
                     tags?: string[];
                     orgUnitIds?: string[];
                     userIds?: string[];

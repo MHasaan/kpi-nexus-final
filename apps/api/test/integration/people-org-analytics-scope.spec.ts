@@ -184,6 +184,34 @@ describe('BE-004: PEOPLE / ORG / ANALYTICS scopes (live API)', () => {
     expect((await post(`/kpis/${w.ids.kpi}/forecasts`, w.mia, { horizon: 7 })).status).not.toBe(404);
   });
 
+  test('BE-045: PEOPLE=UNITS also limits who she can give a per-person KPI to, or take one from', async () => {
+    const perms = ['USERS_VIEW', 'USERS_MANAGE', 'GROUPS_VIEW', 'GROUPS_MANAGE', 'KPI_VIEW', 'KPI_CREATE', 'INSIGHTS_VIEW'];
+    expect((await patch(`/roles/${w.roleId}`, w.admin, { permissions: perms, scopeConfig: { PEOPLE: 'UNITS' } })).status).toBe(200);
+    const kpi = await post<{ id: string }>('/kpis', w.admin, {
+      name: `Personal goal ${Date.now()}`,
+      scope: 'PER_USER',
+      type: 'NUMBER',
+      direction: 'HIGHER_IS_BETTER',
+      aggregationMethod: 'LAST',
+      userIds: [w.ids.oscar],
+    });
+    expect(kpi.status).toBe(201);
+    const oscars = await http<Array<{ assignmentId: string }>>(`/user-kpis/user/${w.ids.oscar}`, { token: w.admin });
+    const oscarsAssignment = oscars.body![0]!.assignmentId;
+
+    // Oscar is in Sales, outside Mia's units: as if he were not there.
+    expect((await post('/user-kpis/assign', w.mia, { userId: w.ids.oscar, kpiId: kpi.body!.id, targetValue: 1 })).status).toBe(404);
+    expect((await http(`/user-kpis/assignments/${oscarsAssignment}`, { method: 'DELETE', token: w.mia })).status).toBe(404);
+    expect((await http<unknown[]>(`/user-kpis/user/${w.ids.oscar}`, { token: w.admin })).body).toHaveLength(1);
+
+    // Pat is in her unit: both work.
+    const given = await post<{ id: string }>('/user-kpis/assign', w.mia, { userId: w.ids.pat, kpiId: kpi.body!.id });
+    expect(given.status).toBe(201);
+    expect((await http(`/user-kpis/assignments/${given.body!.id}`, { method: 'DELETE', token: w.mia })).status).toBe(204);
+
+    await setScopes({});
+  });
+
   test('admins are unaffected', async () => {
     const users = await http<Array<{ id: string }>>('/users', { token: w.admin });
     expect(ids(users.body)).toEqual(expect.arrayContaining([w.ids.mia, w.ids.pat, w.ids.oscar]));

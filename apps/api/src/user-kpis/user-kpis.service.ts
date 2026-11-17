@@ -48,7 +48,10 @@ export class UserKpisService {
       where: { id: dto.userId, organizationId: ctx.organizationId },
       select: { id: true },
     });
-    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    // Someone outside the caller's PEOPLE scope is a 404, as if absent (BE-045).
+    if (!user || !(await this.accessContext.isPersonVisible(dto.userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'User not found' });
+    }
 
     const saved = await this.prisma.kPIAssignmentUser.upsert({
       where: { kpiId_userId: { kpiId: dto.kpiId, userId: dto.userId } },
@@ -74,9 +77,12 @@ export class UserKpisService {
     const ctx = RequestContextStore.require();
     const existing = await this.prisma.kPIAssignmentUser.findFirst({
       where: { id: assignmentId, organizationId: ctx.organizationId },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
-    if (!existing) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Assignment not found' });
+    // An assignment held by someone outside the caller's PEOPLE scope is a 404 too (BE-045).
+    if (!existing || !(await this.accessContext.isPersonVisible(existing.userId))) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Assignment not found' });
+    }
     await this.prisma.kPIAssignmentUser.delete({ where: { id: assignmentId } });
     await this.audit.record({ action: 'DELETE', entityType: 'KPIAssignmentUser', entityId: assignmentId });
   }

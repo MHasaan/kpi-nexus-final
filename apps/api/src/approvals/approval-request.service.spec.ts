@@ -41,7 +41,23 @@ class FakePrisma {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
       this.workflows.find((w) => w.id === where.id && w.organizationId === where.organizationId) ?? null,
     ),
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string } }) =>
+      this.workflows.filter((w) => w.organizationId === where.organizationId),
+    ),
   };
+  // Names the inbox shows; each lookup is scoped to the organisation it is asked for.
+  names = {
+    user: [{ id: 'manager', organizationId: 'org_alpha', fullName: 'Mia Manager' }],
+    kPI: [{ id: 'kpi_1', organizationId: 'org_alpha', name: 'Monthly Revenue' }],
+    roleDefinition: [{ id: 'role_x', organizationId: 'org_alpha', name: 'Analyst' }],
+  };
+  private named = <T extends { id: string; organizationId: string }>(rows: T[]) =>
+    vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
+      rows.filter((r) => r.organizationId === where.organizationId && where.id.in.includes(r.id)),
+    );
+  user = { findMany: this.named(this.names.user) };
+  kPI = { findMany: this.named(this.names.kPI) };
+  roleDefinition = { findMany: this.named(this.names.roleDefinition) };
 
   approvalRequest = {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
@@ -183,5 +199,44 @@ describe('ApprovalRequestService.cancel', () => {
     const { service, prisma } = makeService();
     seedPending(prisma, { requester: 'manager' });
     await expect(withCtx({ userId: 'someone' }, () => service.cancel('req_1'))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+// UI-008: the inbox says who asked, what about, and whether the reader can decide.
+describe('ApprovalRequestService.list', () => {
+  test('an approver sees the request with the requester, the KPI by name, and that they can decide', async () => {
+    const { service, prisma } = makeService();
+    seedPending(prisma);
+    const [view] = await withCtx({}, () => service.list({ status: 'PENDING' }));
+    expect(view).toMatchObject({ id: 'req_1', canDecide: true, requesterName: 'Mia Manager', entityLabel: 'Monthly Revenue' });
+  });
+
+  test('the requester sees their own request, and cannot decide it', async () => {
+    const { service, prisma } = makeService();
+    seedPending(prisma);
+    const [view] = await withCtx({ userId: 'manager', roleId: 'role_appr' }, () => service.list({}));
+    expect(view!.canDecide).toBe(false);
+  });
+
+  test('someone whose role does not approve sees it without the power to decide', async () => {
+    const { service, prisma } = makeService();
+    seedPending(prisma);
+    const [view] = await withCtx({ userId: 'viewer', roleId: 'role_other' }, () => service.list({}));
+    expect(view!.canDecide).toBe(false);
+  });
+
+  test('a request about something that no longer exists has no label, not an error', async () => {
+    const { service, prisma } = makeService();
+    const r = seedPending(prisma);
+    r.entityId = 'deleted_kpi';
+    r.requesterUserId = 'left_the_company';
+    const [view] = await withCtx({}, () => service.list({}));
+    expect(view).toMatchObject({ entityLabel: null, requesterName: null });
+  });
+
+  test('another organisation sees none of it', async () => {
+    const { service, prisma } = makeService();
+    seedPending(prisma);
+    expect(await withCtx({ organizationId: 'other' }, () => service.list({}))).toEqual([]);
   });
 });

@@ -18,6 +18,7 @@ import {
   type DashboardSnapshot,
 } from '../../../../lib/api-client';
 import { AppShell } from '../../../../components/app-shell';
+import { PermissionGuard } from '../../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
   Button,
@@ -189,7 +190,8 @@ function SnapshotsInner() {
           </div>
         )}
 
-        {/* Capture form */}
+        {/* Capture form — taking a snapshot is DASHBOARD_MANAGE on the API (UI-013). */}
+        <PermissionGuard permission="DASHBOARD_MANAGE">
         <Card data-testid="snapshot-capture-section">
           <CardContent>
             <h2 className="text-base font-semibold text-content-strong">Capture snapshot</h2>
@@ -232,6 +234,7 @@ function SnapshotsInner() {
             )}
           </CardContent>
         </Card>
+        </PermissionGuard>
 
         {deleteError && (
           <div
@@ -286,6 +289,7 @@ function SnapshotsInner() {
                     >
                       {expandedId === snap.id ? 'Collapse' : 'View'}
                     </Button>
+                    <PermissionGuard permission="DASHBOARD_MANAGE">
                     <Button
                       type="button"
                       variant="danger"
@@ -297,6 +301,7 @@ function SnapshotsInner() {
                     >
                       {deletingId === snap.id ? 'Deleting…' : 'Delete'}
                     </Button>
+                    </PermissionGuard>
                   </div>
                 </div>
 

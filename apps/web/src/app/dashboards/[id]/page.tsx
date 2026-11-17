@@ -28,6 +28,7 @@ import { DashboardDataProvider } from '../../../components/dashboard-grid/dashbo
 import { RealtimeRefresh } from '../../../components/dashboard-grid/realtime-refresh';
 import { DashboardSettingsForm } from '../../../components/dashboard-grid/settings-form';
 import { AppShell } from '../../../components/app-shell';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
   Badge,
@@ -40,6 +41,7 @@ import {
   Skeleton,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { usePermissions } from '../../../lib/use-permissions';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -64,6 +66,8 @@ function presetToRange(preset: DatePreset): { from: string; to: string } {
 }
 
 function DashboardDetailInner() {
+  // Buttons that change the dashboard are shown only to those the API will let change it.
+  const canManage = usePermissions().has('DASHBOARD_MANAGE');
   const { terminology } = useTerminology();
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -301,48 +305,51 @@ function DashboardDetailInner() {
             }
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={editMode ? 'primary' : 'secondary'}
-                  onClick={() => setEditMode((e) => !e)}
-                  data-testid="dashboard-edit-toggle"
-                  leftIcon={<Pencil className="h-4 w-4" />}
-                >
-                  {editMode ? 'Done editing' : 'Edit'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={showSettings ? 'primary' : 'secondary'}
-                  onClick={() => setShowSettings((s) => !s)}
-                  data-testid="dashboard-settings-toggle"
-                  leftIcon={<SettingsIcon className="h-4 w-4" />}
-                >
-                  Settings
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setShowAddForm((s) => !s)}
-                  data-testid="dashboard-add-widget-toggle"
-                  leftIcon={<Plus className="h-4 w-4" />}
-                >
-                  Add widget
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => void handleSnapshot()}
-                  disabled={snapping}
-                  isLoading={snapping}
-                  data-testid="dashboard-snapshot-btn"
-                  leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
-                >
-                  {snapping ? 'Saving…' : 'Snapshot'}
-                </Button>
+                {/* Changing a dashboard is DASHBOARD_MANAGE on the API: a viewer is not shown buttons that would be refused (UI-013). */}
+                <PermissionGuard permission="DASHBOARD_MANAGE">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editMode ? 'primary' : 'secondary'}
+                    onClick={() => setEditMode((e) => !e)}
+                    data-testid="dashboard-edit-toggle"
+                    leftIcon={<Pencil className="h-4 w-4" />}
+                  >
+                    {editMode ? 'Done editing' : 'Edit'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={showSettings ? 'primary' : 'secondary'}
+                    onClick={() => setShowSettings((s) => !s)}
+                    data-testid="dashboard-settings-toggle"
+                    leftIcon={<SettingsIcon className="h-4 w-4" />}
+                  >
+                    Settings
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setShowAddForm((s) => !s)}
+                    data-testid="dashboard-add-widget-toggle"
+                    leftIcon={<Plus className="h-4 w-4" />}
+                  >
+                    Add widget
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void handleSnapshot()}
+                    disabled={snapping}
+                    isLoading={snapping}
+                    data-testid="dashboard-snapshot-btn"
+                    leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
+                  >
+                    {snapping ? 'Saving…' : 'Snapshot'}
+                  </Button>
+                </PermissionGuard>
                 <Link
                   href={`/dashboards/${dashboardId}/snapshots`}
                   data-testid="dashboard-snapshots-link"
@@ -351,19 +358,21 @@ function DashboardDetailInner() {
                     History
                   </Button>
                 </Link>
-                <Link
-                  href={`/dashboards/${dashboardId}/share`}
-                  data-testid="dashboard-share-link"
-                >
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    leftIcon={<Share2 className="h-4 w-4" />}
+<PermissionGuard permission="DASHBOARD_MANAGE">
+                  <Link
+                    href={`/dashboards/${dashboardId}/share`}
+                    data-testid="dashboard-share-link"
                   >
-                    Share
-                  </Button>
-                </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      leftIcon={<Share2 className="h-4 w-4" />}
+                    >
+                      Share
+                    </Button>
+                  </Link>
+                </PermissionGuard>
                 <Button
                   type="button"
                   size="sm"
@@ -563,12 +572,16 @@ function DashboardDetailInner() {
                 <Badge tone="neutral" className="mb-3">
                   Empty dashboard
                 </Badge>
-                <p className="text-sm text-content-muted">
-                  No widgets yet. Click{' '}
-                  <span className="font-medium text-content-strong">Edit</span> then{' '}
-                  <span className="font-medium text-content-strong">Add widget</span>{' '}
-                  to add your first one.
-                </p>
+                {canManage ? (
+                  <p className="text-sm text-content-muted">
+                    No widgets yet. Click{' '}
+                    <span className="font-medium text-content-strong">Edit</span> then{' '}
+                    <span className="font-medium text-content-strong">Add widget</span>{' '}
+                    to add your first one.
+                  </p>
+                ) : (
+                  <p className="text-sm text-content-muted">This dashboard has no widgets yet.</p>
+                )}
               </div>
             )}
 

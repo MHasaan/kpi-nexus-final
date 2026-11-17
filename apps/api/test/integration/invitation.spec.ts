@@ -195,6 +195,54 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
     expect(blocked.status).toBe(403);
   });
 
+  test('a user manager who is not an administrator cannot invite an administrator (BE-044)', async () => {
+    if (!apiAvailable) return;
+    const admin = await registerAdminOrg();
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const roles = await http<Array<{ id: string; isAdmin: boolean }>>('/roles', { token: admin.token });
+    const adminRole = (roles.body ?? []).find((r) => r.isAdmin)!;
+    const hrRole = await http<{ id: string }>('/roles', {
+      method: 'POST',
+      token: admin.token,
+      body: JSON.stringify({ name: `People Ops ${stamp}`, permissions: ['USERS_VIEW', 'USERS_MANAGE'] }),
+    });
+    expect(hrRole.status).toBe(201);
+
+    const hrInvite = await http<{ inviteToken: string }>('/users', {
+      method: 'POST',
+      token: admin.token,
+      body: JSON.stringify({ email: `hr-${stamp}@invite.test.local`, fullName: 'People Ops', roleId: hrRole.body!.id }),
+    });
+    const hr = await http<{ accessToken: string }>('/auth/accept-invitation', {
+      method: 'POST',
+      body: JSON.stringify({ token: hrInvite.body!.inviteToken, password: 'people-ops-pw-1' }),
+    });
+    expect(hr.status).toBe(200);
+
+    const escalate = await http<{ code: string }>('/users', {
+      method: 'POST',
+      token: hr.body!.accessToken,
+      body: JSON.stringify({ email: `sneak-${stamp}@invite.test.local`, fullName: 'Sneaky Admin', roleId: adminRole.id }),
+    });
+    expect(escalate.status).toBe(403);
+    expect(escalate.body?.code).toBe('ADMIN_ROLE_REQUIRES_ADMIN');
+
+    // Ordinary invites still work for them, and an administrator can still invite one.
+    const ordinary = await http('/users', {
+      method: 'POST',
+      token: hr.body!.accessToken,
+      body: JSON.stringify({ email: `plain-${stamp}@invite.test.local`, fullName: 'Plain Person', roleId: hrRole.body!.id }),
+    });
+    expect(ordinary.status).toBe(201);
+    const byAdmin = await http('/users', {
+      method: 'POST',
+      token: admin.token,
+      body: JSON.stringify({ email: `second-${stamp}@invite.test.local`, fullName: 'Second Admin', roleId: adminRole.id }),
+    });
+    expect(byAdmin.status).toBe(201);
+  });
+
   test('refuse duplicate invite email within org', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();

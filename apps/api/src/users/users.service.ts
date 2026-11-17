@@ -435,13 +435,24 @@ export class UsersService {
     if (dto.roleId) {
       const role = await this.prisma.roleDefinition.findFirst({
         where: { id: dto.roleId, organizationId: ctx.organizationId },
-        select: { id: true },
+        select: { id: true, isAdmin: true },
       });
       if (!role) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
           message: 'roleId is invalid or belongs to another tenant',
         });
+      }
+      // Only an administrator hands out an administrator role (BE-044) —
+      // otherwise anyone who can manage users could invite a new administrator.
+      if (role.isAdmin) {
+        const caller = await this.accessContext.resolveForCurrentPrincipal();
+        if (!caller.isAdmin) {
+          throw new ForbiddenException({
+            code: 'ADMIN_ROLE_REQUIRES_ADMIN',
+            message: 'Only an administrator can invite someone as an administrator',
+          });
+        }
       }
     }
     if (dto.positionId) {

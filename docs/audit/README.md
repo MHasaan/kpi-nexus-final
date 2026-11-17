@@ -329,6 +329,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-047 a public share link's latest value was the newest row of the KPI from any unit or person, so a per-unit or per-person KPI on a shared board showed someone's figure to a reader with no account | ✅ Fixed — the lookup reads organisation-level rows only; such a KPI has no public value and the page says why | `efe3a81` | `share-links.service.spec.ts` (failed before the fix): a per-person and a per-unit value are absent from the whole payload, an organisation value is present
 | BE-048 a dashboard snapshot stored the newest row of each KPI from any unit or person the person taking it could see; everyone who can open the dashboard then read that figure | ✅ Fixed — the capture reads organisation-level rows only | `60a77bc` | `snapshots.service.spec.ts` (failed before the fix): a per-person and a per-unit value are absent from the snapshot, an organisation value is kept
 | Plan 4.7: 'Send test' said 'sent' for channels that send nothing (email with no recipients, SMS) and gave a bare 500 on a failed delivery; the page showed every outcome in green; channels could not be edited; Delete fired on one click | ✅ Fixed — the test answers sent or not with the reason; configs are checked on save; channels show where they send (host only for webhooks), can be edited, and deletion asks first; SMS is not offered | `ff06817` | `notification-channels.service.spec.ts`, `channel-config.spec.ts`, `channel-form.spec.ts`, `e2e/alerts-channels.spec.ts` (both failed before), `test/integration/alerting.spec.ts` (empty email channel 400; SMS test not sent)
+| UI-012 (part 1) My KPIs, My team, Automations, Connectors, Plugins and Billing had no link; the mentions bell never showed there was anything to read | ✅ Fixed — six sidebar links, each gated as its page is; unread count on the bell | `0d1f075` | `e2e/nav-links.spec.ts` (each link opens its page for an administrator; an employee sees only their own; a mention shows as 1), `app-shell.spec.tsx`
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -336,8 +337,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-007 (remainder) the Automations page has no link in the navigation | High | ⬜ open | 5.1 |
-| UI-012 pages no link leads to (analytics, drill-down, board pack, automations, …) | High | ⬜ open | 5.1 |
+| UI-012 (remainder) pages no link leads to: KPI analytics (forecast, anomalies, what-if, embed), KPI edit and delete from the detail page, widget drill-down, board pack, settings sub-pages | High | 🟡 partly | 5.1 |
 | UI-013 page and API disagree on the permission needed (17 places) | High | ⬜ open | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |

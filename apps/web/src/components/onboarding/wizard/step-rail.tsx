@@ -2,7 +2,7 @@
 
 import type { DraftProblem } from '@kpi-nexus/contracts';
 
-import { type DraftCounts, WIZARD_STEPS, type WizardStepId } from '../../../lib/wizard-steps';
+import { type DraftCounts, WIZARD_STEPS, type WizardMode, type WizardStepId, isOptionalStep } from '../../../lib/wizard-steps';
 
 /** What each step holds, shown under its name: `[label, count key]`. */
 const STEP_COUNTS: Partial<Record<WizardStepId, ReadonlyArray<readonly [string, keyof DraftCounts]>>> = {
@@ -22,6 +22,8 @@ export interface StepRailProps {
   current: WizardStepId;
   counts: DraftCounts;
   problems: Record<WizardStepId, DraftProblem[]>;
+  /** Quick start marks the four steps in between as optional. */
+  mode?: WizardMode;
   onGo: (step: WizardStepId) => void;
 }
 
@@ -31,7 +33,7 @@ export interface StepRailProps {
  * above it on narrow ones. Every step is reachable at any time: the order is a
  * suggestion, not a gate.
  */
-export function StepRail({ current, counts, problems, onGo }: StepRailProps) {
+export function StepRail({ current, counts, problems, mode = 'full', onGo }: StepRailProps) {
   return (
     <nav aria-label="Setup steps" data-testid="wizard-steps">
       <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
@@ -73,6 +75,9 @@ export function StepRail({ current, counts, problems, onGo }: StepRailProps) {
                       </span>
                     )}
                     {wrong > 0 && <span className="sr-only">to fix</span>}
+                    {isOptionalStep(step.id, mode) && (
+                      <span className="rounded bg-surface-2 px-1.5 text-[10px] font-medium uppercase tracking-wide text-content-muted">Optional</span>
+                    )}
                   </span>
                   <span className="block text-xs text-content-muted">
                     {held.length === 0

@@ -31,6 +31,7 @@ import {
   slugFromName,
   stepFromParam,
   stepNeighbours,
+  wizardMode,
 } from '../../../lib/wizard-steps';
 import { type AdminAccountErrors, adminAccountErrors, finishMessage, firstInvalidField } from '../../../lib/wizard-finish';
 import { retargetManager } from '../../../lib/wizard-team';
@@ -130,7 +131,8 @@ function Wizard() {
   );
   const grouped = useMemo(() => problemsByStep(problems), [problems]);
   const counts = draftCounts(draft);
-  const { prev, next } = stepNeighbours(step);
+  const mode = wizardMode(handle?.entryMode);
+  const { prev, next } = stepNeighbours(step, mode);
   const current = WIZARD_STEPS.find((s) => s.id === step)!;
 
   const saveAndContinue = async () => {
@@ -224,7 +226,7 @@ function Wizard() {
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[230px_minmax(0,1fr)]">
-        <StepRail current={step} counts={counts} problems={grouped} onGo={go} />
+        <StepRail current={step} counts={counts} problems={grouped} mode={mode} onGo={go} />
 
         <div className="min-w-0 space-y-6">
           <OfflineBanner state={sync} onRetry={() => void flush()} />
@@ -242,6 +244,12 @@ function Wizard() {
           </div>
 
           <div data-testid="wizard-step-content" className="space-y-4">
+            {step === 'organization' && mode === 'quick' && (
+              <p data-testid="wizard-quick-note" className="rounded-lg border border-border bg-surface-1 px-4 py-3 text-sm text-content-default">
+                Quick start: name your organization, then create your account. The four standard roles are already in place.
+                Units, KPIs and people can be added now from the steps on the left, or any time after setup.
+              </p>
+            )}
             {step === 'organization' && (
               <OrganizationStep
                 value={draft.organization ?? {}}

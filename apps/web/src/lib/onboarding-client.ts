@@ -40,6 +40,8 @@ export interface CachedDraft extends OnboardingStart {
   organizationName: string;
   /** The email sign-up started with; the wizard offers it as the administrator's. */
   email?: string;
+  /** How setup was entered: "quick", "full", or "template:<slug>". */
+  entryMode?: string;
 }
 
 /** What is inside a template, for a look before choosing it. */

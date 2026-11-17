@@ -50,7 +50,7 @@ export default function SignupPage() {
     setBusy(true);
     try {
       const started = await startOnboarding(email.trim(), orgName.trim(), entryMode);
-      const handle: CachedDraft = { ...started, organizationName: orgName.trim(), email: email.trim() };
+      const handle: CachedDraft = { ...started, organizationName: orgName.trim(), email: email.trim(), entryMode };
       cacheDraft(handle);
       return handle;
     } catch (e) {

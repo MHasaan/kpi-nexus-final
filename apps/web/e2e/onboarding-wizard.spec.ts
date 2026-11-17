@@ -132,7 +132,8 @@ test('wizard: co-pilot rail — assistant, suggest and explain modes write to th
 
   const stamp = suffix();
   await fillEntry(page, stamp);
-  await page.getByTestId('entry-quick').click();
+  // Full setup starts with no roles, so the one the assistant adds is the only one.
+  await page.getByTestId('entry-full').click();
   await expect(page).toHaveURL(/\/signup\/wizard/);
   await expect(page.getByTestId('wizard-org-name')).toHaveValue(`Wiz ${stamp}`, { timeout: 15_000 });
   await expect(page.getByTestId('copilot-rail')).toBeVisible();

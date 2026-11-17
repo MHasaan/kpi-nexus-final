@@ -357,6 +357,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.4 (clearable fields): editing a KPI could not remove a target, threshold, unit, description, owner, category or perspective — a blank was sent as 'no change'; a blank key-result value was saved as 0 | ✅ Fixed — `PATCH /kpis/:id` takes null to clear and the form sends it; a blank key result keeps the saved value | #223 | `create-kpi.dto.spec.ts`, `e2e/kpi-edit-clear-fields.spec.ts`. Still open under 7.4: busy state on every submit, cron and horizon validation
 | Plan 7.5: the alerts list stopped at its newest hundred; an alert's delivery trail was picked out of the organisation's newest hundred deliveries in the browser | ✅ Fixed — `GET /alerts?before=` with 'Load older alerts'; `GET /notification-deliveries?alertId=` | #224 | `alerts.service.spec.ts`, `e2e/alerts-paging.spec.ts`
 | Plan 7.7 (mentions): the mentions page said 'You were mentioned' and a date — not who, on what, or what was written | ✅ Fixed — rows carry the author, the start of the comment and where it is; the page shows them with a link | #225 | `mentions.service.spec.ts`, `mentions-view.spec.ts`, `e2e/mentions-readable.spec.ts`
+| Plan 7.7 (comments): no count on the Comments button until the drawer was opened; a comment could not be edited or deleted; a 'markdown ok' hint for markdown that is never rendered | ✅ Fixed — counted on arrival; the author can edit and delete (asked first); hint removed | #226 | `e2e/comments-edit-delete.spec.ts`
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 
-import { ApiError } from '../lib/api-client';
+import { ApiError, meRequest } from '../lib/api-client';
+import { useConfirm } from '../lib/use-confirm';
 import { usePeople } from '../lib/use-people';
 import {
   type Comment,
   type CommentEntityType,
   createComment,
+  deleteComment,
   listComments,
+  updateComment,
 } from '../lib/collab-client';
 import { Button, Avatar, Textarea, EmptyState, Skeleton } from './ui';
 
@@ -33,6 +36,11 @@ export function CommentsDrawer({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const confirm = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,9 +54,51 @@ export function CommentsDrawer({
     }
   }, [entityType, entityId]);
 
+  // Loaded with the page, not only when the drawer opens: the button's count
+  // used to read as "no comments" until someone looked (plan 7.7).
   useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
+    void load();
+  }, [load]);
+  // Who is reading — only the author may change or delete a comment.
+  useEffect(() => {
+    if (!open || myId) return;
+    meRequest().then(
+      ({ user }) => setMyId(user.id),
+      () => undefined,
+    );
+  }, [open, myId]);
+
+  const saveEdit = async (comment: Comment) => {
+    const text = editText.trim();
+    if (!text) {
+      setError('A comment cannot be empty. Delete it instead.');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updateComment(comment.id, { body: text, mentionedUserIds: resolveMentions(text) });
+      setEditingId(null);
+      setError(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the comment');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const remove = (comment: Comment) =>
+    confirm({
+      title: 'Delete your comment?',
+      description: 'It is removed for everyone. This cannot be undone.',
+      confirmLabel: 'Delete comment',
+      tone: 'danger',
+      testId: 'comment-delete-confirm',
+      action: async () => {
+        await deleteComment(comment.id);
+        await load();
+      },
+    });
 
   // Close on Escape.
   useEffect(() => {
@@ -160,8 +210,45 @@ export function CommentsDrawer({
                         <Avatar name={author} size="sm" />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-content-strong">{author}</p>
-                          <p className="mt-0.5 whitespace-pre-wrap text-sm text-content-strong">{c.body}</p>
-                          <p className="mt-1 text-xs tabular-nums text-content-muted">{new Date(c.createdAt).toLocaleString()}</p>
+                          {editingId === c.id ? (
+                            <div className="mt-1">
+                              <Textarea data-testid={`comment-edit-body-${c.id}`} value={editText} onChange={(e) => setEditText(e.target.value)} rows={3} />
+                              <div className="mt-1.5 flex gap-2">
+                                <Button size="sm" data-testid={`comment-edit-save-${c.id}`} onClick={() => void saveEdit(c)} isLoading={savingEdit} disabled={savingEdit}>
+                                  Save
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} disabled={savingEdit}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="mt-0.5 whitespace-pre-wrap text-sm text-content-strong">{c.body}</p>
+                          )}
+                          <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs tabular-nums text-content-muted">
+                            <span>
+                              {new Date(c.createdAt).toLocaleString()}
+                              {c.updatedAt && c.updatedAt !== c.createdAt ? ' · edited' : ''}
+                            </span>
+                            {myId === c.authorId && editingId !== c.id && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="font-medium text-accent-primary hover:underline"
+                                  data-testid={`comment-edit-${c.id}`}
+                                  onClick={() => {
+                                    setEditingId(c.id);
+                                    setEditText(c.body);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button type="button" className="font-medium text-status-critical hover:underline" data-testid={`comment-delete-${c.id}`} onClick={() => void remove(c)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </p>
                         </div>
                       </div>
                     );
@@ -179,7 +266,7 @@ export function CommentsDrawer({
                 rows={3}
               />
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="text-xs text-content-muted">@ mention to notify · markdown ok</span>
+                <span className="text-xs text-content-muted">Type @ and a name to notify someone</span>
                 <Button data-testid="comment-submit" onClick={submit} isLoading={submitting} disabled={submitting}>
                   Post comment
                 </Button>

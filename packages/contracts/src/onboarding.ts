@@ -173,6 +173,11 @@ export const OnboardingDraftPatchSchema = z
   .strict();
 
 export type OnboardingDraft = z.infer<typeof OnboardingDraftPatchSchema>;
+/**
+ * A draft as it is written, before defaults are filled in: a role needs only
+ * a name, a KPI only a name and a category. This is what the wizard holds.
+ */
+export type OnboardingDraftInput = z.input<typeof OnboardingDraftPatchSchema>;
 export type DraftRole = z.infer<typeof DraftRoleSchema>;
 export type DraftPosition = z.infer<typeof DraftPositionSchema>;
 export type DraftOrgUnitType = z.infer<typeof DraftOrgUnitTypeSchema>;

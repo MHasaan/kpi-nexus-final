@@ -445,6 +445,8 @@ function DashboardDetailInner() {
             <div className="flex flex-wrap items-center gap-3">
               <span className="kn-eyebrow">Date range</span>
               <Segmented
+                aria-label="Date range"
+                testIdPrefix="date-preset"
                 options={[
                   { label: '7d', value: '7d' },
                   { label: '30d', value: '30d' },
@@ -455,30 +457,6 @@ function DashboardDetailInner() {
                 value={preset}
                 onChange={(v) => setPreset(v as DatePreset)}
               />
-              {/* Hidden testid anchors so e2e date-preset selectors keep resolving */}
-              <span className="sr-only">
-                {(['7d', '30d', '90d', '1y'] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setPreset(p)}
-                    data-testid={`date-preset-${p}`}
-                    aria-pressed={preset === p}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setPreset('custom')}
-                  data-testid="date-preset-custom"
-                  aria-pressed={preset === 'custom'}
-                >
-                  Custom
-                </button>
-              </span>
               {preset === 'custom' && (
                 <div className="flex items-center gap-2">
                   <Input
@@ -546,14 +524,6 @@ function DashboardDetailInner() {
               </Card>
             )}
 
-            {/* This keeps backward compat testid visible even when form is hidden */}
-            {!showAddForm && (
-              <div
-                data-testid="dashboard-add-widget-section"
-                className="hidden"
-                aria-hidden="true"
-              />
-            )}
 
             {deleteError && (
               <div

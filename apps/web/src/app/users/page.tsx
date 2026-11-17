@@ -377,7 +377,7 @@ function UsersPageInner() {
                   </div>
                 </Card>
               ) : visibleUsers && visibleUsers.length === 0 ? (
-                <Card>
+                <Card data-testid="users-empty">
                   <EmptyState
                     icon={UsersIcon}
                     title={
@@ -391,7 +391,6 @@ function UsersPageInner() {
                         : `Invite your first ${memberLabelLower} to get started.`
                     }
                   />
-                  <span data-testid="users-list" className="sr-only" />
                 </Card>
               ) : visibleUsers ? (
                 <Card className="overflow-hidden p-0">

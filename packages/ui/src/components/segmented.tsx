@@ -13,6 +13,11 @@ export interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
   className?: string;
   'aria-label'?: string;
+  /**
+   * When given, each option carries `data-testid="<prefix>-<value>"` — so a
+   * test presses the control a person presses, not a hidden stand-in.
+   */
+  testIdPrefix?: string;
 }
 
 /** Segmented control: pill-grouped options, active option raised on surface-1. */
@@ -22,6 +27,7 @@ export function Segmented<T extends string>({
   onChange,
   className,
   'aria-label': ariaLabel,
+  testIdPrefix,
 }: SegmentedProps<T>) {
   return (
     <div
@@ -37,6 +43,7 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            data-testid={testIdPrefix ? `${testIdPrefix}-${opt.value}` : undefined}
             onClick={() => onChange(opt.value)}
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

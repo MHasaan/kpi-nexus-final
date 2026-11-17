@@ -205,6 +205,8 @@ export default function AlertsPage() {
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <Segmented
+          aria-label="Status"
+          testIdPrefix="alerts-filter"
           options={STATUS_FILTERS}
           value={statusFilter}
           onChange={(v) => setStatusFilter(v as FilterValue)}
@@ -212,33 +214,12 @@ export default function AlertsPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-content-muted">Severity</span>
           <Segmented
+            aria-label="Severity"
+            testIdPrefix="alerts-filter-severity"
             options={SEVERITY_FILTERS}
             value={severityFilter}
             onChange={(v) => setSeverityFilter(v as SeverityFilterValue)}
           />
-        </div>
-        {/* Hidden testid anchors preserved for e2e filter selectors */}
-        <div className="sr-only" aria-hidden>
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              data-testid={`alerts-filter-${f.value}`}
-              onClick={() => setStatusFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-          {SEVERITY_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              data-testid={`alerts-filter-severity-${f.value}`}
-              onClick={() => setSeverityFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
         </div>
       </div>
 

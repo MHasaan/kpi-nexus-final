@@ -361,6 +361,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.7 (tasks): the quick-add box emptied on Enter, so a failed create threw the typed title away | ✅ Fixed — emptied only once the task exists; says it was not added | #227 | `e2e/tasks-quick-add.spec.ts`
 | Plan 7.7 (recommendations): the page had no way to ask for a recommendation | ✅ Built — KPI picker and 'Get a recommendation', with busy state and a reason on failure | #228 | `e2e/recommendations-ask.spec.ts` (mocked provider; not checked against a real one)
 | Plan 7.4 (validation): the new-report form sent any schedule and recipient list, and the forecast page any horizon, leaving the server to refuse with a raw message | ✅ Fixed — a schedule that is not five fields, a recipient that is not an email address and a horizon outside the range are named on the page before anything is sent | #230 | `lib/form-checks.spec.ts`, `e2e/form-checks.spec.ts`. Still open under 7.4: busy state on every submit |
+| X-10 (plan 7.6): the alert filters and the dashboard date range had a second, invisible set of buttons holding the test ids; five empty lists carried the list's test id on a hidden element; an unused chart file was kept | ✅ Fixed — the ids are on the real options (`Segmented testIdPrefix`), each empty state has its own id on the visible card, the stand-ins and `series-chart.tsx` are removed | #231 | `e2e/real-controls.spec.ts`; whole web e2e suite |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -376,7 +377,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-06 forms: no busy state, blank saved as 0, fields that cannot be cleared, typed ids | Medium | ⬜ open | 7.4 |
 | X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
 | X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
-| X-10 hidden duplicate controls and dead files kept for tests | Low | ⬜ open | 7.6 |
 
 ### Second QA pass — 2026-11-17
 

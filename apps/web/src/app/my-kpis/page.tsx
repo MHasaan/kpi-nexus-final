@@ -95,13 +95,12 @@ export default function MyKpisPage() {
             ))}
           </div>
         ) : rows && rows.length === 0 ? (
-          <Card>
+          <Card data-testid="my-kpis-empty">
             <EmptyState
               icon={Target}
               title="No KPIs assigned to you yet"
               description="When a manager assigns you a personal KPI, you'll record its values here."
             />
-            <span data-testid="my-kpis-list" className="sr-only" />
           </Card>
         ) : rows ? (
           <div className="flex flex-col gap-3" data-testid="my-kpis-list">

@@ -295,13 +295,12 @@ function PositionsPageInner() {
                 </div>
               </Card>
             ) : positions && positions.length === 0 ? (
-              <Card>
+              <Card data-testid="positions-empty">
                 <EmptyState
                   icon={Briefcase}
                   title="No positions yet"
                   description="Create your first position with the form on the left."
                 />
-                <span data-testid="positions-list" className="sr-only" />
               </Card>
             ) : positions ? (
               <div className="flex flex-col gap-5" data-testid="positions-list">

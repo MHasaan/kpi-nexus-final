@@ -171,6 +171,44 @@ function seedUser(prisma: FakePrisma, over: Partial<FakeUser> = {}): FakeUser {
   return u;
 }
 
+// X-05 (plan 5.3): pages showed "Unknown" for an assignee or an owner unless
+// the reader could list everyone, because the only way to a name was GET /users.
+describe('UsersService.names', () => {
+  test('returns the names of the people asked for, and nothing else about them', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_a', fullName: 'Ada Admin', email: 'ada@acme.test' });
+    seedUser(prisma, { id: 'u_b', fullName: 'Bo Builder', email: 'bo@acme.test' });
+    seedUser(prisma, { id: 'u_c', fullName: 'Not Asked For' });
+
+    const names = await withCtx({}, () => service.names(['u_a', 'u_b']));
+
+    expect(names).toEqual(expect.arrayContaining([{ id: 'u_a', fullName: 'Ada Admin' }, { id: 'u_b', fullName: 'Bo Builder' }]));
+    expect(names).toHaveLength(2);
+    expect(JSON.stringify(names)).not.toContain('acme.test'); // no email, role or status
+  });
+
+  test('it is not a list: no ids, no names', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_a' });
+    expect(await withCtx({}, () => service.names([]))).toEqual([]);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  test("another organisation's person is not named", async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_theirs', organizationId: 'org_beta', fullName: 'Someone Else' });
+    expect(await withCtx({}, () => service.names(['u_theirs']))).toEqual([]);
+  });
+
+  test('an id that matches nobody is simply absent; repeats are asked for once', async () => {
+    const { service, prisma } = makeService();
+    seedUser(prisma, { id: 'u_a', fullName: 'Ada Admin' });
+    const names = await withCtx({}, () => service.names(['u_a', 'u_a', 'u_gone']));
+    expect(names).toEqual([{ id: 'u_a', fullName: 'Ada Admin' }]);
+    expect((prisma.user.findMany.mock.calls[0]![0].where.id as { in: string[] }).in).toEqual(['u_a', 'u_gone']);
+  });
+});
+
 describe('UsersService.suspend', () => {
   test('transitions an ACTIVE user to SUSPENDED and audits', async () => {
     const { service, prisma, audit } = makeService();

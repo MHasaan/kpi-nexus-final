@@ -43,24 +43,36 @@ export class ActionDispatcherService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Fire-and-forget: used when an event (a recorded value, an alert) matches a
+   * workflow. A failure is logged and swallowed, because it must never break
+   * the operation that triggered it.
+   */
   async dispatch(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date()): Promise<void> {
     try {
-      switch (action.kind) {
-        case 'create_task':
-          await this.createTask(action, event, now);
-          return;
-        case 'post_webhook':
-          await this.postWebhook(action, event);
-          return;
-        case 'send_notification':
-          await this.sendNotification(action, event);
-          return;
-        default:
-          this.logger.warn(`Unknown workflow action kind: ${(action as { kind?: string }).kind}`);
-          return;
-      }
+      await this.run(action, event, now);
     } catch (err) {
       this.logger.warn(`Workflow action ${(action as { kind?: string }).kind} failed: ${String(err)}`);
+    }
+  }
+
+  /**
+   * Do the action and let a failure be seen. Used by "Run now", where the
+   * person pressing the button is waiting to hear whether it worked.
+   */
+  async run(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date()): Promise<void> {
+    switch (action.kind) {
+      case 'create_task':
+        await this.createTask(action, event, now);
+        return;
+      case 'post_webhook':
+        await this.postWebhook(action, event);
+        return;
+      case 'send_notification':
+        await this.sendNotification(action, event);
+        return;
+      default:
+        throw new Error(`Unknown workflow action kind: ${String((action as { kind?: string }).kind)}`);
     }
   }
 
@@ -92,10 +104,7 @@ export class ActionDispatcherService {
       where: { id: action.channelId, organizationId: ctx.organizationId, isActive: true },
       select: { id: true, kind: true, config: true },
     });
-    if (!channel) {
-      this.logger.warn(`send_notification: channel ${action.channelId} not found`);
-      return;
-    }
+    if (!channel) throw new Error('The notification channel no longer exists or is switched off');
     if (channel.kind === 'EMAIL') {
       const config = (channel.config as { recipients?: string[]; to?: string }) ?? {};
       const recipients = config.recipients ?? (config.to ? [config.to] : []);

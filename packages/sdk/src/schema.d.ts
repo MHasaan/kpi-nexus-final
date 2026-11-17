@@ -17061,11 +17061,47 @@ export interface operations {
                     name: string;
                     description?: string;
                     triggers: ("kpi_changed" | "schedule" | "alert" | "manual")[];
-                    rule?: {
-                        [key: string]: unknown;
-                    } | null;
+                    rule?: ({
+                        /** @constant */
+                        kind: "kpi_value";
+                        kpiId: string;
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        value: number;
+                    } | {
+                        /** @constant */
+                        kind: "kpi_change_pct";
+                        kpiId: string;
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        value: number;
+                        windowDays?: number;
+                    } | {
+                        /** @constant */
+                        kind: "alert_severity";
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        /** @enum {string} */
+                        severity: "LOW" | "MEDIUM" | "HIGH";
+                    }) | null;
                     action: {
-                        [key: string]: unknown;
+                        /** @constant */
+                        kind: "create_task";
+                        title: string;
+                        description?: string;
+                        assigneeUserId?: string;
+                        dueAtRelativeHours?: number;
+                        /** @enum {string} */
+                        priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+                    } | {
+                        /** @constant */
+                        kind: "post_webhook";
+                        subscriptionId: string;
+                    } | {
+                        /** @constant */
+                        kind: "send_notification";
+                        channelId: string;
+                        message: string;
                     };
                     isActive?: boolean;
                     scheduleCron?: string;
@@ -17179,11 +17215,47 @@ export interface operations {
                     name?: string;
                     description?: string;
                     triggers?: ("kpi_changed" | "schedule" | "alert" | "manual")[];
-                    rule?: {
-                        [key: string]: unknown;
-                    } | null;
+                    rule?: ({
+                        /** @constant */
+                        kind: "kpi_value";
+                        kpiId: string;
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        value: number;
+                    } | {
+                        /** @constant */
+                        kind: "kpi_change_pct";
+                        kpiId: string;
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        value: number;
+                        windowDays?: number;
+                    } | {
+                        /** @constant */
+                        kind: "alert_severity";
+                        /** @enum {string} */
+                        operator: ">" | "<" | ">=" | "<=" | "==" | "!=";
+                        /** @enum {string} */
+                        severity: "LOW" | "MEDIUM" | "HIGH";
+                    }) | null;
                     action?: {
-                        [key: string]: unknown;
+                        /** @constant */
+                        kind: "create_task";
+                        title: string;
+                        description?: string;
+                        assigneeUserId?: string;
+                        dueAtRelativeHours?: number;
+                        /** @enum {string} */
+                        priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+                    } | {
+                        /** @constant */
+                        kind: "post_webhook";
+                        subscriptionId: string;
+                    } | {
+                        /** @constant */
+                        kind: "send_notification";
+                        channelId: string;
+                        message: string;
                     };
                     isActive?: boolean;
                     scheduleCron?: string;

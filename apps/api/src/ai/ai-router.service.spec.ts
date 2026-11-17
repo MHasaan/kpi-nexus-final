@@ -238,3 +238,37 @@ describe('AiRouterService reasoning budget', () => {
     expect(vi.mocked(p.complete).mock.calls[0]![0].reasoningBudgetTokens).toBe(64);
   });
 });
+
+describe("AiRouterService — a feature's own daily cap (plan 6.12)", () => {
+  const capped = (perFeatureCapUsd: number | undefined) => async () => ({
+    provider: 'CLAUDE' as const,
+    model: 'claude-haiku-4-5',
+    fallback: { provider: 'GEMINI' as const, model: 'gemini-2.5-flash' },
+    perFeatureCapUsd,
+  });
+
+  it('refuses the feature with 402 FEATURE_CAP once it has spent its cap today, without calling a provider', async () => {
+    const getProvider = vi.fn((k: AiProviderKey) => stubProvider(k));
+    const featureSpendToday = vi.fn(async () => 0.5);
+    const { deps } = makeDeps({ registry: { getProvider }, resolveConfig: capped(0.5), featureSpendToday });
+    const err = await new AiRouterService(deps).complete('NLQ_PRIMARY', { messages: [{ role: 'user', content: 'hi' }] }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiBudgetExceededError);
+    expect((err as AiBudgetExceededError).getResponse()).toMatchObject({ code: 'AI_BUDGET_EXCEEDED', details: { reason: 'FEATURE_CAP' } });
+    expect(featureSpendToday).toHaveBeenCalledWith('NLQ_PRIMARY');
+    expect(getProvider).not.toHaveBeenCalled();
+  });
+
+  it('lets the feature run while it is under its cap', async () => {
+    const { deps } = makeDeps({ resolveConfig: capped(0.5), featureSpendToday: async () => 0.49 });
+    await expect(new AiRouterService(deps).complete('NLQ_PRIMARY', { messages: [{ role: 'user', content: 'hi' }] })).resolves.toMatchObject({ content: 'CLAUDE says hi' });
+  });
+
+  it('does not look up spend for a feature with no cap (or a cap of 0)', async () => {
+    const featureSpendToday = vi.fn(async () => 99);
+    for (const cap of [undefined, 0]) {
+      const { deps } = makeDeps({ resolveConfig: capped(cap), featureSpendToday });
+      await expect(new AiRouterService(deps).complete('NLQ_PRIMARY', { messages: [{ role: 'user', content: 'hi' }] })).resolves.toBeDefined();
+    }
+    expect(featureSpendToday).not.toHaveBeenCalled();
+  });
+});

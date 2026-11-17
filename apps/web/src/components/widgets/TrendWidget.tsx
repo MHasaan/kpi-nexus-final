@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint, DashboardWidget } from '../../lib/api-client';
+import { periodLabel, toSeries } from './series';
 
 interface TrendWidgetProps {
   widget: DashboardWidget;
@@ -16,8 +17,8 @@ interface TrendWidgetProps {
 
 export function TrendWidget({ widget, dataPoints = [] }: TrendWidgetProps) {
   const title = widget.title ?? 'Trend';
-  const chartData = dataPoints.slice(-30).map((dp) => ({
-    date: new Date(dp.recordedAt).toLocaleDateString(),
+  const chartData = toSeries(dataPoints, 30).map((dp) => ({
+    date: periodLabel(dp),
     value: dp.value,
   }));
 

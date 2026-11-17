@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import { latestPoint, previousPoint, toSeries } from './series';
 
 interface NumberWidgetProps {
   widget: DashboardWidget;
@@ -16,14 +17,14 @@ interface NumberWidgetProps {
 
 export function NumberWidget({ widget, kpi, dataPoints = [] }: NumberWidgetProps) {
   const title = widget.title ?? kpi?.name ?? 'Number';
-  const latest = dataPoints.at(-1);
+  const latest = latestPoint(dataPoints);
   const value = latest?.value ?? null;
   const unit = kpi?.unit ?? (widget.config['unit'] as string | undefined) ?? '';
 
-  const sparkData = dataPoints.slice(-15).map((dp) => ({ v: dp.value }));
+  const sparkData = toSeries(dataPoints, 15).map((dp) => ({ v: dp.value }));
 
   // Trend arrow
-  const prev = dataPoints.at(-2);
+  const prev = previousPoint(dataPoints);
   const trend =
     prev && value !== null
       ? value > prev.value

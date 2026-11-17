@@ -1,6 +1,7 @@
 'use client';
 
 import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import { latestPoint } from './series';
 
 interface GaugeWidgetProps {
   widget: DashboardWidget;
@@ -35,7 +36,7 @@ function arcPath(
 
 export function GaugeWidget({ widget, kpi, dataPoints = [] }: GaugeWidgetProps) {
   const title = widget.title ?? kpi?.name ?? 'Gauge';
-  const latest = dataPoints.at(-1);
+  const latest = latestPoint(dataPoints);
   const value = latest?.value ?? null;
   const target = kpi?.targetValue ?? null;
   const warning = kpi?.warningThreshold ?? null;

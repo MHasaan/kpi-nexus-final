@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import { latestPoint, toSeries } from './series';
 
 interface KpiCardProps {
   widget: DashboardWidget;
@@ -29,11 +30,11 @@ function getStatusColor(
 
 export function KpiCard({ widget, kpi, dataPoints = [] }: KpiCardProps) {
   const title = widget.title ?? kpi?.name ?? 'KPI';
-  const latest = dataPoints.at(-1);
+  const latest = latestPoint(dataPoints);
   const latestValue = latest?.value ?? null;
   const unit = kpi?.unit ?? (widget.config['unit'] as string | undefined) ?? '';
 
-  const sparkData = dataPoints.slice(-20).map((dp) => ({
+  const sparkData = toSeries(dataPoints, 20).map((dp) => ({
     v: dp.value,
   }));
 

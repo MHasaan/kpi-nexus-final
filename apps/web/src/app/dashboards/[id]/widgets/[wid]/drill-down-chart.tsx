@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint } from '../../../../../lib/api-client';
+import { periodLabel, toSeries } from '@/components/widgets/series';
 
 interface DrillDownChartProps {
   dataPoints: DataPoint[];
@@ -22,8 +23,8 @@ interface DrillDownChartProps {
 }
 
 export function DrillDownChart({ dataPoints, mode }: DrillDownChartProps) {
-  const chartData = dataPoints.map((dp) => ({
-    date: new Date(dp.recordedAt).toLocaleDateString(),
+  const chartData = toSeries(dataPoints).map((dp) => ({
+    date: periodLabel(dp),
     value: dp.value,
   }));
 

@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 
 import type { DataPoint, DashboardWidget, KpiSummary } from '../../lib/api-client';
+import { latestPoint, periodLabel, toSeries } from './series';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
 
@@ -21,7 +22,7 @@ interface PieChartWidgetProps {
 
 export function PieChartWidget({ widget, kpi, dataPoints = [] }: PieChartWidgetProps) {
   const title = widget.title ?? 'Pie Chart';
-  const latest = dataPoints.at(-1);
+  const latest = latestPoint(dataPoints);
   const latestValue = latest?.value ?? 0;
   const target = kpi?.targetValue ?? null;
 
@@ -32,8 +33,8 @@ export function PieChartWidget({ widget, kpi, dataPoints = [] }: PieChartWidgetP
           { name: 'Actual', value: Math.min(latestValue, target) },
           { name: 'Remaining', value: Math.max(0, target - latestValue) },
         ]
-      : dataPoints.slice(-5).map((dp, i) => ({
-          name: new Date(dp.recordedAt).toLocaleDateString(),
+      : toSeries(dataPoints, 5).map((dp, i) => ({
+          name: periodLabel(dp),
           value: dp.value,
           index: i,
         }));

@@ -9,6 +9,7 @@ import {
 import * as bcrypt from 'bcrypt';
 
 import { AuthService } from '../auth/auth.service.js';
+import { computeInheritedAssignments } from '../org-unit-kpis/inheritance.js';
 import { OrgTemplatesService } from '../org-templates/org-templates.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
@@ -267,11 +268,18 @@ export class OnboardingService {
           catMap.set(nameKey(c.name), created.id);
         }
 
-        if (payload.kpis.length) {
-          await tx.kPI.createMany({
-            data: payload.kpis.map((k) => ({
+        // Units as a tree, for handing per-unit KPIs down it.
+        const unitRows = await tx.orgUnit.findMany({
+          where: { organizationId: org.id },
+          select: { id: true, parentUnitId: true },
+        });
+        const topLevelUnitIds = unitRows.filter((u) => u.parentUnitId === null).map((u) => u.id);
+
+        for (const k of payload.kpis) {
+          const created = await tx.kPI.create({
+            data: {
               organizationId: org.id,
-              name: k.name,
+              name: k.name.trim(),
               description: k.description ?? null,
               categoryId: catMap.get(nameKey(k.category)) ?? null,
               scope: k.scope,
@@ -280,9 +288,40 @@ export class OnboardingService {
               frequency: k.frequency,
               unit: k.unit ?? null,
               scorecardQuadrant: k.scorecardQuadrant ?? null,
+              targetValue: k.targetValue ?? null,
+              // Someone answers for every KPI from day one (plan 3.2b).
+              ownerUserId: adminUser.id,
               createdById: adminUser.id,
               status: 'DRAFT',
-            })),
+            },
+            select: { id: true },
+          });
+          if (k.scope !== 'PER_UNIT') continue;
+
+          // A per-unit KPI belongs to units, or nobody could ever record it — the
+          // state `POST /kpis` refuses, and the one onboarding used to leave
+          // every per-unit KPI in. The units named hold it; with none named, the
+          // top-level units do. Units below a holder inherit it.
+          const named = (k.units ?? []).map((u) => unitMap.get(nameKey(u))).filter((id): id is string => Boolean(id));
+          const direct = new Set(named.length > 0 ? named : topLevelUnitIds);
+          const inherited = computeInheritedAssignments(unitRows, direct);
+          await tx.kPIAssignmentOrgUnit.createMany({
+            data: [
+              ...[...direct].map((orgUnitId) => ({
+                organizationId: org.id,
+                kpiId: created.id,
+                orgUnitId,
+                inherited: false,
+                targetValue: k.targetValue ?? null,
+              })),
+              ...inherited.map((row) => ({
+                organizationId: org.id,
+                kpiId: created.id,
+                orgUnitId: row.unitId,
+                inherited: true,
+                inheritedFromUnitId: row.sourceUnitId,
+              })),
+            ],
           });
         }
 

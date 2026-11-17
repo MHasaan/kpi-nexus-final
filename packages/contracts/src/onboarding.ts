@@ -127,6 +127,12 @@ export const DraftKpiSchema = z.object({
   frequency: z.enum(KPI_FREQUENCIES).default('MONTHLY'),
   unit: z.string().max(40).optional(),
   scorecardQuadrant: z.enum(SCORECARD_QUADRANTS).optional(),
+  targetValue: z.number().finite().optional(),
+  /**
+   * For a PER_UNIT KPI: the units that hold it (the units below them inherit
+   * it). Left out, every top-level unit holds it.
+   */
+  units: z.array(name).max(DRAFT_SECTION_MAX).optional(),
 });
 
 const list = <T extends z.ZodType>(item: T) => z.array(item).max(DRAFT_SECTION_MAX);
@@ -334,6 +340,32 @@ export function validateOnboardingDraft(raw: unknown): DraftProblem[] {
         field: 'category',
         message: kpi.category.trim() ? `"${kpi.category.trim()}" is not one of the KPI categories.` : 'Choose a category for this KPI.',
       });
+    }
+    const named = (kpi.units ?? []).filter((u) => u.trim());
+    if (kpi.scope !== 'PER_UNIT') {
+      if (named.length > 0) {
+        problems.push({
+          section: 'kpis',
+          index,
+          field: 'units',
+          message: 'Only a KPI recorded per unit is held by units. Change its scope, or remove the units.',
+        });
+      }
+      return;
+    }
+    if (units.length === 0) {
+      problems.push({
+        section: 'kpis',
+        index,
+        field: 'scope',
+        message: 'This KPI is recorded per unit, but there are no units yet. Add a unit, or record it for the whole organization.',
+      });
+      return;
+    }
+    for (const unit of named) {
+      if (!unitNames.has(key(unit))) {
+        problems.push({ section: 'kpis', index, field: 'units', message: `There is no unit called "${unit.trim()}".` });
+      }
     }
   });
 

@@ -175,3 +175,45 @@ describe('normalizeSizeTier', () => {
     expect(normalizeSizeTier('gigantic')).toBeNull();
   });
 });
+
+describe('KPIs in the draft: units, target (plan 3.2b)', () => {
+  const perUnit = (extra: Record<string, unknown> = {}) => ({
+    name: 'Cycle Time',
+    category: 'Delivery',
+    scope: 'PER_UNIT',
+    type: 'DURATION',
+    direction: 'LOWER_IS_BETTER',
+    frequency: 'WEEKLY',
+    ...extra,
+  });
+
+  test('a per-unit KPI can name the units that hold it, and any KPI can carry a target', () => {
+    const draft = { ...ready(), kpis: [perUnit({ units: ['Engineering'], targetValue: 5 })] };
+    expect(OnboardingDraftPatchSchema.parse(draft).kpis![0]).toMatchObject({ units: ['Engineering'], targetValue: 5 });
+    expect(validateOnboardingDraft(draft)).toEqual([]);
+  });
+
+  test('a per-unit KPI with no units named is fine: it goes to the top-level units', () => {
+    expect(validateOnboardingDraft({ ...ready(), kpis: [perUnit()] })).toEqual([]);
+  });
+
+  test('a unit that does not exist is a problem on the KPI', () => {
+    const problems = validateOnboardingDraft({ ...ready(), kpis: [perUnit({ units: ['Engineering', 'Marketing'] })] });
+    expect(problems).toEqual([{ section: 'kpis', index: 0, field: 'units', message: 'There is no unit called "Marketing".' }]);
+  });
+
+  test('only a per-unit KPI is held by units', () => {
+    const problems = validateOnboardingDraft({ ...ready(), kpis: [perUnit({ scope: 'ORG_WIDE', units: ['Engineering'] })] });
+    expect(problems).toEqual([expect.objectContaining({ section: 'kpis', index: 0, field: 'units' })]);
+  });
+
+  test('a per-unit KPI in an organisation with no units could never be recorded', () => {
+    const problems = validateOnboardingDraft({ ...ready(), orgUnits: [], kpis: [perUnit()] });
+    expect(problems).toEqual([expect.objectContaining({ section: 'kpis', index: 0, field: 'scope' })]);
+  });
+
+  test('a target must be a number', () => {
+    expect(OnboardingDraftPatchSchema.safeParse({ kpis: [perUnit({ targetValue: 'high' })] }).success).toBe(false);
+    expect(OnboardingDraftPatchSchema.safeParse({ kpis: [perUnit({ targetValue: Number.POSITIVE_INFINITY })] }).success).toBe(false);
+  });
+});

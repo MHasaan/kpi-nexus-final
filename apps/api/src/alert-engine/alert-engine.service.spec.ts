@@ -38,7 +38,31 @@ class FakePrisma {
   private n = 1;
   rules: FakeRule[] = [];
   alerts: FakeAlert[] = [];
-  dataPoints: { organizationId: string; kpiId: string; recordedAt: Date }[] = [];
+  dataPoints: {
+    organizationId: string;
+    kpiId: string;
+    recordedAt: Date;
+    id?: string;
+    value?: number;
+    periodStart?: Date;
+    orgUnitId?: string | null;
+    userId?: string | null;
+  }[] = [];
+
+  /** The subset of Prisma's where the engine uses on data points. */
+  private matching(where: Record<string, unknown>) {
+    const id = where.id as string | { not?: string } | undefined;
+    const before = (where.recordedAt as { lte?: Date } | undefined)?.lte;
+    return this.dataPoints.filter(
+      (d) =>
+        d.organizationId === where.organizationId &&
+        d.kpiId === where.kpiId &&
+        (id === undefined || (typeof id === 'string' ? d.id === id : d.id !== id.not)) &&
+        (!('orgUnitId' in where) || (d.orgUnitId ?? null) === where.orgUnitId) &&
+        (!('userId' in where) || (d.userId ?? null) === where.userId) &&
+        (before === undefined || d.recordedAt <= before),
+    );
+  }
 
   alertRule = {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
@@ -91,11 +115,17 @@ class FakePrisma {
 
   kPIDataPoint = {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
-      const matches = this.dataPoints
-        .filter((d) => d.organizationId === where.organizationId && d.kpiId === where.kpiId)
-        .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
-      return matches[0] ? { recordedAt: matches[0].recordedAt } : null;
+      const newest = this.matching(where).sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())[0];
+      return newest
+        ? { recordedAt: newest.recordedAt, value: newest.value, orgUnitId: newest.orgUnitId ?? null, userId: newest.userId ?? null }
+        : null;
     }),
+    findMany: vi.fn(async ({ where, take }: { where: Record<string, unknown>; take?: number }) =>
+      this.matching(where)
+        .sort((a, b) => (b.periodStart?.getTime() ?? 0) - (a.periodStart?.getTime() ?? 0))
+        .slice(0, take)
+        .map((d) => ({ value: d.value })),
+    ),
   };
 }
 
@@ -250,5 +280,146 @@ describe('AlertEngineService → KPI watchers', () => {
     watches.enqueue.mockClear();
     await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 50, recordedAt: new Date() });
     expect(watches.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI-009: these three types were accepted, saved and listed — and never fired.
+// ---------------------------------------------------------------------------
+const NOW = new Date('2026-11-17T12:00:00.000Z');
+const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
+
+function rule(id: string, ruleType: string, config: unknown): FakeRule {
+  return { id, organizationId: ORG, kpiId: KPI, name: id, ruleType, config, severity: 'MEDIUM', isActive: true };
+}
+
+/** Earlier monthly values of one series, oldest first, plus the one just recorded. */
+function seed(prisma: FakePrisma, earlier: number[], latest: number, series: { orgUnitId?: string; userId?: string } = {}) {
+  earlier.forEach((value, i) => {
+    prisma.dataPoints.push({
+      id: `dp_${series.orgUnitId ?? series.userId ?? 'org'}_${i}`,
+      organizationId: ORG,
+      kpiId: KPI,
+      value,
+      periodStart: new Date(Date.UTC(2026, i, 1)),
+      recordedAt: minutesAgo((earlier.length - i) * 1440),
+      ...series,
+    });
+  });
+  const id = `dp_${series.orgUnitId ?? series.userId ?? 'org'}_new`;
+  prisma.dataPoints.push({ id, organizationId: ORG, kpiId: KPI, value: latest, periodStart: new Date(Date.UTC(2026, earlier.length, 1)), recordedAt: NOW, ...series });
+  return id;
+}
+
+describe('AlertEngineService.evaluateKpi (DYNAMIC_STDDEV)', () => {
+  test('fires on a value far from what is usual, leaving the new value out of "usual"', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('unusual', 'DYNAMIC_STDDEV', { sigmas: 3, windowSize: 6 }));
+    const dataPointId = seed(prisma, [98, 102, 98, 102, 98, 102], 110);
+    const { engine } = makeEngine(prisma);
+
+    const created = await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 110, recordedAt: NOW, dataPointId });
+
+    expect(created).toHaveLength(1);
+    expect(prisma.alerts[0]!.message).toBe('Value 110 is 5 standard deviations above the average of the last 6 values (100)');
+  });
+
+  test('stays quiet for an ordinary value, and with too little history', async () => {
+    const steady = new FakePrisma();
+    steady.rules.push(rule('unusual', 'DYNAMIC_STDDEV', { sigmas: 3, windowSize: 6 }));
+    const id = seed(steady, [98, 102, 98, 102, 98, 102], 101);
+    expect(await makeEngine(steady).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 101, recordedAt: NOW, dataPointId: id })).toHaveLength(0);
+
+    const young = new FakePrisma();
+    young.rules.push(rule('unusual', 'DYNAMIC_STDDEV', { sigmas: 1, windowSize: 6 }));
+    const first = seed(young, [100], 5000);
+    expect(await makeEngine(young).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 5000, recordedAt: NOW, dataPointId: first })).toHaveLength(0);
+  });
+
+  test("one unit's value is judged against that unit's history, not another's", async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('unusual', 'DYNAMIC_STDDEV', { sigmas: 3, windowSize: 6 }));
+    seed(prisma, [9000, 9100, 9000, 9100, 9000, 9100], 9050, { orgUnitId: 'big' });
+    const dataPointId = seed(prisma, [98, 102, 98, 102, 98, 102], 101, { orgUnitId: 'small' });
+    const { engine } = makeEngine(prisma);
+
+    // 101 is ordinary for the small unit; against everything mixed together it would not be judged fairly either way.
+    expect(await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 101, recordedAt: NOW, dataPointId })).toHaveLength(0);
+    // …and 9050 arriving for the small unit is wildly unusual for it, though ordinary for the big one.
+    prisma.dataPoints.find((d) => d.id === dataPointId)!.value = 9050;
+    expect(await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 9050, recordedAt: NOW, dataPointId })).toHaveLength(1);
+  });
+});
+
+describe('AlertEngineService.evaluateKpi (RATE_OF_CHANGE)', () => {
+  test('fires when the value has fallen far enough since the window began', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('drop', 'RATE_OF_CHANGE', { pctChange: -20, windowMinutes: 1440 }));
+    const dataPointId = seed(prisma, [100, 100], 70); // recorded 2 days and 1 day ago
+    const { engine } = makeEngine(prisma);
+
+    const created = await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 70, recordedAt: NOW, dataPointId });
+
+    expect(created).toHaveLength(1);
+    expect(prisma.alerts[0]!.message).toBe('Value fell 30% (from 100 to 70) within 1 day');
+  });
+
+  test('stays quiet when nothing was recorded that long ago, or the move is too small', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('drop', 'RATE_OF_CHANGE', { pctChange: -20, windowMinutes: 10080 })); // a week; history is 2 days deep
+    const dataPointId = seed(prisma, [100, 100], 10);
+    expect(await makeEngine(prisma).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 10, recordedAt: NOW, dataPointId })).toHaveLength(0);
+
+    const small = new FakePrisma();
+    small.rules.push(rule('drop', 'RATE_OF_CHANGE', { pctChange: -20, windowMinutes: 1440 }));
+    const id = seed(small, [100, 100], 90);
+    expect(await makeEngine(small).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 90, recordedAt: NOW, dataPointId: id })).toHaveLength(0);
+  });
+});
+
+describe('AlertEngineService.evaluateKpi (COMPOSITE)', () => {
+  const parts = [
+    { ruleType: 'STATIC_THRESHOLD', config: { operator: '<', value: 80 } },
+    { ruleType: 'RATE_OF_CHANGE', config: { pctChange: -20, windowMinutes: 1440 } },
+  ];
+
+  test('AND fires only when every part holds', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('both', 'COMPOSITE', { operator: 'AND', rules: parts }));
+    const dataPointId = seed(prisma, [100, 100], 70);
+    const { engine } = makeEngine(prisma);
+    expect(await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 70, recordedAt: NOW, dataPointId })).toHaveLength(1);
+    expect(prisma.alerts[0]!.message).toBe('Value 70 < threshold 80 and Value fell 30% (from 100 to 70) within 1 day');
+
+    const half = new FakePrisma();
+    half.rules.push(rule('both', 'COMPOSITE', { operator: 'AND', rules: parts }));
+    const id = seed(half, [75, 75], 70); // under 80, but hardly moved
+    expect(await makeEngine(half).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 70, recordedAt: NOW, dataPointId: id })).toHaveLength(0);
+  });
+
+  test('OR fires when any part holds', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('either', 'COMPOSITE', { operator: 'OR', rules: parts }));
+    const dataPointId = seed(prisma, [75, 75], 70);
+    expect(await makeEngine(prisma).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 70, recordedAt: NOW, dataPointId })).toHaveLength(1);
+  });
+});
+
+describe('AlertEngineService.evaluateKpi (what it loads)', () => {
+  test('threshold rules alone read no history', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('high', 'STATIC_THRESHOLD', { operator: '>', value: 100 }));
+    await makeEngine(prisma).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 150, recordedAt: NOW, dataPointId: 'x' });
+    expect(prisma.kPIDataPoint.findMany).not.toHaveBeenCalled();
+    expect(prisma.kPIDataPoint.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('history is read once however many rules want it', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push(rule('a', 'DYNAMIC_STDDEV', { sigmas: 3, windowSize: 4 }), rule('b', 'DYNAMIC_STDDEV', { sigmas: 2, windowSize: 6 }));
+    const dataPointId = seed(prisma, [98, 102, 98, 102, 98, 102], 101);
+    await makeEngine(prisma).engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 101, recordedAt: NOW, dataPointId });
+    expect(prisma.kPIDataPoint.findMany).toHaveBeenCalledOnce();
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0].take).toBe(6);
   });
 });

@@ -339,6 +339,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 5.4: 'no access', 'not found' and the error page offered only 'Back to Dashboard' — a loop for anyone the dashboard is closed to — and no Sign out; a failed permissions request sent a signed-in person to 'no access' | ✅ Fixed — dead ends offer the first page the person may open and Sign out (Sign in when signed out); a failed check stays on the page with Try again | #202 | `e2e/dead-ends.spec.ts` (dashboard-denied role is offered My KPIs; sign-out clears the session; a 500 from `/auth/me` shows a retry that works), `first-page.spec.ts`, `smoke.spec.ts`; full e2e suite passes
 | X-05 (plan 5.3) Tasks, OKRs and comments needed `GET /users` to show a name: a reader without USERS_VIEW was refused on every visit and saw '—' or 'Unknown user' | ✅ Fixed for those pages — `POST /users/names` (any member, names only, for ids already held, own organisation, ≤ 200) and a shared `usePeople` hook. Pickers for such a reader offer the people already involved and themselves; searching for anyone else is still to do | #203 | `e2e/people-names.spec.ts` (an employee sees the colleague who set their task and the owner of an objective; no 403), `users.service.spec.ts` (names only, not a list, other organisation absent), `people.spec.ts`
 | UI-013 (Dashboards) a dashboard viewer was shown Edit, Settings, Add widget, Snapshot and Share, each refused by the API (DASHBOARD_MANAGE); the archive page had no gate | ✅ Fixed — those actions, and taking or deleting a snapshot, are behind DASHBOARD_MANAGE; the archive is gated DASHBOARD_VIEW | #205 | `e2e/dashboard-viewer-buttons.spec.ts` (manager sees all five; viewer sees none, can still read history and print, and no dashboard call is refused; someone with no dashboard access is turned away from the archive without a refused call)
+| UI-013 (alerts bell) the top bar's bell asked `GET /alerts/unread-count` for everyone and was refused, on every page and every 30 s, for anyone without ALERTS_VIEW | ✅ Fixed — the bell is shown and polls only with ALERTS_VIEW | #206 | `e2e/alerts-bell-permission.spec.ts` (failed before): no bell and no refused alerts call across three pages for a role without the key; the bell is there for one with it
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -346,8 +347,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| The top bar's alerts bell asks `GET /alerts/unread-count` for every signed-in person and is refused (403, every 30 s) for anyone without ALERTS_VIEW | Low | ⬜ open | 5.2 |
-| UI-013 page and API disagree on the permission needed (Ask and Dashboards are done). Three of the groups change an API permission and wait for the owner's sign-off: forecast / what-if, anomalies, reports | High | 🟡 partly | 5.2 |
+| UI-013 page and API disagree on the permission needed (Ask, Dashboards and the alerts bell are done). Three of the groups change an API permission and wait for the owner's sign-off: forecast / what-if, anomalies, reports | High | 🟡 partly | 5.2 |
 | UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
 | UI-015 integrations "Connect" records a connection with no token | High | ⬜ open | 6.10 |
 | X-01 deletes with no confirmation; `window.confirm` still in five places (the `/users` list is done) | Medium | 🟡 partly | 7.1 |

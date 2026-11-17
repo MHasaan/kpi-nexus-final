@@ -737,7 +737,8 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <GlobalSearch />
-            <AlertsBell />
+            {/* The bell reads alerts, which needs ALERTS_VIEW: without it there is nothing to show and every poll would be refused. */}
+            {ready && permissions.includes('ALERTS_VIEW') && <AlertsBell />}
             <Link
               href="/me/mentions"
               data-testid="mentions-bell"

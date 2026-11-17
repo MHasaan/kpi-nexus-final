@@ -1427,6 +1427,12 @@ export interface AuditListParams {
   userId?: string;
   action?: AuditAction;
   limit?: number;
+  /** The id of the last row already shown; the next rows are older. */
+  cursor?: string;
+  /** `YYYY-MM-DD`: only rows from this day on. */
+  from?: string;
+  /** `YYYY-MM-DD`: only rows up to the end of this day. */
+  to?: string;
 }
 
 export async function listAudit(params: AuditListParams = {}): Promise<AuditEntry[]> {
@@ -1436,6 +1442,32 @@ export async function listAudit(params: AuditListParams = {}): Promise<AuditEntr
   }
   const qs = search.toString();
   return api(`/audit${qs ? `?${qs}` : ''}`);
+}
+
+/** Download the filtered audit log as a CSV file (needs the export key). */
+export async function downloadAuditCsv(params: Omit<AuditListParams, 'limit' | 'cursor'> = {}): Promise<void> {
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') search.set(k, String(v));
+  }
+  const token = getAccessToken();
+  const res = await fetch(`${apiBaseUrl}/audit/export?${search.toString()}`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new ApiError(res.status, payload.message ?? `HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  // The response's file name is not readable across origins, so the name is made here.
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 // =============================================================================

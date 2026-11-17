@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   clearTokens,
+  downloadAuditCsv,
   getAccessToken,
   listAudit,
   type AuditAction,
@@ -18,6 +19,9 @@ import { usePermissions } from '../../../lib/use-permissions';
 /** The keys the audit API accepts — either one (UI-013: the page asked for ORG_SETTINGS only, so an auditor's sidebar link led to "no access"). */
 const AUDIT_KEYS = ['AUDIT_VIEW', 'ORG_SETTINGS'];
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+
+/** Rows are fetched this many at a time; "Load older entries" fetches the next lot. */
+const PAGE_SIZE = 100;
 
 const ACTION_OPTIONS: AuditAction[] = [
   'CREATE',
@@ -44,10 +48,19 @@ function AuditPageInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filterAction, setFilterAction] = useState<AuditAction | ''>('');
   const [filterEntityType, setFilterEntityType] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+  const [filterUserId, setFilterUserId] = useState('');
+  // Everyone seen in the rows loaded so far — the choices of the Person filter.
+  const [people, setPeople] = useState<Array<{ id: string; label: string }>>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Load only once the page gate passes (FE-014).
-  const { ready, hasAny } = usePermissions();
+  const { ready, has, hasAny } = usePermissions();
   const allowed = ready && hasAny(AUDIT_KEYS);
+  const canExport = has('EXPORTS');
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace(currentLoginRedirect());
@@ -56,24 +69,72 @@ function AuditPageInner() {
     if (allowed) void refresh();
   }, [router, allowed]);
 
+  function filters() {
+    return {
+      action: filterAction || undefined,
+      entityType: filterEntityType.trim() || undefined,
+      userId: filterUserId || undefined,
+      from: filterFrom || undefined,
+      to: filterTo || undefined,
+    };
+  }
+
+  function remember(rows: AuditEntry[]) {
+    setPeople((known) => {
+      const next = [...known];
+      for (const r of rows) {
+        if (r.userId && !next.some((p) => p.id === r.userId)) next.push({ id: r.userId, label: r.userEmail ?? 'Someone without an email' });
+      }
+      return next;
+    });
+  }
+
+  function fail(err: unknown, fallback: string) {
+    if (err instanceof ApiError && err.status === 401) {
+      clearTokens();
+      router.replace(currentLoginRedirect());
+      return;
+    }
+    setLoadError(err instanceof ApiError ? err.message : fallback);
+  }
+
   async function refresh() {
     setLoadError(null);
     try {
-      const data = await listAudit({
-        action: filterAction || undefined,
-        entityType: filterEntityType.trim() || undefined,
-        limit: 100,
-      });
+      const data = await listAudit({ ...filters(), limit: PAGE_SIZE });
       setEntries(data);
+      setHasMore(data.length === PAGE_SIZE);
+      remember(data);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        clearTokens();
-        router.replace(currentLoginRedirect());
-        return;
-      }
-      setLoadError(
-        err instanceof ApiError ? err.message : 'Failed to load audit entries',
-      );
+      fail(err, 'Failed to load audit entries');
+    }
+  }
+
+  async function loadOlder() {
+    const last = entries?.at(-1);
+    if (!last) return;
+    setLoadingMore(true);
+    try {
+      const older = await listAudit({ ...filters(), limit: PAGE_SIZE, cursor: last.id });
+      setEntries((shown) => [...(shown ?? []), ...older]);
+      setHasMore(older.length === PAGE_SIZE);
+      remember(older);
+    } catch (err) {
+      fail(err, 'Older entries could not be loaded');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function exportCsv() {
+    setLoadError(null);
+    setExporting(true);
+    try {
+      await downloadAuditCsv(filters());
+    } catch (err) {
+      fail(err, 'The export could not be made');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -100,7 +161,7 @@ function AuditPageInner() {
           className="mb-6 rounded-lg border border-border bg-surface-1 p-4"
           data-testid="audit-filters"
         >
-          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:items-end">
             <label className="block">
               <span className="text-sm font-medium text-content-default">Action</span>
               <select
@@ -127,14 +188,44 @@ function AuditPageInner() {
                 className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
               />
             </label>
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              data-testid="audit-apply-filters"
-              className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90"
-            >
-              Apply
-            </button>
+            <label className="block">
+              <span className="text-sm font-medium text-content-default">Person</span>
+              <select value={filterUserId} onChange={(e) => setFilterUserId(e.target.value)} data-testid="filter-person" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30">
+                <option value="">(anyone)</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-content-default">From</span>
+              <input type="date" value={filterFrom} max={filterTo || undefined} onChange={(e) => setFilterFrom(e.target.value)} data-testid="filter-from" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-content-default">To</span>
+              <input type="date" value={filterTo} min={filterFrom || undefined} onChange={(e) => setFilterTo(e.target.value)} data-testid="filter-to" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30" />
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                data-testid="audit-apply-filters"
+                className="h-10 rounded-md bg-accent-primary px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-primary/90"
+              >
+                Apply
+              </button>
+              {canExport && (
+                <button
+                  type="button"
+                  onClick={() => void exportCsv()}
+                  disabled={exporting}
+                  data-testid="audit-export"
+                  className="h-10 rounded-md border border-border-strong bg-surface-bg px-4 text-sm font-medium text-content-strong hover:bg-surface-hover disabled:opacity-60"
+                >
+                  {exporting ? 'Exporting…' : 'Export CSV'}
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -222,6 +313,19 @@ function AuditPageInner() {
                 </li>
               ))}
             </ul>
+          )}
+          {entries && entries.length > 0 && hasMore && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => void loadOlder()}
+                disabled={loadingMore}
+                data-testid="audit-load-more"
+                className="rounded-md border border-border-strong bg-surface-bg px-4 py-2 text-sm font-medium text-content-strong hover:bg-surface-hover disabled:opacity-60"
+              >
+                {loadingMore ? 'Loading…' : 'Load older entries'}
+              </button>
+            </div>
           )}
         </section>
       </div>

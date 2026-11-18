@@ -38,6 +38,25 @@ test('renders alert title and message as HTML text and preserves the plaintext',
   });
 });
 
+// Plan 6.3: an alert email carries the organisation's name, logo and colour when they are given.
+test('an alert email wears the organisation it comes from; the plain text is unchanged', async () => {
+  const send = vi.fn();
+  const adapter = new NotificationAdaptersService({ send } as unknown as EmailService);
+  await adapter.send('EMAIL', { to: 'recipient@example.test' }, {
+    alertId: 'alert',
+    kpiId: 'kpi',
+    severity: 'HIGH',
+    title: 'Revenue is low',
+    message: 'Revenue fell below 100.',
+    brand: { name: 'Helios', logoUrl: 'https://cdn.example.test/logo.png', color: '#7c3aed' },
+  });
+  const sent = send.mock.calls[0]![0] as { html: string; text: string };
+  expect(sent.html).toContain('<p><strong>Revenue is low</strong></p><p>Revenue fell below 100.</p>');
+  expect(sent.html).toContain('<img src="https://cdn.example.test/logo.png"');
+  expect(sent.html).toContain('#7c3aed');
+  expect(sent.text).toBe('Revenue fell below 100.');
+});
+
 test('TEAMS posts an Adaptive Card that links to the alert (not the retired MessageCard)', async () => {
   vi.stubEnv('WEB_APP_URL', 'https://app.example.test/');
   const adapter = new NotificationAdaptersService({ send: vi.fn() } as unknown as EmailService);

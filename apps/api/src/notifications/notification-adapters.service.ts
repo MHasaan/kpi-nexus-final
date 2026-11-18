@@ -5,6 +5,7 @@ import { escapeHtml } from '../email/escape-html.js';
 import { webAppUrl } from '../email/web-app-url.js';
 import { buildTeamsAdaptiveCard } from '../integrations/providers/teams-format.js';
 import { OutboundUrlBlockedError, outboundFetch } from '../outbound/outbound-fetch.js';
+import { type EmailBrand, brandedHtml } from '../email/branded-email.js';
 
 export interface NotificationPayload {
   alertId: string;
@@ -12,6 +13,8 @@ export interface NotificationPayload {
   severity: 'LOW' | 'MEDIUM' | 'HIGH';
   message: string;
   title?: string;
+  /** The organisation the alert belongs to, for an email's header and colour (plan 6.3). */
+  brand?: EmailBrand;
 }
 
 /** Thrown by adapters for permanent (4xx-class) failures — not retried. */
@@ -83,10 +86,11 @@ export class NotificationAdaptersService {
       this.logger.debug('EMAIL channel has no recipients configured — skipping');
       return;
     }
+    const body = `<p><strong>${escapeHtml(payload.title ?? 'KPI Alert')}</strong></p><p>${escapeHtml(payload.message)}</p>`;
     await this.email.send({
       to: recipients,
       subject: `${SEVERITY_EMOJI[payload.severity] ?? ''} ${payload.title ?? 'KPI Alert'}`,
-      html: `<p><strong>${escapeHtml(payload.title ?? 'KPI Alert')}</strong></p><p>${escapeHtml(payload.message)}</p>`,
+      html: payload.brand ? brandedHtml(payload.brand, body) : body,
       text: payload.message,
     });
   }

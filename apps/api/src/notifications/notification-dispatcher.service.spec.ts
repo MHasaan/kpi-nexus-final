@@ -49,6 +49,10 @@ function makeHarness(opts: {
         return { ...delivery };
       }),
     },
+    // Whose alert it is, for the email's header.
+    organization: {
+      findUnique: vi.fn(async () => ({ name: 'Alpha Inc', logoUrl: null, primaryColor: null })),
+    },
     alert: {
       findUnique: vi.fn(async () => ({
         id: 'a1', kpiId: 'k1', severity: 'HIGH', message: 'breach',

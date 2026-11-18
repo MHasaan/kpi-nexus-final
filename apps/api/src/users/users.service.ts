@@ -32,6 +32,7 @@ import { PermissionResolverService } from '../rbac/services/permission-resolver.
 import { RequestContextStore } from '../tenancy/request-context.js';
 import type { InviteUserDto } from './dto/invite-user.dto.js';
 import { purgedHandle } from './services/purge-handle.js';
+import { brandedHtml, emailBrandOf } from '../email/branded-email.js';
 
 export interface PublicUser {
   id: string;
@@ -692,7 +693,7 @@ export class UsersService {
   private async sendInviteEmail(userId: string, to: string, link: string, expiresAt: Date): Promise<boolean> {
     const ctx = RequestContextStore.require();
     const [org, inviter] = await Promise.all([
-      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { name: true } }),
+      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { name: true, logoUrl: true, primaryColor: true } }),
       ctx.userId ? this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { fullName: true } }) : null,
     ]);
     const orgName = org?.name ?? 'your organization';
@@ -701,10 +702,13 @@ export class UsersService {
       await this.email.send({
         to,
         subject: `You're invited to ${orgName} on KPI Nexus`,
-        html:
+        // The invitation wears the organisation's logo and colour (plan 6.3).
+        html: brandedHtml(
+          emailBrandOf(org),
           `<p>${escapeHtml(who)} invited you to join <strong>${escapeHtml(orgName)}</strong> on KPI Nexus.</p>` +
-          `<p><a href="${escapeHtml(link)}">Accept the invitation</a></p>` +
-          `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
+            `<p><a href="${escapeHtml(link)}">Accept the invitation</a></p>` +
+            `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
+        ),
         text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expiresAt.toUTCString()}`,
       });
       return true;

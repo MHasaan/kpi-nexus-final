@@ -88,7 +88,9 @@ export function RolePermissionMatrix({
                     key={key}
                     title={state.reason}
                     className={cn(
-                      'inline-flex w-44 items-center gap-2',
+                      // `relative`: the hidden checkbox is placed against its own label, so it scrolls
+                      // with it. Placed against the page, focusing or clicking it below the fold missed.
+                      'relative inline-flex w-44 items-center gap-2',
                       state.disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
                     )}
                   >

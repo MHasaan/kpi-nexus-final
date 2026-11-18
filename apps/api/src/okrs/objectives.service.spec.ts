@@ -49,6 +49,8 @@ interface FakeDp {
   kpiId: string;
   value: number;
   recordedAt: Date;
+  userId?: string | null;
+  orgUnitId?: string | null;
 }
 
 class FakePrisma {
@@ -123,11 +125,19 @@ class FakePrisma {
     }),
   };
 
+  /** The kind of each KPI; organisation-wide unless a test says otherwise. */
+  kpiScopes: Record<string, string> = {};
+  kPI = {
+    findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, scope: this.kpiScopes[id] ?? 'ORG_WIDE' }))),
+  };
+
   kPIDataPoint = {
     findFirst: vi.fn(async ({ where, orderBy }: { where: Record<string, unknown>; orderBy: unknown }) => {
       void orderBy;
+      // Like Prisma: `userId: null` keeps rows with no person; `userId: 'x'` keeps that person's.
+      const same = (actual: string | null | undefined, wanted: unknown) => wanted === undefined || (actual ?? null) === wanted;
       const matches = this.dps
-        .filter((d) => d.organizationId === where.organizationId && d.kpiId === where.kpiId)
+        .filter((d) => d.organizationId === where.organizationId && d.kpiId === where.kpiId && same(d.userId, where.userId) && same(d.orgUnitId, where.orgUnitId))
         .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
       return matches[0] ?? null;
     }),
@@ -276,6 +286,39 @@ describe('ObjectivesService.syncFromLinkedKpis', () => {
     const kr = prisma.addKr({ objectiveId: o.id, kpiId: null, baselineValue: 0, targetValue: 100, currentValue: 25, weight: 1 });
     await withCtx({}, () => service.syncFromLinkedKpis(o.id));
     expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(25);
+  });
+});
+
+// BE-053: sync took the newest value of the linked KPI from any row. On a per-person KPI
+// that is whoever recorded last — written into a key result everyone who sees the objective reads.
+describe('ObjectivesService.syncFromLinkedKpis — whose value (BE-053)', () => {
+  const rows = [
+    { organizationId: ORG, kpiId: 'kpi_p', value: 10, recordedAt: new Date('2026-03-01'), userId: 'owner' },
+    { organizationId: ORG, kpiId: 'kpi_p', value: 99, recordedAt: new Date('2026-04-01'), userId: 'someone-else' }, // newest, not the owner's
+  ];
+
+  test("a per-person KPI gives the objective owner's value, not the newest one recorded by anyone", async () => {
+    const { service, prisma } = makeService();
+    prisma.kpiScopes.kpi_p = 'PER_USER';
+    const o = await withCtx({}, () => service.create({ name: 'O', ownerUserId: 'owner', ...period }));
+    const kr = prisma.addKr({ objectiveId: o.id, kpiId: 'kpi_p', baselineValue: 0, targetValue: 100, currentValue: null, weight: 1 });
+    prisma.dps.push(...rows);
+    await withCtx({}, () => service.syncFromLinkedKpis(o.id));
+    expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(10);
+  });
+
+  test('an organisation-wide or per-unit KPI gives the organisation-level value only', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpiScopes.kpi_u = 'PER_UNIT';
+    const o = await withCtx({}, () => service.create({ name: 'O', ownerUserId: 'owner', ...period }));
+    const kr = prisma.addKr({ objectiveId: o.id, kpiId: 'kpi_u', baselineValue: 0, targetValue: 100, currentValue: 5, weight: 1 });
+    prisma.dps.push({ organizationId: ORG, kpiId: 'kpi_u', value: 77, recordedAt: new Date('2026-04-01'), orgUnitId: 'a-unit' });
+    await withCtx({}, () => service.syncFromLinkedKpis(o.id));
+    // Only a unit's value exists: the key result keeps what it had.
+    expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(5);
+    prisma.dps.push({ organizationId: ORG, kpiId: 'kpi_u', value: 60, recordedAt: new Date('2026-03-01') });
+    await withCtx({}, () => service.syncFromLinkedKpis(o.id));
+    expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(60);
   });
 });
 

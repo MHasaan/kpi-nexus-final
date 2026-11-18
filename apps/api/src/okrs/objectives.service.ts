@@ -236,20 +236,39 @@ export class ObjectivesService {
   /**
    * For each KR with a linked KPI, pull the latest data point value into the
    * KR's currentValue, then recompute the objective (and roll up).
+   *
+   * Whose value (BE-053): a key result is read by everyone who sees the
+   * objective, so it never takes "the newest value recorded by anyone". An
+   * organisation-wide or per-unit KPI gives its organisation-level value; a
+   * per-person KPI gives the objective owner's own value. With no such value
+   * the key result keeps what it had.
    */
   async syncFromLinkedKpis(objectiveId: string): Promise<PublicObjective> {
     const ctx = RequestContextStore.require();
-    await this.getById(objectiveId);
+    const objective = await this.getById(objectiveId);
 
     const krs = await this.prisma.keyResult.findMany({
       where: { organizationId: ctx.organizationId, objectiveId, kpiId: { not: null } },
       select: { id: true, kpiId: true },
     });
 
+    const kpiIds = [...new Set(krs.map((kr) => kr.kpiId).filter((id): id is string => id !== null))];
+    const kinds = kpiIds.length
+      ? await this.prisma.kPI.findMany({ where: { organizationId: ctx.organizationId, id: { in: kpiIds } }, select: { id: true, scope: true } })
+      : [];
+    const scopeOf = new Map(kinds.map((k) => [k.id, k.scope]));
+
     for (const kr of krs) {
       if (!kr.kpiId) continue;
+      const whose =
+        scopeOf.get(kr.kpiId) === 'PER_USER'
+          ? objective.ownerUserId
+            ? { userId: objective.ownerUserId }
+            : null
+          : { userId: null, orgUnitId: null };
+      if (!whose) continue;
       const latest = await this.prisma.kPIDataPoint.findFirst({
-        where: { organizationId: ctx.organizationId, kpiId: kr.kpiId },
+        where: { organizationId: ctx.organizationId, kpiId: kr.kpiId, ...whose },
         // Newest period first ("latest" = newest period; entry time breaks ties).
         orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         select: { value: true },

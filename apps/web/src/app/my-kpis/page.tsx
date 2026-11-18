@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Info, Target } from 'lucide-react';
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import {
-  Button,
   Card,
   EmptyState,
-  Input,
   PageHeader,
   ScopeBadge,
   Skeleton,
@@ -26,6 +24,8 @@ import {
   type MyKpiRow,
 } from '../../lib/api-client';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { RecordValueForm } from '../../components/kpis/record-value-form';
+import { useFormat } from '../../lib/format-context';
 
 function toStatus(raw: string | null | undefined): KpiStatus {
   switch ((raw ?? '').toLowerCase()) {
@@ -115,25 +115,7 @@ export default function MyKpisPage() {
 }
 
 function MyKpiCard({ row, onRecorded }: { row: MyKpiRow; onRecorded: () => void }) {
-  const [value, setValue] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setSaving(true);
-    const now = new Date().toISOString();
-    try {
-      await recordMyKpiData(row.assignmentId, Number(value), now, now);
-      setValue('');
-      onRecorded();
-    } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Failed to record');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const fmt = useFormat();
 
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -154,34 +136,30 @@ function MyKpiCard({ row, onRecorded }: { row: MyKpiRow; onRecorded: () => void 
         <span className="tabular-nums">
           <span className="text-content-muted">Current </span>
           <span className="font-semibold text-content-strong" data-testid={`mykpi-current-${row.kpiId}`}>
-            {row.currentValue ?? '—'}
+            {row.currentValue === null ? '—' : fmt.number(row.currentValue)}
             {row.unit ? ` ${row.unit}` : ''}
           </span>
         </span>
         {row.targetValue !== null && (
-          <span className="tabular-nums text-content-muted">Target {row.targetValue}</span>
+          <span className="tabular-nums text-content-muted">
+            Target {fmt.number(row.targetValue)}
+            {row.unit ? ` ${row.unit}` : ''}
+          </span>
         )}
       </div>
 
       {/* Recording is KPI_DATA_ENTRY-gated server-side; hide it for users without it (FE-015). */}
       <PermissionGuard permission="KPI_DATA_ENTRY">
-      <form onSubmit={submit} className="flex items-center gap-2">
-        <Input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          type="number"
-          step="any"
-          required
-          placeholder={row.unit ? `new value (${row.unit})…` : 'new value'}
-          className="flex-1 tabular-nums"
-          data-testid={`mykpi-value-${row.kpiId}`}
+        {/* The same form as a KPI's Data tab: the value is saved for the period the KPI's frequency
+            implies (this month for a monthly KPI), shown and changeable — not for the instant it was typed. */}
+        <RecordValueForm
+          frequency={row.frequency}
+          unit={row.unit}
+          testIdPrefix={`mykpi-${row.kpiId}`}
+          onRecord={(body) => recordMyKpiData(row.assignmentId, body.value, body.periodStart, body.periodEnd, body.note)}
+          onRecorded={onRecorded}
         />
-        <Button type="submit" isLoading={saving} data-testid={`mykpi-record-${row.kpiId}`}>
-          Record
-        </Button>
-      </form>
       </PermissionGuard>
-      {err && <p className="text-xs text-status-critical">{err}</p>}
     </Card>
   );
 }

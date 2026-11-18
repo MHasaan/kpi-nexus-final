@@ -422,6 +422,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-056 (found 2026-11-18): `POST` and `PATCH /positions` stored `orgUnitId` as sent — another organisation's unit, or no unit at all, was accepted. Nothing reads a position's unit today, so no data could be read through it | ✅ Fixed — the unit must be one of the caller's organisation, or 400 with nothing written | #288 | `positions.service.spec.ts` (3) |
 | X-02 (remainder): a failed load was hidden behind an empty picker or a plain 'Watch' on a KPI's watch button, Automations, an objective's page, Tasks, the new-report form and Access Center | ✅ Fixed — each says what could not be loaded (`lib/optional-list.ts`); the report form offers 'Try again'. X-02 is closed | #289 | `optional-list.spec.ts` (3), `e2e/optional-lists-say-failure.spec.ts` |
 | QA-T1: `prod-compose.spec.ts` failed on a Windows checkout — it split repo files on `\n` and the lines ended `\r\n` | ✅ Fixed — `config/read-text.ts` reads a repo file with Unix line endings; used by `prod-compose.spec.ts` and `env-template.spec.ts`. Not run on Windows | #290 | `read-text.spec.ts` (3) |
+| QA-L10: a form whose input the API refused showed 'Invalid request body' and named no field | ✅ Fixed — the web app builds the message from the refusal's issues, where every API reply is read: the field, then what is wrong. The wording after the field name is the API checker's own | #291 | `validation-message.spec.ts` (6), `e2e/validation-names-field.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -441,7 +442,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
-| QA-L10 settings errors are generic ("Invalid request body") and name no field — fixed where a form now checks itself (password policy, formats, branding colour, AI caps, retention days); other settings forms still show the generic message | Low | ⬜ open | 7.4 |
 | QA-T3 `pnpm dev` API restart loop: `nest start --watch` restarts repeatedly and the API refuses connections while it does | Low | ⬜ open | new 0.7 |
 | QA-T5 `pnpm dev` does not start the ML sidecar, so forecast / anomaly / seasonality return 503 until `pnpm ml:dev` runs | Low | ⬜ open | new 0.7 |
 

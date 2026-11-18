@@ -313,6 +313,17 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
   const mine = perPerson ? ((myKpis ?? []).find((r) => r.kpiId === kpi.id) ?? null) : null;
   const target = perPerson ? (mine?.targetValue ?? null) : perUnit ? null : kpi.targetValue;
   const attainment = perPerson ? attainmentOf(latest?.value ?? mine?.currentValue, target, kpi.direction) : status?.attainmentPct;
+  // Someone who sees several holders' values — a manager, an administrator — must not be shown
+  // "the latest value": that is whichever person or unit recorded last, and a line through the
+  // values would join different people's figures. They get each holder's own figure instead.
+  const [assignments] = useAsync(
+    () => (perPerson || perUnit ? listKpiAssignments(kpi.id).catch(() => null) : Promise.resolve(null)),
+    [kpi.id, perPerson, perUnit],
+  );
+  const holders: Array<{ name: string; targetValue: number | null; currentValue: number | null; status: string | null }> | null =
+    myKpis === null || !assignments ? null : perUnit ? assignments.units : perPerson && !mine ? assignments.users : null;
+  const holderWord = perUnit ? 'unit' : 'person';
+  const holderCount = (n: number) => (perUnit ? `${n} unit${n === 1 ? '' : 's'}` : n === 1 ? '1 person' : `${n} people`);
   return (
     <div className="space-y-4">
       <TabLoadError error={pointsError} onRetry={reloadPoints} />
@@ -360,9 +371,10 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
               className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-content-strong"
               data-testid="overview-latest"
             >
-              {latest ? withUnit(latest.value) : '—'}
+              {holders ? `Per ${holderWord}` : latest ? withUnit(latest.value) : '—'}
             </p>
-            {latest && (
+            {holders && <p className="mt-1 text-xs text-content-muted">Each {holderWord}&rsquo;s own figure is below.</p>}
+            {!holders && latest && (
               <p className="mt-1 text-xs text-content-muted" data-testid="overview-latest-period">
                 for {fmt.day(latest.periodStart)} – {fmt.day(latest.periodEnd)}
               </p>
@@ -411,10 +423,20 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
             {/* The same health the home page shows, from the same rule (QA-H3). */}
             <p className="kn-eyebrow">Health</p>
             <p className="mt-1 text-xl font-medium text-content-strong" data-testid="overview-health">
-              {status?.health ? labelFor(HEALTH_STATUS_LABELS, status.health) : '—'}
+              {holders ? holderCount(holders.length) : status?.health ? labelFor(HEALTH_STATUS_LABELS, status.health) : '—'}
             </p>
             <p className="mt-1 text-xs text-content-muted" data-testid="overview-health-basis">
-              {status?.band
+              {holders
+                ? Object.entries(
+                    holders.reduce<Record<string, number>>((acc, h) => {
+                      const key = h.currentValue === null ? 'no value yet' : labelFor(ASSIGNMENT_STATUS_LABELS, h.status).toLowerCase();
+                      acc[key] = (acc[key] ?? 0) + 1;
+                      return acc;
+                    }, {}),
+                  )
+                    .map(([label, n]) => `${n} ${label}`)
+                    .join(' · ')
+                : status?.band
                 ? `In the band “${status.band}”`
                 : status?.health === 'NO_DATA' || status?.health === 'NO_TARGET' || !status?.health
                   ? ''
@@ -432,7 +454,38 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
           </CardContent>
         </UICard>
       </div>
-      {series.length > 1 && points && (
+      {holders && holders.length > 0 && (
+        <UICard className="p-0">
+          <Table data-testid="overview-by-holder">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{perUnit ? 'Unit' : 'Person'}</TableHead>
+                <TableHead className="text-right">Latest value</TableHead>
+                <TableHead className="text-right">Target</TableHead>
+                <TableHead className="text-right">Attained</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {holders.map((h) => {
+                const pct = attainmentOf(h.currentValue, h.targetValue, kpi.direction);
+                return (
+                  <TableRow key={h.name} data-testid={`holder-row-${h.name}`}>
+                    <TableCell className="font-medium text-content-strong">{h.name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{h.currentValue === null ? '—' : withUnit(h.currentValue)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-content-muted">{h.targetValue === null ? '—' : withUnit(h.targetValue)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-content-muted">{pct === null ? '—' : `${Math.round(pct)}%`}</TableCell>
+                    <TableCell className="text-content-muted">
+                      {h.currentValue === null ? 'No value yet' : labelFor(ASSIGNMENT_STATUS_LABELS, h.status)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </UICard>
+      )}
+      {!holders && series.length > 1 && points && (
         <UICard>
           <CardContent>
             <p className="kn-eyebrow mb-2">Trend</p>

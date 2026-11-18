@@ -13,7 +13,7 @@ import {
   updateAiFeatureConfig,
 } from '../../../lib/api-client';
 import type { AiFeatureConfig, AiProviderKey } from '../../../lib/api-client';
-import { aiFeatureInfo } from '../../../lib/ai-features';
+import { aiFeatureInfo, isAiFeatureInUse } from '../../../lib/ai-features';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
@@ -618,7 +618,7 @@ export default function AiSettingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {configs.map((c) => (
+                {configs.filter((c) => isAiFeatureInUse(c.feature)).map((c) => (
                   <RoutingRow
                     key={c.feature}
                     config={c}

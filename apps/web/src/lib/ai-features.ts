@@ -16,10 +16,10 @@ const INFO: Record<string, AiFeatureInfo> = {
   ONBOARDING_EXPLAIN: { name: 'Setup wizard: explanations', does: 'Explains a step or a field in the wizard.' },
   KPI_SUGGESTIONS: { name: 'KPI suggestions', does: 'Suggests KPIs you could add.' },
   NLQ_PRIMARY: { name: 'Ask', does: 'Answers questions on the Ask page.' },
-  NLQ_TOOLS: { name: 'Ask: data lookups', does: 'Reserved for the lookups Ask makes while answering.' },
+  NLQ_TOOLS: { name: 'Ask: data lookups', does: 'Not used: Ask makes its lookups with its own model.' },
   INSIGHTS: { name: 'Insights', does: 'Writes the findings on the Insights page.' },
   RECOMMENDATIONS: { name: 'Recommendations', does: 'Writes the suggested actions on the Recommendations page.' },
-  ANOMALY_EXPLANATIONS: { name: 'Unusual value explanations', does: 'Reserved for explaining a value that is out of pattern.' },
+  ANOMALY_EXPLANATIONS: { name: 'Unusual value explanations', does: 'Not used: no part of the product explains unusual values yet.' },
   EMBEDDINGS: { name: 'KPI matching for Ask', does: 'Finds which KPIs a question is about.' },
 };
 
@@ -28,4 +28,16 @@ export function aiFeatureInfo(feature: string): AiFeatureInfo {
   if (known) return known;
   const words = feature.toLowerCase().replace(/_/g, ' ');
   return { name: words.charAt(0).toUpperCase() + words.slice(1), does: '' };
+}
+
+/**
+ * Features that exist as keys and have no caller anywhere in the product. A
+ * model, fallback or cap saved for one changes nothing, so the settings page
+ * does not offer them. `ai-features.spec.ts` checks the API's source still has
+ * no caller for each; give one a caller and it must come off this list.
+ */
+const NOT_IN_USE = new Set(['NLQ_TOOLS', 'ANOMALY_EXPLANATIONS']);
+
+export function isAiFeatureInUse(feature: string): boolean {
+  return !NOT_IN_USE.has(feature);
 }

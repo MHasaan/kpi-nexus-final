@@ -29,6 +29,7 @@ function withCtx<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 const row = (kpiId: string, latestValue: number | null, extra: Partial<SummaryRow> = {}): SummaryRow => ({
+  holders: null,
   kpiId,
   name: `KPI ${kpiId}`,
   scope: 'ORG_WIDE',
@@ -82,7 +83,7 @@ describe('BoardPackService', () => {
     expect(r.quadrants).toEqual([
       {
         name: 'Financial',
-        kpis: [{ kpiId: 'k1', name: 'Revenue', unit: 'USD', value: 120, status: 'ON_TRACK' }],
+        kpis: [{ kpiId: 'k1', name: 'Revenue', unit: 'USD', value: 120, status: 'ON_TRACK', scope: 'ORG_WIDE', holders: null }],
         healthDistribution: { ON_TRACK: 1 },
       },
     ]);
@@ -140,5 +141,15 @@ describe('BoardPackService', () => {
     expect(r.quadrants).toEqual([]);
     expect(r.period.sinceDays).toBe(7);
     expect((r.period.to.getTime() - r.period.from.getTime()) / 86_400_000).toBeCloseTo(7, 0);
+  });
+
+  // UI-018: a per-person KPI used to appear with the value of whoever recorded last.
+  test('a per-person KPI with several holders carries their count, not a value, and is not a mover', async () => {
+    const counted = { total: 2, withValue: 2, onTrack: 1 };
+    const current = [row('calls', null, { name: 'Calls', scope: 'PER_USER', status: 'AT_RISK', holders: counted })];
+    const previous = [row('calls', null, { name: 'Calls', scope: 'PER_USER', holders: counted })];
+    const r = await withCtx(() => make({ current, previous }).service.compose({ sinceDays: 30 }));
+    expect(r.quadrants[0]!.kpis[0]).toMatchObject({ name: 'Calls', value: null, status: 'AT_RISK', scope: 'PER_USER', holders: counted });
+    expect(r.topMovers).toEqual([]);
   });
 });

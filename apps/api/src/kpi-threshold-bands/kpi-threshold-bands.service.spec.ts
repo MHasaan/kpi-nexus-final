@@ -29,6 +29,9 @@ class FakeAudit {
 class FakeAccessContext {
   constructor(private readonly allowlist: readonly string[] | null) {}
   kpiCategoryAllowlist = vi.fn(async () => this.allowlist);
+  /** The rows of a KPI the caller may read; `{}` = all of them. */
+  pointScope: Record<string, unknown> = {};
+  kpiPointScopeWhere = vi.fn(async (_scope: string) => this.pointScope);
 }
 
 function makeService(allowlist: readonly string[] | null, categoryId: string | null): KpiThresholdBandsService {
@@ -158,5 +161,24 @@ describe('KpiThresholdBandsService.resolveStatus — health (QA-H3)', () => {
       band: 'Off track',
       health: 'OFF_TRACK',
     });
+  });
+});
+
+// BE-050: the status is built from the KPI's newest values. On a per-person KPI those
+// belong to whoever recorded last — so someone who may read only their own values was
+// shown a health worked out from a colleague's.
+describe('KpiThresholdBandsService.resolveStatus — only the values the caller may read (BE-050)', () => {
+  it('reads the rows inside the caller\'s scope for this kind of KPI', async () => {
+    const prisma = {
+      kPI: { findFirst: vi.fn(async () => ({ id: KPI_ID, categoryId: null, scope: 'PER_USER', direction: 'HIGHER_IS_BETTER', targetValue: 100, warningThreshold: 80, criticalThreshold: 50 })) },
+      kPIThresholdBand: { findMany: vi.fn(async () => []) },
+      kPIDataPoint: { findMany: vi.fn(async (_args: unknown) => [{ value: 90 }]) },
+    };
+    const access = new FakeAccessContext(null);
+    access.pointScope = { userId: { in: ['u1'] } };
+    const service = new KpiThresholdBandsService(prisma as unknown as PrismaService, new FakeAudit() as unknown as AuditService, access as unknown as AccessContextService);
+    await withCtx(() => service.resolveStatus(KPI_ID));
+    expect(access.kpiPointScopeWhere).toHaveBeenCalledWith('PER_USER');
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ where: { kpiId: KPI_ID, organizationId: ORG, userId: { in: ['u1'] } } });
   });
 });

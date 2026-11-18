@@ -13,6 +13,7 @@ import {
   type UpdateThresholdBandDto,
 } from './dto/threshold-band.dto.js';
 import { type KpiHealthMeta, type KpiHealthStatus, kpiHealthStatus } from '../kpis/kpi-health.js';
+import type { KpiScope } from '../rbac/visibility/kpi-visibility.js';
 
 const bandSelect = {
   id: true,
@@ -112,7 +113,7 @@ export class KpiThresholdBandsService {
    */
   async resolveStatus(kpiId: string): Promise<ResolvedStatus & { health: KpiHealthStatus }> {
     const ctx = RequestContextStore.require();
-    const meta = await this.requireKpi(kpiId);
+    const { scope, ...meta } = await this.requireKpi(kpiId);
     const bands = await this.prisma.kPIThresholdBand.findMany({
       where: { kpiId, organizationId: ctx.organizationId },
       select: bandSelect,
@@ -120,7 +121,9 @@ export class KpiThresholdBandsService {
     });
     const window = Math.max(1, ...bands.map((b) => b.consecutivePointsRequired));
     const points = await this.prisma.kPIDataPoint.findMany({
-      where: { kpiId, organizationId: ctx.organizationId },
+      // Only the values the caller may read (BE-050): on a per-person or per-unit KPI the newest
+      // row may be someone else's, and a status worked out from it tells the caller about it.
+      where: { kpiId, organizationId: ctx.organizationId, ...(await this.accessContext.kpiPointScopeWhere(scope)) },
       select: { value: true },
       // Newest period first ("latest" = newest period; entry time breaks ties).
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
@@ -140,11 +143,11 @@ export class KpiThresholdBandsService {
     return { ...resolveStatus(bandsForResolver, recentValues), health };
   }
 
-  private async requireKpi(kpiId: string): Promise<KpiHealthMeta> {
+  private async requireKpi(kpiId: string): Promise<KpiHealthMeta & { scope: KpiScope }> {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, categoryId: true, direction: true, targetValue: true, warningThreshold: true, criticalThreshold: true },
+      select: { id: true, categoryId: true, scope: true, direction: true, targetValue: true, warningThreshold: true, criticalThreshold: true },
     });
     if (!kpi) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     // Layer-3 category allowlist (Phase 3): hide a KPI outside the allowed categories
@@ -153,6 +156,7 @@ export class KpiThresholdBandsService {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
     return {
+      scope: kpi.scope as KpiScope,
       direction: kpi.direction,
       targetValue: kpi.targetValue ?? null,
       warningThreshold: kpi.warningThreshold ?? null,

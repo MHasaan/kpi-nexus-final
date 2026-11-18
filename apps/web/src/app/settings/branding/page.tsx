@@ -1,5 +1,6 @@
 'use client';
 
+import { brandColorProblem } from '@kpi-nexus/contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -15,6 +16,7 @@ import {
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useBranding } from '../../../lib/branding-context';
 
 export default function BrandingSettingsPage() {
   const router = useRouter();
@@ -25,8 +27,11 @@ export default function BrandingSettingsPage() {
 
   const [logoUrl, setLogoUrl] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#2563eb');
-  const [secondaryColor, setSecondaryColor] = useState('#7c3aed');
+  // Blank = the app's own colour. (These used to start at a blue and a violet, so saving the page
+  // without touching them stored colours nobody chose.)
+  const [primaryColor, setPrimaryColor] = useState('');
+  const [secondaryColor, setSecondaryColor] = useState('');
+  const { refresh: refreshBranding } = useBranding();
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -38,8 +43,8 @@ export default function BrandingSettingsPage() {
         setOrg(data);
         setLogoUrl(data.logoUrl ?? '');
         setFaviconUrl(data.faviconUrl ?? '');
-        setPrimaryColor(data.primaryColor ?? '#2563eb');
-        setSecondaryColor(data.secondaryColor ?? '#7c3aed');
+        setPrimaryColor(data.primaryColor ?? '');
+        setSecondaryColor(data.secondaryColor ?? '');
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -53,9 +58,12 @@ export default function BrandingSettingsPage() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
-    setError(null);
     setSaved(false);
+    // The primary colour carries white text on every button: one white cannot be read on is refused here.
+    const problem = primaryColor.trim() ? brandColorProblem(primaryColor.trim()) : null;
+    setError(problem);
+    if (problem) return;
+    setSaving(true);
     try {
       // Empty string clears the value (send null); the api validates URL/hex.
       const updated = await updateMyOrganization({
@@ -65,6 +73,8 @@ export default function BrandingSettingsPage() {
         secondaryColor: secondaryColor.trim() || null,
       });
       setOrg(updated);
+      // The whole app is drawn from these: apply them now.
+      await refreshBranding();
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Save failed');

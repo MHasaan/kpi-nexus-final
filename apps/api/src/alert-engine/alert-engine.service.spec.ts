@@ -38,6 +38,11 @@ class FakePrisma {
   private n = 1;
   rules: FakeRule[] = [];
   alerts: FakeAlert[] = [];
+  /** KPI names by id; a KPI not listed here cannot be found (its alert is still raised). */
+  kpiNames: Record<string, string> = {};
+  kPI = {
+    findFirst: vi.fn(async ({ where }: { where: { id: string } }) => (this.kpiNames[where.id] ? { name: this.kpiNames[where.id] } : null)),
+  };
   dataPoints: {
     organizationId: string;
     kpiId: string;
@@ -168,6 +173,32 @@ describe('AlertEngineService.evaluateKpi (STATIC_THRESHOLD)', () => {
     expect(realtime.publish).toHaveBeenCalledOnce();
     const [, event] = realtime.publish.mock.calls[0]!;
     expect((event as { type: string }).type).toBe('alert_triggered');
+  });
+
+  // Flow walk, 2026-11-18: an alert did not say which KPI it was about — in the inbox, the bell,
+  // an email or a chat message, "Value 38000 < threshold 45000" could be any of them.
+  test("an alert's message begins with the KPI's name", async () => {
+    const prisma = new FakePrisma();
+    prisma.kpiNames[KPI] = 'Monthly revenue';
+    prisma.rules.push({
+      id: 'rule_1', organizationId: ORG, kpiId: KPI, name: 'Floor', ruleType: 'STATIC_THRESHOLD',
+      config: { operator: '<', value: 45000 }, severity: 'HIGH', isActive: true,
+    });
+    const { engine, realtime } = makeEngine(prisma);
+    await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 38000, recordedAt: new Date() });
+    expect(prisma.alerts[0]!.message).toBe('Monthly revenue: Value 38,000 is below 45,000');
+    expect((realtime.publish.mock.calls[0]![1] as unknown as { message: string }).message).toBe('Monthly revenue: Value 38,000 is below 45,000');
+  });
+
+  test('a KPI whose name cannot be read still raises its alert, unnamed', async () => {
+    const prisma = new FakePrisma();
+    prisma.rules.push({
+      id: 'rule_1', organizationId: ORG, kpiId: KPI, name: 'High', ruleType: 'STATIC_THRESHOLD',
+      config: { operator: '>', value: 100 }, severity: 'HIGH', isActive: true,
+    });
+    const { engine } = makeEngine(prisma);
+    await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 150, recordedAt: new Date() });
+    expect(prisma.alerts[0]!.message).toBe('Value 150 is above 100');
   });
 
   test('does not create an Alert when threshold not breached', async () => {
@@ -389,7 +420,7 @@ describe('AlertEngineService.evaluateKpi (COMPOSITE)', () => {
     const dataPointId = seed(prisma, [100, 100], 70);
     const { engine } = makeEngine(prisma);
     expect(await engine.evaluateKpi({ organizationId: ORG, kpiId: KPI, value: 70, recordedAt: NOW, dataPointId })).toHaveLength(1);
-    expect(prisma.alerts[0]!.message).toBe('Value 70 < threshold 80 and Value fell 30% (from 100 to 70) within 1 day');
+    expect(prisma.alerts[0]!.message).toBe('Value 70 is below 80 and Value fell 30% (from 100 to 70) within 1 day');
 
     const half = new FakePrisma();
     half.rules.push(rule('both', 'COMPOSITE', { operator: 'AND', rules: parts }));

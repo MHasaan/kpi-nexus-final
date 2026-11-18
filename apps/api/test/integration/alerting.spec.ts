@@ -335,7 +335,7 @@ describe('alert rule types that look back — std-dev and composite (live API)',
       return list.body && list.body.length > 0 ? list.body : null;
     });
     expect(alerts).toHaveLength(1);
-    expect(alerts![0]!.message).toContain('Value 200 > threshold 120 and Value 200 is');
+    expect(alerts![0]!.message).toContain('Value 200 is above 120 and Value 200 is');
   }, 40_000);
 
   test('a composite part that could never hold is refused when the rule is made', async () => {

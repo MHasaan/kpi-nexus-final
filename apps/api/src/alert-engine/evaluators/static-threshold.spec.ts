@@ -48,4 +48,13 @@ describe('evaluateStaticThreshold', () => {
     const miss = evaluateStaticThreshold(cfg('>', 100), 50);
     expect(miss.message).toBeUndefined();
   });
+
+  // Flow walk, 2026-11-18: the inbox read "Value 38000 < threshold 45000".
+  it('says the comparison in words, with the numbers grouped', () => {
+    expect(evaluateStaticThreshold(cfg('<', 45000), 38000).message).toBe('Value 38,000 is below 45,000');
+    expect(evaluateStaticThreshold(cfg('>', 100), 150).message).toBe('Value 150 is above 100');
+    expect(evaluateStaticThreshold(cfg('>=', 100), 100).message).toBe('Value 100 is at or above 100');
+    expect(evaluateStaticThreshold(cfg('<=', 2.5), 2.25).message).toBe('Value 2.25 is at or below 2.5');
+    expect(evaluateStaticThreshold(cfg('==', 0), 0).message).toBe('Value 0 is exactly 0');
+  });
 });

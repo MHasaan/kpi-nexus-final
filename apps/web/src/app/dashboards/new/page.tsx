@@ -33,6 +33,7 @@ import {
   Textarea,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { inSentence } from '../../../lib/sentence-case';
 
 // Cards-per-row when laying out the starter KPI cards on the new grid.
 // kpi_card defaultSize is 3 wide; a 12-col grid fits 4 across, but 3-wide
@@ -167,10 +168,10 @@ function NewDashboardInner() {
         <PageHeader
           title={
             <span data-testid="dashboards-new-heading">
-              New {terminology.dashboardLabel.toLowerCase()}
+              New {inSentence(terminology.dashboardLabel)}
             </span>
           }
-          subtitle={`Name it, optionally pick a few ${terminology.kpiLabel.toLowerCase()}s to start with, then create. You can rearrange or add charts after.`}
+          subtitle={`Name it, optionally pick a few ${inSentence(terminology.kpiLabel)}s to start with, then create. You can rearrange or add charts after.`}
         />
 
         <div className="mt-6 max-w-2xl">
@@ -262,9 +263,9 @@ function NewDashboardInner() {
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder={`Search ${terminology.kpiLabel.toLowerCase()}s…`}
+                      placeholder={`Search ${inSentence(terminology.kpiLabel)}s…`}
                       disabled={submitting}
-                      aria-label={`Search ${terminology.kpiLabel.toLowerCase()}s`}
+                      aria-label={`Search ${inSentence(terminology.kpiLabel)}s`}
                       className="pl-9"
                       data-testid="starter-kpis-search"
                     />
@@ -299,8 +300,8 @@ function NewDashboardInner() {
                     ) : filtered.length === 0 ? (
                       <p className="px-3 py-6 text-center text-xs text-content-muted">
                         {all.length === 0
-                          ? `No ${terminology.kpiLabel.toLowerCase()}s available — you can add widgets later.`
-                          : `No ${terminology.kpiLabel.toLowerCase()}s match`}
+                          ? `No ${inSentence(terminology.kpiLabel)}s available — you can add widgets later.`
+                          : `No ${inSentence(terminology.kpiLabel)}s match`}
                       </p>
                     ) : (
                       <ul className="divide-y divide-border/60">

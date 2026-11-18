@@ -49,6 +49,7 @@ import {
 } from '../../components/ui';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { inSentence } from '../../lib/sentence-case';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -257,7 +258,7 @@ function KpisPageInner() {
             <>
               Track outcomes that matter. {kpiLabelPlural} have a scope: ORG_WIDE
               (one value per period for the whole org), PER_UNIT (one value per
-              unit), or PER_USER (each {terminology.memberLabel.toLowerCase()} tracks
+              unit), or PER_USER (each {inSentence(terminology.memberLabel)} tracks
               their own).
             </>
           }
@@ -295,7 +296,7 @@ function KpisPageInner() {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder={`Search ${kpiLabelPlural.toLowerCase()}…`}
+                  placeholder={`Search ${inSentence(kpiLabelPlural)}…`}
                   data-testid="kpi-search"
                 />
               </div>
@@ -387,13 +388,13 @@ function KpisPageInner() {
             <Card>
               <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
                 <h3 className="text-base font-semibold text-content-strong">
-                  No {kpiLabelPlural.toLowerCase()} yet
+                  No {inSentence(kpiLabelPlural)} yet
                 </h3>
                 <p
                   className="max-w-sm text-sm text-content-muted"
                   data-testid="kpis-empty"
                 >
-                  Create your first {terminology.kpiLabel.toLowerCase()}, or start
+                  Create your first {inSentence(terminology.kpiLabel)}, or start
                   from a template.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -420,7 +421,7 @@ function KpisPageInner() {
                   className="max-w-sm text-sm text-content-muted"
                   data-testid="kpis-no-matches"
                 >
-                  No {kpiLabelPlural.toLowerCase()} match your filters.
+                  No {inSentence(kpiLabelPlural)} match your filters.
                 </p>
                 <Button variant="secondary" onClick={clearFilters} data-testid="kpis-no-matches-clear">
                   Clear filters
@@ -560,7 +561,7 @@ function KpiRow({
           )}
           {kpi.scope === 'PER_USER' && kpi.userAssignments.length > 0 && (
             <span data-testid={`kpi-assignment-count-${kpi.name}`} className="tabular-nums">
-              {kpi.userAssignments.length} {terminology.memberLabel.toLowerCase()}
+              {kpi.userAssignments.length} {inSentence(terminology.memberLabel)}
               {kpi.userAssignments.length === 1 ? '' : 's'}
             </span>
           )}

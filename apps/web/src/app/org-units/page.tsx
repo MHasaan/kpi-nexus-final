@@ -43,6 +43,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { treeOrder } from '../../lib/tree-order';
+import { inSentence } from '../../lib/sentence-case';
 
 export default function OrgUnitsPage() {
   return (
@@ -228,7 +229,7 @@ function OrgUnitsPageInner() {
   }, [users, unitMembers]);
 
   const groupLabelPlural = pluralize(terminology.groupLabel);
-  const groupLabelLower = terminology.groupLabel.toLowerCase();
+  const groupLabelLower = inSentence(terminology.groupLabel);
 
   return (
     <AppShell title={groupLabelPlural} crumbs={['People', groupLabelPlural]}>
@@ -345,7 +346,7 @@ function OrgUnitsPageInner() {
             <Card data-testid="units-empty">
               <EmptyState
                 icon={Network}
-                title={`No ${groupLabelPlural.toLowerCase()} yet`}
+                title={`No ${inSentence(groupLabelPlural)} yet`}
                 description="Create one above to start building the org structure."
               />
             </Card>
@@ -494,7 +495,7 @@ function OrgUnitsPageInner() {
                             <div className="mt-4 grid gap-2 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
                               <div className="flex flex-col gap-1.5">
                                 <Label htmlFor={`add-member-select-${unit.id}`}>
-                                  Add a {terminology.memberLabel.toLowerCase()}
+                                  Add a {inSentence(terminology.memberLabel)}
                                 </Label>
                                 <Select
                                   id={`add-member-select-${unit.id}`}
@@ -504,7 +505,7 @@ function OrgUnitsPageInner() {
                                   data-testid="add-member-select"
                                 >
                                   <option value="">
-                                    (select a {terminology.memberLabel.toLowerCase()})
+                                    (select a {inSentence(terminology.memberLabel)})
                                   </option>
                                   {availableUsers.map((u) => (
                                     <option key={u.id} value={u.id}>

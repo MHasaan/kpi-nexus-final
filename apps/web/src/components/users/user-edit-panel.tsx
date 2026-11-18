@@ -12,6 +12,7 @@ import {
 import { useToast } from '../../lib/use-toast';
 import { type UserEditForm, userEditForm, userEditPatch, userEditProblem } from '../../lib/user-edit';
 import { Button, Card, Input, Label, Select } from '../ui';
+import { inSentence } from '../../lib/sentence-case';
 
 export interface UserEditPanelProps {
   user: UserSummary;
@@ -108,7 +109,7 @@ export function UserEditPanel({ user, isSelf, roles, positions, people, roleLabe
             data-testid="user-edit-role"
             aria-describedby={isSelf ? 'user-edit-role-hint' : undefined}
           >
-            {form.roleId === '' && <option value="">(no {roleLabel.toLowerCase()})</option>}
+            {form.roleId === '' && <option value="">(no {inSentence(roleLabel)})</option>}
             {roles.map((role) => (
               <option key={role.id} value={role.id}>
                 {role.name}
@@ -117,7 +118,7 @@ export function UserEditPanel({ user, isSelf, roles, positions, people, roleLabe
           </Select>
           {isSelf && (
             <p id="user-edit-role-hint" className="text-xs text-content-muted">
-              You cannot change your own {roleLabel.toLowerCase()}. Ask another administrator.
+              You cannot change your own {inSentence(roleLabel)}. Ask another administrator.
             </p>
           )}
         </div>

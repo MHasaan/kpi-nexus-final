@@ -51,6 +51,7 @@ import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { ApprovalPendingNotice } from '../../components/approval-pending-notice';
 import { isApprovalPending } from '../../lib/role-permissions';
 import { usePermissions } from '../../lib/use-permissions';
+import { inSentence } from '../../lib/sentence-case';
 
 const ROLE_DOT = [
   'bg-chart-2',
@@ -262,7 +263,7 @@ function RolesPageInner() {
                   leftIcon={<Plus aria-hidden className="h-4 w-4" />}
                   onClick={() => setShowCreate((v) => !v)}
                 >
-                  New {terminology.roleLabel.toLowerCase()}
+                  New {inSentence(terminology.roleLabel)}
                 </Button>
               </PermissionGuard>
             }
@@ -291,7 +292,7 @@ function RolesPageInner() {
               <Card>
                 <div className="border-b border-border-divider px-4 py-3.5">
                   <h2 className="text-sm font-semibold text-content-strong">
-                    Create a {terminology.roleLabel.toLowerCase()}
+                    Create a {inSentence(terminology.roleLabel)}
                   </h2>
                   <p className="mt-1 text-xs text-content-muted">
                     Permissions can be added after creation (apply a preset below).
@@ -355,7 +356,7 @@ function RolesPageInner() {
               <EmptyState
                 icon={ShieldCheck}
                 title="No roles yet"
-                description={`Create your first ${terminology.roleLabel.toLowerCase()} above.`}
+                description={`Create your first ${inSentence(terminology.roleLabel)} above.`}
               />
             </Card>
           ) : roles ? (

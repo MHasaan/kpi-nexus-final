@@ -70,6 +70,7 @@ import {
 } from '../../lib/terminology-context';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useAllowed } from '../../lib/use-allowed';
+import { inSentence } from '../../lib/sentence-case';
 
 export default function UsersPage() {
   return (
@@ -200,7 +201,7 @@ function UsersPageInner() {
   }
 
   const memberLabelPlural = pluralize(terminology.memberLabel);
-  const memberLabelLower = terminology.memberLabel.toLowerCase();
+  const memberLabelLower = inSentence(terminology.memberLabel);
 
   // Suspended people stay under Active; purged people and withdrawn invitations are in neither list.
   const visibleUsers = useMemo(() => {
@@ -329,7 +330,7 @@ function UsersPageInner() {
             subtitle={
               <>
                 Directory, invite &amp; manage status — invited{' '}
-                {memberLabelPlural.toLowerCase()} stay{' '}
+                {inSentence(memberLabelPlural)} stay{' '}
                 <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-content-default">
                   INVITED
                 </span>{' '}
@@ -387,12 +388,12 @@ function UsersPageInner() {
                     icon={UsersIcon}
                     title={
                       statusFilter === 'archived'
-                        ? `No archived ${memberLabelPlural.toLowerCase()}`
-                        : `No ${memberLabelPlural.toLowerCase()} yet`
+                        ? `No archived ${inSentence(memberLabelPlural)}`
+                        : `No ${inSentence(memberLabelPlural)} yet`
                     }
                     description={
                       statusFilter === 'archived'
-                        ? `Archived ${memberLabelPlural.toLowerCase()} appear here, and can be restored.`
+                        ? `Archived ${inSentence(memberLabelPlural)} appear here, and can be restored.`
                         : `Invite your first ${memberLabelLower} to get started.`
                     }
                   />
@@ -543,7 +544,7 @@ function UsersPageInner() {
                       disabled={inviting || !roles}
                       data-testid="invite-role-select"
                     >
-                      <option value="">(no {terminology.roleLabel.toLowerCase()})</option>
+                      <option value="">(no {inSentence(terminology.roleLabel)})</option>
                       {roles?.map((role) => (
                         <option key={role.id} value={role.id}>
                           {role.name}

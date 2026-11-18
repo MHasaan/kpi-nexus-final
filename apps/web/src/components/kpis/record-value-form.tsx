@@ -1,9 +1,10 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 import { ApiError } from '../../lib/api-client';
 import { type Period, currentPeriod, toApiPeriod } from '../../lib/period';
+import { useFiscalConfig } from '../../lib/use-fiscal-config';
 import { Button, Input, Label } from '../ui';
 
 export interface RecordValueFormProps {
@@ -40,6 +41,13 @@ export function RecordValueForm({
 }: RecordValueFormProps) {
   const [value, setValue] = useState('');
   const [period, setPeriod] = useState<Period>(() => currentPeriod(frequency));
+  // The organisation's calendar arrives a moment after the form: until the person changes the
+  // period themselves, the default follows it (a fiscal quarter, a week starting on their day).
+  const fiscal = useFiscalConfig();
+  const [periodTouched, setPeriodTouched] = useState(false);
+  useEffect(() => {
+    if (fiscal.ready && !periodTouched) setPeriod(currentPeriod(frequency, new Date(), fiscal.config));
+  }, [fiscal.ready, fiscal.config, frequency, periodTouched]);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,7 +98,10 @@ export function RecordValueForm({
           id={`${testIdPrefix}-period-start`}
           type="date"
           value={period.periodStart}
-          onChange={(e) => setPeriod((p) => ({ ...p, periodStart: e.target.value }))}
+          onChange={(e) => {
+            setPeriodTouched(true);
+            setPeriod((p) => ({ ...p, periodStart: e.target.value }));
+          }}
           data-testid={`${testIdPrefix}-period-start`}
         />
       </div>
@@ -100,7 +111,10 @@ export function RecordValueForm({
           id={`${testIdPrefix}-period-end`}
           type="date"
           value={period.periodEnd}
-          onChange={(e) => setPeriod((p) => ({ ...p, periodEnd: e.target.value }))}
+          onChange={(e) => {
+            setPeriodTouched(true);
+            setPeriod((p) => ({ ...p, periodEnd: e.target.value }));
+          }}
           data-testid={`${testIdPrefix}-period-end`}
         />
       </div>

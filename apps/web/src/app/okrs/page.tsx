@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { fiscalQuarterRange } from '@kpi-nexus/contracts';
 import { useRouter } from 'next/navigation';
 import { Flag, Pencil, Trash2, X } from 'lucide-react';
 
@@ -34,6 +36,7 @@ import {
 } from '../../components/ui';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { buildAlignmentTree } from '../../lib/okr-tree';
+import { useFiscalConfig } from '../../lib/use-fiscal-config';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -51,18 +54,6 @@ function barColor(status: string): string {
   if (status === 'ACHIEVED') return 'bg-status-success';
   if (status === 'MISSED') return 'bg-status-critical';
   return 'bg-accent-primary';
-}
-
-/** First/last day of the quarter containing `now`, as YYYY-MM-DD (computed, never hardcoded). */
-function currentQuarterRange(now = new Date()): { start: string; end: string } {
-  const y = now.getFullYear();
-  const q = Math.floor(now.getMonth() / 3); // 0..3
-  const startMonth = q * 3; // 0,3,6,9
-  const start = new Date(y, startMonth, 1);
-  const end = new Date(y, startMonth + 3, 0); // day 0 of next quarter = last day of this one
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { start: iso(start), end: iso(end) };
 }
 
 /** "Apr 1 – Jun 30, 2026" (or includes both years when they differ). */
@@ -101,12 +92,25 @@ export default function OkrsPage() {
   const [filterOwner, setFilterOwner] = useState<'ALL' | string>('ALL');
 
   // Create form
-  const quarter = useMemo(() => currentQuarterRange(), []);
+  // The organisation's current fiscal quarter — the period a new objective starts with.
+  const fiscal = useFiscalConfig();
+  const quarter = useMemo(() => {
+    const range = fiscalQuarterRange(new Date(), fiscal.config.startMonth);
+    return { start: range.periodStart, end: range.periodEnd };
+  }, [fiscal.config.startMonth]);
   const [cName, setCName] = useState('');
   const [cDescription, setCDescription] = useState('');
   const [cOwner, setCOwner] = useState('');
   const [cPeriodStart, setCPeriodStart] = useState(quarter.start);
   const [cPeriodEnd, setCPeriodEnd] = useState(quarter.end);
+  // The calendar arrives a moment after the page: move the default with it, unless the dates were already changed.
+  const offered = useRef(quarter);
+  useEffect(() => {
+    const before = offered.current;
+    offered.current = quarter;
+    setCPeriodStart((value) => (value === before.start ? quarter.start : value));
+    setCPeriodEnd((value) => (value === before.end ? quarter.end : value));
+  }, [quarter]);
   const [cStatus, setCStatus] = useState<ObjectiveStatus>('DRAFT');
   const [cParent, setCParent] = useState('');
   const [creating, setCreating] = useState(false);

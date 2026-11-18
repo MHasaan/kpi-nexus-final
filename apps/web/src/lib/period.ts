@@ -1,3 +1,5 @@
+import { type FiscalConfig, currentPeriod as sharedCurrentPeriod } from '@kpi-nexus/contracts';
+
 /**
  * The period a recorded value covers.
  *
@@ -11,35 +13,13 @@ export interface Period {
   periodEnd: string;
 }
 
-const iso = (date: Date): string => date.toISOString().slice(0, 10);
-const utc = (year: number, monthIndex: number, day: number): Date => new Date(Date.UTC(year, monthIndex, day));
-
-/** The period a value recorded `now` would cover, for a KPI of this frequency. */
-export function currentPeriod(frequency: string, now: Date = new Date()): Period {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
-  const day = now.getUTCDate();
-
-  switch (frequency) {
-    case 'WEEKLY': {
-      // Monday to Sunday; getUTCDay() is 0 on Sunday.
-      const offset = (now.getUTCDay() + 6) % 7;
-      const monday = utc(year, month, day - offset);
-      return { periodStart: iso(monday), periodEnd: iso(utc(year, month, day - offset + 6)) };
-    }
-    case 'MONTHLY':
-      // Day 0 of the next month is the last day of this one.
-      return { periodStart: iso(utc(year, month, 1)), periodEnd: iso(utc(year, month + 1, 0)) };
-    case 'QUARTERLY': {
-      const firstMonth = Math.floor(month / 3) * 3;
-      return { periodStart: iso(utc(year, firstMonth, 1)), periodEnd: iso(utc(year, firstMonth + 3, 0)) };
-    }
-    case 'YEARLY':
-      return { periodStart: iso(utc(year, 0, 1)), periodEnd: iso(utc(year, 12, 0)) };
-    default:
-      // DAILY, and anything with no natural period (ad hoc, custom, real time).
-      return { periodStart: iso(utc(year, month, day)), periodEnd: iso(utc(year, month, day)) };
-  }
+/**
+ * The period a value recorded `now` would cover, for a KPI of this frequency,
+ * in the organisation's calendar (fiscal year start, first day of the week).
+ * With no calendar given: the calendar year and Monday weeks.
+ */
+export function currentPeriod(frequency: string, now: Date = new Date(), config?: FiscalConfig): Period {
+  return sharedCurrentPeriod(frequency, now, config);
 }
 
 /** A period in words: one day, or both ends of a range. */

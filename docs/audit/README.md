@@ -413,6 +413,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.7 (`/ask`): each question was sent alone, so a follow-up had nothing to refer to | ✅ Fixed — the page sends the last three finished turns with a new question; `POST /nlq/ask` takes an optional `history`. Not run against a real AI key | #279 | `nlq.service.spec.ts` (+2), `nlq-ask.dto.spec.ts` (4), `e2e/ask-follow-ups.spec.ts` |
 | Plan 7.7 (MFA QR code): setting up two-step sign-in said to scan a code but showed only the key and an `otpauth://` address | ✅ Fixed — a QR code is drawn in the browser (the secret goes to no QR service), with the key below for typing in. New dependency: `qrcode` in `apps/web`. Not scanned with a real authenticator app | #280 | `otpauth-qr.spec.ts` (3), `e2e/profile-flow.spec.ts` |
 | Plan 7.7 (sessions): nothing said which listed session was the one in use | ✅ Fixed — it is marked 'This device', listed first, and its button signs out; `POST /me/sessions/current` names it from the refresh token presented in the body | #281 | `me-sessions.controller.spec.ts` (+4), `e2e/me-sessions.spec.ts` (+1) |
+| Plan 7.7 (share-link expiry): an expired share link was listed as active with a Copy button; the expiry showed no time; a past expiry was accepted | ✅ Fixed — expired links are listed apart with Remove; expiry shows date and time; a past expiry is refused by the form and by the API | #282 | `share-links.service.spec.ts` (+1), `e2e/share-link-expiry.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -11352,6 +11352,10 @@ export interface operations {
             content: {
                 "application/json": {
                     question: string;
+                    history?: {
+                        question: string;
+                        answer: string;
+                    }[];
                 };
             };
         };

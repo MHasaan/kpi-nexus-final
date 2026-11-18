@@ -1457,8 +1457,12 @@ model NotificationDelivery {
   alertId        String
   alert          Alert                      @relation(fields: [alertId], references: [id], onDelete: Cascade)
   channelId      String?
+  // Set on a delivery addressed to one person (targetUserId) rather than a channel: how it is sent.
+  kind           NotificationChannelKind?
   targetUserId   String?
   status         NotificationDeliveryStatus @default(PENDING)
+  // Why a PENDING row has not gone yet: DIGEST (kept for the person's digest) or MUTE_HOURS.
+  held           String?
   attempts       Int                        @default(0)
   error          String?
   sentAt         DateTime?
@@ -1467,6 +1471,7 @@ model NotificationDelivery {
   @@index([alertId])
   @@index([organizationId, status, createdAt])
   @@index([targetUserId, status])
+  @@index([status, held])
 }
 
 // An outbound webhook subscription. `secret` (prefix whsec_) signs payloads

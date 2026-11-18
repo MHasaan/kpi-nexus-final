@@ -33,6 +33,7 @@ function makeProcessor(opts: {
     user: { findMany: vi.fn(async () => []) },
   };
   const dispatcher = {
+    dispatchToPeople: vi.fn(async () => []),
     dispatch: vi.fn(async (_p: { channelIds: string[]; organizationId: string; alertId: string }) => [] as string[]),
   };
   const realtime = { publish: vi.fn(async () => {}) };

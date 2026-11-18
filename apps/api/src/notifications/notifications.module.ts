@@ -18,6 +18,9 @@ import {
 } from './notification-digest.service.js';
 import { NotificationDigestProcessor } from './notification-digest.processor.js';
 import { NotificationsController } from './notifications.controller.js';
+import { PersonalDigestProcessor } from './personal-digest.processor.js';
+import { PERSONAL_DIGEST_QUEUE, PersonalDigestProducer } from './personal-digest.producer.js';
+import { PersonalDigestService } from './personal-digest.service.js';
 import { queueProcessors } from '../config/queue-workers.js';
 
 @Module({
@@ -28,6 +31,7 @@ import { queueProcessors } from '../config/queue-workers.js';
     RealtimeModule,
     BullModule.registerQueue({ name: NOTIFICATION_RETRY_QUEUE }),
     BullModule.registerQueue({ name: NOTIFICATION_DIGEST_QUEUE }),
+    BullModule.registerQueue({ name: PERSONAL_DIGEST_QUEUE }),
   ],
   controllers: [NotificationsController],
   providers: [
@@ -37,6 +41,9 @@ import { queueProcessors } from '../config/queue-workers.js';
     ...queueProcessors([NotificationRetryProcessor]),
     NotificationDigestService,
     ...queueProcessors([NotificationDigestProcessor]),
+    PersonalDigestService,
+    PersonalDigestProducer,
+    ...queueProcessors([PersonalDigestProcessor]),
   ],
   exports: [
     NotificationAdaptersService,

@@ -24,8 +24,12 @@ import {
   type NotificationSettings,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 
-const CHANNEL_KINDS = ['EMAIL', 'SLACK', 'TEAMS', 'SMS', 'WEBHOOK'] as const;
+const CHANNEL_KINDS = ['EMAIL'] as const;
+// Only email is addressed to a person. Slack, Teams, SMS and webhooks are shared channels the
+// organisation sets up; a personal mute never applied to them, so they are not offered.
+const KIND_LABELS: Record<string, string> = { EMAIL: 'Do not email me alerts' };
 
 const DIGEST_OPTIONS: ReadonlyArray<{ value: 'OFF' | 'DAILY' | 'WEEKLY'; label: string }> = [
   { value: 'OFF', label: 'Off (immediate)' },
@@ -73,6 +77,10 @@ export default function NotificationSettingsPage() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (Boolean(muteStart) !== Boolean(muteEnd)) {
+      setLoadError('Set both a start and an end for do-not-disturb hours, or clear both.');
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setLoadError(null);
@@ -97,14 +105,18 @@ export default function NotificationSettingsPage() {
       <div className="mx-auto max-w-3xl">
         <PageHeader
           title="Notification preferences"
-          subtitle="Control digest cadence, quiet hours, and which channels are muted for you."
+          subtitle="How alert emails addressed to you are sent: at once, as a digest, outside your quiet hours, or not at all."
           actions={
-            <Link
-              href="/settings/notifications/dlq"
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Delivery log
-            </Link>
+            // The delivery log is the organisation's, and opens only for those who manage it.
+            <PermissionGuard permission="ORG_SETTINGS">
+              <Link
+                href="/settings/notifications/dlq"
+                data-testid="notif-delivery-log"
+                className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border-strong bg-surface-bg px-4 text-sm font-semibold text-content-strong transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Delivery log
+              </Link>
+            </PermissionGuard>
           }
         />
         <h1 data-testid="notif-settings-heading" className="sr-only">
@@ -176,17 +188,31 @@ export default function NotificationSettingsPage() {
                     className="w-36"
                   />
                 </div>
+                {(muteStart || muteEnd) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMuteStart('');
+                      setMuteEnd('');
+                    }}
+                    data-testid="mute-clear"
+                    className="h-10 rounded-md border border-border-strong bg-surface-bg px-3 text-sm font-medium text-content-strong hover:bg-surface-hover"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
+              <p className="text-xs text-content-muted">Alert emails wait until these hours end, on your own clock (your timezone, or the organisation&apos;s).</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Mute channels</CardTitle>
+              <CardTitle>Email</CardTitle>
             </CardHeader>
             <CardContent>
               <fieldset>
-                <legend className="sr-only">Mute channels</legend>
+                <legend className="sr-only">Email</legend>
                 <div className="flex flex-wrap gap-4">
                   {CHANNEL_KINDS.map((k) => (
                     <label key={k} className="flex items-center gap-2 text-sm text-content">
@@ -197,7 +223,7 @@ export default function NotificationSettingsPage() {
                         data-testid={`mute-kind-${k}`}
                         className="accent-[hsl(var(--accent-primary))]"
                       />
-                      {k}
+                      {KIND_LABELS[k] ?? k}
                     </label>
                   ))}
                 </div>

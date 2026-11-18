@@ -22,6 +22,7 @@ const PROCESSORS = [
   'NotificationRetryProcessor',
   'OnboardingCleanupProcessor',
   'OutboundWebhookProcessor',
+  'PersonalDigestProcessor',
   'ReembedProcessor',
   'RetentionPurgeProcessor',
   'ScheduledReportProcessor',

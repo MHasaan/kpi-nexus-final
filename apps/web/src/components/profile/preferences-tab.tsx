@@ -27,7 +27,10 @@ import {
   Select,
 } from '../ui';
 
-const CHANNEL_KINDS = ['EMAIL', 'SLACK', 'TEAMS', 'SMS', 'WEBHOOK'] as const;
+const CHANNEL_KINDS = ['EMAIL'] as const;
+// Only email is addressed to a person. Slack, Teams, SMS and webhooks are shared channels the
+// organisation sets up; a personal mute never applied to them, so they are not offered.
+const KIND_LABELS: Record<string, string> = { EMAIL: 'Do not email me alerts' };
 
 const DIGEST_OPTIONS = [
   { value: 'OFF', label: 'Off' },
@@ -89,6 +92,10 @@ function NotificationsCard() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (Boolean(muteStart) !== Boolean(muteEnd)) {
+      setError('Set both a start and an end for do-not-disturb hours, or clear both.');
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setError(null);
@@ -125,8 +132,8 @@ function NotificationsCard() {
               className="w-fit"
             />
             <p className="text-xs text-content-muted">
-              How often batched updates are emailed to you. &ldquo;Off&rdquo; sends them
-              immediately.
+              Daily or weekly keeps your alert emails and sends them as one (daily at 07:00 UTC, weekly on
+              Mondays). &ldquo;Off&rdquo; sends each one as it happens.
             </p>
           </div>
 
@@ -155,11 +162,25 @@ function NotificationsCard() {
                   className="w-36"
                 />
               </div>
+              {(muteStart || muteEnd) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMuteStart('');
+                    setMuteEnd('');
+                  }}
+                  data-testid="mute-clear"
+                  className="h-10 rounded-md border border-border-strong bg-surface-bg px-3 text-sm font-medium text-content-strong hover:bg-surface-hover"
+                >
+                  Clear
+                </button>
+              )}
             </div>
+            <p className="text-xs text-content-muted">Alert emails wait until these hours end, on your own clock (your timezone, or the organisation&apos;s).</p>
           </fieldset>
 
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium text-content-strong">Mute channels</legend>
+            <legend className="text-sm font-medium text-content-strong">Email</legend>
             <div className="flex flex-wrap gap-4">
               {CHANNEL_KINDS.map((k) => (
                 <label key={k} className="flex items-center gap-2 text-sm text-content">
@@ -170,7 +191,7 @@ function NotificationsCard() {
                     data-testid={`mute-kind-${k}`}
                     className="accent-[hsl(var(--accent-primary))]"
                   />
-                  {k}
+                  {KIND_LABELS[k] ?? k}
                 </label>
               ))}
             </div>

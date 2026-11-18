@@ -2266,6 +2266,11 @@ export async function createTarget(
 ): Promise<KpiTarget> {
   return api(`/kpis/${kpiId}/targets`, { method: 'POST', body: JSON.stringify(body) });
 }
+/** The target that counts now — the one written to the KPI as its target — or null. */
+export async function getActiveTarget(kpiId: string): Promise<KpiTarget | null> {
+  return api(`/kpis/${kpiId}/targets/active`);
+}
+
 export async function deleteTarget(kpiId: string, targetId: string): Promise<void> {
   return api(`/kpis/${kpiId}/targets/${targetId}`, { method: 'DELETE' });
 }

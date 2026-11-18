@@ -15,6 +15,7 @@ import { NlqModule } from './nlq/nlq.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { RetentionModule } from './retention/retention.module.js';
+import { KpiTargetsModule } from './kpi-targets/kpi-targets.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
@@ -64,6 +65,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     OnboardingModule,
     ReportsModule,
     RetentionModule,
+    KpiTargetsModule,
     WebhooksModule,
   ],
 })

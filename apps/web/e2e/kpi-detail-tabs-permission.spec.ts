@@ -87,7 +87,8 @@ test('KPI detail tabs: a reader reads, an editor edits', async ({ page, browser 
     if (r.url().startsWith(API_URL) && r.status() === 403) refused.push(`${r.request().method()} ${new URL(r.url()).pathname}`);
   });
   await reader.goto(`/kpis/${kpi.id}?tab=targets`);
-  await expect(reader.getByText('STATIC 42')).toBeVisible();
+  await expect(reader.locator('[data-testid^="target-row-"]')).toContainText('42');
+  await expect(reader.getByTestId('target-in-effect')).toBeVisible();
   await expect(reader.getByRole('button', { name: 'Delete' })).toHaveCount(0);
   for (const [tab, testId] of FORMS) {
     await reader.goto(`/kpis/${kpi.id}?tab=${tab}`);

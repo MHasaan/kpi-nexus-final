@@ -12,6 +12,7 @@ import {
   type CreateThresholdBandDto,
   type UpdateThresholdBandDto,
 } from './dto/threshold-band.dto.js';
+import { type KpiHealthMeta, type KpiHealthStatus, kpiHealthStatus } from '../kpis/kpi-health.js';
 
 const bandSelect = {
   id: true,
@@ -102,17 +103,21 @@ export class KpiThresholdBandsService {
     await this.audit.record({ action: 'DELETE', entityType: 'KPIThresholdBand', entityId: id });
   }
 
-  /** Current status band for a KPI, applying per-band hysteresis. */
-  async resolveStatus(kpiId: string): Promise<ResolvedStatus> {
+  /**
+   * Current status of a KPI: the band it is in (with per-band hysteresis), and
+   * its health by the one rule the home page, scorecard and board pack use
+   * (`kpiHealthStatus`: bands, then the KPI's own warning / critical
+   * thresholds, then its target). The KPI page used to show only the band, so
+   * a KPI graded by its thresholds read "At risk" at home and "no bands" here.
+   */
+  async resolveStatus(kpiId: string): Promise<ResolvedStatus & { health: KpiHealthStatus }> {
     const ctx = RequestContextStore.require();
-    await this.requireKpi(kpiId);
+    const meta = await this.requireKpi(kpiId);
     const bands = await this.prisma.kPIThresholdBand.findMany({
       where: { kpiId, organizationId: ctx.organizationId },
       select: bandSelect,
       orderBy: { order: 'asc' },
     });
-    if (bands.length === 0) return { band: null, reason: 'no_bands' };
-
     const window = Math.max(1, ...bands.map((b) => b.consecutivePointsRequired));
     const points = await this.prisma.kPIDataPoint.findMany({
       where: { kpiId, organizationId: ctx.organizationId },
@@ -129,14 +134,17 @@ export class KpiThresholdBandsService {
       order: b.order,
       consecutivePointsRequired: b.consecutivePointsRequired,
     }));
-    return resolveStatus(bandsForResolver, points.map((p) => p.value));
+    const recentValues = points.map((p) => p.value);
+    const health = kpiHealthStatus({ recentValues, meta, bands: bandsForResolver });
+    if (bands.length === 0) return { band: null, reason: 'no_bands', health };
+    return { ...resolveStatus(bandsForResolver, recentValues), health };
   }
 
-  private async requireKpi(kpiId: string): Promise<void> {
+  private async requireKpi(kpiId: string): Promise<KpiHealthMeta> {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, categoryId: true },
+      select: { id: true, categoryId: true, direction: true, targetValue: true, warningThreshold: true, criticalThreshold: true },
     });
     if (!kpi) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     // Layer-3 category allowlist (Phase 3): hide a KPI outside the allowed categories
@@ -144,6 +152,12 @@ export class KpiThresholdBandsService {
     if (!isCategoryAllowed(await this.accessContext.kpiCategoryAllowlist(), kpi.categoryId)) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
+    return {
+      direction: kpi.direction,
+      targetValue: kpi.targetValue ?? null,
+      warningThreshold: kpi.warningThreshold ?? null,
+      criticalThreshold: kpi.criticalThreshold ?? null,
+    };
   }
 
   private async requireBand(id: string): Promise<{ lower: number | null; upper: number | null }> {

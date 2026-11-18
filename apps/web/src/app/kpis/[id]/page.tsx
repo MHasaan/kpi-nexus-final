@@ -93,7 +93,7 @@ import {
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
-import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
@@ -318,9 +318,19 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
         </UICard>
         <UICard>
           <CardContent>
-            <p className="kn-eyebrow">Threshold status</p>
-            <p className="mt-1 text-xl font-medium text-content-strong">
-              {status?.band ?? status?.reason ?? '—'}
+            {/* The same health the home page shows, from the same rule (QA-H3). */}
+            <p className="kn-eyebrow">Health</p>
+            <p className="mt-1 text-xl font-medium text-content-strong" data-testid="overview-health">
+              {status?.health ? labelFor(HEALTH_STATUS_LABELS, status.health) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-content-muted" data-testid="overview-health-basis">
+              {status?.band
+                ? `In the band “${status.band}”`
+                : status?.health === 'NO_DATA' || status?.health === 'NO_TARGET' || !status?.health
+                  ? ''
+                  : kpi.warningThreshold !== null || kpi.criticalThreshold !== null
+                    ? 'From its warning and critical thresholds'
+                    : 'From its target'}
             </p>
           </CardContent>
         </UICard>

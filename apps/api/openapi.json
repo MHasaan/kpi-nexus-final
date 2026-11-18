@@ -12260,14 +12260,24 @@
                     "maxLength": 40
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 500
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "orgUnitTypeId": {
                     "type": "string"
                   },
                   "parentUnitId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "headUserId": {
                     "type": "string"

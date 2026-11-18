@@ -12941,9 +12941,9 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     code?: string;
-                    description?: string;
+                    description?: string | null;
                     orgUnitTypeId?: string;
-                    parentUnitId?: string;
+                    parentUnitId?: string | null;
                     headUserId?: string;
                     /** @enum {string} */
                     status?: "PLANNED" | "ACTIVE" | "PAUSED" | "ARCHIVED";

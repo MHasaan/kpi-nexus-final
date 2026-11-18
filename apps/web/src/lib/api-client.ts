@@ -15,6 +15,7 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
+import { validationMessage } from './validation-message';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
 
 const TOKEN_KEY = 'kpi-nexus.access-token';
@@ -123,7 +124,8 @@ export async function api<T = unknown>(
     const err = (payload ?? {}) as { message?: string; code?: string; details?: unknown };
     throw new ApiError(
       res.status,
-      err.message ?? `HTTP ${res.status}`,
+      // A body the API refused: say which field, not just "Invalid request body" (QA-L10).
+      validationMessage(err.message ?? `HTTP ${res.status}`, err.code, err.details),
       err.code,
       err.details,
     );

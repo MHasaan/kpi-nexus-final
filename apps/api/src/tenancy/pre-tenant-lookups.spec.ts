@@ -71,7 +71,7 @@ describe('pre-tenant entry points establish a tenancy context (OT-014)', () => {
 
   test('SlackService — team→org resolution under bypass, the ack in the resolved org', async () => {
     reset();
-    const prisma = { integrationConnection: { findFirst: spy({ organizationId: 'org_a' }) } };
+    const prisma = { integrationConnection: { findFirst: spy({ id: 'c1', organizationId: 'org_a', status: 'CONNECTED' }) } };
     const alerts = { acknowledge: spy({}) };
     const service = new SlackService(prisma as unknown as PrismaService, alerts as unknown as AlertsService);
     await service.handleInteractive({ team: { id: 'T1' }, actions: [{ action_id: 'acknowledge_alert', value: 'al_1' }] });
@@ -86,7 +86,7 @@ describe('pre-tenant entry points establish a tenancy context (OT-014)', () => {
     const crypto = new IntegrationCryptoService({ INTEGRATION_CRYPTO_KEY: 'unit-test-key' });
     const prisma = {
       integrationConnection: {
-        findFirst: spy({ organizationId: 'org_a', encryptedTokens: crypto.encrypt({ webhookSecret: 'whsec' }) }),
+        findFirst: spy({ organizationId: 'org_a', status: 'CONNECTED', encryptedTokens: crypto.encrypt({ webhookSecret: 'whsec' }) }),
       },
       task: { findFirst: spy({ id: 't1' }), update: spy({}) },
     };

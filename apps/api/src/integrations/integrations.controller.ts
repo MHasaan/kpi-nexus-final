@@ -48,8 +48,15 @@ export class IntegrationsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiBody(CreateIntegrationDtoSchema)
-  create(@Body() body: unknown): Promise<PublicIntegrationConnection> {
-    return this.integrations.create(parse(CreateIntegrationDtoSchema, body));
+  create(@Body() body: unknown): Promise<{ connection: PublicIntegrationConnection; webhookSecret?: string }> {
+    return this.integrations.connect(parse(CreateIntegrationDtoSchema, body));
+  }
+
+  /** Jira: replace the webhook secret. The new one is in the response, once. */
+  @Post(':id/rotate-secret')
+  @HttpCode(HttpStatus.OK)
+  rotateSecret(@Param('id') id: string): Promise<{ webhookSecret: string }> {
+    return this.integrations.rotateWebhookSecret(id);
   }
 
   @Delete(':id')

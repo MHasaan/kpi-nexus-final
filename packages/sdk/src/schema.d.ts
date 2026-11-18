@@ -1270,6 +1270,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/{id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /integrations/:id/rotate-secret */
+        post: operations["IntegrationsController_rotateSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/jira/webhook/{connectionId}": {
         parameters: {
             query?: never;
@@ -8026,14 +8043,7 @@ export interface operations {
             content: {
                 "application/json": {
                     provider: string;
-                    displayName?: string;
-                    tokens: {
-                        [key: string]: unknown;
-                    };
-                    scopes?: string[];
-                    metadata?: {
-                        [key: string]: unknown;
-                    };
+                    teamId?: string;
                 };
             };
         };
@@ -8096,6 +8106,40 @@ export interface operations {
         };
     };
     IntegrationsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IntegrationsController_rotateSecret: {
         parameters: {
             query?: never;
             header?: never;

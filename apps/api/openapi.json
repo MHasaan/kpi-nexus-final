@@ -5341,36 +5341,13 @@
                     "minLength": 1,
                     "maxLength": 64
                   },
-                  "displayName": {
+                  "teamId": {
                     "type": "string",
-                    "maxLength": 120
-                  },
-                  "tokens": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
-                  },
-                  "scopes": {
-                    "maxItems": 50,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "metadata": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "additionalProperties": {}
+                    "maxLength": 40
                   }
                 },
                 "required": [
-                  "provider",
-                  "tokens"
+                  "provider"
                 ],
                 "additionalProperties": false
               }
@@ -5447,6 +5424,47 @@
           "Integrations"
         ],
         "summary": "GET /integrations/:id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "any": [
+            "INTEGRATIONS_MANAGE",
+            "ORG_SETTINGS"
+          ]
+        }
+      }
+    },
+    "/integrations/{id}/rotate-secret": {
+      "post": {
+        "operationId": "IntegrationsController_rotateSecret",
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "POST /integrations/:id/rotate-secret",
         "parameters": [
           {
             "name": "id",

@@ -18,14 +18,16 @@ export interface IntegrationConnection {
 export function listIntegrations(): Promise<IntegrationConnection[]> {
   return api('/integrations');
 }
-export function connectIntegration(body: {
-  provider: string;
-  displayName?: string;
-  tokens: Record<string, unknown>;
-  scopes?: string[];
-  metadata?: Record<string, unknown>;
-}): Promise<IntegrationConnection> {
+/**
+ * Connect Slack (needs the workspace id) or Jira. Jira's webhook secret is in
+ * the response once; the connection that is listed never carries it.
+ */
+export async function connectIntegration(body: { provider: 'slack' | 'jira'; teamId?: string }): Promise<{ connection: IntegrationConnection; webhookSecret?: string }> {
   return api('/integrations', { method: 'POST', body: JSON.stringify(body) });
+}
+/** Jira: replace the webhook secret. The new one is returned once. */
+export function rotateIntegrationSecret(id: string): Promise<{ webhookSecret: string }> {
+  return api(`/integrations/${id}/rotate-secret`, { method: 'POST' });
 }
 export function disconnectIntegration(id: string): Promise<void> {
   return api(`/integrations/${id}`, { method: 'DELETE' });

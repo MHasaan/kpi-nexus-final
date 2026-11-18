@@ -72,7 +72,7 @@ export class JiraService {
     const conn = await RequestContextStore.runWithBypass('jira-authenticate', () =>
       this.prisma.integrationConnection.findFirst({
         where: { id: connectionId, provider: 'jira' },
-        select: { organizationId: true, encryptedTokens: true },
+        select: { organizationId: true, encryptedTokens: true, status: true },
       }),
     );
     if (!conn) throw reject();
@@ -88,6 +88,12 @@ export class JiraService {
     const a = Buffer.from(presentedSecret);
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) throw reject();
+    if (conn.status !== 'CONNECTED') {
+      // Jira has been heard from with the right secret: the connection works.
+      await RequestContextStore.runWithBypass('jira-mark-connected', () =>
+        this.prisma.integrationConnection.update({ where: { id: connectionId }, data: { status: 'CONNECTED', lastError: null, lastSyncAt: new Date() } }),
+      );
+    }
     return conn.organizationId;
   }
 }

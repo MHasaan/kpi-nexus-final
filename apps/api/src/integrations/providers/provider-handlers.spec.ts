@@ -20,6 +20,8 @@ describe('SlackService.handleInteractive', () => {
         findFirst: vi.fn(async ({ where }: { where: { metadata: { path: string[]; equals: string } } }) =>
           where.metadata.equals === 'T123' ? { organizationId: 'org_a' } : null,
         ),
+        // A provider heard from marks its connection connected (plan 6.10).
+        update: vi.fn(async () => ({})),
       },
     };
     const alerts = { acknowledge: vi.fn(async () => ({ id: 'al_1', status: 'ACKNOWLEDGED' })) };
@@ -84,6 +86,8 @@ describe('JiraService.handleWebhook', () => {
         findFirst: vi.fn(async ({ where }: { where: { id: string; provider: string } }) =>
           connections.find((c) => c.id === where.id && c.provider === where.provider) ?? null,
         ),
+        // A provider heard from marks its connection connected (plan 6.10).
+        update: vi.fn(async () => ({})),
       },
       task: {
         findFirst: vi.fn(async ({ where }: { where: Where }) => tasks.find((t) => matches(t, where)) ?? null),

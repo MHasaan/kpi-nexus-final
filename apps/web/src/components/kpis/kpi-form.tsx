@@ -22,6 +22,7 @@ import {
   type KpiWriteBody,
   type OrgUnitSummary,
   type UserSummary,
+  getActiveTarget,
 } from '../../lib/api-client';
 import {
   Badge,
@@ -270,6 +271,22 @@ export interface KpiFormProps {
 }
 
 export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormProps) {
+  // The figure of the target in effect on the Targets tab, when there is one (UI-017): it is the
+  // KPI's target, so the field below shows it and is not for changing it.
+  const [tabTarget, setTabTarget] = useState<number | null>(null);
+  useEffect(() => {
+    if (mode !== 'edit' || !kpiId) return;
+    let live = true;
+    getActiveTarget(kpiId)
+      .then((t) => {
+        const figure = t ? (t.type === 'TIERED' ? (t.expectedValue ?? t.value) : t.value) : null;
+        if (live) setTabTarget(figure ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [mode, kpiId]);
   const [values, setValues] = useState<KpiFormValues>(() => buildInitialValues(initial));
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -363,7 +380,9 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
           unit: base.unit ?? null,
           categoryId: base.categoryId ?? null,
           ownerUserId: base.ownerUserId ?? null,
-          targetValue: base.targetValue ?? null,
+          // With a target in effect on the Targets tab the figure is that tab's: leave it out,
+          // so this save neither changes it nor clears it.
+          targetValue: tabTarget !== null ? undefined : (base.targetValue ?? null),
           warningThreshold: base.warningThreshold ?? null,
           criticalThreshold: base.criticalThreshold ?? null,
           scorecardQuadrant: base.scorecardQuadrant ?? null,
@@ -648,12 +667,22 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
           >
             <Input
               id="kpi-target"
-              value={values.targetValue}
+              value={tabTarget !== null ? String(tabTarget) : values.targetValue}
               onChange={(e) => set('targetValue', e.target.value)}
               type="number"
               step="any"
+              disabled={tabTarget !== null}
               data-testid="kpi-target"
             />
+            {tabTarget !== null && kpiId && (
+              <p className="text-xs text-content-muted" data-testid="kpi-target-from-tab">
+                This comes from the target in effect on the{' '}
+                <Link href={`/kpis/${kpiId}?tab=targets`} className="font-medium text-accent-primary hover:underline">
+                  Targets tab
+                </Link>
+                . Change it there.
+              </p>
+            )}
           </Field>
           <Field label="Warning threshold" htmlFor="kpi-warning">
             <Input

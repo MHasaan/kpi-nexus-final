@@ -88,6 +88,7 @@ function makeService() {
   const objectives = {
     getById: vi.fn(async (id: string) => ({ id, organizationId: ORG })),
     recomputeObjectiveProgress: vi.fn(async () => {}),
+    assertKpiLinkable: vi.fn(async (_kpiId: string) => {}),
   };
   const service = new KeyResultsService(
     prisma as unknown as PrismaService,
@@ -137,6 +138,29 @@ describe('KeyResultsService', () => {
     await withCtx({}, () => service.remove(kr.id));
     expect(prisma.krs).toHaveLength(0);
     expect(objectives.recomputeObjectiveProgress).toHaveBeenCalledWith('obj_1');
+  });
+
+  // BE-055: the linked KPI is checked before anything is written.
+  test('create with a linked KPI checks the KPI first, and writes nothing when it is refused', async () => {
+    const { service, prisma, objectives } = makeService();
+    await withCtx({}, () => service.create('o1', { name: 'KR', targetValue: 10, kpiId: 'kpi_ok', weight: 1 }));
+    expect(objectives.assertKpiLinkable).toHaveBeenCalledWith('kpi_ok');
+
+    objectives.assertKpiLinkable.mockRejectedValueOnce(new NotFoundException());
+    await expect(withCtx({}, () => service.create('o1', { name: 'KR2', targetValue: 10, kpiId: 'kpi_hidden', weight: 1 }))).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.krs).toHaveLength(1);
+  });
+
+  test('update checks a newly linked KPI; unlinking and other edits are not checked', async () => {
+    const { service, prisma, objectives } = makeService();
+    const kr = await withCtx({}, () => service.create('o1', { name: 'KR', targetValue: 10, weight: 1 }));
+    await withCtx({}, () => service.update(kr.id, { name: 'Renamed' }));
+    await withCtx({}, () => service.update(kr.id, { kpiId: null }));
+    expect(objectives.assertKpiLinkable).not.toHaveBeenCalled();
+
+    objectives.assertKpiLinkable.mockRejectedValueOnce(new NotFoundException());
+    await expect(withCtx({}, () => service.update(kr.id, { kpiId: 'kpi_hidden' }))).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.krs[0]!.kpiId).toBeNull();
   });
 
   test('list is org + objective scoped', async () => {

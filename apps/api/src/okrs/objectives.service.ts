@@ -234,6 +234,23 @@ export class ObjectivesService {
   }
 
   /**
+   * A key result may be linked only to a KPI of this organisation that the
+   * caller can see (BE-055). Syncing copies the linked KPI's value into the
+   * key result, so a link to a KPI out of the caller's sight would hand them
+   * its value. Out of sight answers as missing, as `GET /kpis/:id` does.
+   */
+  async assertKpiLinkable(kpiId: string): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const kpi = await this.prisma.kPI.findFirst({
+      where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!kpi || !(await this.accessContext.isKpiVisible(kpiId))) {
+      throw new NotFoundException({ code: 'KPI_NOT_FOUND', message: 'The KPI to link was not found' });
+    }
+  }
+
+  /**
    * For each KR with a linked KPI, pull the latest data point value into the
    * KR's currentValue, then recompute the objective (and roll up).
    *

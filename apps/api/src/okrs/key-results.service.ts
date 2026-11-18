@@ -47,6 +47,7 @@ export class KeyResultsService {
   async create(objectiveId: string, dto: CreateKeyResultDto): Promise<PublicKeyResult> {
     const ctx = RequestContextStore.require();
     await this.objectives.getById(objectiveId); // tenant + existence
+    if (dto.kpiId) await this.objectives.assertKpiLinkable(dto.kpiId);
     const progress = keyResultProgress({
       baselineValue: dto.baselineValue ?? null,
       targetValue: dto.targetValue,
@@ -74,6 +75,8 @@ export class KeyResultsService {
 
   async update(id: string, dto: UpdateKeyResultDto): Promise<PublicKeyResult> {
     const existing = await this.loadInOrg(id);
+    // Only a link that is being made or changed is checked; an untouched one is left alone.
+    if (dto.kpiId && dto.kpiId !== existing.kpiId) await this.objectives.assertKpiLinkable(dto.kpiId);
     const next = {
       baselineValue: dto.baselineValue ?? existing.baselineValue,
       targetValue: dto.targetValue ?? existing.targetValue,

@@ -127,7 +127,12 @@ class FakePrisma {
 
   /** The kind of each KPI; organisation-wide unless a test says otherwise. */
   kpiScopes: Record<string, string> = {};
+  /** KPIs that exist in the organisation, for the link check; a test adds to it. */
+  kpisInOrg: Array<{ id: string; organizationId: string }> = [];
   kPI = {
+    findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+      this.kpisInOrg.find((k) => k.id === where.id && k.organizationId === where.organizationId) ?? null,
+    ),
     findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.map((id) => ({ id, scope: this.kpiScopes[id] ?? 'ORG_WIDE' }))),
   };
 
@@ -182,6 +187,8 @@ class FakeAccessContext {
     context: { managedOrgUnitIds: [], memberOrgUnitIds: [], directReportIds: this.directReportIds },
   }));
   unitMemberUserIds = vi.fn(async () => this.unitMemberIds);
+  hiddenKpiIds: string[] = [];
+  isKpiVisible = vi.fn(async (kpiId: string) => !this.hiddenKpiIds.includes(kpiId));
 }
 
 const ORG = 'org_alpha';
@@ -319,6 +326,30 @@ describe('ObjectivesService.syncFromLinkedKpis — whose value (BE-053)', () => 
     prisma.dps.push({ organizationId: ORG, kpiId: 'kpi_u', value: 60, recordedAt: new Date('2026-03-01') });
     await withCtx({}, () => service.syncFromLinkedKpis(o.id));
     expect(prisma.krs.find((k) => k.id === kr.id)!.currentValue).toBe(60);
+  });
+});
+
+// BE-055: a key result could be linked to any KPI id — one the caller cannot see, or one that is
+// not in the organisation — and "Sync" then copied that KPI's value into it.
+describe('ObjectivesService.assertKpiLinkable (BE-055)', () => {
+  test('a KPI the caller can see may be linked', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpisInOrg.push({ id: 'kpi_ok', organizationId: ORG });
+    await expect(withCtx({}, () => service.assertKpiLinkable('kpi_ok'))).resolves.toBeUndefined();
+  });
+
+  test('a KPI outside the caller\'s sight is not found', async () => {
+    const { service, prisma, accessContext } = makeService();
+    prisma.kpisInOrg.push({ id: 'kpi_hidden', organizationId: ORG });
+    accessContext.hiddenKpiIds.push('kpi_hidden');
+    await expect(withCtx({}, () => service.assertKpiLinkable('kpi_hidden'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('a KPI of another organisation, or none at all, is not found', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpisInOrg.push({ id: 'kpi_theirs', organizationId: 'org_beta' });
+    await expect(withCtx({}, () => service.assertKpiLinkable('kpi_theirs'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.assertKpiLinkable('no-such-kpi'))).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 

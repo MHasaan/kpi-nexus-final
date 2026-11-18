@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
 
 import { describe, expect, test } from 'vitest';
 
 import { SECRET_SPECS } from './secrets.js';
+import { readText } from './read-text.js';
 
 /**
  * Every key the API refuses to boot without in production must be listed in
@@ -19,7 +19,7 @@ const TEMPLATES = {
 };
 
 function documentedKeys(path: URL): Set<string> {
-  const keys = readFileSync(path, 'utf8')
+  const keys = readText(path)
     .split('\n')
     .map((line) => /^#?\s*([A-Z0-9_]+)=/.exec(line)?.[1])
     .filter((key): key is string => key !== undefined);
@@ -43,7 +43,7 @@ describe('.env.example mail and storage keys', () => {
     new URL('../email/email.service.ts', import.meta.url),
     new URL('../reports/services/storage.service.ts', import.meta.url),
   ]
-    .map((path) => readFileSync(path, 'utf8'))
+    .map((path) => readText(path))
     .join('\n');
   const keys = [...documentedKeys(TEMPLATES['.env.example'])].filter((key) => /^(SMTP|S3)_/.test(key));
 

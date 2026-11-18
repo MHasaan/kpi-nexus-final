@@ -41,7 +41,8 @@ test('a list a page can do without still says when it failed to load', async ({ 
   await page.unroute(`**/kpis/${kpi.id}/watch`);
 
   // The KPI list behind pickers: only the list itself fails, not a KPI's own pages.
-  await page.route((url) => url.port === '4000' && url.pathname === '/kpis', fail);
+  const kpiList = (url: URL) => url.port === '4000' && url.pathname === '/kpis';
+  await page.route(kpiList, fail);
 
   await page.goto('/workflows');
   await expect(page.getByTestId('wf-kpis-error')).toContainText('KPIs could not be loaded');
@@ -49,4 +50,19 @@ test('a list a page can do without still says when it failed to load', async ({ 
   await page.goto(`/okrs/${objective.id}`);
   await expect(page.getByTestId('objective-heading')).toBeVisible();
   await expect(page.getByTestId('okr-pickers-error')).toContainText('KPIs could not be loaded');
+
+  await page.goto('/tasks');
+  await expect(page.getByTestId('tasks-kpis-error')).toContainText('KPIs could not be loaded');
+
+  // The new-report form cannot do without its lists: it says so and offers to try again.
+  await page.goto('/reports/new');
+  await expect(page.getByTestId('report-lists-error')).toContainText('could not be loaded');
+  await page.unroute(kpiList);
+  await page.getByTestId('report-lists-error').getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByTestId('report-lists-error')).toHaveCount(0);
+
+  // Access Center: the KPI categories behind its choices.
+  await page.route((url) => url.port === '4000' && url.pathname === '/kpi-categories', fail);
+  await page.goto('/settings/access');
+  await expect(page.getByTestId('access-categories-error')).toContainText('KPI categories could not be loaded');
 });

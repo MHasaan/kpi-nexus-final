@@ -40,6 +40,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { optionalList } from '../../lib/optional-list';
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
@@ -167,6 +168,7 @@ export default function TasksPage() {
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [kpisError, setKpisError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<TaskStatus | null>(null);
 
@@ -220,9 +222,7 @@ export default function TasksPage() {
   useEffect(() => {
     // Not asked for when signed out: the page is about to go to the sign-in page.
     if (!getAccessToken()) return;
-    listKpis()
-      .then(setKpis)
-      .catch(() => setKpis([]));
+    void optionalList(listKpis(), 'KPIs', setKpisError).then(setKpis);
   }, []);
 
   const userById = useCallback(
@@ -434,6 +434,12 @@ export default function TasksPage() {
           data-testid="tasks-error"
         >
           {error}
+        </p>
+      )}
+
+      {kpisError && (
+        <p className="mb-4 mt-4 text-sm text-status-critical" role="alert" data-testid="tasks-kpis-error">
+          {kpisError} Tasks can still be added; linking one to a KPI will work after a reload.
         </p>
       )}
 

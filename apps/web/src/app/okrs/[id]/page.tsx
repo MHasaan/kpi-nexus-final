@@ -48,6 +48,7 @@ import type { BadgeTone } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePeople } from '../../../lib/use-people';
 import { useFormat } from '../../../lib/format-context';
+import { optionalList } from '../../../lib/optional-list';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -127,6 +128,7 @@ export default function ObjectiveDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [pickersError, setPickersError] = useState<string | null>(null);
 
   // Objective edit / delete
   const [objEditing, setObjEditing] = useState(false);
@@ -148,17 +150,20 @@ export default function ObjectiveDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // The lists behind the pickers: the page works without them, but says when one is missing.
+    const failures: string[] = [];
     try {
       const [obj, krList, objs, kp] = await Promise.all([
         getObjective(id),
         listKeyResults(id),
-        listObjectives().catch(() => [] as Objective[]),
-        listKpis().catch(() => [] as KpiSummary[]),
+        optionalList(listObjectives(), 'Objectives', (m) => failures.push(m)),
+        optionalList(listKpis(), 'KPIs', (m) => failures.push(m)),
       ]);
       setObjective(obj);
       setKrs(krList);
       setAllObjectives(objs);
       setKpis(kp);
+      setPickersError(failures.length > 0 ? failures.join(' ') : null);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load objective');
@@ -375,6 +380,16 @@ export default function ObjectiveDetailPage() {
           data-testid="okr-error"
         >
           {error}
+        </p>
+      )}
+
+      {pickersError && (
+        <p
+          className="mb-4 rounded-lg border border-border bg-status-warning-bg px-4 py-3 text-sm text-status-warning"
+          role="alert"
+          data-testid="okr-pickers-error"
+        >
+          {pickersError} The lists to choose from on this page may be empty; reload to try again.
         </p>
       )}
 

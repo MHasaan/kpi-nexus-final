@@ -12,8 +12,10 @@ import { PageHeader, Card, CardContent, Badge, Button, EmptyState, Skeleton } fr
 import { cn } from '../../../lib/cn';
 import { mentionHref, mentionSentence, mentionText } from '../../../lib/mentions-view';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 export default function MentionsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [mentions, setMentions] = useState<Mention[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -142,7 +144,7 @@ export default function MentionsPage() {
                   </Link>
                 )}
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs tabular-nums text-content-muted">{new Date(m.createdAt).toLocaleString()}</span>
+                  <span className="text-xs tabular-nums text-content-muted">{fmt.dateTime(m.createdAt)}</span>
                   {m.readAt == null && (
                     <button
                       type="button"

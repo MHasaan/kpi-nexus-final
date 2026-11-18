@@ -11,8 +11,10 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useFormat } from '../../../lib/format-context';
 
 export default function ScimSettingsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const [tokens, setTokens] = useState<ScimTokenRow[]>([]);
@@ -106,7 +108,7 @@ export default function ScimSettingsPage() {
             <div key={tk.id} data-testid={`scim-token-${tk.id}`} className="flex items-center justify-between rounded-lg border border-border bg-surface-1 p-4 text-sm">
               <div>
                 <span className="font-medium text-content-strong">{tk.label}</span>
-                <span className="ml-2 text-xs text-content-muted">{tk.revokedAt ? 'revoked' : tk.lastUsedAt ? `last used ${new Date(tk.lastUsedAt).toLocaleDateString()}` : 'never used'}</span>
+                <span className="ml-2 text-xs text-content-muted">{tk.revokedAt ? 'revoked' : tk.lastUsedAt ? `last used ${fmt.date(tk.lastUsedAt)}` : 'never used'}</span>
               </div>
               {!tk.revokedAt && <button type="button" data-testid={`scim-revoke-${tk.id}`} onClick={() => revoke(tk.id)} className="text-xs text-status-critical hover:underline">Revoke</button>}
             </div>

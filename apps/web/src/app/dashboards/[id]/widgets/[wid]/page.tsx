@@ -40,6 +40,7 @@ import {
 } from '../../../../../components/ui';
 import { ArrowLeft, CircleCheck, CircleDashed, Pencil, TriangleAlert } from 'lucide-react';
 import { currentLoginRedirect } from '../../../../../lib/auth-redirect';
+import { useFormat } from '../../../../../lib/format-context';
 
 // Recharts must be client-only
 const DrillDownChart = dynamic(() => import('./drill-down-chart').then((m) => m.DrillDownChart), {
@@ -55,6 +56,7 @@ export default function WidgetDrillDownPage() {
 type ChartMode = 'line' | 'bar' | 'area';
 
 function DrillDownInner() {
+  const fmt = useFormat();
   const router = useRouter();
   const params = useParams<{ id: string; wid: string }>();
   const dashboardId = params.id;
@@ -330,7 +332,7 @@ function DrillDownInner() {
               <CardContent>
                 <Metric
                   label={label}
-                  value={value !== null ? value.toLocaleString() : '—'}
+                  value={value !== null ? fmt.number(value) : '—'}
                   unit={value !== null ? kpi?.unit ?? undefined : undefined}
                   size="md"
                 />
@@ -376,7 +378,7 @@ function DrillDownInner() {
                   {filteredPoints.slice(0, 100).map((dp) => (
                     <TableRow key={dp.id}>
                       <TableCell className="tabular-nums text-content-muted">
-                        {new Date(dp.recordedAt).toLocaleDateString()}
+                        {fmt.date(dp.recordedAt)}
                       </TableCell>
                       <TableCell className="font-semibold tabular-nums text-content-strong">
                         {dp.value}

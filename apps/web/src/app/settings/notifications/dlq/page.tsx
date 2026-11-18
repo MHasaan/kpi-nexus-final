@@ -31,8 +31,10 @@ import {
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import { usePermissions } from '../../../../lib/use-permissions';
+import { useFormat } from '../../../../lib/format-context';
 
 export default function DlqPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [rows, setRows] = useState<NotificationDelivery[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export default function DlqPage() {
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-content-muted">{d.error ?? '—'}</TableCell>
                   <TableCell className="tabular-nums text-content-muted">
-                    {new Date(d.createdAt).toLocaleString()}
+                    {fmt.dateTime(d.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

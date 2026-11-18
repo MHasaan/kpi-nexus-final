@@ -24,6 +24,7 @@ import { useAsyncData } from '../../lib/use-async-data';
 import { useConfirm } from '../../lib/use-confirm';
 import { usePermissions } from '../../lib/use-permissions';
 import { useToast } from '../../lib/use-toast';
+import { useFormat } from '../../lib/format-context';
 
 const RESOLVED_STATUSES: ApprovalRequestStatus[] = ['APPROVED', 'REJECTED', 'CANCELLED'];
 
@@ -132,6 +133,7 @@ function BeforeAfterDiff({ current, proposed }: { current: unknown; proposed: un
  * asking first, for everyone, used to turn the inbox into an error page (UI-008).
  */
 export default function ApprovalsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
   const { ready, has } = usePermissions();
@@ -386,7 +388,7 @@ export default function ApprovalsPage() {
                       <RequestTitle request={req} />
                       <div className="mt-1 text-xs text-content-muted">
                         Asked by {standing === 'mine' ? 'you' : (req.requesterName ?? 'someone who has left')} on{' '}
-                        {new Date(req.createdAt).toLocaleDateString()} ·{' '}
+                        {fmt.date(req.createdAt)} ·{' '}
                         {standing === 'decide' ? (
                           <span className="text-accent-primary">Waiting for your decision</span>
                         ) : (
@@ -468,7 +470,7 @@ export default function ApprovalsPage() {
                 <div>
                   <RequestTitle request={req} />
                   <div className="mt-1 text-xs tabular-nums text-content-muted">
-                    Asked by {req.requesterName ?? 'someone who has left'} on {new Date(req.createdAt).toLocaleDateString()}
+                    Asked by {req.requesterName ?? 'someone who has left'} on {fmt.date(req.createdAt)}
                   </div>
                 </div>
                 <Badge tone={RESOLVED_TONE[req.status] ?? 'neutral'}>{statusLabel(req.status)}</Badge>

@@ -17,6 +17,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Button, Card, EmptyState, ScopeBadge, Skeleton } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 const PURGE_WINDOW_DAYS = 30;
 
@@ -29,6 +30,7 @@ function daysUntilPurge(deletedAt: string | null): number | null {
 }
 
 export default function ArchivePage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [kpis, setKpis] = useState<KpiSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,7 @@ export default function ArchivePage() {
                   <div>
                     <span className="font-medium text-content-strong">{k.name}</span>
                     <span className="ml-2 text-xs text-content-muted">
-                      archived {k.deletedAt ? new Date(k.deletedAt).toLocaleDateString() : ''}
+                      archived {k.deletedAt ? fmt.date(k.deletedAt) : ''}
                     </span>
                   </div>
                   {remaining !== null && (

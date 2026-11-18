@@ -20,6 +20,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { useConfirm } from '../../../lib/use-confirm';
 import { usePermissions } from '../../../lib/use-permissions';
 import { useToast } from '../../../lib/use-toast';
+import { useFormat } from '../../../lib/format-context';
 
 /** The five kinds of row a policy can cover, in the words a person uses. */
 const ENTITY_LABELS: Record<string, string> = {
@@ -33,11 +34,12 @@ const ENTITY_ORDER = ['kpi_data_point', 'audit_log', 'notification_delivery', 'r
 const TIER_LABELS: Record<string, string> = { FREE: 'Short', PRO: 'One year', ENTERPRISE: 'Seven years' };
 
 const labelOf = (entityType: string) => ENTITY_LABELS[entityType] ?? entityType;
-const rowsText = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'row' : 'rows'}`;
 
 export default function RetentionSettingsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
+  const rowsText = (n: number) => `${fmt.number(n)} ${n === 1 ? 'row' : 'rows'}`;
   const toast = useToast();
   const [policies, setPolicies] = useState<RetentionPolicyRow[] | null>(null);
   const [tiers, setTiers] = useState<Array<{ tier: string; days: number }>>([]);
@@ -237,7 +239,7 @@ export default function RetentionSettingsPage() {
                 <p className="mt-1 text-xs text-content-muted" data-testid={`retention-status-${p.entityType}`}>
                   {counted ? `${rowsText(counted.rows)} older than ${counted.days} days. ` : ''}
                   {p.lastRunAt
-                    ? `Last purge ${new Date(p.lastRunAt).toLocaleString()}: ${rowsText(p.lastRunDeleted ?? 0)} deleted.`
+                    ? `Last purge ${fmt.dateTime(p.lastRunAt)}: ${rowsText(p.lastRunDeleted ?? 0)} deleted.`
                     : on
                       ? 'Not purged yet — the first run is tonight.'
                       : 'Nothing has been deleted.'}

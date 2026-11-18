@@ -37,6 +37,7 @@ import {
 } from '../../lib/api-client';
 import { ALERT_STATUS_LABELS, labelFor } from '../../lib/labels';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -82,6 +83,7 @@ function SeverityChip({ severity }: { severity: AlertSeverity }) {
 }
 
 export default function AlertsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -294,7 +296,7 @@ export default function AlertsPage() {
                     <Badge tone={STATUS_TONE[a.status]}>{labelFor(ALERT_STATUS_LABELS, a.status)}</Badge>
                   </TableCell>
                   <TableCell className="tabular-nums text-content-muted">
-                    {new Date(a.createdAt).toLocaleString()}
+                    {fmt.dateTime(a.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

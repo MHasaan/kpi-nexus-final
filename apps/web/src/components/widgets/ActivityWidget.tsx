@@ -8,6 +8,7 @@ import { listActivity } from '../../lib/polish-client';
 import { timeAgo } from '../../lib/time-ago';
 import { useAsyncData } from '../../lib/use-async-data';
 import { useDashboardData } from '../dashboard-grid/dashboard-data';
+import { useFormat } from '../../lib/format-context';
 
 interface ActivityWidgetProps {
   widget: DashboardWidget;
@@ -18,6 +19,7 @@ interface ActivityWidgetProps {
  * the API gives administrators everyone's activity and everyone else their own.
  */
 export function ActivityWidget({ widget }: ActivityWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? 'Activity';
   const configured = Number(widget.config['maxItems']);
   const limit = Number.isInteger(configured) && configured > 0 ? Math.min(configured, 25) : 8;
@@ -56,8 +58,8 @@ export function ActivityWidget({ widget }: ActivityWidgetProps) {
               <span className="min-w-0 truncate text-content-default">
                 <span className="font-medium text-content-strong">{item.userName ?? 'Someone'}</span> {activityLabel(item.action, item.entityType)}
               </span>
-              <time dateTime={item.createdAt} title={new Date(item.createdAt).toLocaleString()} className="shrink-0 text-xs tabular-nums text-content-muted">
-                {timeAgo(item.createdAt)}
+              <time dateTime={item.createdAt} title={fmt.dateTime(item.createdAt)} className="shrink-0 text-xs tabular-nums text-content-muted">
+                {timeAgo(item.createdAt, new Date(), fmt.date)}
               </time>
             </li>
           ))}

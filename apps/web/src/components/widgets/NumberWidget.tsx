@@ -10,6 +10,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, previousPoint, toSeries } from './series';
+import { useFormat } from '../../lib/format-context';
 
 interface NumberWidgetProps {
   widget: DashboardWidget;
@@ -18,6 +19,7 @@ interface NumberWidgetProps {
 }
 
 export function NumberWidget({ widget, kpi, dataPoints = [] }: NumberWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? kpi?.name ?? 'Number';
   const latest = latestPoint(dataPoints);
   const value = latest?.value ?? null;
@@ -48,7 +50,7 @@ export function NumberWidget({ widget, kpi, dataPoints = [] }: NumberWidgetProps
         <>
           <div className="mt-1 flex items-baseline gap-2">
             <p className="text-4xl font-bold text-content-strong">
-              {value.toLocaleString()}
+              {fmt.number(value)}
             </p>
             {unit && (
               <span className="text-sm font-normal text-content-muted">{unit}</span>

@@ -15,6 +15,7 @@ import {
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RequireAnyPermission } from '../../../components/auth/require-permission';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useFormat } from '../../../lib/format-context';
 
 interface Run {
   id: string;
@@ -24,6 +25,7 @@ interface Run {
 }
 
 export default function ConnectorDetailPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -106,7 +108,7 @@ export default function ConnectorDetailPage() {
             <div className="mt-2 space-y-1" data-testid="run-history">
               {runs.map((r) => (
                 <div key={r.id} className="flex items-center justify-between rounded border border-border bg-surface-1 px-3 py-2 text-sm">
-                  <span className="text-content-muted">{new Date(r.createdAt).toLocaleString()} · {r.kind}</span>
+                  <span className="text-content-muted">{fmt.dateTime(r.createdAt)} · {r.kind}</span>
                   <span className={r.status === 'SUCCEEDED' ? 'text-status-positive' : r.status === 'FAILED' ? 'text-status-critical' : 'text-status-warning'}>{r.status}</span>
                 </div>
               ))}

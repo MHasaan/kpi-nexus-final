@@ -12,7 +12,8 @@ import {
 import type { DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint, WidgetKpi } from './series';
-import { latestPoint, periodLabel, toSeries } from './series';
+import { latestPoint, toSeries } from './series';
+import { useFormat } from '../../lib/format-context';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
 
@@ -23,6 +24,7 @@ interface PieChartWidgetProps {
 }
 
 export function PieChartWidget({ widget, kpi, dataPoints = [] }: PieChartWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? 'Pie Chart';
   const latest = latestPoint(dataPoints);
   const latestValue = latest?.value ?? 0;
@@ -36,7 +38,7 @@ export function PieChartWidget({ widget, kpi, dataPoints = [] }: PieChartWidgetP
           { name: 'Remaining', value: Math.max(0, target - latestValue) },
         ]
       : toSeries(dataPoints, 5).map((dp, i) => ({
-          name: periodLabel(dp),
+          name: fmt.day(dp.periodStart),
           value: dp.value,
           index: i,
         }));

@@ -1,5 +1,5 @@
-/** "just now", "5 minutes ago", "3 hours ago", "yesterday", "4 days ago", then the date. */
-export function timeAgo(iso: string, now: Date = new Date()): string {
+/** "just now", "5 minutes ago", "3 hours ago", "yesterday", "4 days ago", then the date — written by `formatDate` (the organisation's formatter, where there is one). */
+export function timeAgo(iso: string, now: Date = new Date(), formatDate: (value: Date) => string = (value) => value.toLocaleDateString()): string {
   const then = new Date(iso);
   const seconds = Math.round((now.getTime() - then.getTime()) / 1000);
   if (!Number.isFinite(seconds)) return '';
@@ -11,5 +11,5 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   const days = Math.floor(hours / 24);
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days} days ago`;
-  return then.toLocaleDateString();
+  return formatDate(then);
 }

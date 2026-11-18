@@ -12,6 +12,7 @@ import {
   setTokens,
 } from '../../../lib/api-client';
 import { passwordRefusal } from '../../../lib/password-rules';
+import { useFormat } from '../../../lib/format-context';
 
 type InvitePreview = {
   email: string;
@@ -30,6 +31,7 @@ export default function AcceptInvitationPage() {
 }
 
 function AcceptInvitationInner() {
+  const fmt = useFormat();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
@@ -155,7 +157,7 @@ function AcceptInvitationInner() {
             <p className="mt-1 text-xs text-content-muted">
               Invitation expires{' '}
               <time dateTime={preview.expiresAt}>
-                {new Date(preview.expiresAt).toLocaleString()}
+                {fmt.dateTime(preview.expiresAt)}
               </time>
             </p>
           )}

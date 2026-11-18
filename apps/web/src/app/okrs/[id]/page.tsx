@@ -47,6 +47,7 @@ import {
 import type { BadgeTone } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePeople } from '../../../lib/use-people';
+import { useFormat } from '../../../lib/format-context';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -64,18 +65,6 @@ function ringColor(status: string): string {
   if (status === 'ACHIEVED') return 'var(--status-success, #16a34a)';
   if (status === 'MISSED') return 'var(--status-critical, #dc2626)';
   return 'var(--accent-primary, #6366f1)';
-}
-
-/** "Apr 1 – Jun 30, 2026" (or includes both years when they differ). */
-function formatPeriod(startIso: string, endIso: string): string {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
-  const md = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${md(start)} – ${md(end)}, ${end.getFullYear()}`;
-  }
-  return `${md(start)}, ${start.getFullYear()} – ${md(end)}, ${end.getFullYear()}`;
 }
 
 function fmtNum(n: number | null | undefined): string {
@@ -124,6 +113,7 @@ const EMPTY_ADD: KrAddState = {
 };
 
 export default function ObjectiveDetailPage() {
+  const fmt = useFormat();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params.id;
@@ -612,7 +602,7 @@ export default function ObjectiveDetailPage() {
                     Owner: <span className="text-content-strong">{ownerName(objective.ownerUserId)}</span>
                   </span>
                   <span aria-hidden>·</span>
-                  <span data-testid="objective-period">{formatPeriod(objective.periodStart, objective.periodEnd)}</span>
+                  <span data-testid="objective-period">{`${fmt.day(objective.periodStart)} – ${fmt.day(objective.periodEnd)}`}</span>
                   <Badge tone={STATUS_TONE[objective.status] ?? 'neutral'} data-testid="objective-status">
                     {objective.status}
                   </Badge>

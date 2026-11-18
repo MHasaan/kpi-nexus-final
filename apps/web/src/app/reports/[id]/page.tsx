@@ -40,6 +40,7 @@ import {
   TableRow,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
   if (status === 'SUCCEEDED') {
@@ -71,6 +72,7 @@ function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
 }
 
 export default function ReportDetailPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const reportId = params.id;
@@ -188,12 +190,12 @@ export default function ReportDetailPage() {
             </span>
             {report.lastRunAt && (
               <span className="text-xs tabular-nums text-content-muted">
-                Last run: {new Date(report.lastRunAt).toLocaleString()}
+                Last run: {fmt.dateTime(report.lastRunAt)}
               </span>
             )}
             {report.nextRunAt && (
               <span className="text-xs tabular-nums text-content-muted">
-                Next run: {new Date(report.nextRunAt).toLocaleString()}
+                Next run: {fmt.dateTime(report.nextRunAt)}
               </span>
             )}
           </div>
@@ -257,7 +259,7 @@ export default function ReportDetailPage() {
                             <RunStatusBadge status={run.status} />
                           </TableCell>
                           <TableCell className="tabular-nums text-content">
-                            {run.ranAt ? new Date(run.ranAt).toLocaleString() : '—'}
+                            {run.ranAt ? fmt.dateTime(run.ranAt) : '—'}
                           </TableCell>
                           <TableCell>
                             {run.status === 'SUCCEEDED' && run.fileUrl ? (

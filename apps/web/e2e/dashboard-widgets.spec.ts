@@ -102,9 +102,10 @@ test('dashboard widgets show the newest period and plot time left to right', asy
   // different labels, in order. Before the fix all three were the entry date.
   const line = page.getByTestId(`widget-render-${ids.line}`);
   await expect(line).toBeVisible();
-  await expect(line).toContainText('/');
+  // Dates are written the organisation's way; a new organisation's default is YYYY-MM-DD (plan 6.1).
+  await expect(line).toContainText('-');
   const text = (await line.innerText()).replace(/\n/g, ' ');
-  const labels = [...text.matchAll(/\d{1,2}\/\d{1,2}\/\d{4}/g)].map((m) => m[0]);
+  const labels = [...text.matchAll(/\d{4}-\d{2}-\d{2}/g)].map((m) => m[0]);
   expect(new Set(labels).size, `one label per period (${text})`).toBe(3);
   const times = labels.map((l) => new Date(l).getTime());
   expect([...times].sort((x, y) => x - y), `time reads left to right (${labels.join(', ')})`).toEqual(times);

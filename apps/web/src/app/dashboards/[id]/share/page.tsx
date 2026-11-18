@@ -31,12 +31,14 @@ import {
 import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 import { useAllowed } from '../../../../lib/use-allowed';
+import { useFormat } from '../../../../lib/format-context';
 
 function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
 }
 
 export default function DashboardSharePage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const params = useParams<{ id: string }>();
@@ -311,7 +313,7 @@ export default function DashboardSharePage() {
                             {link.expiresAt && (
                               <Badge tone="neutral">
                                 expires{' '}
-                                {new Date(link.expiresAt).toLocaleDateString()}
+                                {fmt.date(link.expiresAt)}
                               </Badge>
                             )}
                             <span className="tabular-nums text-content-muted">
@@ -320,7 +322,7 @@ export default function DashboardSharePage() {
                             {link.lastViewedAt && (
                               <span className="text-content-muted">
                                 last viewed{' '}
-                                {new Date(link.lastViewedAt).toLocaleDateString()}
+                                {fmt.date(link.lastViewedAt)}
                               </span>
                             )}
                           </div>

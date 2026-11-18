@@ -13131,13 +13131,21 @@
                   },
                   "dateFormat": {
                     "type": "string",
-                    "minLength": 1,
-                    "maxLength": 40
+                    "enum": [
+                      "YYYY-MM-DD",
+                      "DD/MM/YYYY",
+                      "MM/DD/YYYY",
+                      "D MMM YYYY"
+                    ]
                   },
                   "numberFormat": {
                     "type": "string",
-                    "minLength": 1,
-                    "maxLength": 40
+                    "enum": [
+                      "1,234.56",
+                      "1.234,56",
+                      "1 234,56",
+                      "1,23,456.78"
+                    ]
                   },
                   "weekStartsOn": {
                     "type": "integer",

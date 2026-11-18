@@ -35,6 +35,7 @@ import { ALERT_STATUS_LABELS, labelFor } from '../../../lib/labels';
 import { useKpiNames } from '../../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useFormat } from '../../../lib/format-context';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -112,6 +113,7 @@ function LinkField({ label, value, href }: { label: string; value: string; href:
 }
 
 export default function AlertDetailPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const { nameOf } = useKpiNames();
   const [ruleName, setRuleName] = useState<string | null>(null);
@@ -251,7 +253,7 @@ export default function AlertDetailPage() {
                   {alert.message}
                 </h1>
                 <p className="mt-1 text-sm text-content-muted">
-                  Raised {new Date(alert.createdAt).toLocaleString()}
+                  Raised {fmt.dateTime(alert.createdAt)}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -290,11 +292,11 @@ export default function AlertDetailPage() {
                   <Field label="Rule" value={alert.alertRuleId ? (ruleName ?? 'A rule that has since been deleted') : 'No rule (raised directly)'} />
                   <Field
                     label="Acknowledged"
-                    value={alert.acknowledgedAt ? new Date(alert.acknowledgedAt).toLocaleString() : '—'}
+                    value={alert.acknowledgedAt ? fmt.dateTime(alert.acknowledgedAt) : '—'}
                   />
                   <Field
                     label="Resolved"
-                    value={alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString() : '—'}
+                    value={alert.resolvedAt ? fmt.dateTime(alert.resolvedAt) : '—'}
                   />
                   {alert.meta && typeof alert.meta.value === 'number' && (
                     <Field label="Breach value" value={String(alert.meta.value)} />
@@ -392,7 +394,7 @@ export default function AlertDetailPage() {
                                     {d.status}
                                   </Badge>
                                   <span className="tabular-nums text-content-muted">
-                                    {d.sentAt ? new Date(d.sentAt).toLocaleString() : 'not sent'}
+                                    {d.sentAt ? fmt.dateTime(d.sentAt) : 'not sent'}
                                   </span>
                                 </span>
                               </li>

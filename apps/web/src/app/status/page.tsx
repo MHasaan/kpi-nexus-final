@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ApiError, getAccessToken, getHealthDetails, type HealthDetails } from '../../lib/api-client';
 import { AppShell } from '../../components/app-shell';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 const REFRESH_INTERVAL_MS = 10_000;
 
@@ -29,6 +30,7 @@ function StatusDot({ status }: { status: 'ok' | 'down' }) {
 }
 
 export default function StatusPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [data, setData] = useState<HealthDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +153,7 @@ export default function StatusPage() {
                 Uptime: <strong className="text-content-strong">{formatUptime(data.uptimeSeconds)}</strong>
               </span>
               <span data-testid="status-timestamp">
-                Server time: <strong className="text-content-strong">{new Date(data.timestamp).toLocaleString()}</strong>
+                Server time: <strong className="text-content-strong">{fmt.dateTime(data.timestamp)}</strong>
               </span>
             </div>
           </>

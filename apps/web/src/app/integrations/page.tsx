@@ -27,6 +27,7 @@ import {
   Button,
   Skeleton,
 } from '../../components/ui';
+import { useFormat } from '../../lib/format-context';
 
 const CATALOG: Array<{ key: string; name: string; description: string; icon: string; href?: string }> = [
   { key: 'slack', name: 'Slack', description: 'Post alerts and digests to channels.', icon: '\u{1F4AC}' },
@@ -40,6 +41,7 @@ const CATALOG: Array<{ key: string; name: string; description: string; icon: str
 ];
 
 export default function IntegrationsPage() {
+  const fmt = useFormat();
   const [connections, setConnections] = useState<Record<string, IntegrationConnection>>({});
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
@@ -159,7 +161,7 @@ export default function IntegrationsPage() {
                   <CardContent className="flex-1">
                     {connected && connection?.lastSyncAt && (
                       <p className="text-[11px] tabular-nums text-content-muted">
-                        Last sync {new Date(connection.lastSyncAt).toLocaleString()}
+                        Last sync {fmt.dateTime(connection.lastSyncAt)}
                       </p>
                     )}
                   </CardContent>

@@ -49,6 +49,7 @@ import { listInsights, type Insight } from '../../lib/ai-client';
 import { usePermissions } from '../../lib/use-permissions';
 import { useAccess } from '../../lib/use-access';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 type LoadState = 'loading' | 'error' | 'ready';
 type ActivityState = 'loading' | 'ready';
@@ -135,11 +136,9 @@ function firstNameOf(user: AuthUser | null): string {
   return user.email?.split('@')[0] ?? '';
 }
 
-function formatValue(value: number, unit: string | null): string {
-  const formatted =
-    Math.abs(value) >= 1000
-      ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-      : value.toString();
+/** A value with its unit, the number written by `number` (the organisation's formatter). */
+function formatValue(value: number, unit: string | null, number: (value: number) => string): string {
+  const formatted = number(value);
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
@@ -230,6 +229,7 @@ function KpiRow({
   index: number;
   testidPrefix: string;
 }) {
+  const fmt = useFormat();
   const status = deriveStatus(row);
   const pct = attainmentPct(row);
   return (
@@ -267,7 +267,7 @@ function KpiRow({
             No data
           </span>
         ) : (
-          formatValue(row.latestValue, row.unit)
+          formatValue(row.latestValue, row.unit, fmt.number)
         )}
       </span>
       <div className="flex items-center gap-2">
@@ -279,6 +279,7 @@ function KpiRow({
 }
 
 export default function DashboardPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const perms = usePermissions();
   const access = useAccess();
@@ -690,12 +691,12 @@ export default function DashboardPage() {
                               <span className="flex shrink-0 items-center gap-2">
                                 <span className="text-[13px] tabular-nums text-content">
                                   <span className="font-semibold text-content-strong">
-                                    {row.currentValue === null ? '—' : formatValue(row.currentValue, row.unit)}
+                                    {row.currentValue === null ? '—' : formatValue(row.currentValue, row.unit, fmt.number)}
                                   </span>
                                   {row.targetValue !== null ? (
                                     <span className="text-content-muted">
                                       {' / '}
-                                      {formatValue(row.targetValue, row.unit)}
+                                      {formatValue(row.targetValue, row.unit, fmt.number)}
                                     </span>
                                   ) : null}
                                 </span>

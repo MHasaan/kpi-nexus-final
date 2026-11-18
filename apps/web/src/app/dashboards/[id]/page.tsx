@@ -44,6 +44,7 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
 import { type RangePreset, presetToRange } from '../../../lib/date-presets';
 import { useFiscalConfig } from '../../../lib/use-fiscal-config';
+import { useFormat } from '../../../lib/format-context';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -60,6 +61,7 @@ export default function DashboardDetailPage() {
 type DatePreset = RangePreset | 'custom';
 
 function DashboardDetailInner() {
+  const fmt = useFormat();
   // Buttons that change the dashboard are shown only to those the API will let change it.
   const canManage = usePermissions().has('DASHBOARD_MANAGE');
   const { terminology } = useTerminology();
@@ -287,7 +289,7 @@ function DashboardDetailInner() {
                 )}
                 <span className="mt-1 block text-xs tabular-nums text-content-muted">
                   v{dashboard.version} · updated{' '}
-                  {new Date(dashboard.updatedAt).toLocaleString()}
+                  {fmt.dateTime(dashboard.updatedAt)}
                   {dashboard.isDefault && ' · default'}
                   {dashboard.isShared && ' · shared'}
                   {live && (

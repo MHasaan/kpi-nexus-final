@@ -29,13 +29,11 @@ import {
   getAccessToken,
   listOrgUnitMembers,
   listOrgUnits,
-  listUsers,
   removeOrgUnitMember,
   updateOrgUnit,
   type OrgUnitMember,
   type OrgUnitMemberRole,
   type OrgUnitSummary,
-  type UserSummary,
 } from '../../lib/api-client';
 import {
   pluralize,
@@ -45,6 +43,7 @@ import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { treeOrder } from '../../lib/tree-order';
 import { inSentence } from '../../lib/sentence-case';
+import { type Person, usePeople } from '../../lib/use-people';
 
 export default function OrgUnitsPage() {
   return (
@@ -57,7 +56,6 @@ function OrgUnitsPageInner() {
   const router = useRouter();
   const confirm = useConfirm();
   const [units, setUnits] = useState<OrgUnitSummary[] | null>(null);
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Create-unit form state
@@ -70,6 +68,9 @@ function OrgUnitsPageInner() {
   // Per-unit expansion state (which unit's members are visible)
   const [expandedUnitId, setExpandedUnitId] = useState<string | null>(null);
   const [unitMembers, setUnitMembers] = useState<OrgUnitMember[] | null>(null);
+  // The people this page can name and offer: everyone for a reader who may list people; otherwise
+  // the reader and the members of the open unit (X-05) — never a request that would be refused.
+  const users = usePeople((unitMembers ?? []).map((m) => m.userId));
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
 
@@ -131,15 +132,7 @@ function OrgUnitsPageInner() {
   async function refresh() {
     setLoadError(null);
     try {
-      const [unitsData, usersData] = await Promise.all([
-        listOrgUnits(),
-        listUsers().catch((err: unknown) => {
-          if (err instanceof ApiError && err.status === 403) return [];
-          throw err;
-        }),
-      ]);
-      setUnits(unitsData);
-      setUsers(usersData);
+      setUnits(await listOrgUnits());
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -249,8 +242,8 @@ function OrgUnitsPageInner() {
   }, [units]);
 
   const usersById = useMemo(() => {
-    const map = new Map<string, UserSummary>();
-    for (const u of users ?? []) map.set(u.id, u);
+    const map = new Map<string, Person>();
+    for (const u of users) map.set(u.id, u);
     return map;
   }, [users]);
 
@@ -261,7 +254,7 @@ function OrgUnitsPageInner() {
   // Users who can be added to the currently expanded unit — exclude those
   // already in it (active membership: leftAt = null).
   const availableUsers = useMemo(() => {
-    if (!users || !unitMembers) return users ?? [];
+    if (!unitMembers) return users;
     const activeMemberIds = new Set(
       unitMembers.filter((m) => !m.leftAt).map((m) => m.userId),
     );
@@ -615,7 +608,8 @@ function OrgUnitsPageInner() {
                                   </option>
                                   {availableUsers.map((u) => (
                                     <option key={u.id} value={u.id}>
-                                      {u.fullName} · {u.email}
+                                      {u.fullName}
+                                      {u.email ? ` · ${u.email}` : ''}
                                     </option>
                                   ))}
                                 </Select>

@@ -151,7 +151,7 @@ function RoutingRow({
   onReset,
 }: {
   config: AiFeatureConfig;
-  onSave: (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined) => Promise<void>;
+  onSave: (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined, fallback: { provider: AiProviderKey; model: string } | undefined) => Promise<void>;
   onReset: (feature: string) => Promise<void>;
 }) {
   const [provider, setProvider] = useState<AiProviderKey>(config.provider);
@@ -159,6 +159,11 @@ function RoutingRow({
   // The feature's own daily cap, as typed. Blank: no cap of its own.
   const savedCap = config.perFeatureCapUsd ? String(config.perFeatureCapUsd) : '';
   const [cap, setCap] = useState(savedCap);
+  // The model used when the first one fails, or is over budget. '' = the built-in fallback for this feature.
+  const savedFallbackProvider: AiProviderKey | '' = config.isOverride ? (config.fallback?.provider ?? '') : '';
+  const savedFallbackModel = config.isOverride ? (config.fallback?.model ?? '') : '';
+  const [fallbackProvider, setFallbackProvider] = useState<AiProviderKey | ''>(savedFallbackProvider);
+  const [fallbackModel, setFallbackModel] = useState(savedFallbackModel);
   const [busy, setBusy] = useState(false);
 
   // Re-sync local state when the row's effective config changes after a reload.
@@ -166,19 +171,27 @@ function RoutingRow({
     setProvider(config.provider);
     setModel(config.model);
     setCap(savedCap);
-  }, [config.provider, config.model, savedCap]);
+    setFallbackProvider(savedFallbackProvider);
+    setFallbackModel(savedFallbackModel);
+  }, [config.provider, config.model, savedCap, savedFallbackProvider, savedFallbackModel]);
 
   const capValue = cap.trim() === '' ? undefined : Number(cap);
   const capInvalid = capValue !== undefined && (!Number.isFinite(capValue) || capValue < 0);
-  const dirty = provider !== config.provider || model.trim() !== config.model || cap.trim() !== savedCap;
-  const canSave = dirty && model.trim().length > 0 && !capInvalid && !busy;
+  const fallbackIncomplete = fallbackProvider !== '' && fallbackModel.trim().length === 0;
+  const dirty =
+    provider !== config.provider ||
+    model.trim() !== config.model ||
+    cap.trim() !== savedCap ||
+    fallbackProvider !== savedFallbackProvider ||
+    (fallbackProvider !== '' && fallbackModel.trim() !== savedFallbackModel);
+  const canSave = dirty && model.trim().length > 0 && !capInvalid && !fallbackIncomplete && !busy;
   const listId = `ai-models-${config.feature}`;
 
   const save = async () => {
     if (!canSave) return;
     setBusy(true);
     try {
-      await onSave(config, provider, model.trim(), capValue || undefined);
+      await onSave(config, provider, model.trim(), capValue || undefined, fallbackProvider === '' ? undefined : { provider: fallbackProvider, model: fallbackModel.trim() });
     } finally {
       setBusy(false);
     }
@@ -226,6 +239,44 @@ function RoutingRow({
             <option key={m} value={m} />
           ))}
         </datalist>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1.5">
+          <Select
+            aria-label={`Fallback provider for ${config.feature}`}
+            data-testid={`ai-config-${config.feature}-fallback-provider`}
+            value={fallbackProvider}
+            disabled={busy}
+            onChange={(e) => setFallbackProvider(e.target.value as AiProviderKey | '')}
+          >
+            <option value="">Built-in fallback</option>
+            {PROVIDER_OPTIONS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+          {fallbackProvider !== '' && (
+            <>
+              <Input
+                aria-label={`Fallback model for ${config.feature}`}
+                aria-invalid={fallbackIncomplete || undefined}
+                data-testid={`ai-config-${config.feature}-fallback-model`}
+                className="font-mono"
+                placeholder="Model"
+                list={`${listId}-fallback`}
+                value={fallbackModel}
+                disabled={busy}
+                onChange={(e) => setFallbackModel(e.target.value)}
+              />
+              <datalist id={`${listId}-fallback`}>
+                {MODEL_SUGGESTIONS[fallbackProvider].map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </>
+          )}
+        </div>
       </TableCell>
       <TableCell>
         <Input
@@ -359,11 +410,10 @@ export default function AiSettingsPage() {
     }
   };
 
-  const saveConfig = async (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined) => {
+  const saveConfig = async (config: AiFeatureConfig, provider: AiProviderKey, model: string, capUsd: number | undefined, fallback: { provider: AiProviderKey; model: string } | undefined) => {
     setError(null);
     try {
-      // The save replaces the whole row, so a fallback already set on it is sent back with it.
-      const fallback = config.isOverride ? config.fallback : undefined;
+      // The save replaces the whole row: the fallback chosen on it goes with it (none = the built-in one).
       await updateAiFeatureConfig(config.feature, {
         providerId: provider,
         model,
@@ -555,6 +605,7 @@ export default function AiSettingsPage() {
                   <TableHead>Feature</TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Model</TableHead>
+                  <TableHead>If it fails or is over budget</TableHead>
                   <TableHead>Daily cap (USD)</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead className="text-right">Actions</TableHead>

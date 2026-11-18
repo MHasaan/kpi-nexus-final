@@ -50,6 +50,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { inSentence } from '../../lib/sentence-case';
+import { KPI_STATUS_LABELS, labelFor } from '../../lib/labels';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -226,6 +227,8 @@ function KpisPageInner() {
     });
   }, [kpis, search, categoryFilter, statusFilter, scopeFilter]);
 
+  const draftCount = useMemo(() => (kpis ?? []).filter((k) => k.status === 'DRAFT').length, [kpis]);
+
   function clearFilters() {
     setSearch('');
     setCategoryFilter('ALL');
@@ -284,6 +287,29 @@ function KpisPageInner() {
           </div>
         )}
 
+        {/* What Draft means (QA-L1) — said once, and only while there is a draft to say it about. */}
+        {draftCount > 0 && (
+          <div
+            data-testid="kpis-draft-note"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-content"
+          >
+            <p>
+              <span className="font-medium text-content-strong">
+                {draftCount === 1
+                  ? `1 ${terminology.kpiLabel} is a draft.`
+                  : `${draftCount} ${kpiLabelPlural} are drafts.`}
+              </span>{' '}
+              A draft takes values and appears on dashboards like any other; Draft only marks one you have
+              not reviewed yet. To change it, open Edit and set its status.
+            </p>
+            {statusFilter !== 'DRAFT' && (
+              <Button variant="secondary" size="sm" onClick={() => setStatusFilter('DRAFT')}>
+                Show drafts
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Catalog */}
         <section data-testid="kpis-list-section" className="space-y-3">
           {/* Search + filters toolbar */}
@@ -329,7 +355,7 @@ function KpisPageInner() {
                   <option value="ALL">All statuses</option>
                   {KPI_STATUSES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {labelFor(KPI_STATUS_LABELS, s)}
                     </option>
                   ))}
                 </Select>
@@ -546,7 +572,7 @@ function KpiRow({
         </TableCell>
         <TableCell>
           <span data-testid={`kpi-status-badge-${kpi.name}`}>
-            <Badge tone={KPI_STATUS_TONE[kpi.status]}>{kpi.status}</Badge>
+            <Badge tone={KPI_STATUS_TONE[kpi.status]}>{labelFor(KPI_STATUS_LABELS, kpi.status)}</Badge>
           </span>
         </TableCell>
         <TableCell className="text-right tabular-nums">

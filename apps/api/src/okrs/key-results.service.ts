@@ -46,12 +46,15 @@ export class KeyResultsService {
 
   async create(objectiveId: string, dto: CreateKeyResultDto): Promise<PublicKeyResult> {
     const ctx = RequestContextStore.require();
-    await this.objectives.getById(objectiveId); // tenant + existence
+    const objective = await this.objectives.getById(objectiveId); // tenant + existence
     if (dto.kpiId) await this.objectives.assertKpiLinkable(dto.kpiId);
+    // Linked to a KPI and no value typed: start from the KPI's value (QA-L9), not from nothing.
+    const currentValue =
+      dto.currentValue ?? (dto.kpiId ? ((await this.objectives.linkedKpiValue(objective.ownerUserId, dto.kpiId)) ?? undefined) : undefined);
     const progress = keyResultProgress({
       baselineValue: dto.baselineValue ?? null,
       targetValue: dto.targetValue,
-      currentValue: dto.currentValue ?? null,
+      currentValue: currentValue ?? null,
     });
     const created = await this.prisma.keyResult.create({
       data: {
@@ -62,7 +65,7 @@ export class KeyResultsService {
         kpiId: dto.kpiId,
         baselineValue: dto.baselineValue,
         targetValue: dto.targetValue,
-        currentValue: dto.currentValue,
+        currentValue,
         weight: dto.weight,
         progress,
       },
@@ -76,11 +79,18 @@ export class KeyResultsService {
   async update(id: string, dto: UpdateKeyResultDto): Promise<PublicKeyResult> {
     const existing = await this.loadInOrg(id);
     // Only a link that is being made or changed is checked; an untouched one is left alone.
-    if (dto.kpiId && dto.kpiId !== existing.kpiId) await this.objectives.assertKpiLinkable(dto.kpiId);
+    const newlyLinked = dto.kpiId && dto.kpiId !== existing.kpiId ? dto.kpiId : null;
+    if (newlyLinked) await this.objectives.assertKpiLinkable(newlyLinked);
+    // A KPI newly linked and no value typed: take the KPI's value now (QA-L9).
+    let currentValue = dto.currentValue;
+    if (newlyLinked && currentValue === undefined) {
+      const objective = await this.objectives.getById(existing.objectiveId);
+      currentValue = (await this.objectives.linkedKpiValue(objective.ownerUserId, newlyLinked)) ?? undefined;
+    }
     const next = {
       baselineValue: dto.baselineValue ?? existing.baselineValue,
       targetValue: dto.targetValue ?? existing.targetValue,
-      currentValue: dto.currentValue ?? existing.currentValue,
+      currentValue: currentValue ?? existing.currentValue,
     };
     const progress = keyResultProgress(next);
     const updated = await this.prisma.keyResult.update({
@@ -91,7 +101,7 @@ export class KeyResultsService {
         kpiId: dto.kpiId,
         baselineValue: dto.baselineValue,
         targetValue: dto.targetValue,
-        currentValue: dto.currentValue,
+        currentValue,
         weight: dto.weight,
         progress,
       },

@@ -270,32 +270,50 @@ export class ObjectivesService {
     });
 
     const kpiIds = [...new Set(krs.map((kr) => kr.kpiId).filter((id): id is string => id !== null))];
-    const kinds = kpiIds.length
-      ? await this.prisma.kPI.findMany({ where: { organizationId: ctx.organizationId, id: { in: kpiIds } }, select: { id: true, scope: true } })
-      : [];
-    const scopeOf = new Map(kinds.map((k) => [k.id, k.scope]));
+    const scopeOf = await this.kpiScopes(kpiIds);
 
     for (const kr of krs) {
       if (!kr.kpiId) continue;
-      const whose =
-        scopeOf.get(kr.kpiId) === 'PER_USER'
-          ? objective.ownerUserId
-            ? { userId: objective.ownerUserId }
-            : null
-          : { userId: null, orgUnitId: null };
-      if (!whose) continue;
-      const latest = await this.prisma.kPIDataPoint.findFirst({
-        where: { organizationId: ctx.organizationId, kpiId: kr.kpiId, ...whose },
-        // Newest period first ("latest" = newest period; entry time breaks ties).
-        orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
-        select: { value: true },
-      });
-      if (latest) {
-        await this.prisma.keyResult.update({ where: { id: kr.id }, data: { currentValue: latest.value } });
+      const value = await this.valueForKeyResult(objective.ownerUserId, kr.kpiId, scopeOf.get(kr.kpiId));
+      if (value !== null) {
+        await this.prisma.keyResult.update({ where: { id: kr.id }, data: { currentValue: value } });
       }
     }
 
     await this.recomputeObjectiveProgress(objectiveId);
     return this.getById(objectiveId);
+  }
+
+  /**
+   * The value a key result of an objective owned by `ownerUserId` takes from
+   * `kpiId` — the same rule as the sync (BE-053), for when a link is made
+   * (QA-L9). Null when the KPI has no such value.
+   */
+  async linkedKpiValue(ownerUserId: string | null, kpiId: string): Promise<number | null> {
+    const scopeOf = await this.kpiScopes([kpiId]);
+    return this.valueForKeyResult(ownerUserId, kpiId, scopeOf.get(kpiId));
+  }
+
+  private async kpiScopes(kpiIds: string[]): Promise<Map<string, string>> {
+    if (kpiIds.length === 0) return new Map();
+    const ctx = RequestContextStore.require();
+    const kinds = await this.prisma.kPI.findMany({
+      where: { organizationId: ctx.organizationId, id: { in: kpiIds } },
+      select: { id: true, scope: true },
+    });
+    return new Map(kinds.map((k) => [k.id, k.scope]));
+  }
+
+  private async valueForKeyResult(ownerUserId: string | null, kpiId: string, scope: string | undefined): Promise<number | null> {
+    const ctx = RequestContextStore.require();
+    const whose = scope === 'PER_USER' ? (ownerUserId ? { userId: ownerUserId } : null) : { userId: null, orgUnitId: null };
+    if (!whose) return null;
+    const latest = await this.prisma.kPIDataPoint.findFirst({
+      where: { organizationId: ctx.organizationId, kpiId, ...whose },
+      // Newest period first ("latest" = newest period; entry time breaks ties).
+      orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
+      select: { value: true },
+    });
+    return latest?.value ?? null;
   }
 }

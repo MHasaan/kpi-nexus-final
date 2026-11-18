@@ -638,6 +638,14 @@ export async function createPosition(body: {
   return api('/positions', { method: 'POST', body: JSON.stringify(body) });
 }
 
+/** Change a position. `null` takes the track or pay grade away. */
+export async function updatePosition(
+  id: string,
+  body: { name?: string; level?: number; track?: PositionTrack | null; payGrade?: string | null },
+): Promise<PositionSummary> {
+  return api(`/positions/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 export async function deletePosition(id: string): Promise<void> {
   return api(`/positions/${id}`, { method: 'DELETE' });
 }

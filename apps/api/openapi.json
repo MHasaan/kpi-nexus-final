@@ -14234,20 +14234,41 @@
                     "maximum": 100
                   },
                   "track": {
-                    "type": "string",
-                    "enum": [
-                      "IC",
-                      "MANAGEMENT",
-                      "EXECUTIVE"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "IC",
+                          "MANAGEMENT",
+                          "EXECUTIVE"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "payGrade": {
-                    "type": "string",
-                    "maxLength": 20
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "description": {
-                    "type": "string",
-                    "maxLength": 500
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "orgUnitId": {
                     "type": "string"

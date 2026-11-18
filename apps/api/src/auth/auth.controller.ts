@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
-import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
+import { ALL_PERMISSIONS, SUPPORTED_LOCALES } from '@kpi-nexus/contracts';
 import type { AccessProfile } from '@kpi-nexus/contracts';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
@@ -41,9 +41,11 @@ const UpdateProfileDtoSchema = z
     fullName: z.string().trim().min(1).max(120).optional(),
     /** The person has seen the first-login tour; it is not shown to them again, on any device. */
     tourCompleted: z.literal(true).optional(),
+    /** The language the app is shown in for this person, on every device. */
+    language: z.enum(SUPPORTED_LOCALES).optional(),
   })
   .strict()
-  .refine((dto) => dto.fullName !== undefined || dto.tourCompleted !== undefined, {
+  .refine((dto) => dto.fullName !== undefined || dto.tourCompleted !== undefined || dto.language !== undefined, {
     message: 'Nothing to update',
   });
 
@@ -142,6 +144,7 @@ export class AuthController {
       status: string;
       notificationSettings: unknown;
       onboardingCompletedAt: Date | null;
+      language: string | null;
       permissions: string[];
     };
     accessProfile: AccessProfile;
@@ -160,6 +163,7 @@ export class AuthController {
           status: true,
           notificationSettings: true,
           onboardingCompletedAt: true,
+          language: true,
         },
       }),
       this.permissionResolver.resolveForCurrentPrincipal(),

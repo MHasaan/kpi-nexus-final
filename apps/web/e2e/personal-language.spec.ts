@@ -27,7 +27,8 @@ test('language: chosen once, it is saved on the account and applied in a fresh b
   const language = async () => ((await (await api.get('/auth/me')).json()) as { user: { language?: string | null } }).user.language ?? null;
   expect(await language()).toBeNull();
 
-  await page.goto('/profile?tab=preferences');
+  await page.goto('/profile');
+  await page.getByRole('tab', { name: 'Preferences' }).click();
   await page.getByTestId('locale-select').selectOption('fr');
   await expect.poll(language).toBe('fr');
 

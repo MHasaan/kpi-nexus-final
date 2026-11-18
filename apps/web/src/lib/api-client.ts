@@ -147,6 +147,8 @@ export interface AuthUser {
   notificationSettings?: NotificationSettings | null;
   /** When this person finished (or skipped) the first-login tour; null until then. */
   onboardingCompletedAt?: string | null;
+  /** The language this person chose, on any device; null until they choose one. */
+  language?: string | null;
 }
 
 export interface AuthOrganization {
@@ -199,11 +201,18 @@ export async function meRequest(): Promise<{ user: AuthUser; accessProfile?: Acc
   // usePermissions / useAccess hooks and guard components.
   setCachedPermissions(result.user.permissions ?? []);
   if (result.accessProfile) setCachedAccessProfile(result.accessProfile);
+  // The language saved on the account wins over whatever this browser remembers.
+  if (result.user.language && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ACCOUNT_LANGUAGE_EVENT, { detail: result.user.language }));
+  }
   return result;
 }
 
-/** Update the current user's own profile (fullName only). Self-service. */
-export async function updateMyProfile(body: { fullName: string }): Promise<AuthUser> {
+/** Sent on the window when the signed-in person's saved language is learnt; `detail` is the language. */
+export const ACCOUNT_LANGUAGE_EVENT = 'kpi-nexus:account-language';
+
+/** Update the current user's own profile (display name and/or language). Self-service. */
+export async function updateMyProfile(body: { fullName?: string; language?: string }): Promise<AuthUser> {
   const result = await api<{ user: AuthUser }>('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(body),

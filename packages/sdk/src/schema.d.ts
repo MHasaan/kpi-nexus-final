@@ -5927,6 +5927,8 @@ export interface operations {
                     fullName?: string;
                     /** @constant */
                     tourCompleted?: true;
+                    /** @enum {string} */
+                    language?: "en-US" | "es" | "fr" | "ur-PK";
                 };
             };
         };

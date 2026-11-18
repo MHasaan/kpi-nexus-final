@@ -6,3 +6,4 @@ export * from './realtime.js';
 export * from './onboarding.js';
 export * from './default-roles.js';
 export * from './fiscal.js';
+export * from './locale.js';

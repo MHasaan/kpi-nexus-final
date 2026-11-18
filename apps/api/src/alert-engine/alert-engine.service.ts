@@ -174,15 +174,27 @@ export class AlertEngineService {
     return created;
   }
 
+  private async kpiName(rule: AlertRule): Promise<string | null> {
+    const kpi = await this.prisma.kPI.findFirst({
+      where: { id: rule.kpiId, organizationId: rule.organizationId },
+      select: { name: true },
+    });
+    return kpi?.name ?? null;
+  }
+
   /**
    * Create an Alert unless suppressed by the rule's cooldown window. Returns
    * the new alert id, or null when suppressed.
    */
   private async maybeCreateAlert(
     rule: AlertRule,
-    message: string,
+    reason: string,
     extra: { targetUserId?: string | null; value?: number },
   ): Promise<string | null> {
+    // Which KPI it is about goes first: the line is read on its own in the inbox, the bell, an
+    // email and a chat message. Not finding the name is no reason to hold the alert back.
+    const kpiName = await this.kpiName(rule).catch(() => null);
+    const message = kpiName ? `${kpiName}: ${reason}` : reason;
     const cooldownMinutes = readCooldown(rule.config);
     if (cooldownMinutes > 0) {
       const since = new Date(Date.now() - cooldownMinutes * 60_000);

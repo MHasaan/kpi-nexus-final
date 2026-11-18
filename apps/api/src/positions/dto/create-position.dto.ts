@@ -14,5 +14,10 @@ export const CreatePositionDtoSchema = z.object({
 
 export type CreatePositionDto = z.infer<typeof CreatePositionDtoSchema>;
 
-export const UpdatePositionDtoSchema = partialUpdate(CreatePositionDtoSchema);
+// On update, null takes a value away: no track, no pay grade, no description.
+export const UpdatePositionDtoSchema = partialUpdate(CreatePositionDtoSchema).extend({
+  track: z.enum(['IC', 'MANAGEMENT', 'EXECUTIVE']).nullable().optional(),
+  payGrade: z.string().trim().max(20).nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+});
 export type UpdatePositionDto = z.infer<typeof UpdatePositionDtoSchema>;

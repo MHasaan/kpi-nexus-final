@@ -28,6 +28,7 @@ import {
   clearTokens,
   createPosition,
   deletePosition,
+  updatePosition,
   getAccessToken,
   listPositions,
   type PositionSummary,
@@ -77,6 +78,41 @@ function PositionsPageInner() {
   const [newPayGrade, setNewPayGrade] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Editing one position in place
+  const [editing, setEditing] = useState<{ id: string; name: string; level: string; track: PositionTrack | ''; payGrade: string } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  async function saveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    const level = Number.parseInt(editing.level, 10);
+    if (editing.name.trim().length < 2) {
+      setEditError('Give the position a name of at least two characters.');
+      return;
+    }
+    if (!Number.isFinite(level) || level < 0 || level > 100) {
+      setEditError('A level is a whole number from 0 to 100.');
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await updatePosition(editing.id, {
+        name: editing.name.trim(),
+        level,
+        track: editing.track || null,
+        payGrade: editing.payGrade.trim() || null,
+      });
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Could not save the position');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   // Per-row delete tracking
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -305,6 +341,76 @@ function PositionsPageInner() {
               </Card>
             ) : positions ? (
               <div className="flex flex-col gap-5" data-testid="positions-list">
+                {editing && (
+                  <Card className="p-4">
+                    <form onSubmit={(e) => void saveEdit(e)} data-testid="position-edit-form" className="grid gap-4 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end">
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="position-edit-name" required>
+                          Name
+                        </Label>
+                        <Input
+                          id="position-edit-name"
+                          value={editing.name}
+                          onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                          disabled={savingEdit}
+                          maxLength={60}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="position-edit-track">Track</Label>
+                        <Select
+                          id="position-edit-track"
+                          value={editing.track}
+                          onChange={(e) => setEditing({ ...editing, track: e.target.value as PositionTrack | '' })}
+                          disabled={savingEdit}
+                        >
+                          <option value="">(none)</option>
+                          <option value="IC">IC</option>
+                          <option value="MANAGEMENT">Management</option>
+                          <option value="EXECUTIVE">Executive</option>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="position-edit-level" required>
+                          Level
+                        </Label>
+                        <Input
+                          id="position-edit-level"
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editing.level}
+                          onChange={(e) => setEditing({ ...editing, level: e.target.value })}
+                          disabled={savingEdit}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="position-edit-paygrade">Pay grade</Label>
+                        <Input
+                          id="position-edit-paygrade"
+                          value={editing.payGrade}
+                          onChange={(e) => setEditing({ ...editing, payGrade: e.target.value })}
+                          disabled={savingEdit}
+                          maxLength={20}
+                          placeholder="(none)"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" isLoading={savingEdit}>
+                          Save
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} disabled={savingEdit}>
+                          Cancel
+                        </Button>
+                      </div>
+                      {editError && (
+                        <p role="alert" data-testid="position-edit-error" className="text-sm text-status-critical sm:col-span-5">
+                          {editError}
+                        </p>
+                      )}
+                    </form>
+                  </Card>
+                )}
                 {TRACK_ORDER.filter((t) => (grouped.get(t)?.length ?? 0) > 0).map((track) => (
                   <div key={track} data-testid={`positions-group-${track}`}>
                     <div className="kn-eyebrow mb-2">{TRACK_LABEL[track]}</div>
@@ -345,6 +451,24 @@ function PositionsPageInner() {
                                 {position.payGrade ?? '—'}
                               </TableCell>
                               <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditError(null);
+                                    setEditing({
+                                      id: position.id,
+                                      name: position.name,
+                                      level: String(position.level),
+                                      track: position.track ?? '',
+                                      payGrade: position.payGrade ?? '',
+                                    });
+                                  }}
+                                  data-testid={`edit-position-${position.name}`}
+                                  aria-label={`Edit ${position.name}`}
+                                >
+                                  Edit
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"

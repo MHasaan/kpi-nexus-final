@@ -297,12 +297,38 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
   const fmt = useFormat();
   const [points, reloadPoints, pointsError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [status] = useAsync(() => getThresholdStatus(kpi.id).catch(() => null), [kpi.id]);
+  const mayRecord = useAllowed('KPI_DATA_ENTRY');
   const latest = points?.[0];
   const series = (points ?? []).slice().reverse().map((p) => p.value);
+  const unit = kpi.unit ? ` ${kpi.unit}` : '';
+  const withUnit = (n: number) => `${fmt.number(n)}${unit}`;
+  const attainment = status?.attainmentPct;
   return (
     <div className="space-y-4">
       <TabLoadError error={pointsError} onRetry={reloadPoints} />
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* A KPI with nothing recorded: say so, and what comes next. */}
+      {points && points.length === 0 && (
+        <div
+          data-testid="overview-record-first"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-content"
+        >
+          <p>
+            <span className="font-medium text-content-strong">No values yet.</span>{' '}
+            {mayRecord
+              ? 'Record the first one to see how this KPI stands.'
+              : 'Once someone records a value, this page shows how the KPI stands.'}
+          </p>
+          {mayRecord && (
+            <Link
+              href={kpiTabHref(kpi.id, 'Data')}
+              className="inline-flex h-9 items-center rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white hover:opacity-90"
+            >
+              Record a value
+            </Link>
+          )}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <UICard>
           <CardContent>
             <p className="kn-eyebrow">Latest value</p>
@@ -310,13 +336,36 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
               className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-content-strong"
               data-testid="overview-latest"
             >
-              {latest ? `${latest.value}${kpi.unit ? ` ${kpi.unit}` : ''}` : '—'}
+              {latest ? withUnit(latest.value) : '—'}
             </p>
             {latest && (
-              <p className="mt-1 text-xs text-content-muted">
-                recorded {fmt.date(latest.recordedAt)}
+              <p className="mt-1 text-xs text-content-muted" data-testid="overview-latest-period">
+                for {fmt.day(latest.periodStart)} – {fmt.day(latest.periodEnd)}
               </p>
             )}
+          </CardContent>
+        </UICard>
+        <UICard>
+          <CardContent>
+            <p className="kn-eyebrow">Target</p>
+            <p
+              className={cn(
+                'mt-1 tabular-nums tracking-tight',
+                kpi.targetValue != null ? 'text-3xl font-semibold text-content-strong' : 'text-xl font-medium text-content-muted',
+              )}
+              data-testid="overview-target"
+            >
+              {kpi.targetValue != null ? withUnit(kpi.targetValue) : 'No target set'}
+            </p>
+            <p className="mt-1 text-xs text-content-muted">
+              {kpi.targetValue == null ? (
+                <>Set one under Edit or on the Targets tab.</>
+              ) : attainment != null ? (
+                <span data-testid="overview-attainment">{Math.round(attainment)}% of target</span>
+              ) : (
+                ''
+              )}
+            </p>
           </CardContent>
         </UICard>
         <UICard>
@@ -345,16 +394,25 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
           </CardContent>
         </UICard>
       </div>
-      {series.length > 1 && (
+      {series.length > 1 && points && (
         <UICard>
           <CardContent>
             <p className="kn-eyebrow mb-2">Trend</p>
             <LineChart
-              series={[{ data: series }]}
+              series={[
+                { data: series },
+                // The target, as a level to read the line against.
+                ...(kpi.targetValue != null ? [{ data: series.map(() => kpi.targetValue as number), dashed: true, label: 'Target' }] : []),
+              ]}
               height={200}
               className="w-full"
               aria-label={`${kpi.name} trend over time`}
             />
+            <p className="mt-2 text-xs text-content-muted" data-testid="overview-trend-caption">
+              {series.length} values, {fmt.day(points[points.length - 1]!.periodStart)} to {fmt.day(points[0]!.periodEnd)} · lowest{' '}
+              {withUnit(Math.min(...series))}, highest {withUnit(Math.max(...series))}
+              {kpi.targetValue != null ? ` · dashed line: target ${withUnit(kpi.targetValue)}` : ''}
+            </p>
           </CardContent>
         </UICard>
       )}

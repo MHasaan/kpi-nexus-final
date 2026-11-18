@@ -2466,6 +2466,8 @@ export interface ThresholdStatus {
   color?: string;
   /** The KPI's health by the rule the home page uses: bands, then its thresholds, then its target. */
   health?: BoardPackStatus;
+  /** The newest value as a percentage of the target, direction-aware; null with no target or no value. */
+  attainmentPct?: number | null;
 }
 export async function listThresholdBands(kpiId: string): Promise<ThresholdBand[]> {
   return api(`/kpis/${kpiId}/threshold-bands`);

@@ -12,7 +12,7 @@ import {
   type CreateThresholdBandDto,
   type UpdateThresholdBandDto,
 } from './dto/threshold-band.dto.js';
-import { type KpiHealthMeta, type KpiHealthStatus, kpiHealthStatus } from '../kpis/kpi-health.js';
+import { type KpiHealthMeta, type KpiHealthStatus, attainmentPct, kpiHealthStatus } from '../kpis/kpi-health.js';
 import type { KpiScope } from '../rbac/visibility/kpi-visibility.js';
 
 const bandSelect = {
@@ -111,7 +111,7 @@ export class KpiThresholdBandsService {
    * thresholds, then its target). The KPI page used to show only the band, so
    * a KPI graded by its thresholds read "At risk" at home and "no bands" here.
    */
-  async resolveStatus(kpiId: string): Promise<ResolvedStatus & { health: KpiHealthStatus }> {
+  async resolveStatus(kpiId: string): Promise<ResolvedStatus & { health: KpiHealthStatus; attainmentPct: number | null }> {
     const ctx = RequestContextStore.require();
     const { scope, ...meta } = await this.requireKpi(kpiId);
     const bands = await this.prisma.kPIThresholdBand.findMany({
@@ -139,8 +139,11 @@ export class KpiThresholdBandsService {
     }));
     const recentValues = points.map((p) => p.value);
     const health = kpiHealthStatus({ recentValues, meta, bands: bandsForResolver });
-    if (bands.length === 0) return { band: null, reason: 'no_bands', health };
-    return { ...resolveStatus(bandsForResolver, recentValues), health };
+    // How far the newest value the caller may read has come towards the target — the figure the
+    // home page shows, by the same rule.
+    const attainment = attainmentPct(recentValues[0] ?? null, meta.targetValue, meta.direction);
+    if (bands.length === 0) return { band: null, reason: 'no_bands', health, attainmentPct: attainment };
+    return { ...resolveStatus(bandsForResolver, recentValues), health, attainmentPct: attainment };
   }
 
   private async requireKpi(kpiId: string): Promise<KpiHealthMeta & { scope: KpiScope }> {

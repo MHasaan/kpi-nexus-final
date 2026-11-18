@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, test, vi } from 'vitest';
-import { GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, GoneException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 // Mock bcrypt before importing the service so the service picks up the mock.
 // The service uses `import * as bcrypt from 'bcrypt'` so we must export
@@ -496,6 +496,14 @@ describe('ShareLinksService.create', () => {
     const future = new Date(Date.now() + 3_600_000);
     await withCtx({}, () => service.create(DASH_ID, { expiresAt: future }));
     expect(prisma.linkStore[0]?.expiresAt?.toISOString()).toBe(future.toISOString());
+  });
+
+  // Plan 7.7: a link could be made with an expiry already past — dead on arrival, yet shown as a link.
+  test('an expiry that has already passed is refused, and no link is made', async () => {
+    const { service, prisma } = makeService();
+    const past = new Date(Date.now() - 60_000);
+    await expect(withCtx({}, () => service.create(DASH_ID, { expiresAt: past }))).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.linkStore).toHaveLength(0);
   });
 });
 

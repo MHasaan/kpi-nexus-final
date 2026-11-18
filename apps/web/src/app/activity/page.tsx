@@ -10,8 +10,10 @@ import { AppShell } from '../../components/app-shell';
 import { PageHeader, Card, CardContent, Select, Avatar, Button, EmptyState, Skeleton } from '../../components/ui';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { activityLabel } from '../../lib/labels';
+import { useFormat } from '../../lib/format-context';
 
 export default function ActivityPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [events, setEvents] = useState<ActivityItem[]>([]);
   const [entityType, setEntityType] = useState('');
@@ -103,7 +105,7 @@ export default function ActivityPage() {
                       <span className="text-content-muted">{activityLabel(ev.action, ev.entityType)}</span>
                     </div>
                     <span className="shrink-0 text-xs tabular-nums text-content-muted">
-                      {new Date(ev.createdAt).toLocaleString()}
+                      {fmt.dateTime(ev.createdAt)}
                     </span>
                   </div>
                 ))}

@@ -11,6 +11,7 @@ import type { BoardPackStatus, DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, toSeries } from './series';
+import { useFormat } from '../../lib/format-context';
 
 interface KpiCardProps {
   widget: DashboardWidget;
@@ -43,6 +44,7 @@ function statusColor(status: BoardPackStatus | null | undefined): string {
 }
 
 export function KpiCard({ widget, kpi, dataPoints = [], status = null }: KpiCardProps) {
+  const fmt = useFormat();
   const title = widget.title ?? kpi?.name ?? 'KPI';
   const latest = latestPoint(dataPoints);
   const latestValue = latest?.value ?? null;
@@ -65,7 +67,7 @@ export function KpiCard({ widget, kpi, dataPoints = [], status = null }: KpiCard
         </p>
         {latestValue !== null ? (
           <p className={`mt-1 text-3xl font-bold ${valueColor}`}>
-            {latestValue.toLocaleString()}
+            {fmt.number(latestValue)}
             {unit && (
               <span className="ml-1 text-base font-normal text-content-muted">
                 {unit}

@@ -32,6 +32,7 @@ import {
 } from '../../../../components/ui';
 import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { useFormat } from '../../../../lib/format-context';
 
 export default function SnapshotsPage() {
   return (
@@ -40,6 +41,7 @@ export default function SnapshotsPage() {
 }
 
 function SnapshotsInner() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const params = useParams<{ id: string }>();
@@ -150,7 +152,7 @@ function SnapshotsInner() {
 
   async function handleDelete(snap: DashboardSnapshot) {
     const ok = await confirm({
-      title: `Delete the snapshot “${snap.label ?? new Date(snap.takenAt).toLocaleString()}”?`,
+      title: `Delete the snapshot “${snap.label ?? fmt.dateTime(snap.takenAt)}”?`,
       description: 'The saved copy is removed for everyone. The dashboard itself is not affected.',
       confirmLabel: 'Delete snapshot',
       tone: 'danger',
@@ -282,7 +284,7 @@ function SnapshotsInner() {
                       {snap.label ?? 'Untitled snapshot'}
                     </h3>
                     <p className="mt-1 text-xs tabular-nums text-content-muted">
-                      Captured {new Date(snap.takenAt).toLocaleString()}
+                      Captured {fmt.dateTime(snap.takenAt)}
                       {snap.takenByName && <span> by {snap.takenByName}</span>}
                     </p>
                   </div>
@@ -377,6 +379,7 @@ function asRecord(v: unknown): Record<string, unknown> | null {
  * back to pretty-printed JSON.
  */
 function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
+  const fmt = useFormat();
   const widgets = Array.isArray(payload['widgets'])
     ? (payload['widgets'] as unknown[])
     : null;
@@ -397,7 +400,7 @@ function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
           <p className="text-xs tabular-nums text-content-muted">
             {dashboardMeta?.['name'] ? String(dashboardMeta['name']) : null}
             {dashboardMeta?.['name'] && capturedAt ? ' · ' : null}
-            {capturedAt ? `Captured ${new Date(capturedAt).toLocaleString()}` : null}
+            {capturedAt ? `Captured ${fmt.dateTime(capturedAt)}` : null}
           </p>
         )}
 
@@ -475,7 +478,7 @@ function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
           <p className="text-xs tabular-nums text-content-muted">
             {payload['dashboardName'] ? String(payload['dashboardName']) : null}
             {payload['dashboardName'] && capturedAt ? ' · ' : null}
-            {capturedAt ? `Captured ${new Date(capturedAt).toLocaleString()}` : null}
+            {capturedAt ? `Captured ${fmt.dateTime(capturedAt)}` : null}
           </p>
         )}
         {seedKpis.map((k, i) => {

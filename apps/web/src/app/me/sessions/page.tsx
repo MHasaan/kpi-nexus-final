@@ -13,8 +13,10 @@ import {
   revokeAllOtherSessions,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 export default function SessionsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,10 +151,10 @@ export default function SessionsPage() {
                     <p className="mt-0.5 text-xs text-content-muted">IP: {s.ipAddress}</p>
                   )}
                   <p className="mt-0.5 text-xs text-content-muted">
-                    Started: {new Date(s.createdAt).toLocaleString()}
+                    Started: {fmt.dateTime(s.createdAt)}
                   </p>
                   <p className="mt-0.5 text-xs text-content-muted">
-                    Expires: {new Date(s.expiresAt).toLocaleString()}
+                    Expires: {fmt.dateTime(s.expiresAt)}
                   </p>
                 </div>
                 <button

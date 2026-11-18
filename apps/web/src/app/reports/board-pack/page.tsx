@@ -16,6 +16,7 @@ import { PrintButton } from '../../../components/print-button';
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { changeTone } from '../../../lib/kpi-health';
+import { useFormat } from '../../../lib/format-context';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'Board pack' }];
 
@@ -45,6 +46,7 @@ function quadrantTone(status: string): { cls: string; label: string } {
 }
 
 export default function BoardPackPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [boardPack, setBoardPack] = useState<BoardPack | null>(null);
@@ -189,7 +191,7 @@ export default function BoardPackPage() {
                         {mover.name}
                       </p>
                       <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-content-strong">
-                        {mover.currentValue?.toLocaleString() ?? '—'}
+                        {fmt.number(mover.currentValue)}
                         {mover.unit && (
                           <span className="ml-1 text-sm font-normal text-content-muted">
                             {mover.unit}
@@ -202,7 +204,7 @@ export default function BoardPackPage() {
                         <ChangeIcon className="h-4 w-4" aria-hidden />
                         {mover.change === null
                           ? '—'
-                          : `${sign}${change.toLocaleString()}${pct}`}
+                          : `${sign}${fmt.number(change)}${pct}`}
                       </p>
                     </Card>
                   );
@@ -251,7 +253,7 @@ export default function BoardPackPage() {
                             >
                               <span className="truncate text-content">{kpi.name}</span>
                               <span className="shrink-0 font-medium tabular-nums text-content-strong">
-                                {kpi.value?.toLocaleString() ?? '—'}
+                                {fmt.number(kpi.value)}
                               </span>
                             </li>
                           ))}

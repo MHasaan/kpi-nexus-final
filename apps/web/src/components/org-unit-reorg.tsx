@@ -24,6 +24,7 @@ import {
   type OrgUnitNameHistoryEntry,
   type OrgUnitSummary,
 } from '../lib/api-client';
+import { useFormat } from '../lib/format-context';
 
 interface Props {
   unit: OrgUnitSummary;
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
+  const fmt = useFormat();
   const otherUnits = allUnits.filter((u) => u.id !== unit.id);
   const activeMembers = members.filter((m) => !m.leftAt);
 
@@ -450,7 +452,7 @@ export function OrgUnitReorg({ unit, allUnits, members, onRefresh }: Props) {
                     <span>→</span>
                     <span className="font-medium">{h.newName}</span>
                     <span className="ml-auto text-content-muted">
-                      {new Date(h.changedAt).toLocaleString()}
+                      {fmt.dateTime(h.changedAt)}
                     </span>
                   </li>
                 ))}

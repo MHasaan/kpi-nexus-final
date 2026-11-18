@@ -28,6 +28,7 @@ import {
   Label,
   Skeleton,
 } from '../ui';
+import { useFormat } from '../../lib/format-context';
 
 interface SecurityTabProps {
   user: AuthUser;
@@ -428,6 +429,7 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
 // ---------------------------------------------------------------------------
 
 function SessionsCard() {
+  const fmt = useFormat();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -550,8 +552,8 @@ function SessionsCard() {
                     <p className="mt-0.5 text-xs text-content-muted">IP: {s.ipAddress}</p>
                   )}
                   <p className="mt-0.5 text-xs text-content-muted">
-                    Started {new Date(s.createdAt).toLocaleString()} · Expires{' '}
-                    {new Date(s.expiresAt).toLocaleString()}
+                    Started {fmt.dateTime(s.createdAt)} · Expires{' '}
+                    {fmt.dateTime(s.expiresAt)}
                   </p>
                 </div>
                 <Button

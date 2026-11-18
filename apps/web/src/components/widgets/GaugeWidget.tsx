@@ -4,6 +4,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint } from './series';
+import { useFormat } from '../../lib/format-context';
 
 interface GaugeWidgetProps {
   widget: DashboardWidget;
@@ -37,6 +38,7 @@ function arcPath(
 }
 
 export function GaugeWidget({ widget, kpi, dataPoints = [] }: GaugeWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? kpi?.name ?? 'Gauge';
   const latest = latestPoint(dataPoints);
   const value = latest?.value ?? null;
@@ -129,7 +131,7 @@ export function GaugeWidget({ widget, kpi, dataPoints = [] }: GaugeWidgetProps) 
           </svg>
           <div className="mt-1 text-center">
             <p className="text-2xl font-bold text-content-strong">
-              {value.toLocaleString()}
+              {fmt.number(value)}
               {unit && (
                 <span className="ml-1 text-sm font-normal text-content-muted">{unit}</span>
               )}

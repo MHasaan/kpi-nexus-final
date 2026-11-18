@@ -99,6 +99,7 @@ import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabs
 import { usePermissions } from '../../../lib/use-permissions';
 import { useToast } from '../../../lib/use-toast';
 import { BusyForm, BusySubmit } from '../../../components/busy-form';
+import { useFormat } from '../../../lib/format-context';
 
 export default function KpiDetailPage() {
   const params = useParams<{ id: string }>();
@@ -290,6 +291,7 @@ function TabLoadError({ error, onRetry, className }: { error: string | null; onR
 // ---- Tabs ------------------------------------------------------------------
 
 function OverviewTab({ kpi }: { kpi: KpiSummary }) {
+  const fmt = useFormat();
   const [points, reloadPoints, pointsError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [status] = useAsync(() => getThresholdStatus(kpi.id).catch(() => null), [kpi.id]);
   const latest = points?.[0];
@@ -309,7 +311,7 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
             </p>
             {latest && (
               <p className="mt-1 text-xs text-content-muted">
-                recorded {new Date(latest.recordedAt).toLocaleDateString()}
+                recorded {fmt.date(latest.recordedAt)}
               </p>
             )}
           </CardContent>
@@ -668,6 +670,7 @@ function DataPointRow({
   /** The unit or person this value belongs to, for a scoped KPI. */
   owner?: string | null;
 }) {
+  const fmt = useFormat();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(p.value));
   const [reason, setReason] = useState('');
@@ -707,13 +710,13 @@ function DataPointRow({
                   <span data-testid="data-point-value">{p.value}</span>
                   {kpi.unit ? ` ${kpi.unit}` : ''}
                 </TableCell>
-                <TableCell className="text-content-muted">{new Date(p.periodStart).toLocaleDateString()}</TableCell>
+                <TableCell className="text-content-muted">{fmt.day(p.periodStart)}</TableCell>
                 {kpi.scope !== 'ORG_WIDE' && (
                   <TableCell className="text-content-muted" data-testid="data-point-owner">
                     {owner ?? '—'}
                   </TableCell>
                 )}
-                <TableCell className="text-content-muted">{new Date(p.recordedAt).toLocaleDateString()}</TableCell>
+                <TableCell className="text-content-muted">{fmt.date(p.recordedAt)}</TableCell>
                 <TableCell>
                   {(p as DataPoint & { isOutlier?: boolean }).isOutlier ? (
                     <Badge tone="warning">outlier</Badge>
@@ -760,7 +763,7 @@ function DataPointRow({
                 {history.map((h) => (
                   <li key={h.id}>
                     <span className="tabular-nums">{h.previousValue} → {h.newValue}</span>
-                    <span className="text-content-muted"> · {new Date(h.changedAt).toLocaleString()} · </span>
+                    <span className="text-content-muted"> · {fmt.dateTime(h.changedAt)} · </span>
                     {h.reason}
                   </li>
                 ))}
@@ -1357,6 +1360,7 @@ function AddChildForm({
 }
 
 function AuditTab({ kpiId }: { kpiId: string }) {
+  const fmt = useFormat();
   const [versions, reload, loadError] = useAsync(() => getKpiVersions(kpiId), [kpiId]);
   return (
     <div className="space-y-4">
@@ -1375,7 +1379,7 @@ function AuditTab({ kpiId }: { kpiId: string }) {
             <TableRow key={v.id}>
               <TableCell className="tabular-nums">v{v.version}</TableCell>
               <TableCell className="text-content-muted">{v.reason ?? '—'}</TableCell>
-              <TableCell className="text-content-muted">{new Date(v.createdAt).toLocaleString()}</TableCell>
+              <TableCell className="text-content-muted">{fmt.dateTime(v.createdAt)}</TableCell>
             </TableRow>
           ))}
           {versions && versions.length === 0 && (
@@ -1398,6 +1402,7 @@ function AuditTab({ kpiId }: { kpiId: string }) {
  * read. A snapshot is visible to the person who took it (and admins).
  */
 function SnapshotsCard({ kpiId }: { kpiId: string }) {
+  const fmt = useFormat();
   const [snapshots, reload, loadError] = useAsync(() => listKpiSnapshots(kpiId), [kpiId]);
   const [reason, setReason] = useState('');
   const [open, setOpen] = useState<KpiSnapshot | null>(null);
@@ -1449,7 +1454,7 @@ function SnapshotsCard({ kpiId }: { kpiId: string }) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
                   <span className="text-content-strong">{s.reason ?? 'Snapshot'}</span>
-                  <span className="text-content-muted"> · {new Date(s.takenAt).toLocaleString()} · {s.pointCount} values</span>
+                  <span className="text-content-muted"> · {fmt.dateTime(s.takenAt)} · {s.pointCount} values</span>
                 </span>
                 <Button type="button" size="sm" variant="ghost" onClick={() => void view(s)} data-testid="snapshot-view">
                   {open?.id === s.id ? 'Hide' : 'View'}

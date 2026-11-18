@@ -49,6 +49,7 @@ import {
 } from '../../components/ui';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
 
@@ -126,6 +127,7 @@ export default function DashboardsListPage() {
 }
 
 function DashboardsListInner() {
+  const fmt = useFormat();
   const { terminology } = useTerminology();
   const router = useRouter();
   const confirm = useConfirm();
@@ -405,7 +407,7 @@ function DashboardsListInner() {
                   <p className="mt-3 text-xs tabular-nums text-content-muted">
                     {d.widgets.length} widget
                     {d.widgets.length === 1 ? '' : 's'} · updated{' '}
-                    {new Date(d.updatedAt).toLocaleDateString()}
+                    {fmt.date(d.updatedAt)}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {!d.isDefault && (

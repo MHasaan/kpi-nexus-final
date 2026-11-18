@@ -19,6 +19,7 @@ import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useAllowed } from '../../../lib/use-allowed';
+import { useFormat } from '../../../lib/format-context';
 
 // Curated scope choices (subset of the canonical permissions in @kpi-nexus/contracts).
 const SCOPE_CHOICES = [
@@ -31,6 +32,7 @@ const SCOPE_CHOICES = [
 ] as const;
 
 export default function ApiKeysPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
@@ -177,7 +179,7 @@ export default function ApiKeysPage() {
                     <td className="px-4 py-3 font-mono text-xs text-content-muted">{k.keyPrefix}…</td>
                     <td className="px-4 py-3 text-xs text-content-muted">{k.scopes.join(', ')}</td>
                     <td className="px-4 py-3">{k.revokedAt ? 'Revoked' : 'Active'}</td>
-                    <td className="px-4 py-3 text-xs text-content-muted">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</td>
+                    <td className="px-4 py-3 text-xs text-content-muted">{k.lastUsedAt ? fmt.dateTime(k.lastUsedAt) : 'Never'}</td>
                     <td className="px-4 py-3 text-right">
                       {!k.revokedAt && (
                         <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void handleRevoke(k.id)} disabled={busyId === k.id} data-testid={`apikey-revoke-${k.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Revoke</button></PermissionGuard>

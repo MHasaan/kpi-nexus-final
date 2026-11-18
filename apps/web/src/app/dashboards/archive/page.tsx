@@ -26,6 +26,7 @@ import {
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useFormat } from '../../../lib/format-context';
 
 const PURGE_WINDOW_DAYS = 30;
 
@@ -38,6 +39,7 @@ function daysUntilPurge(deletedAt: string | null): number | null {
 }
 
 export default function DashboardArchivePage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [dashboards, setDashboards] = useState<Dashboard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +153,7 @@ export default function DashboardArchivePage() {
                     <div className="min-w-0">
                       <span className="font-medium text-content-strong">{d.name}</span>
                       <span className="ml-2 text-xs tabular-nums text-content-muted">
-                        archived {d.deletedAt ? new Date(d.deletedAt).toLocaleDateString() : ''}
+                        archived {d.deletedAt ? fmt.date(d.deletedAt) : ''}
                       </span>
                     </div>
                     {remaining !== null && (

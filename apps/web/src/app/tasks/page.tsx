@@ -39,6 +39,7 @@ import {
 } from '../../components/ui';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
@@ -69,18 +70,6 @@ const PRIORITY_RANK: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, MEDIUM
 type SortKey = 'due' | 'priority' | 'created';
 
 const DONE_LIKE = (s: TaskStatus) => s === 'DONE' || s === 'CANCELLED';
-
-/** Short date like "Jun 6" (or "Jun 6, 2027" when not the current year). */
-function formatDue(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  const now = new Date();
-  const opts: Intl.DateTimeFormatOptions =
-    d.getFullYear() === now.getFullYear()
-      ? { month: 'short', day: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' };
-  return d.toLocaleDateString('en-US', opts);
-}
 
 /** Days from now until `iso` (negative = past). null when unparseable. */
 function daysUntil(iso: string): number | null {
@@ -171,6 +160,7 @@ interface EditState {
 }
 
 export default function TasksPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -615,7 +605,7 @@ export default function TasksPage() {
                               }`}
                               title={tone === 'overdue' ? 'Overdue' : tone === 'soon' ? 'Due soon' : 'Due date'}
                             >
-                              {formatDue(task.dueAt)}
+                              {fmt.date(task.dueAt)}
                             </span>
                           )}
                           {task.description && (

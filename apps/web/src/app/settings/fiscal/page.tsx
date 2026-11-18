@@ -1,5 +1,6 @@
 'use client';
 
+import { DATE_FORMATS, DEFAULT_FORMAT_SETTINGS, type DateFormat, NUMBER_FORMATS, type NumberFormat, formatDay, formatSettingsOf } from '@kpi-nexus/contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
@@ -15,6 +16,7 @@ import {
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 import { forgetFiscalConfig } from '../../../lib/use-fiscal-config';
 
 const MONTHS = [
@@ -40,8 +42,9 @@ export default function FiscalSettingsPage() {
 
   const [startMonth, setStartMonth] = useState(1);
   const [weekStartsOn, setWeekStartsOn] = useState(1);
-  const [dateFormat, setDateFormat] = useState('');
-  const [numberFormat, setNumberFormat] = useState('');
+  const [dateFormat, setDateFormat] = useState<DateFormat>(DEFAULT_FORMAT_SETTINGS.dateFormat);
+  const [numberFormat, setNumberFormat] = useState<NumberFormat>(DEFAULT_FORMAT_SETTINGS.numberFormat);
+  const format = useFormat();
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -53,8 +56,10 @@ export default function FiscalSettingsPage() {
         setOrg(data);
         setStartMonth(readStartMonth(data.fiscalCalendar));
         setWeekStartsOn(data.weekStartsOn ?? 1);
-        setDateFormat(data.dateFormat ?? '');
-        setNumberFormat(data.numberFormat ?? '');
+        // What is in force — a stored value from before these were choices falls back to the default.
+        const inForce = formatSettingsOf(data);
+        setDateFormat(inForce.dateFormat);
+        setNumberFormat(inForce.numberFormat);
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -76,12 +81,14 @@ export default function FiscalSettingsPage() {
         // Preserve any other keys already on fiscalCalendar.
         fiscalCalendar: { ...(org?.fiscalCalendar ?? {}), startMonth },
         weekStartsOn,
-        dateFormat: dateFormat.trim() || undefined,
-        numberFormat: numberFormat.trim() || undefined,
+        dateFormat,
+        numberFormat,
       });
       setOrg(updated);
       // Forms that offer a default period read the calendar once; make them read the new one.
       forgetFiscalConfig();
+      // Every page writes dates and numbers from these settings: make them read the new ones.
+      await format.refresh();
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Save failed');
@@ -148,20 +155,22 @@ export default function FiscalSettingsPage() {
               <fieldset className="rounded-lg border border-border bg-surface-1 p-6">
                 <legend className="px-2 text-sm font-semibold text-content-strong">Formats</legend>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Date format"
-                    value={dateFormat}
-                    onChange={setDateFormat}
-                    placeholder="MM/DD/YYYY"
-                    testId="fiscal-date-format"
-                  />
-                  <Field
-                    label="Number format"
-                    value={numberFormat}
-                    onChange={setNumberFormat}
-                    placeholder="1,234.56"
-                    testId="fiscal-number-format"
-                  />
+                  <label className="block">
+                    <span className="text-sm font-medium text-content-default">Date format</span>
+                    <select value={dateFormat} onChange={(e) => setDateFormat(e.target.value as DateFormat)} data-testid="fiscal-date-format" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30">
+                      {DATE_FORMATS.map((f) => (
+                        <option key={f} value={f}>{formatDay('2026-03-05', { ...DEFAULT_FORMAT_SETTINGS, dateFormat: f })} ({f})</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-content-default">Number format</span>
+                    <select value={numberFormat} onChange={(e) => setNumberFormat(e.target.value as NumberFormat)} data-testid="fiscal-number-format" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30">
+                      {NUMBER_FORMATS.map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </fieldset>
 
@@ -187,31 +196,5 @@ export default function FiscalSettingsPage() {
         </div>
       </RequirePermission>
     </AppShell>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  testId,
-  ...rest
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  testId?: string;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-content-default">{label}</span>
-      <input
-        {...rest}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        data-testid={testId}
-        className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
-      />
-    </label>
   );
 }

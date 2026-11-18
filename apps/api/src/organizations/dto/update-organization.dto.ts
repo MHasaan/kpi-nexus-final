@@ -1,3 +1,4 @@
+import { DATE_FORMATS, NUMBER_FORMATS, isCurrency, isLocale, isTimeZone } from '@kpi-nexus/contracts';
 import { z } from 'zod';
 
 import { PasswordPolicySchema } from '../../password/password-policy.js';
@@ -30,11 +31,12 @@ export const UpdateOrganizationDtoSchema = z.object({
     .optional(),
 
   // Locale + fiscal
-  timezone: z.string().min(1).max(60).optional(),
-  currency: z.string().length(3).optional(),
-  locale: z.string().min(2).max(15).optional(),
-  dateFormat: z.string().min(1).max(40).optional(),
-  numberFormat: z.string().min(1).max(40).optional(),
+  // These five decide how every date and number is written (plan 6.1), so a value nothing can format with is refused.
+  timezone: z.string().min(1).max(60).refine(isTimeZone, { message: 'timezone must be an IANA name such as Asia/Karachi' }).optional(),
+  currency: z.string().length(3).refine(isCurrency, { message: 'currency must be an ISO 4217 code such as USD' }).optional(),
+  locale: z.string().min(2).max(15).refine(isLocale, { message: 'locale must be a language tag such as en-US' }).optional(),
+  dateFormat: z.enum(DATE_FORMATS).optional(),
+  numberFormat: z.enum(NUMBER_FORMATS).optional(),
   weekStartsOn: z.number().int().min(0).max(6).optional(),
   // To clear, omit the field (Prisma JSON nullable requires sentinel).
   fiscalCalendar: z.record(z.string(), z.unknown()).optional(),

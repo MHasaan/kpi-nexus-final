@@ -18,6 +18,13 @@ import {
   useTerminology,
 } from '../../../lib/terminology-context';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
+
+/** Every timezone the browser knows, with UTC and the one in use always offered. */
+function timezoneChoices(current: string): string[] {
+  const known = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+  return [...new Set(['UTC', ...known, current])].sort((a, b) => (a === 'UTC' ? -1 : b === 'UTC' ? 1 : a.localeCompare(b)));
+}
 
 export default function OrganizationSettingsPage() {
   return (
@@ -28,6 +35,7 @@ export default function OrganizationSettingsPage() {
 function OrganizationSettingsInner() {
   const router = useRouter();
   const { refresh: refreshTerminology } = useTerminology();
+  const format = useFormat();
   const [org, setOrg] = useState<OrganizationSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -127,6 +135,8 @@ function OrganizationSettingsInner() {
       });
       setOrg(updated);
       await refreshTerminology();
+      // Every page writes dates and numbers from these settings: make them read the new ones.
+      await format.refresh();
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Save failed');
@@ -167,14 +177,23 @@ function OrganizationSettingsInner() {
               </legend>
               <Field label="Organization name" value={name} onChange={setName} required />
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Timezone" value={timezone} onChange={setTimezone} />
+                <label className="block">
+                  <span className="text-sm font-medium text-content-default">Timezone</span>
+                  <select value={timezone} onChange={(e) => setTimezone(e.target.value)} data-testid="org-timezone" className="mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30">
+                    {timezoneChoices(timezone).map((zone) => (
+                      <option key={zone} value={zone}>{zone}</option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-content-muted">Times are shown in this timezone for everyone.</span>
+                </label>
                 <Field
                   label="Currency"
                   value={currency}
                   onChange={(v) => setCurrency(v.toUpperCase())}
                   maxLength={3}
+                  testId="org-currency"
                 />
-                <Field label="Locale" value={locale} onChange={setLocale} />
+                <Field label="Locale" value={locale} onChange={setLocale} testId="org-locale" />
               </div>
             </fieldset>
 

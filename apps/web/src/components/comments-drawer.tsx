@@ -15,6 +15,7 @@ import {
   updateComment,
 } from '../lib/collab-client';
 import { Button, Avatar, Textarea, EmptyState, Skeleton } from './ui';
+import { useFormat } from '../lib/format-context';
 
 /**
  * Slide-out comments panel for any entity (KPI, dashboard, alert, task,
@@ -28,6 +29,7 @@ export function CommentsDrawer({
   entityType: CommentEntityType;
   entityId: string;
 }) {
+  const fmt = useFormat();
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   // Authors' names, without asking for the people list on behalf of someone who may not have it (X-05).
@@ -227,7 +229,7 @@ export function CommentsDrawer({
                           )}
                           <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs tabular-nums text-content-muted">
                             <span>
-                              {new Date(c.createdAt).toLocaleString()}
+                              {fmt.dateTime(c.createdAt)}
                               {c.updatedAt && c.updatedAt !== c.createdAt ? ' · edited' : ''}
                             </span>
                             {myId === c.authorId && editingId !== c.id && (

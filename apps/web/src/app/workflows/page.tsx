@@ -15,6 +15,7 @@ import { useConfirm } from '../../lib/use-confirm';
 import { usePermissions } from '../../lib/use-permissions';
 import { useToast } from '../../lib/use-toast';
 import { EMPTY_WORKFLOW_FORM, OPERATORS, type WorkflowForm, describeWorkflow, formFromWorkflow, workflowBody, workflowFormProblem } from '../../lib/workflow-form';
+import { useFormat } from '../../lib/format-context';
 
 /**
  * Automations: "when a KPI crosses a line, create a task". The page builds
@@ -22,6 +23,7 @@ import { EMPTY_WORKFLOW_FORM, OPERATORS, type WorkflowForm, describeWorkflow, fo
  * and can be paused, run and deleted, but not edited here.
  */
 export default function WorkflowsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   // FE-014: load only once the page gate passes, so users without access
   // are redirected without first drawing a 403 from the api.
@@ -223,7 +225,7 @@ export default function WorkflowsPage() {
                             <Badge tone={wf.isActive ? 'success' : 'neutral'}>{wf.isActive ? 'On' : 'Paused'}</Badge>
                           </div>
                           <p className="text-xs text-content-muted">{describeWorkflow(wf, kpiName)}</p>
-                          <p className="text-xs text-content-muted">{wf.lastRunAt ? `Last ran ${new Date(wf.lastRunAt).toLocaleString()}` : 'Has not run yet'}</p>
+                          <p className="text-xs text-content-muted">{wf.lastRunAt ? `Last ran ${fmt.dateTime(wf.lastRunAt)}` : 'Has not run yet'}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
                           <Button

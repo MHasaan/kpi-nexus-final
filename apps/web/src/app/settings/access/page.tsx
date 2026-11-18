@@ -44,6 +44,7 @@ import {
 import { PERMISSION_GROUPS, PERMISSION_LABELS } from '../../../lib/permissions';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useAllowed } from '../../../lib/use-allowed';
+import { useFormat } from '../../../lib/format-context';
 
 // -----------------------------------------------------------------------------
 // Static maps
@@ -231,6 +232,7 @@ export default function AccessCenterPage() {
 // -----------------------------------------------------------------------------
 
 function UserAccessPanel({ user, categories }: { user: UserSummary; categories: KpiCategory[] }) {
+  const fmt = useFormat();
   const [profile, setProfile] = useState<AccessProfile | null>(null);
   const [override, setOverride] = useState<PublicAccessOverride | null>(null);
   const [loading, setLoading] = useState(true);
@@ -386,7 +388,7 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
     [categories],
   );
 
-  const summary = useMemo(() => (profile ? summarize(profile, categoryName) : []), [profile, categoryName]);
+  const summary = useMemo(() => (profile ? summarize(profile, categoryName, fmt.number) : []), [profile, categoryName, fmt.number]);
   const busy = saving || clearing;
 
   if (loading) {
@@ -696,7 +698,7 @@ function UserAccessPanel({ user, categories }: { user: UserSummary; categories: 
 // Plain-language summary
 // -----------------------------------------------------------------------------
 
-function summarize(p: AccessProfile, categoryName: (id: string) => string): string[] {
+function summarize(p: AccessProfile, categoryName: (id: string) => string, number: (value: number) => string): string[] {
   if (p.isAdmin) {
     return ['Administrator — bypasses every permission, scope, and data-limit check.'];
   }
@@ -706,8 +708,8 @@ function summarize(p: AccessProfile, categoryName: (id: string) => string): stri
 
   const dl = p.dataLimits;
   if (dl.historyWindowDays) lines.push(`History limited to the last ${dl.historyWindowDays} days.`);
-  if (dl.maxListRows) lines.push(`KPI lists capped at ${dl.maxListRows.toLocaleString()} rows.`);
-  if (dl.maxExportRows) lines.push(`Exports capped at ${dl.maxExportRows.toLocaleString()} rows.`);
+  if (dl.maxListRows) lines.push(`KPI lists capped at ${number(dl.maxListRows)} rows.`);
+  if (dl.maxExportRows) lines.push(`Exports capped at ${number(dl.maxExportRows)} rows.`);
 
   const kc = p.dataTypeFilters.kpiCategoryIds;
   if (Array.isArray(kc)) {

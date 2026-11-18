@@ -19,6 +19,7 @@ import { usePermissions } from '../../../lib/use-permissions';
 /** The keys the audit API accepts — either one (UI-013: the page asked for ORG_SETTINGS only, so an auditor's sidebar link led to "no access"). */
 const AUDIT_KEYS = ['AUDIT_VIEW', 'ORG_SETTINGS'];
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 /** Rows are fetched this many at a time; "Load older entries" fetches the next lot. */
 const PAGE_SIZE = 100;
@@ -43,6 +44,7 @@ export default function AuditPage() {
 }
 
 function AuditPageInner() {
+  const fmt = useFormat();
   const router = useRouter();
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -279,7 +281,7 @@ function AuditPageInner() {
                       {entry.userEmail ?? entry.userId ?? '(system)'}
                     </span>
                     <span className="ml-auto text-xs text-content-muted">
-                      {new Date(entry.createdAt).toLocaleString()}
+                      {fmt.dateTime(entry.createdAt)}
                     </span>
                   </div>
                   {entry.redactedKeys.length > 0 && (

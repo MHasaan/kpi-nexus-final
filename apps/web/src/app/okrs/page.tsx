@@ -37,6 +37,7 @@ import {
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { buildAlignmentTree } from '../../lib/okr-tree';
 import { useFiscalConfig } from '../../lib/use-fiscal-config';
+import { useFormat } from '../../lib/format-context';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -56,18 +57,6 @@ function barColor(status: string): string {
   return 'bg-accent-primary';
 }
 
-/** "Apr 1 – Jun 30, 2026" (or includes both years when they differ). */
-function formatPeriod(startIso: string, endIso: string): string {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
-  const md = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${md(start)} – ${md(end)}, ${end.getFullYear()}`;
-  }
-  return `${md(start)}, ${start.getFullYear()} – ${md(end)}, ${end.getFullYear()}`;
-}
-
 interface EditState {
   name: string;
   description: string;
@@ -79,6 +68,7 @@ interface EditState {
 }
 
 export default function OkrsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   // Owners' names, without asking for the people list on behalf of someone who may not have it (X-05).
@@ -404,7 +394,7 @@ export default function OkrsPage() {
               <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-content-muted">
                 <span>{ownerName(o.ownerUserId)}</span>
                 <span aria-hidden>·</span>
-                <span>{formatPeriod(o.periodStart, o.periodEnd)}</span>
+                <span>{`${fmt.day(o.periodStart)} – ${fmt.day(o.periodEnd)}`}</span>
               </div>
             </div>
             <Badge tone={STATUS_TONE[o.status] ?? 'neutral'}>{o.status}</Badge>

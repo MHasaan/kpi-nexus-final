@@ -39,6 +39,7 @@ import {
 } from '../../components/ui';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports' }];
 
@@ -83,6 +84,7 @@ function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
 }
 
 export default function ReportsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const confirm = useConfirm();
   const [reports, setReports] = useState<ScheduledReport[] | null>(null);
@@ -282,7 +284,7 @@ export default function ReportsPage() {
                         <RunStatusBadge status={lastRun.status} />
                         <span className="tabular-nums">
                           {lastRun.ranAt
-                            ? new Date(lastRun.ranAt).toLocaleString()
+                            ? fmt.dateTime(lastRun.ranAt)
                             : 'pending'}
                         </span>
                       </div>

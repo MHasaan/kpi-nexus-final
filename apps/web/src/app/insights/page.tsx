@@ -30,6 +30,7 @@ import {
 import { useKpiNames } from '../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useAllowed } from '../../lib/use-allowed';
+import { useFormat } from '../../lib/format-context';
 
 type SortKey = 'confidence' | 'recency';
 
@@ -40,6 +41,7 @@ const MIN_CONFIDENCE_OPTIONS = [
 ] as const;
 
 export default function InsightsPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const { nameOf } = useKpiNames();
   const [rows, setRows] = useState<Insight[] | null>(null);
@@ -254,11 +256,11 @@ export default function InsightsPage() {
                       &nbsp;confident
                     </Badge>
                     <span className="tabular-nums">
-                      {(r.promptTokens + r.completionTokens).toLocaleString()} tokens
+                      {fmt.number(r.promptTokens + r.completionTokens)} tokens
                     </span>
                     <span aria-hidden>·</span>
                     <span className="tabular-nums">
-                      {new Date(r.generatedAt).toLocaleString()}
+                      {fmt.dateTime(r.generatedAt)}
                     </span>
                   </div>
                 </CardContent>

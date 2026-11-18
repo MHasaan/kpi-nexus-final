@@ -26,7 +26,11 @@ test("formats: dates and numbers follow the organisation's settings", async ({ p
   }
   const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${session.accessToken}` } });
   const kpi = (await (await api.post('/kpis', { data: { name: `Revenue ${stamp}`, scope: 'ORG_WIDE', unit: 'USD', frequency: 'MONTHLY' } })).json()) as { id: string };
-  expect((await api.post(`/kpis/${kpi.id}/data`, { data: { value: 1234567.5, periodStart: '2026-03-01', periodEnd: '2026-03-31' } })).status()).toBe(201);
+  // A value for this month, so the home page shows it.
+  const today = new Date().toISOString().slice(0, 10);
+  const [year, month] = today.split('-');
+  const monthStart = `${year}-${month}-01`;
+  expect((await api.post(`/kpis/${kpi.id}/data`, { data: { value: 1234567.5, periodStart: monthStart, periodEnd: today } })).status()).toBe(201);
 
   // A value nothing can format with is refused, naming the field.
   const bad = await api.patch('/organizations/me', { data: { timezone: 'Mars/Olympus' } });
@@ -34,7 +38,7 @@ test("formats: dates and numbers follow the organisation's settings", async ({ p
 
   // Before: the defaults — ISO dates.
   await page.goto(`/kpis/${kpi.id}?tab=data`);
-  await expect(page.getByRole('cell', { name: '2026-03-01', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: monthStart, exact: true })).toBeVisible();
 
   // Choose day-first dates and a comma for decimals on the settings page.
   await page.goto('/settings/fiscal');
@@ -45,7 +49,7 @@ test("formats: dates and numbers follow the organisation's settings", async ({ p
 
   // The KPI's values: the period is a calendar day, written day-first.
   await page.goto(`/kpis/${kpi.id}?tab=data`);
-  await expect(page.getByRole('cell', { name: '01/03/2026', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: `01/${month}/${year}`, exact: true })).toBeVisible();
 
   // The home page: the number in the organisation's style.
   await page.goto('/dashboard');

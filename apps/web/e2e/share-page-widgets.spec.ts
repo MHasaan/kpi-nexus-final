@@ -71,7 +71,7 @@ test('shared dashboard: real widgets on the author\'s grid; nothing per-person, 
   // A chart with one label per period, not one bar.
   const chart = reader.getByTestId(`widget-render-${line}`);
   await expect(chart).toContainText(`Revenue ${stamp}`);
-  await expect.poll(async () => new Set((await chart.innerText()).match(/\d{1,2}\/\d{1,2}\/\d{4}/g) ?? []).size).toBe(3);
+  await expect.poll(async () => new Set((await chart.innerText()).match(/\d{4}-\d{2}-\d{2}/g) ?? []).size).toBe(3);
 
   // The card: newest value, target, by the KPI's name.
   const kpiCard = reader.getByTestId(`widget-render-${card}`);

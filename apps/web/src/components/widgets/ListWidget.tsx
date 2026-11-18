@@ -1,6 +1,7 @@
 'use client';
 
 import type { DashboardSummaryRow, DashboardWidget } from '../../lib/api-client';
+import { useFormat } from '../../lib/format-context';
 
 /** What a list row draws. The public share page has only these. */
 export type ListRow = Pick<DashboardSummaryRow, 'kpiId' | 'name' | 'unit' | 'latestValue' | 'status' | 'attainmentPct'>;
@@ -25,6 +26,7 @@ function statusColor(row: ListRow): string {
 }
 
 export function ListWidget({ widget, summaryRows = [] }: ListWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? 'KPI List';
   const maxItems = (widget.config['maxItems'] as number | undefined) ?? 10;
 
@@ -60,7 +62,7 @@ export function ListWidget({ widget, summaryRows = [] }: ListWidgetProps) {
                 {row.name}
               </span>
               <span className={`ml-2 font-semibold tabular-nums ${statusColor(row)}`}>
-                {row.latestValue !== null ? row.latestValue.toLocaleString() : '—'}
+                {row.latestValue !== null ? fmt.number(row.latestValue) : '—'}
                 {row.unit ? ` ${row.unit}` : ''}
               </span>
             </li>

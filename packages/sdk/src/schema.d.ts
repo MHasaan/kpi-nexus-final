@@ -13461,8 +13461,10 @@ export interface operations {
                     timezone?: string;
                     currency?: string;
                     locale?: string;
-                    dateFormat?: string;
-                    numberFormat?: string;
+                    /** @enum {string} */
+                    dateFormat?: "YYYY-MM-DD" | "DD/MM/YYYY" | "MM/DD/YYYY" | "D MMM YYYY";
+                    /** @enum {string} */
+                    numberFormat?: "1,234.56" | "1.234,56" | "1 234,56" | "1,23,456.78";
                     weekStartsOn?: number;
                     fiscalCalendar?: {
                         [key: string]: unknown;

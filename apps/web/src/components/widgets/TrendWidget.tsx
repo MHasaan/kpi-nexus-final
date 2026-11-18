@@ -10,7 +10,8 @@ import {
 import type { DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint } from './series';
-import { periodLabel, toSeries } from './series';
+import { toSeries } from './series';
+import { useFormat } from '../../lib/format-context';
 
 interface TrendWidgetProps {
   widget: DashboardWidget;
@@ -18,9 +19,10 @@ interface TrendWidgetProps {
 }
 
 export function TrendWidget({ widget, dataPoints = [] }: TrendWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? 'Trend';
   const chartData = toSeries(dataPoints, 30).map((dp) => ({
-    date: periodLabel(dp),
+    date: fmt.day(dp.periodStart),
     value: dp.value,
   }));
 

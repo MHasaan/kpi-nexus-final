@@ -13,7 +13,8 @@ import {
 import type { DashboardWidget } from '../../lib/api-client';
 
 import type { SeriesPoint } from './series';
-import { periodLabel, toSeries } from './series';
+import { toSeries } from './series';
+import { useFormat } from '../../lib/format-context';
 
 interface BarChartWidgetProps {
   widget: DashboardWidget;
@@ -21,10 +22,11 @@ interface BarChartWidgetProps {
 }
 
 export function BarChartWidget({ widget, dataPoints = [] }: BarChartWidgetProps) {
+  const fmt = useFormat();
   const title = widget.title ?? 'Bar Chart';
 
   const chartData = toSeries(dataPoints).map((dp) => ({
-    date: periodLabel(dp),
+    date: fmt.day(dp.periodStart),
     value: dp.value,
   }));
 

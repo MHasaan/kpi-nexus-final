@@ -13,103 +13,104 @@ export interface HelpEntry {
 const DEFAULT: HelpEntry = {
   title: 'KPI Nexus Help',
   tips: [
-    'Navigate to any page using the top nav bar.',
-    'Use the search icon (⌕) to find KPIs, dashboards, or teammates fast.',
-    'Click your profile link to update your personal details and preferences.',
+    'Use the menu on the left to move between pages; it lists only what your role may open.',
+    'The search box at the top finds KPIs, dashboards and people.',
+    'The bell at the top lists alerts that have fired.',
   ],
 };
 
 /**
  * Registry: exact or prefix pathname → help content.
  * Entries are tried longest-match-first inside helpForPath.
+ *
+ * Every tip must describe something the app really has (QA-L14): name a
+ * control only by the words on it, and change the tip when the page changes.
  */
 const CONTEXTUAL_HELP: Record<string, HelpEntry> = {
   '/dashboard': {
     title: 'Dashboard tips',
     tips: [
-      'Your Dashboard shows a live snapshot of KPIs you own or follow.',
-      'Pin a KPI widget by opening the KPI and clicking "Add to dashboard".',
-      'Alert badges here link directly to the triggered rule so you can act fast.',
+      'This page shows how your KPIs stand now and which of them need attention.',
+      'Open a KPI from here to see its history, targets and thresholds.',
+      'For charts you arrange yourself, use Dashboards in the menu on the left.',
     ],
   },
   '/dashboards': {
     title: 'Dashboards tips',
     tips: [
-      'Create a dashboard per team or use-case; share a public link to any.',
-      'Drag widgets to re-order; resize them using the corner handle.',
-      'Real-time SSE keeps every chart current — no manual refresh needed.',
+      'Make a dashboard for a team or a purpose, then add widgets to it in edit mode.',
+      'In edit mode, drag a widget to move it and pull its corner to resize it.',
+      'A dashboard can be shared with people outside by a public link.',
     ],
   },
   '/kpis': {
     title: 'KPI tips',
     tips: [
-      'Set a formula to auto-calculate the value from child KPIs or raw data.',
-      'Thresholds (green/amber/red bands) drive the status badge and alerts.',
-      'Use the "Cascade" button to push a KPI target down to sub-units.',
-      'Filter by category or owner to find the KPI you need quickly.',
+      'A KPI is organisation-wide, per unit or per person; that decides who records its values.',
+      'Thresholds and bands decide the status shown beside a value.',
+      'A formula works a KPI out from other KPIs; a cascade rolls child KPIs up into a parent.',
+      'Filter the list by category, status or scope to find a KPI quickly.',
     ],
   },
   '/alerts': {
     title: 'Alerts tips',
     tips: [
-      'An alert rule fires whenever a threshold band is breached.',
-      'Escalation chains let you notify a manager if the first responder is quiet.',
-      'Silence a rule for a fixed window (e.g. scheduled maintenance) via Snooze.',
+      'A rule watches one KPI and raises an alert when its condition is met.',
+      'A rule can escalate to someone else when nobody acknowledges the alert in time.',
+      'Acknowledge an alert to show that someone is dealing with it.',
     ],
   },
   '/roles': {
     title: 'Roles & permissions tips',
     tips: [
       `Roles bundle the ${ALL_PERMISSIONS.length} permissions — assign one role per user.`,
-      'Use the "Duplicate" button to clone an existing role before editing.',
       'Changes to a role take effect on the user\'s next page load.',
     ],
   },
   '/org-units': {
     title: 'Teams (org-units) tips',
     tips: [
-      'Org-units map your company hierarchy — create as many levels as you need.',
-      'Assign KPIs at the unit level to track team performance separately.',
-      'Moving a unit re-parents all its children and members automatically.',
+      'Org units mirror your structure and can sit inside one another.',
+      'A per-unit KPI is recorded once for each unit it is assigned to.',
+      'Moving a unit takes the units under it along.',
     ],
   },
   '/users': {
     title: 'Members tips',
     tips: [
       'Invite members by email — they receive a link to set their password.',
-      'Change a member\'s role here; the new permissions apply immediately.',
-      'Offboarding a member suspends their access without deleting their data.',
+      'Change a member\'s role here; the new permissions apply on their next page load.',
+      'Suspending a member stops them signing in and keeps their data.',
     ],
   },
   '/settings': {
     title: 'Settings tips',
     tips: [
-      'Organization settings control branding, locale, and fiscal-year start.',
-      'API keys let external tools push data; rotate them regularly.',
-      'Webhook endpoints receive real-time event payloads for KPI changes.',
+      'Organisation settings cover branding, date and number formats, and the fiscal calendar.',
+      'API keys let other tools send data in; replace them from time to time.',
+      'Webhooks send events to an address you choose.',
     ],
   },
   '/okrs': {
     title: 'OKRs tips',
     tips: [
-      'Link an Objective to one or more KPIs to measure key results automatically.',
-      'Set a due date and owner so accountability is clear.',
-      'Progress rolls up from child KRs — keep each KR binary or percentage-based.',
+      'A key result can be linked to a KPI and takes its value; "Sync from linked KPIs" brings in newer values.',
+      'Every objective has an owner and a period.',
+      'An objective\'s progress is worked out from its key results.',
     ],
   },
   '/ask': {
     title: 'AI assistant tips',
     tips: [
-      'Ask in plain English — e.g. "Which KPIs are trending down this quarter?"',
-      'Prefix with /chart to get an inline chart with your answer.',
-      'The AI budget resets monthly; your admin can raise the cap in Settings.',
+      'Ask in plain words — for example "Which KPIs are below target this quarter?"',
+      'AI use has a daily and a monthly budget; an administrator sets them in Settings.',
     ],
   },
   '/profile': {
     title: 'Profile tips',
     tips: [
-      'Update your display name and avatar so teammates can recognise you.',
-      'Set your notification preferences to reduce alert noise.',
+      'The name you set here is how others see you.',
+      'Choose your language, time zone and which notifications reach you.',
     ],
   },
 };
@@ -130,7 +131,7 @@ export function helpForPath(pathname: string): HelpEntry {
   // Find the longest registered key that is a prefix of pathname.
   let best: string | null = null;
   for (const key of Object.keys(CONTEXTUAL_HELP)) {
-    if (pathname.startsWith(`${key}/`) || pathname.startsWith(key)) {
+    if (pathname.startsWith(`${key}/`)) {
       if (best === null || key.length > best.length) {
         best = key;
       }

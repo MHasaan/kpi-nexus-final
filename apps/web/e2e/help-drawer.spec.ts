@@ -91,6 +91,42 @@ test.describe('E5: contextual help drawer', () => {
     await expect(trigger).toBeVisible();
   });
 
+  // QA-L14: the drawer stayed open, over the next page, when the page changed.
+  test('the drawer is hidden while closed, and closes when the page changes', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = suffix();
+    await registerOrgViaApi(page, {
+      orgName: `e2e-help-nav-${stamp}`,
+      slug: `e2e-help-nav-${stamp}`,
+      adminFullName: 'Nav Help Admin',
+      adminEmail: `${stamp}@help-nav.test.local`,
+      adminPassword: 'correct-horse-battery-staple',
+    });
+
+    const drawer = page.getByTestId('help-drawer');
+    await expect(drawer).toBeHidden();
+
+    // From the dashboard to the KPI list by the menu, then open help there.
+    await page.getByRole('link', { name: 'KPIs', exact: true }).first().click();
+    await page.waitForURL('**/kpis');
+    await page.getByTestId('help-drawer-trigger').click();
+    await expect(drawer).toBeVisible();
+    await expect(page.getByTestId('help-drawer-title')).toHaveText('KPI tips');
+
+    // Back to the dashboard without touching the drawer: it does not follow.
+    await page.goBack();
+    await page.waitForURL('**/dashboard');
+    await expect(drawer).toBeHidden();
+
+    // The default tips say where things really are.
+    await page.goto('/activity');
+    await page.getByTestId('help-drawer-trigger').click();
+    await expect(page.getByTestId('help-drawer-tips')).toContainText('menu on the left');
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+  });
+
   test('/roles help states the real permission count (DOC-004)', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
 

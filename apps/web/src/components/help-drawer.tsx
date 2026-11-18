@@ -15,6 +15,7 @@ const SEEN_KEY = 'kpi-nexus.help-drawer-seen';
  * - The "seen" state is persisted in localStorage so the pulse never returns.
  * - The panel displays tips relevant to the current route via helpForPath().
  * - Pressing Escape closes the drawer.
+ * - Going to another page closes the drawer.
  * - Accessible: button has aria-label="Help"; panel has role="dialog".
  */
 export function HelpDrawer() {
@@ -42,6 +43,11 @@ export function HelpDrawer() {
   };
 
   const closeDrawer = () => setOpen(false);
+
+  // A new page closes the drawer (QA-L14): it used to stay open over the page that followed.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   // Esc key closes the drawer.
   useEffect(() => {
@@ -102,7 +108,9 @@ export function HelpDrawer() {
         className={[
           'fixed right-0 top-0 z-50 flex h-full w-[320px] flex-col border-l border-border',
           'bg-surface-bg shadow-xl transition-transform duration-200',
-          open ? 'translate-x-0' : 'translate-x-full',
+          // `invisible` while closed: off screen is not enough — the dialog would stay
+          // reachable by keyboard and announced by a screen reader.
+          open ? 'translate-x-0' : 'invisible translate-x-full',
         ].join(' ')}
       >
         {/* Header */}

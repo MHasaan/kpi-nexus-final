@@ -707,6 +707,14 @@ export async function removeOrgUnitMember(unitId: string, userId: string): Promi
   return api(`/org-units/${unitId}/members/${userId}`, { method: 'DELETE' });
 }
 
+/** Change a unit's parent or description. `null` takes the value away: top level, no description. */
+export async function updateOrgUnit(
+  id: string,
+  body: { parentUnitId?: string | null; description?: string | null },
+): Promise<OrgUnitSummary> {
+  return api(`/org-units/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 export async function renameOrgUnit(id: string, newName: string): Promise<OrgUnitSummary> {
   return api(`/org-units/${id}/rename`, { method: 'POST', body: JSON.stringify({ name: newName }) });
 }

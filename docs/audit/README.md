@@ -410,6 +410,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | QA-L17: the Kanban board was cramped at laptop width — columns 184 px wide at 1280 px, titles one word per line | ✅ Fixed — columns keep at least 240 px and the board scrolls sideways; the page does not | #276 | `e2e/kanban-laptop-width.spec.ts` |
 | Plan 7.7 (thresholds): the band form was five unlabelled boxes with no colour choice, and nothing said a band's name decides its status | ✅ Fixed — labelled fields, a colour picker, 'Counts as' presets, the meaning of a name shown before saving; the name rule lives in `packages/contracts` (`bandMeaning`) for API and form alike | #277 | `band-status.spec.ts` (13), `e2e/threshold-band-form.spec.ts` |
 | Plan 7.7 (cascade): every child was attached as a sum with weight 1 and neither could be changed; the method was stored per child while the engine reads one per parent | ✅ Fixed — the tab chooses the method and, for a weighted average, each child's weight; in the API the method is the parent's (naming one sets it on every child, naming none keeps the parent's) | #278 | `e2e/cascade-method-weight.spec.ts` |
+| Plan 7.7 (`/ask`): each question was sent alone, so a follow-up had nothing to refer to | ✅ Fixed — the page sends the last three finished turns with a new question; `POST /nlq/ask` takes an optional `history`. Not run against a real AI key | #279 | `nlq.service.spec.ts` (+2), `nlq-ask.dto.spec.ts` (4), `e2e/ask-follow-ups.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -421,6 +422,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | X-02 (remainder) failures still swallowed: the KPI picker on the tasks page, the watch button, the report-form pickers, clipboard copy on API keys and webhooks | Low | 🟡 partly | 7.2 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
 | X-07 lists capped at 100 with no paging — alerts (#224) and the audit log (#238) page now; other long lists (KPIs, activity, deliveries) still stop at their cap | Low | ⬜ open | 7.5 |
+| UI-017 (found 2026-11-18) the Targets tab on a KPI saves targets that nothing reads: health, dashboards and attainment all use the target on the KPI itself (`KPI.targetValue`), and only `GET /kpis/:id/targets/active` returns a stored target. The form offers one type (static) of the API's six. Needs a decision: should the target in effect become the KPI's target, or should the tab go | Medium | ⬜ open, waiting for the owner | 7.7 |
 
 ### Second QA pass — 2026-11-17
 

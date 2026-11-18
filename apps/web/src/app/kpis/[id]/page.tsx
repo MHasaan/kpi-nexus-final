@@ -50,6 +50,7 @@ import {
   listDataPointHistory,
   listKpiAssignments,
   listKpiDataPoints,
+  listMyKpis,
   listKpis,
   listKpiSnapshots,
   listOrgUnits,
@@ -97,6 +98,7 @@ import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useAllowed } from '../../../lib/use-allowed';
+import { attainmentOf } from '../../../lib/attainment';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
@@ -302,7 +304,15 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
   const series = (points ?? []).slice().reverse().map((p) => p.value);
   const unit = kpi.unit ? ` ${kpi.unit}` : '';
   const withUnit = (n: number) => `${fmt.number(n)}${unit}`;
-  const attainment = status?.attainmentPct;
+  // A per-person KPI has no one target: each person has their own, on their assignment. The reader's
+  // own is what this page shows them; someone with no assignment (an administrator) is told where
+  // the targets are. A per-unit KPI's targets are per unit in the same way.
+  const perPerson = kpi.scope === 'PER_USER';
+  const perUnit = kpi.scope === 'PER_UNIT';
+  const [myKpis] = useAsync(() => (perPerson ? listMyKpis().catch(() => []) : Promise.resolve([])), [kpi.id, perPerson]);
+  const mine = perPerson ? ((myKpis ?? []).find((r) => r.kpiId === kpi.id) ?? null) : null;
+  const target = perPerson ? (mine?.targetValue ?? null) : perUnit ? null : kpi.targetValue;
+  const attainment = perPerson ? attainmentOf(latest?.value ?? mine?.currentValue, target, kpi.direction) : status?.attainmentPct;
   return (
     <div className="space-y-4">
       <TabLoadError error={pointsError} onRetry={reloadPoints} />
@@ -314,18 +324,32 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
         >
           <p>
             <span className="font-medium text-content-strong">No values yet.</span>{' '}
-            {mayRecord
-              ? 'Record the first one to see how this KPI stands.'
-              : 'Once someone records a value, this page shows how the KPI stands.'}
+            {perPerson
+              ? mine
+                ? 'You record your own value for this KPI under My KPIs.'
+                : 'Each person it is assigned to records their own value under My KPIs.'
+              : mayRecord
+                ? 'Record the first one to see how this KPI stands.'
+                : 'Once someone records a value, this page shows how the KPI stands.'}
           </p>
-          {mayRecord && (
-            <Link
-              href={kpiTabHref(kpi.id, 'Data')}
-              className="inline-flex h-9 items-center rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white hover:opacity-90"
-            >
-              Record a value
-            </Link>
-          )}
+          {perPerson
+            ? mine &&
+              mayRecord && (
+                <Link
+                  href="/my-kpis"
+                  className="inline-flex h-9 items-center rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Record under My KPIs
+                </Link>
+              )
+            : mayRecord && (
+                <Link
+                  href={kpiTabHref(kpi.id, 'Data')}
+                  className="inline-flex h-9 items-center rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  Record a value
+                </Link>
+              )}
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -351,19 +375,33 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
             <p
               className={cn(
                 'mt-1 tabular-nums tracking-tight',
-                kpi.targetValue != null ? 'text-3xl font-semibold text-content-strong' : 'text-xl font-medium text-content-muted',
+                target != null ? 'text-3xl font-semibold text-content-strong' : 'text-xl font-medium text-content-muted',
               )}
               data-testid="overview-target"
             >
-              {kpi.targetValue != null ? withUnit(kpi.targetValue) : 'No target set'}
+              {target != null
+                ? withUnit(target)
+                : perUnit
+                  ? 'Set per unit'
+                  : perPerson && !mine
+                    ? 'Set per person'
+                    : 'No target set'}
             </p>
             <p className="mt-1 text-xs text-content-muted">
-              {kpi.targetValue == null ? (
-                <>Set one under Edit or on the Targets tab.</>
-              ) : attainment != null ? (
-                <span data-testid="overview-attainment">{Math.round(attainment)}% of target</span>
+              {perUnit || (perPerson && !mine) ? (
+                <>Each {perUnit ? 'unit' : 'person'} has their own: see the Assignments tab.</>
+              ) : target == null ? (
+                perPerson ? (
+                  <>Whoever assigned this KPI to you can set one.</>
+                ) : (
+                  <>Set one under Edit or on the Targets tab.</>
+                )
               ) : (
-                ''
+                <>
+                  {perPerson && <span data-testid="overview-target-whose">Your target</span>}
+                  {perPerson && attainment != null && ' · '}
+                  {attainment != null && <span data-testid="overview-attainment">{Math.round(attainment)}% of target</span>}
+                </>
               )}
             </p>
           </CardContent>
@@ -402,7 +440,7 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
               series={[
                 { data: series },
                 // The target, as a level to read the line against.
-                ...(kpi.targetValue != null ? [{ data: series.map(() => kpi.targetValue as number), dashed: true, label: 'Target' }] : []),
+                ...(target != null ? [{ data: series.map(() => target), dashed: true, label: 'Target' }] : []),
               ]}
               height={200}
               className="w-full"
@@ -411,7 +449,7 @@ function OverviewTab({ kpi }: { kpi: KpiSummary }) {
             <p className="mt-2 text-xs text-content-muted" data-testid="overview-trend-caption">
               {series.length} values, {fmt.day(points[points.length - 1]!.periodStart)} to {fmt.day(points[0]!.periodEnd)} · lowest{' '}
               {withUnit(Math.min(...series))}, highest {withUnit(Math.max(...series))}
-              {kpi.targetValue != null ? ` · dashed line: target ${withUnit(kpi.targetValue)}` : ''}
+              {target != null ? ` · dashed line: target ${withUnit(target)}` : ''}
             </p>
           </CardContent>
         </UICard>

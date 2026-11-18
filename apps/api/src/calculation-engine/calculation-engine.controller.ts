@@ -7,6 +7,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { CalculationEngineService } from './calculation-engine.service.js';
 import { CalculationEngineProducer } from './calculation-engine.producer.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
+import { CalculationAccessService } from './calculation-access.service.js';
 
 const RollupBodySchema = z
   .object({
@@ -25,6 +26,7 @@ export class CalculationEngineController {
   constructor(
     private readonly engine: CalculationEngineService,
     private readonly producer: CalculationEngineProducer,
+    private readonly access: CalculationAccessService,
   ) {}
 
   @Post('recompute')
@@ -32,6 +34,7 @@ export class CalculationEngineController {
   @HttpCode(HttpStatus.OK)
   async recompute(@Param('kpiId') kpiId: string): Promise<{ value: number | null }> {
     const ctx = RequestContextStore.require();
+    await this.access.assertMayTrigger(kpiId);
     const { value, dependents } = await this.engine.recomputeKpi(kpiId);
     for (const dep of dependents) {
       await this.producer.enqueueRecompute({ organizationId: ctx.organizationId, kpiId: dep });
@@ -52,6 +55,7 @@ export class CalculationEngineController {
     // Default to an all-time window so a manual trigger rolls up everything to date.
     const periodStart = parsed.data.periodStart ?? new Date(0);
     const periodEnd = parsed.data.periodEnd ?? new Date();
+    await this.access.assertMayTrigger(kpiId);
     const { value, parents } = await this.engine.rollupParent(kpiId, periodStart, periodEnd);
     for (const parent of parents) {
       await this.producer.enqueueCascadeRollup({

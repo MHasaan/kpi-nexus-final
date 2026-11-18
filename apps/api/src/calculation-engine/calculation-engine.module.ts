@@ -10,6 +10,7 @@ import { CalculationEngineProcessor } from './calculation-engine.processor.js';
 import { CALC_ENGINE_QUEUE, CalculationEngineProducer } from './calculation-engine.producer.js';
 import { CalculationEngineService } from './calculation-engine.service.js';
 import { queueProcessors } from '../config/queue-workers.js';
+import { CalculationAccessService } from './calculation-access.service.js';
 
 /**
  * CalculationEngineModule — reactive recompute pipeline. RECOMPUTE re-evaluates
@@ -29,7 +30,7 @@ import { queueProcessors } from '../config/queue-workers.js';
     BullModule.registerQueue({ name: CALC_ENGINE_QUEUE }),
   ],
   controllers: [CalculationEngineController],
-  providers: [CascadeService, CalculationEngineService, CalculationEngineProducer, ...queueProcessors([CalculationEngineProcessor])],
+  providers: [CascadeService, CalculationEngineService, CalculationAccessService, CalculationEngineProducer, ...queueProcessors([CalculationEngineProcessor])],
   exports: [CalculationEngineProducer, CalculationEngineService],
 })
 export class CalculationEngineModule {}

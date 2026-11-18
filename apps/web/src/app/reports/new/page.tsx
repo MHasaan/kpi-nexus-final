@@ -54,6 +54,7 @@ export default function NewReportPage() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [listsError, setListsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -68,11 +69,19 @@ export default function NewReportPage() {
       const [k, d] = await Promise.all([listKpis(), listDashboards()]);
       setKpis(k);
       setDashboards(d);
+      setListsError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
         router.replace(currentLoginRedirect());
+        return;
       }
+      // A report is made of KPIs or a dashboard: without the lists there is nothing to choose.
+      setListsError(
+        err instanceof ApiError && err.message
+          ? `The KPIs and dashboards to choose from could not be loaded: ${err.message}`
+          : 'The KPIs and dashboards to choose from could not be loaded.',
+      );
     }
   }
 
@@ -372,6 +381,19 @@ export default function NewReportPage() {
               </Button>
             </CardContent>
           </Card>
+
+          {listsError && (
+            <div
+              role="alert"
+              data-testid="report-lists-error"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-critical/40 bg-status-critical-bg px-4 py-3 text-sm text-status-critical"
+            >
+              <span>{listsError}</span>
+              <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>
+                Try again
+              </Button>
+            </div>
+          )}
 
           {submitError && (
             <div

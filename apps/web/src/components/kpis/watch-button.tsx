@@ -21,6 +21,7 @@ export function WatchButton({ kpiId }: { kpiId: string }) {
   const [events, setEvents] = useState<KpiWatchEvent[]>(['threshold_breached', 'anomaly_confirmed', 'status_changed']);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +31,10 @@ export function WatchButton({ kpiId }: { kpiId: string }) {
         setWatching(true);
         setEvents(w.events);
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        // Not knowing is not "not watching": say so, and leave the button usable.
+        if (!cancelled) setLoadError(err instanceof ApiError && err.message ? `Your watch settings could not be loaded: ${err.message}` : 'Your watch settings could not be loaded.');
+      });
     return () => {
       cancelled = true;
     };
@@ -66,6 +70,11 @@ export function WatchButton({ kpiId }: { kpiId: string }) {
       <Button type="button" size="sm" variant={watching ? 'secondary' : 'ghost'} aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="watch-button">
         {watching ? 'Watching ✓' : 'Watch'}
       </Button>
+      {loadError && (
+        <span role="alert" data-testid="watch-load-error" className="ml-2 text-xs text-status-critical">
+          {loadError}
+        </span>
+      )}
       {open && (
         <div className="fixed inset-x-4 z-20 mt-2 rounded-lg border border-border bg-surface-1 p-3 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:w-64" data-testid="watch-panel">
           <p className="mb-2 text-xs text-content-muted">Tell me when:</p>

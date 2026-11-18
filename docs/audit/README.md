@@ -420,6 +420,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.7 (roles): nothing showed how many people hold a role, and a role could not be renamed or described | ✅ Fixed — `GET /roles` returns `userCount`, shown on each role; 'Edit details' renames and describes. Also: a permission's hidden checkbox stays with its label when the matrix scrolls. Role hierarchy on the page is not done | #286 | `roles.service.spec.ts` (+1), `e2e/role-rename-member-count.spec.ts` |
 | Plan 7.7 (KPI import): CSV could only be pasted; text edited after a dry-run could be committed unchecked by the page | ✅ Fixed — a CSV file can be chosen (read in the browser, up to 1,000 KB); editing the text clears the dry-run, so commit waits for another | #287 | `e2e/kpi-import-file.spec.ts` |
 | BE-056 (found 2026-11-18): `POST` and `PATCH /positions` stored `orgUnitId` as sent — another organisation's unit, or no unit at all, was accepted. Nothing reads a position's unit today, so no data could be read through it | ✅ Fixed — the unit must be one of the caller's organisation, or 400 with nothing written | #288 | `positions.service.spec.ts` (3) |
+| X-02 (remainder): a failed load was hidden behind an empty picker or a plain 'Watch' on a KPI's watch button, Automations, an objective's page, Tasks, the new-report form and Access Center | ✅ Fixed — each says what could not be loaded (`lib/optional-list.ts`); the report form offers 'Try again'. X-02 is closed | #289 | `optional-list.spec.ts` (3), `e2e/optional-lists-say-failure.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -428,7 +429,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⬜ open, waiting for ADR-002 and ADR-003 | 6.8, 6.9 |
-| X-02 (remainder) failures still swallowed: the KPI picker on the tasks page, the watch button, the report-form pickers, clipboard copy on API keys and webhooks | Low | 🟡 partly | 7.2 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
 | X-07 lists capped at 100 with no paging — alerts (#224) and the audit log (#238) page now; other long lists (KPIs, activity, deliveries) still stop at their cap | Low | ⬜ open | 7.5 |
 | UI-017 (found 2026-11-18) the Targets tab on a KPI saves targets that nothing reads: health, dashboards and attainment all use the target on the KPI itself (`KPI.targetValue`), and only `GET /kpis/:id/targets/active` returns a stored target. The form offers one type (static) of the API's six. Needs a decision: should the target in effect become the KPI's target, or should the tab go | Medium | ⬜ open, waiting for the owner | 7.7 |

@@ -16,6 +16,7 @@ import { usePermissions } from '../../lib/use-permissions';
 import { useToast } from '../../lib/use-toast';
 import { EMPTY_WORKFLOW_FORM, OPERATORS, type WorkflowForm, describeWorkflow, formFromWorkflow, workflowBody, workflowFormProblem } from '../../lib/workflow-form';
 import { useFormat } from '../../lib/format-context';
+import { optionalList } from '../../lib/optional-list';
 
 /**
  * Automations: "when a KPI crosses a line, create a task". The page builds
@@ -31,7 +32,8 @@ export default function WorkflowsPage() {
   const allowed = ready && has('ORG_SETTINGS');
   const workflows = useAsyncData(() => listWorkflows(), [], { enabled: allowed });
   // KPIs name the automations and fill the picker; without them the list still shows.
-  const kpis = useAsyncData(() => listKpis().catch(() => []), [], { enabled: allowed });
+  const [kpisError, setKpisError] = useState<string | null>(null);
+  const kpis = useAsyncData(() => optionalList(listKpis(), 'KPIs', setKpisError), [], { enabled: allowed });
   const confirm = useConfirm();
   const toast = useToast();
 
@@ -145,13 +147,20 @@ export default function WorkflowsPage() {
                 <div>
                   <Label htmlFor="wf-kpi-select">When this KPI</Label>
                   <Select id="wf-kpi-select" data-testid="wf-kpi" value={form.kpiId} onChange={set('kpiId')} disabled={saving || !kpis.data}>
-                    <option value="">{kpis.data && kpis.data.length === 0 ? 'No KPIs yet — create one first' : 'Choose a KPI'}</option>
+                    <option value="">
+                      {kpisError ? 'KPIs could not be loaded' : kpis.data && kpis.data.length === 0 ? 'No KPIs yet — create one first' : 'Choose a KPI'}
+                    </option>
                     {(kpis.data ?? []).map((k) => (
                       <option key={k.id} value={k.id}>
                         {k.name}
                       </option>
                     ))}
                   </Select>
+                  {kpisError && (
+                    <p role="alert" data-testid="wf-kpis-error" className="mt-1 text-xs text-status-critical">
+                      {kpisError} Reload the page to try again.
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-[1fr_7rem] gap-2">
                   <div>

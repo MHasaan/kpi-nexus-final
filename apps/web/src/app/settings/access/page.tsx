@@ -45,6 +45,7 @@ import { PERMISSION_GROUPS, PERMISSION_LABELS } from '../../../lib/permissions';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useAllowed } from '../../../lib/use-allowed';
 import { useFormat } from '../../../lib/format-context';
+import { optionalList } from '../../../lib/optional-list';
 
 // -----------------------------------------------------------------------------
 // Static maps
@@ -89,6 +90,7 @@ export default function AccessCenterPage() {
   const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -103,7 +105,7 @@ export default function AccessCenterPage() {
     if (!allowed) return;
     void (async () => {
       try {
-        const [u, cats] = await Promise.all([listUsers(), listKpiCategories().catch(() => [])]);
+        const [u, cats] = await Promise.all([listUsers(), optionalList(listKpiCategories(), 'KPI categories', setCategoriesError)]);
         setUsers(u);
         setCategories(cats);
         setSelectedId((prev) => prev ?? u[0]?.id ?? null);
@@ -141,6 +143,16 @@ export default function AccessCenterPage() {
             titleTestId="access-center-heading"
             subtitle="Preview a user's effective access, then fine-tune it with a per-user override. Admins bypass every check."
           />
+
+          {categoriesError && (
+            <div
+              role="alert"
+              data-testid="access-categories-error"
+              className="rounded-lg border border-border bg-status-warning-bg px-4 py-3 text-sm text-status-warning"
+            >
+              {categoriesError} The category choices below will be empty until the page is reloaded.
+            </div>
+          )}
 
           {loadError && (
             <div

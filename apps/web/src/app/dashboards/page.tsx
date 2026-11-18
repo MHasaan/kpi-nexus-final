@@ -50,6 +50,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { inSentence } from '../../lib/sentence-case';
 
 type DashboardFilter = 'all' | 'shared' | 'mine' | 'default';
 
@@ -236,7 +237,7 @@ function DashboardsListInner() {
             {pluralize(terminology.dashboardLabel)}
           </span>
         }
-        subtitle={`Build custom views of your ${terminology.kpiLabel.toLowerCase()} data. Set one as your default to land here on sign-in.`}
+        subtitle={`Build custom views of your ${inSentence(terminology.kpiLabel)} data. Set one as your default to land here on sign-in.`}
         actions={
           <>
             <Link href="/dashboards/archive" data-testid="dashboards-archive-link">
@@ -247,7 +248,7 @@ function DashboardsListInner() {
             <PermissionGuard permission="DASHBOARD_MANAGE">
               <Link href="/dashboards/new" data-testid="dashboards-new-link">
                 <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
-                  New {terminology.dashboardLabel.toLowerCase()}
+                  New {inSentence(terminology.dashboardLabel)}
                 </Button>
               </Link>
             </PermissionGuard>
@@ -294,7 +295,7 @@ function DashboardsListInner() {
                 <PermissionGuard permission="DASHBOARD_MANAGE">
                   <Link href="/dashboards/new">
                     <Button variant="primary" leftIcon={<Plus className="h-4 w-4" />}>
-                      New {terminology.dashboardLabel.toLowerCase()}
+                      New {inSentence(terminology.dashboardLabel)}
                     </Button>
                   </Link>
                 </PermissionGuard>
@@ -343,7 +344,7 @@ function DashboardsListInner() {
               >
                 {visible.length}{' '}
                 {visible.length === 1
-                  ? terminology.dashboardLabel.toLowerCase()
+                  ? inSentence(terminology.dashboardLabel)
                   : pluralize(terminology.dashboardLabel).toLowerCase()}
                 {hasFilters ? ` of ${dashboards.length}` : ''}
               </p>

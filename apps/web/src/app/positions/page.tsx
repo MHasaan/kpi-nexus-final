@@ -39,6 +39,7 @@ import {
 } from '../../lib/terminology-context';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { inSentence } from '../../lib/sentence-case';
 
 const TRACK_ORDER: Array<PositionTrack | 'OTHER'> = [
   'EXECUTIVE',
@@ -174,7 +175,7 @@ function PositionsPageInner() {
           subtitle={
             <>
               Job positions used across the org structure. Positions are independent of{' '}
-              {pluralize(terminology.roleLabel.toLowerCase())} — two people with the same
+              {inSentence(pluralize(terminology.roleLabel))} — two people with the same
               position can have different permissions.
             </>
           }

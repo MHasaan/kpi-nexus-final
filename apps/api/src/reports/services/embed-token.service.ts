@@ -8,6 +8,7 @@ import { AccessContextService } from '../../rbac/services/access-context.service
 import { clampHistoryFrom } from '../../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 import { EMBED_TOKEN_SPEC, resolveSecret } from '../../config/secrets.js';
+import { type KpiHealthStatus, kpiHealthStatus } from '../../kpis/kpi-health.js';
 
 // 30 days in seconds.
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -44,7 +45,12 @@ export interface EmbedKpiSnapshot {
   /** Up to 30 most-recent data points for sparkline rendering. */
   sparkline: Array<{ recordedAt: Date; value: number }>;
   /** Simple threshold status based on KPI fields. */
-  thresholdStatus: 'ok' | 'warning' | 'critical' | 'unknown';
+  /**
+   * The KPI's health, by the rule the signed-in pages use (bands, then thresholds, then
+   * target): ok / warning / critical; `no_target` when there is a value and nothing to grade
+   * it against; `unknown` when there is no value.
+   */
+  thresholdStatus: EmbedStatus;
 }
 
 function b64urlEncode(s: string): string {
@@ -62,6 +68,17 @@ function getSecret(): string {
 function hmacSign(payloadB64: string): string {
   return createHmac('sha256', getSecret()).update(payloadB64).digest('base64url');
 }
+
+export type EmbedStatus = 'ok' | 'warning' | 'critical' | 'no_target' | 'unknown';
+
+/** The embed's words for the app's health statuses. */
+const EMBED_STATUS: Record<KpiHealthStatus, EmbedStatus> = {
+  ON_TRACK: 'ok',
+  AT_RISK: 'warning',
+  OFF_TRACK: 'critical',
+  NO_TARGET: 'no_target',
+  NO_DATA: 'unknown',
+};
 
 @Injectable()
 export class EmbedTokenService {
@@ -254,14 +271,20 @@ export class EmbedTokenService {
       const latestPoint = points[0] ?? null;
       const latestValue = latestPoint?.value ?? null;
 
-      // Compute threshold status using KPI simple threshold fields.
-      const thresholdStatus = computeThresholdStatus(
-        latestValue,
-        kpi.targetValue,
-        kpi.warningThreshold,
-        kpi.criticalThreshold,
-        kpi.direction,
-      );
+      // One health rule for the whole app (QA-H3, QA-L13): bands, then the KPI's own
+      // thresholds, then its target. The embed used to have a rule of its own.
+      const bands = await this.prisma.kPIThresholdBand.findMany({
+        where: { kpiId: kpi.id, organizationId: payload.orgId },
+        select: { name: true, lower: true, upper: true, color: true, order: true, consecutivePointsRequired: true },
+        orderBy: { order: 'asc' },
+      });
+      const thresholdStatus = EMBED_STATUS[
+        kpiHealthStatus({
+          recentValues: points.map((p) => p.value),
+          meta: { direction: kpi.direction, targetValue: kpi.targetValue, warningThreshold: kpi.warningThreshold, criticalThreshold: kpi.criticalThreshold },
+          bands,
+        })
+      ];
 
       return {
         kpiId: kpi.id,
@@ -274,42 +297,4 @@ export class EmbedTokenService {
       };
     });
   }
-}
-
-/**
- * Derive a simple threshold status from KPI fields.
- * Supports HIGHER_IS_BETTER and LOWER_IS_BETTER directions;
- * defaults to 'unknown' when no target/thresholds configured.
- */
-function computeThresholdStatus(
-  latestValue: number | null,
-  targetValue: number | null,
-  warningThreshold: number | null,
-  criticalThreshold: number | null,
-  direction: string,
-): 'ok' | 'warning' | 'critical' | 'unknown' {
-  if (latestValue === null) return 'unknown';
-  if (criticalThreshold === null && warningThreshold === null) return 'unknown';
-
-  if (direction === 'HIGHER_IS_BETTER') {
-    if (criticalThreshold !== null && latestValue <= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && latestValue <= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  if (direction === 'LOWER_IS_BETTER') {
-    if (criticalThreshold !== null && latestValue >= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && latestValue >= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  // TARGET_IS_BEST / NEUTRAL — use percentage deviation from target.
-  if (targetValue !== null) {
-    const deviation = Math.abs(latestValue - targetValue) / (Math.abs(targetValue) || 1);
-    if (criticalThreshold !== null && deviation >= criticalThreshold) return 'critical';
-    if (warningThreshold !== null && deviation >= warningThreshold) return 'warning';
-    return 'ok';
-  }
-
-  return 'unknown';
 }

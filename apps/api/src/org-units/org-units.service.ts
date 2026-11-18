@@ -182,7 +182,8 @@ export class OrgUnitsService {
 
     // BE-009: every reference must belong to this tenant (as create() checks),
     // and a new parent must not be the unit itself or one of its descendants.
-    if (dto.parentUnitId !== undefined) {
+    // null = to the top level: nothing to check. A unit named as parent is checked.
+    if (dto.parentUnitId != null) {
       if (dto.parentUnitId === id) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',

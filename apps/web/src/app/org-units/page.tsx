@@ -31,6 +31,7 @@ import {
   listOrgUnits,
   listUsers,
   removeOrgUnitMember,
+  updateOrgUnit,
   type OrgUnitMember,
   type OrgUnitMemberRole,
   type OrgUnitSummary,
@@ -79,6 +80,45 @@ function OrgUnitsPageInner() {
   const [addMemberError, setAddMemberError] = useState<string | null>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Editing one unit's parent and description (its name is changed under Reorganise, which keeps a history).
+  const [editing, setEditing] = useState<{ id: string; parentUnitId: string; description: string } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  /** The units `unitId` may be put under: every unit but itself and the units below it. */
+  function parentChoices(unitId: string): OrgUnitSummary[] {
+    const below = new Set<string>([unitId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const u of units ?? []) {
+        if (u.parentUnitId && below.has(u.parentUnitId) && !below.has(u.id)) {
+          below.add(u.id);
+          grew = true;
+        }
+      }
+    }
+    return (units ?? []).filter((u) => !below.has(u.id));
+  }
+
+  async function saveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await updateOrgUnit(editing.id, {
+        parentUnitId: editing.parentUnitId || null,
+        description: editing.description.trim() || null,
+      });
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : 'Could not save the changes');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -410,6 +450,23 @@ function OrgUnitsPageInner() {
                           </Button>
                           <PermissionGuard permission="GROUPS_MANAGE">
                             <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setEditError(null);
+                                setEditing(
+                                  editing?.id === unit.id
+                                    ? null
+                                    : { id: unit.id, parentUnitId: unit.parentUnitId ?? '', description: unit.description ?? '' },
+                                );
+                              }}
+                              data-testid={`edit-unit-${unit.name}`}
+                            >
+                              Edit
+                            </Button>
+                          </PermissionGuard>
+                          <PermissionGuard permission="GROUPS_MANAGE">
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => void handleDelete(unit)}
@@ -422,6 +479,55 @@ function OrgUnitsPageInner() {
                           </PermissionGuard>
                         </div>
                       </div>
+
+                      {editing?.id === unit.id && (
+                        <form
+                          onSubmit={(e) => void saveEdit(e)}
+                          data-testid={`unit-edit-form-${unit.name}`}
+                          className="grid gap-4 border-t border-border-divider bg-surface-1 p-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end"
+                        >
+                          <div className="flex flex-col gap-1.5">
+                            <Label htmlFor={`unit-edit-parent-${unit.id}`}>Parent</Label>
+                            <Select
+                              id={`unit-edit-parent-${unit.id}`}
+                              value={editing.parentUnitId}
+                              onChange={(e) => setEditing({ ...editing, parentUnitId: e.target.value })}
+                              disabled={savingEdit}
+                            >
+                              <option value="">(top level)</option>
+                              {parentChoices(unit.id).map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <Label htmlFor={`unit-edit-description-${unit.id}`}>Description</Label>
+                            <Input
+                              id={`unit-edit-description-${unit.id}`}
+                              value={editing.description}
+                              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                              disabled={savingEdit}
+                              maxLength={500}
+                              placeholder="(none)"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="submit" size="sm" isLoading={savingEdit}>
+                              Save
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} disabled={savingEdit}>
+                              Cancel
+                            </Button>
+                          </div>
+                          {editError && (
+                            <p role="alert" data-testid="unit-edit-error" className="text-sm text-status-critical sm:col-span-3">
+                              {editError}
+                            </p>
+                          )}
+                        </form>
+                      )}
 
                       {isExpanded && (
                         <div

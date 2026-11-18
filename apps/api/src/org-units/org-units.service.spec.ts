@@ -25,6 +25,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore, type RequestContext } from '../tenancy/request-context.js';
 import type { AccessContextService } from '../rbac/services/access-context.service.js';
 import { OrgUnitsService } from './org-units.service.js';
+import { UpdateOrgUnitDtoSchema } from './dto/create-org-unit.dto.js';
 
 interface FakeUnit {
   id: string;
@@ -717,6 +718,22 @@ describe('OrgUnitsService — update() validates references (BE-009)', () => {
     const { service, prisma } = tree();
     await withCtx({}, () => service.update('g', { parentUnitId: 'other', headUserId: 'head_ok', orgUnitTypeId: 'type_1' }));
     expect(parentOf(prisma, 'g')).toBe('other');
+  });
+
+  // Plan 7.7: a unit could be given a parent but never moved back to the top level,
+  // and its description could not be taken away.
+  test('a null parent moves the unit to the top level; a null description clears it', async () => {
+    const { service, prisma } = tree();
+    prisma.units.find((u) => u.id === 'c')!.description = 'Old words';
+    await withCtx({}, () => service.update('c', { parentUnitId: null, description: null }));
+    expect(parentOf(prisma, 'c')).toBeNull();
+    expect(prisma.units.find((u) => u.id === 'c')!.description).toBeNull();
+  });
+
+  test('the update body accepts null for parent and description, and still refuses unknown shapes', () => {
+    expect(UpdateOrgUnitDtoSchema.safeParse({ parentUnitId: null, description: null }).success).toBe(true);
+    expect(UpdateOrgUnitDtoSchema.safeParse({ description: 'x'.repeat(501) }).success).toBe(false);
+    expect(UpdateOrgUnitDtoSchema.safeParse({ parentUnitId: 42 }).success).toBe(false);
   });
 });
 

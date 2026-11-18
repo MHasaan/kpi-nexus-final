@@ -19,7 +19,11 @@ export const CreateOrgUnitDtoSchema = z.object({
 
 export type CreateOrgUnitDto = z.infer<typeof CreateOrgUnitDtoSchema>;
 
-export const UpdateOrgUnitDtoSchema = partialUpdate(CreateOrgUnitDtoSchema);
+// On update, null takes a value away: no parent means the top level, no description means none.
+export const UpdateOrgUnitDtoSchema = partialUpdate(CreateOrgUnitDtoSchema).extend({
+  parentUnitId: z.string().nullable().optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+});
 export type UpdateOrgUnitDto = z.infer<typeof UpdateOrgUnitDtoSchema>;
 
 export const AddMemberDtoSchema = z.object({

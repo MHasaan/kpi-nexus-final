@@ -1,3 +1,4 @@
+import { fiscalConfigOf } from '@kpi-nexus/contracts';
 import { Injectable, Logger } from '@nestjs/common';
 import type { AiCompletionResult, AiMessage } from '@kpi-nexus/ai';
 
@@ -184,7 +185,12 @@ export class NlqService {
    * partial answer flagged TOOL_ROUND_LIMIT.
    */
   private async runToolLoop(question: string, context: string, metaById: Map<string, PublicKpi>) {
-    const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts);
+    // Weeks are grouped in the organisation's calendar. Not knowing it is no reason to refuse the question.
+    const ctx = RequestContextStore.require();
+    const org = await this.prisma.organization
+      .findUnique({ where: { id: ctx.organizationId }, select: { weekStartsOn: true, fiscalCalendar: true } })
+      .catch(() => null);
+    const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts, fiscalConfigOf(org).weekStartsOn);
     const messages: AiMessage[] = [
       {
         role: 'user',

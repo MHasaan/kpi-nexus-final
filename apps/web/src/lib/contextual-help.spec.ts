@@ -6,7 +6,7 @@ import { describe, expect, test } from 'vitest';
 
 import { ALL_PERMISSIONS } from '@kpi-nexus/contracts';
 
-import { helpForPath, HELP_DEFAULT } from './contextual-help';
+import { CONTEXTUAL_HELP, helpForPath, HELP_DEFAULT } from './contextual-help';
 
 describe('helpForPath', () => {
   test('exact route /dashboard returns dashboard entry', () => {
@@ -109,5 +109,29 @@ describe('helpForPath', () => {
       const entry = helpForPath(route);
       expect(entry.tips.length, `${route} should have tips`).toBeGreaterThan(0);
     }
+  });
+});
+
+// QA-L14: the tips described a top nav bar, a search icon, and buttons the app does not have.
+describe('help tips describe the app as it is (QA-L14)', () => {
+  const everyTip = [HELP_DEFAULT, ...Object.values(CONTEXTUAL_HELP)].flatMap((e) => e.tips);
+
+  test.each([
+    ['a top nav bar', /top nav bar/i],
+    ['a search icon glyph', /⌕/],
+    ['an "Add to dashboard" button', /add to dashboard/i],
+    ['a "Cascade" button', /"Cascade" button/i],
+    ['a "Duplicate" button', /duplicate/i],
+    ['Snooze', /snooze/i],
+    ['a /chart prefix', /\/chart/],
+    ['an avatar', /avatar/i],
+  ])('no tip mentions %s', (_what, pattern) => {
+    expect(everyTip.filter((tip) => pattern.test(tip))).toEqual([]);
+  });
+
+  test('the default tips point at the menu on the left and the search box', () => {
+    const tips = HELP_DEFAULT.tips.join(' ');
+    expect(tips).toMatch(/menu on the left/i);
+    expect(tips).toMatch(/search box/i);
   });
 });

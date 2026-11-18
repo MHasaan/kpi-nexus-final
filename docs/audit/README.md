@@ -394,6 +394,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | X-09 (plan 5.5): some signed-in pages were drawn outside the app frame | ✅ Closed | #201 | `e2e/pages-in-shell.spec.ts` |
 | Batch 8 crawl (crawl 6, 2026-11-18, 84 routes × 4 passes, on the tip of the chain at #260): no failures; no request refused for a contributor on any page (crawl 5 had 16 across eleven pages); 1 warning row left — signed out, `/dashboard` asks who is signed in and is told nobody (401) before going to sign-in | ✅ Batch 8's crawl criterion met | #232 | `.cache/uiwalk/crawl6` (not committed) |
 | Plan 7.7 (activity filter): the free-text 'kind of thing' filter on the Activity page and the audit log had to match the stored name exactly — 'kpi' found nothing | ✅ Fixed — both filters ignore case | #262 | `activity.service.spec.ts` (+1), `audit.service.spec.ts` (+1); checked on the throwaway stack |
+| Crawl 6's one warning: signed out, the home page asked the API who is signed in and got a 401 before going to sign-in | ✅ Fixed — with no session `useAccess` asks nothing, and ignores a profile cached by an earlier session | #263 | `e2e/signed-out-no-requests.spec.ts`. The crawl has not been re-run |
 
 ### UI completion round — open findings (2026-11-16)
 

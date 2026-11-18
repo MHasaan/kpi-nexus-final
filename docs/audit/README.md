@@ -390,6 +390,9 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | QA-H3 (plan 1.6): KPI health was computed two ways — the home page used bands, then thresholds, then target; the KPI page only bands — so one KPI read 'At risk' at home and 'No bands set' on its own page | ✅ Fixed — `GET /kpis/:id/threshold-bands/status` returns `health` from the same rule and the KPI page shows it, with what it rests on | #258 | `kpi-threshold-bands.service.spec.ts` (+4), `e2e/kpi-health-one-rule.spec.ts`. By design the home page grades the newest value in its date range, the KPI page the newest of all |
 | QA-M2: the Tasks page hid 'New task' from anyone without KPI_CREATE although `POST /tasks` needs only KPI_VIEW | ✅ Fixed — the button asks for the key the API asks for; nobody gains a permission (the quick-add and the API already allowed it) | #259 | `e2e/task-button-permission.spec.ts` |
 | QA-L16: page text lowercased the organisation's labels wholesale, so 'KPI' read 'kpi' | ✅ Fixed — `inSentence` lowercases a label but keeps an acronym; used in the eight files that lowercased labels | #260 | `lib/sentence-case.spec.ts`, `e2e/labels-keep-acronyms.spec.ts` |
+| X-04 (plan 5.2): a page's permission and its API's permission disagreed in many places (the page ↔ API table) | ✅ Closed — each row of the table has its own PR and fix-log row above: #199, #205–#209, #211–#215, and #259 for the task button | see those rows | each PR's own spec |
+| X-09 (plan 5.5): some signed-in pages were drawn outside the app frame | ✅ Closed | #201 | `e2e/pages-in-shell.spec.ts` |
+| Batch 8 crawl (crawl 6, 2026-11-18, 84 routes × 4 passes, on the tip of the chain at #260): no failures; no request refused for a contributor on any page (crawl 5 had 16 across eleven pages); 1 warning row left — signed out, `/dashboard` asks who is signed in and is told nobody (401) before going to sign-in | ✅ Batch 8's crawl criterion met | #232 | `.cache/uiwalk/crawl6` (not committed) |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -397,12 +400,10 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-014 settings that save but change nothing (branding, fiscal, formats, notification preferences, password max age, retention, SSO, custom domain) | High | ⬜ open | 6.1–6.9 |
+| UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⬜ open, waiting for ADR-002 and ADR-003 | 6.8, 6.9 |
 | X-02 (remainder) failures still swallowed: the KPI picker on the tasks page, the watch button, the report-form pickers, clipboard copy on API keys and webhooks | Low | 🟡 partly | 7.2 |
-| X-04 page ↔ API permission table | High | ⬜ open | 5.2 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
-| X-07 lists capped at 100 with no paging | Low | ⬜ open | 6.13, 7.5 |
-| X-09 pages outside the app shell | Low | ⬜ open | 5.5 |
+| X-07 lists capped at 100 with no paging — alerts (#224) and the audit log (#238) page now; other long lists (KPIs, activity, deliveries) still stop at their cap | Low | ⬜ open | 7.5 |
 
 ### Second QA pass — 2026-11-17
 
@@ -413,7 +414,7 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
 | QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
-| QA-L10 settings errors are generic ("Invalid request body") and name no field | Low | ⬜ open | 7.4 |
+| QA-L10 settings errors are generic ("Invalid request body") and name no field — fixed where a form now checks itself (password policy, formats, branding colour, AI caps, retention days); other settings forms still show the generic message | Low | ⬜ open | 7.4 |
 | QA-L13 the public KPI embed shows "No data" next to a valid latest value | Low | ⬜ open | 4.6 |
 | QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |
 | QA-L17 the Kanban board is cramped at laptop width: cards wrap one word per line and the Cancelled column is cut off | Low | ⬜ open | 7.7 |

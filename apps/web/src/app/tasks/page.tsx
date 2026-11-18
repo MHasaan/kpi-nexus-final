@@ -41,6 +41,7 @@ import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
 import { optionalList } from '../../lib/optional-list';
+import { humanize } from '../../lib/labels';
 
 const PRIORITIES: TaskPriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
@@ -408,7 +409,7 @@ export default function TasksPage() {
     <AppShell title="Tasks" crumbs={[{ label: 'Tasks' }]}>
       <PageHeader
         title="Tasks"
-        subtitle="Drag cards across the lifecycle — moves are optimistic"
+        subtitle="Drag a card to another column to change its status."
         actions={
           // The key POST /tasks asks for. (It was KPI_CREATE, which hid the button from people the API lets create tasks.)
           <PermissionGuard permission="KPI_VIEW">
@@ -604,7 +605,7 @@ export default function TasksPage() {
                         )}
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Badge tone={PRIORITY_TONE[task.priority] ?? 'neutral'}>{task.priority}</Badge>
+                          <Badge tone={PRIORITY_TONE[task.priority] ?? 'neutral'} data-testid="task-priority">{humanize(task.priority)}</Badge>
                           {task.dueAt && (
                             <span
                               data-testid={`task-due-${task.id}`}

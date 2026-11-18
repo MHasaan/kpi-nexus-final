@@ -49,6 +49,7 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePeople } from '../../../lib/use-people';
 import { useFormat } from '../../../lib/format-context';
 import { optionalList } from '../../../lib/optional-list';
+import { humanize } from '../../../lib/labels';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -115,6 +116,8 @@ const EMPTY_ADD: KrAddState = {
 
 export default function ObjectiveDetailPage() {
   const fmt = useFormat();
+  /** A key result's figure, written the organisation's way; a dash when there is none. */
+  const num = (n: number | null | undefined) => (n == null ? '—' : fmt.number(n));
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params.id;
@@ -619,7 +622,7 @@ export default function ObjectiveDetailPage() {
                   <span aria-hidden>·</span>
                   <span data-testid="objective-period">{`${fmt.day(objective.periodStart)} – ${fmt.day(objective.periodEnd)}`}</span>
                   <Badge tone={STATUS_TONE[objective.status] ?? 'neutral'} data-testid="objective-status">
-                    {objective.status}
+                    {humanize(objective.status)}
                   </Badge>
                 </div>
               </div>
@@ -837,8 +840,10 @@ export default function ObjectiveDetailPage() {
                               )}
                             </div>
                             <span className="font-mono text-xs text-content-muted whitespace-nowrap">
-                              {fmtNum(kr.baselineValue)} → <span className="text-content-strong">{fmtNum(kr.currentValue)}</span> →{' '}
-                              {fmtNum(kr.targetValue)}
+                              <span data-testid="kr-values">
+                                {num(kr.baselineValue)} → <span className="text-content-strong">{num(kr.currentValue)}</span> →{' '}
+                                {num(kr.targetValue)}
+                              </span>
                               {unit && <span className="ml-1">{unit}</span>}
                             </span>
                             <span className="w-12 text-right text-sm font-bold tabular-nums text-content-strong">

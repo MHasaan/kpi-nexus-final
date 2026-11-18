@@ -460,6 +460,33 @@ describe('NlqService.ask — tool-use loop', () => {
     expect(out.answer).toMatch(/could not finish/i);
   });
 
+  // Plan 7.7: a follow-up ("and last month?") was sent alone, so it meant nothing to the model.
+  it('a follow-up carries the earlier turns, oldest first, ahead of the new question', async () => {
+    const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
+    const { service, completeCalls } = buildService({ kpis });
+    await run(() =>
+      service.ask('and last month?', [
+        { question: 'How is Revenue doing?', answer: 'Revenue is 10 this month.' },
+        { question: 'Is that on target?', answer: 'Yes, the target is 8.' },
+      ]),
+    );
+    const sent = completeCalls[0]!.messages;
+    expect(sent.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user']);
+    expect(sent[0]!.content).toContain('How is Revenue doing?');
+    expect(sent[1]!.content).toBe('Revenue is 10 this month.');
+    expect(sent[3]!.content).toBe('Yes, the target is 8.');
+    // The KPI context goes with the new question only — once, not once per turn.
+    expect(sent[4]!.content).toContain('Question: and last month?');
+    expect(sent[4]!.content).toContain('Revenue');
+    expect(sent[0]!.content).not.toContain('KPI context');
+  });
+
+  it('a first question is sent on its own', async () => {
+    const { service, completeCalls } = buildService({ kpis: [kpi({ id: 'rev', name: 'Revenue' })] });
+    await run(() => service.ask('How is Revenue doing?'));
+    expect(completeCalls[0]!.messages.map((m) => m.role)).toEqual(['user']);
+  });
+
   it('answers in one call when the model needs no tools (no warning, no tool calls)', async () => {
     const kpis = [kpi({ id: 'rev', name: 'Revenue' })];
     const { service, aiRouter } = buildService({ kpis });

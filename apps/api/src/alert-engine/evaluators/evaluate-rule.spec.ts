@@ -36,7 +36,7 @@ describe('composite rules', () => {
     const config = { operator: 'AND', rules: [over100, rose20] };
     const both = evaluateRule('COMPOSITE', config, inputs(150, [], [[60, 100]]));
     expect(both.triggered).toBe(true);
-    expect(both.message).toBe('Value 150 > threshold 100 and Value rose 50% (from 100 to 150) within 1 hour');
+    expect(both.message).toBe('Value 150 is above 100 and Value rose 50% (from 100 to 150) within 1 hour');
     expect(evaluateRule('COMPOSITE', config, inputs(150, [], [[60, 140]])).triggered).toBe(false);
     expect(evaluateRule('COMPOSITE', config, inputs(90, [], [[60, 50]])).triggered).toBe(false);
   });

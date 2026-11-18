@@ -299,7 +299,7 @@ export default function AlertDetailPage() {
                     value={alert.resolvedAt ? fmt.dateTime(alert.resolvedAt) : '—'}
                   />
                   {alert.meta && typeof alert.meta.value === 'number' && (
-                    <Field label="Breach value" value={String(alert.meta.value)} />
+                    <Field label="Breach value" value={typeof alert.meta.value === 'number' ? fmt.number(alert.meta.value) : String(alert.meta.value)} />
                   )}
                 </dl>
               </CardContent>
@@ -408,9 +408,6 @@ export default function AlertDetailPage() {
               </Card>
             )}
 
-            <p className="mt-4 text-xs text-content-muted">
-              AI explanation, related-KPI chart, and comments arrive in later phases (P5/P7).
-            </p>
           </>
         )}
       </div>

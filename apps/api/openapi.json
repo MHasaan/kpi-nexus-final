@@ -9841,6 +9841,52 @@
         ]
       }
     },
+    "/me/sessions/current": {
+      "post": {
+        "operationId": "MeSessionsController_current",
+        "tags": [
+          "MeSessions"
+        ],
+        "summary": "POST /me/sessions/current",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/me/sessions/revoke-all": {
       "post": {
         "operationId": "MeSessionsController_revokeAll",

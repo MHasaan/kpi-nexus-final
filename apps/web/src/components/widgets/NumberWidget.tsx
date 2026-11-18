@@ -11,6 +11,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, previousPoint, toSeries } from './series';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 interface NumberWidgetProps {
   widget: DashboardWidget;
@@ -79,7 +80,7 @@ export function NumberWidget({ widget, kpi, dataPoints = [] }: NumberWidgetProps
           )}
         </>
       ) : (
-        <p className="mt-1 text-sm text-content-muted">No data</p>
+        <p className="mt-1 text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
       )}
     </div>
   );

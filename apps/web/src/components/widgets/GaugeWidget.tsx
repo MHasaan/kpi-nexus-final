@@ -5,6 +5,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint } from './series';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 interface GaugeWidgetProps {
   widget: DashboardWidget;
@@ -80,7 +81,7 @@ export function GaugeWidget({ widget, kpi, dataPoints = [] }: GaugeWidgetProps) 
       </p>
       {value === null ? (
         <div className="flex flex-1 items-center">
-          <p className="text-sm text-content-muted">No data</p>
+          <p className="text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
         </div>
       ) : (
         <>
@@ -137,7 +138,7 @@ export function GaugeWidget({ widget, kpi, dataPoints = [] }: GaugeWidgetProps) 
               )}
             </p>
             {target !== null && (
-              <p className="text-xs text-content-muted">Target: {target}{unit ? ` ${unit}` : ''}</p>
+              <p className="text-xs text-content-muted">Target: {fmt.number(target)}{unit ? ` ${unit}` : ''}</p>
             )}
           </div>
         </>

@@ -12,6 +12,7 @@ import type { BoardPackStatus, DashboardWidget } from '../../lib/api-client';
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, toSeries } from './series';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 interface KpiCardProps {
   widget: DashboardWidget;
@@ -75,11 +76,11 @@ export function KpiCard({ widget, kpi, dataPoints = [], status = null }: KpiCard
             )}
           </p>
         ) : (
-          <p className="mt-1 text-sm text-content-muted">No data</p>
+          <p className="mt-1 text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
         )}
         {kpi?.targetValue !== null && kpi?.targetValue !== undefined && (
           <p className="mt-1 text-xs text-content-muted">
-            Target: {kpi.targetValue}
+            Target: {fmt.number(kpi.targetValue)}
             {unit ? ` ${unit}` : ''}
           </p>
         )}

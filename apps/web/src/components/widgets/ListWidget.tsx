@@ -2,6 +2,7 @@
 
 import type { DashboardSummaryRow, DashboardWidget } from '../../lib/api-client';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 /** What a list row draws. The public share page has only these. */
 export type ListRow = Pick<DashboardSummaryRow, 'kpiId' | 'name' | 'unit' | 'latestValue' | 'status' | 'attainmentPct'>;
@@ -49,7 +50,7 @@ export function ListWidget({ widget, summaryRows = [] }: ListWidgetProps) {
       </p>
       {sorted.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-content-muted">No data</p>
+          <p className="text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
         </div>
       ) : (
         <ul className="flex-1 overflow-auto space-y-1">

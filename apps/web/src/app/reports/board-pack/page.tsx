@@ -17,6 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../com
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { changeTone } from '../../../lib/kpi-health';
 import { useFormat } from '../../../lib/format-context';
+import { fiscalPeriodLabel } from '@kpi-nexus/contracts';
+
+import { useFiscalConfig } from '../../../lib/use-fiscal-config';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports', href: '/reports' }, { label: 'Board pack' }];
 
@@ -47,6 +50,8 @@ function quadrantTone(status: string): { cls: string; label: string } {
 
 export default function BoardPackPage() {
   const fmt = useFormat();
+  // The organisation's own calendar: the period is named by the fiscal year and quarter it ends in.
+  const { config: fiscal, ready: fiscalReady } = useFiscalConfig();
   const router = useRouter();
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [boardPack, setBoardPack] = useState<BoardPack | null>(null);
@@ -153,8 +158,9 @@ export default function BoardPackPage() {
             >
               {boardPack.org.name}
             </h1>
-            <p className="mt-1 text-sm tabular-nums text-content-muted">
-              {boardPack.period.from} – {boardPack.period.to} ({boardPack.period.sinceDays} days)
+            <p className="mt-1 text-sm tabular-nums text-content-muted" data-testid="board-pack-period">
+              {fmt.day(boardPack.period.from)} – {fmt.day(boardPack.period.to)} ({boardPack.period.sinceDays} days)
+              {fiscalReady && ` · ${fiscalPeriodLabel(new Date(boardPack.period.to), fiscal.startMonth)}`}
             </p>
           </header>
 

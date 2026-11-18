@@ -72,6 +72,17 @@ export function fiscalQuarterRange(date: Date, startMonth: number = DEFAULT_FISC
   return { periodStart: iso(utc(startYear, first, 1)), periodEnd: iso(utc(startYear, first + 3, 0)) };
 }
 
+/**
+ * The fiscal year and quarter `date` falls in, in words: "FY 2026, Q4" when the
+ * fiscal year is the calendar year, "FY 2026/27, Q2" when it starts mid-year
+ * (named by the two calendar years it spans).
+ */
+export function fiscalPeriodLabel(date: Date, startMonth: number = DEFAULT_FISCAL_CONFIG.startMonth): string {
+  const { startYear, monthsIn } = fiscalPosition(date, startMonth);
+  const year = startMonth === 1 ? String(startYear) : `${startYear}/${String((startYear + 1) % 100).padStart(2, '0')}`;
+  return `FY ${year}, Q${Math.floor(monthsIn / 3) + 1}`;
+}
+
 /** The period a value recorded at `now` covers, for a KPI of this frequency, in this organisation's calendar. */
 export function currentPeriod(frequency: string, now: Date = new Date(), config: FiscalConfig = DEFAULT_FISCAL_CONFIG): DayRange {
   const year = now.getUTCFullYear();

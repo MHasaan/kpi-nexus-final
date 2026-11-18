@@ -36,7 +36,9 @@ function make(existing: Conn[] = []) {
       create: vi.fn(async ({ data }: { data: Partial<Conn> }) => {
         const c = { id: `conn_${conns.length + 1}`, displayName: null, metadata: null, ...data } as Conn;
         conns.push(c);
-        return c;
+        // Like the real select: the stored secret never comes back with the row.
+        const { encryptedTokens: _secret, ...shown } = c;
+        return shown;
       }),
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<Conn> }) => Object.assign(conns.find((c) => c.id === where.id)!, data)),
     },

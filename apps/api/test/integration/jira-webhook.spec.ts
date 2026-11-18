@@ -58,13 +58,13 @@ if (!apiUp) console.warn('[skip] api not reachable — jira webhook tests skippe
 
 describe.skipIf(!apiUp)('Jira webhook is authenticated and tenant-scoped (BE-014)', () => {
   const key = `JWH-${Date.now().toString(36).toUpperCase()}`;
-  const secret = `whsec-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+  // Made by the API when Jira is connected, and returned once (plan 6.10).
+  let secret: string;
   let tokenA: string;
   let tokenB: string;
   let taskA: string;
   let taskB: string;
   let connA: string;
-  let connNoSecret: string;
 
   const deliver = (path: string, status = 'Done') =>
     http(path, { method: 'POST', body: JSON.stringify({ issue: { key, fields: { status: { name: status } } } }) });
@@ -76,20 +76,15 @@ describe.skipIf(!apiUp)('Jira webhook is authenticated and tenant-scoped (BE-014
       http<{ id: string }>('/tasks', { method: 'POST', token, body: JSON.stringify({ title: 'Linked to Jira', externalRef: `https://jira.example.test/browse/${key}` }) });
     taskA = (await mk(tokenA)).body.id;
     taskB = (await mk(tokenB)).body.id;
-    connA = (
-      await http<{ id: string }>('/integrations', {
+    const connected = (
+      await http<{ connection: { id: string }; webhookSecret: string }>('/integrations', {
         method: 'POST',
         token: tokenA,
-        body: JSON.stringify({ provider: 'jira', displayName: 'Jira A', tokens: { webhookSecret: secret } }),
+        body: JSON.stringify({ provider: 'jira' }),
       })
-    ).body.id;
-    connNoSecret = (
-      await http<{ id: string }>('/integrations', {
-        method: 'POST',
-        token: tokenA,
-        body: JSON.stringify({ provider: 'jira', displayName: 'Jira no secret', tokens: { access_token: 'x' } }),
-      })
-    ).body.id;
+    ).body;
+    connA = connected.connection.id;
+    secret = connected.webhookSecret;
   });
 
   test('legacy global route no longer accepts anonymous updates', async () => {
@@ -110,10 +105,8 @@ describe.skipIf(!apiUp)('Jira webhook is authenticated and tenant-scoped (BE-014
     expect(res.status).toBe(401);
   });
 
-  test('connection without a configured webhookSecret fails closed → 401', async () => {
-    const res = await deliver(`/integrations/jira/webhook/${connNoSecret}?secret=anything`);
-    expect(res.status).toBe(401);
-  });
+  // A connection with no webhook secret can no longer be made through the API (it always makes one);
+  // that it fails closed is covered in provider-handlers.spec.ts.
 
   test('unknown connection → 401 (no existence oracle)', async () => {
     const res = await deliver(`/integrations/jira/webhook/does-not-exist?secret=${secret}`);

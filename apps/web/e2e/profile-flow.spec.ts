@@ -116,6 +116,14 @@ test.describe('/profile page — account + MFA UI', () => {
     expect(otpauthUrl).toContain('secret=');
     expect(otpauthUrl).toContain('issuer=');
 
+    // Plan 7.7: a QR code to scan, made in the browser (an image holding its own data, not a
+    // request that would send the secret somewhere), beside the key for typing it in.
+    const qr = page.getByTestId('mfa-qr');
+    await expect(qr).toBeVisible();
+    expect(await qr.getAttribute('src')).toMatch(/^data:image\/svg\+xml/);
+    expect(await qr.getAttribute('alt')).toMatch(/QR code/i);
+    expect(await qr.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+
     // Exactly 10 recovery codes
     const codes = page.getByTestId('mfa-recovery-code');
     await expect(codes).toHaveCount(10);

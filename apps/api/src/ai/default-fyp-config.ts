@@ -29,6 +29,8 @@ export interface FeatureRoute {
    * models spent the answer budget on reasoning and returned truncated output.
    */
   reasoningBudgetTokens?: number;
+  /** The most this feature may spend in one UTC day, in USD. Absent or 0: no cap of its own. */
+  perFeatureCapUsd?: number;
 }
 
 const REASONING_MODEL = 'gemini-3.5-flash';

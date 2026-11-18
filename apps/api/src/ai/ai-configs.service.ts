@@ -50,6 +50,7 @@ export class AiConfigsService {
         : DEFAULT_FYP_CONFIG[feature].fallback,
       // The reasoning budget belongs to the feature, not the model an org picked.
       reasoningBudgetTokens: DEFAULT_FYP_CONFIG[feature].reasoningBudgetTokens,
+      perFeatureCapUsd: cfg.perFeatureCapUsd ?? undefined,
     };
   }
 

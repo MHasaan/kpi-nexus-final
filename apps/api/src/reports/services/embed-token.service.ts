@@ -240,6 +240,10 @@ export class EmbedTokenService {
         where: {
           organizationId: payload.orgId,
           kpiId: payload.kpiId,
+          // Organisation-level rows only. The embed is public: on a per-person or per-unit KPI the
+          // newest row belongs to whoever recorded last, and must not be shown (BE-049, as BE-047).
+          orgUnitId: null,
+          userId: null,
           ...(windowFrom ? { recordedAt: { gte: windowFrom } } : {}),
         },
         select: { recordedAt: true, value: true },

@@ -59,6 +59,9 @@ interface FakeDataPoint {
   kpiId: string;
   recordedAt: Date;
   value: number;
+  /** Set on a per-person / per-unit value; absent on an organisation-level one. */
+  userId?: string | null;
+  orgUnitId?: string | null;
 }
 
 class FakePrisma {
@@ -105,13 +108,16 @@ class FakePrisma {
       async ({
         where,
       }: {
-        where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date } };
+        where: { organizationId: string; kpiId: string; recordedAt?: { gte: Date }; userId?: null; orgUnitId?: null };
       }) => {
         return this.dataPointStore
           .filter(
             (p) =>
               p.organizationId === where.organizationId &&
               p.kpiId === where.kpiId &&
+              // Like Prisma: `userId: null` / `orgUnitId: null` keep only rows with none.
+              (where.userId === undefined || (p.userId ?? null) === null) &&
+              (where.orgUnitId === undefined || (p.orgUnitId ?? null) === null) &&
               (!where.recordedAt || p.recordedAt.getTime() >= where.recordedAt.gte.getTime()),
           )
           .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())
@@ -560,5 +566,34 @@ describe('EmbedTokenService', () => {
     const snapshot = await service.resolve(token);
     expect(snapshot.kpiId).toBe(KPI_ID);
     expect(snapshot.latestValue).toBe(750);
+  });
+
+  // BE-049: the embed is public. Like the share link (BE-047), it must show only the
+  // organisation-level value — never the newest value of whichever person or unit
+  // recorded last on a per-person or per-unit KPI.
+  test('a public embed never shows a per-person or per-unit value (BE-049)', async () => {
+    const prisma = new FakePrisma();
+    prisma.kpiStore.push({ id: KPI_ID, organizationId: ORG, name: 'Calls', unit: null, targetValue: null, warningThreshold: null, criticalThreshold: null, direction: 'HIGHER_IS_BETTER', embedTokenVersion: 0, deletedAt: null });
+    prisma.dataPointStore.push(
+      { organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date('2026-11-10T00:00:00Z'), value: 50 },
+      { organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date('2026-11-17T00:00:00Z'), value: 7, userId: 'someone' },
+      { organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date('2026-11-18T00:00:00Z'), value: 9, orgUnitId: 'a-unit' },
+    );
+    const service = makeService(prisma);
+    const token = await withCtx({}, () => service.mint(KPI_ID));
+    const snapshot = await service.resolve(token);
+    expect(snapshot.latestValue).toBe(50);
+    expect(snapshot.sparkline.map((p) => p.value)).toEqual([50]);
+  });
+
+  test('a KPI with only per-person values shows no value in a public embed (BE-049)', async () => {
+    const prisma = new FakePrisma();
+    prisma.kpiStore.push({ id: KPI_ID, organizationId: ORG, name: 'Calls', unit: null, targetValue: null, warningThreshold: null, criticalThreshold: null, direction: 'HIGHER_IS_BETTER', embedTokenVersion: 0, deletedAt: null });
+    prisma.dataPointStore.push({ organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date('2026-11-17T00:00:00Z'), value: 7, userId: 'someone' });
+    const service = makeService(prisma);
+    const token = await withCtx({}, () => service.mint(KPI_ID));
+    const snapshot = await service.resolve(token);
+    expect(snapshot.latestValue).toBeNull();
+    expect(snapshot.sparkline).toEqual([]);
   });
 });

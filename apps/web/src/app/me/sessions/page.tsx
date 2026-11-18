@@ -7,6 +7,8 @@ import { AppShell } from '../../../components/app-shell';
 import {
   ApiError,
   type SessionSummary,
+  clearTokens,
+  currentSessionId,
   getAccessToken,
   listMySessions,
   revokeSession,
@@ -19,6 +21,7 @@ export default function SessionsPage() {
   const fmt = useFormat();
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -29,8 +32,11 @@ export default function SessionsPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await listMySessions();
-      setSessions(data);
+      // Which one is in use is a nicety: if it cannot be told, the list still shows.
+      const [data, current] = await Promise.all([listMySessions(), currentSessionId().catch(() => null)]);
+      setCurrentId(current);
+      // This device first, then newest first as the API gives them.
+      setSessions(current ? [...data.filter((s) => s.id === current), ...data.filter((s) => s.id !== current)] : data);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         router.replace(currentLoginRedirect());
@@ -56,6 +62,12 @@ export default function SessionsPage() {
     setSuccessMsg(null);
     try {
       await revokeSession(id);
+      // Revoking the session in use is signing out: leave, rather than fail on the next request.
+      if (id === currentId) {
+        clearTokens();
+        router.replace('/login');
+        return;
+      }
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to revoke session');
@@ -144,8 +156,16 @@ export default function SessionsPage() {
                 className="flex items-start justify-between rounded-lg border border-border bg-surface-1 p-4"
               >
                 <div className="min-w-0 flex-1 pr-4">
-                  <p className="truncate text-sm font-medium text-content-strong">
-                    {s.deviceInfo ?? s.userAgent ?? 'Unknown device'}
+                  <p className="flex items-center gap-2 text-sm font-medium text-content-strong">
+                    <span className="truncate">{s.deviceInfo ?? s.userAgent ?? 'Unknown device'}</span>
+                    {s.id === currentId && (
+                      <span
+                        data-testid="session-current"
+                        className="shrink-0 rounded-full bg-accent-bg px-2 py-0.5 text-xs font-medium text-accent-primary"
+                      >
+                        This device
+                      </span>
+                    )}
                   </p>
                   {s.ipAddress && (
                     <p className="mt-0.5 text-xs text-content-muted">IP: {s.ipAddress}</p>
@@ -164,7 +184,7 @@ export default function SessionsPage() {
                   data-testid={`revoke-session-${s.id}`}
                   className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-content-default transition hover:border-status-critical hover:text-status-critical disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {revoking === s.id ? 'Revoking…' : 'Revoke'}
+                  {revoking === s.id ? 'Revoking…' : s.id === currentId ? 'Sign out' : 'Revoke'}
                 </button>
               </li>
             ))}

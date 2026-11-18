@@ -139,6 +139,19 @@ export class RefreshTokenService {
   }
 
   /**
+   * Which of `userId`'s live sessions the presented refresh token belongs to, or
+   * null. Looked up by the token's hash and limited to that user, so a token of
+   * someone else's names nothing.
+   */
+  async currentSessionId(userId: string, presentedToken: string): Promise<string | null> {
+    const row = await this.prisma.refreshToken.findFirst({
+      where: { userId, hashedToken: this.hash(presentedToken), revokedAt: null, expiresAt: { gt: new Date() } },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  }
+
+  /**
    * Revoke a single session by its row id, but ONLY if it belongs to `userId`.
    * Walks the replacement chain via `revokeChain`. Throws NotFoundException
    * when the row is missing or belongs to a different user.

@@ -17,6 +17,7 @@ const PROCESSORS = [
   'ConnectorRunProcessor',
   'EscalationProcessor',
   'InsightsProcessor',
+  'KpiTargetSyncProcessor',
   'KpiWatchProcessor',
   'NotificationDigestProcessor',
   'NotificationRetryProcessor',

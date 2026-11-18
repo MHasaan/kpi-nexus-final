@@ -55,7 +55,8 @@ test('kpi detail: tabs render; record data + add target via the UI', async ({ pa
   await page.getByTestId('tab-targets').click();
   await page.getByTestId('target-value').fill('100');
   await page.getByTestId('target-add').click();
-  await expect(page.getByText('STATIC 100')).toBeVisible();
+  await expect(page.locator('[data-testid^="target-row-"]')).toContainText('100');
+  await expect(page.getByTestId('target-in-effect')).toBeVisible();
 
   // Overview reflects the latest value.
   await page.getByTestId('tab-overview').click();

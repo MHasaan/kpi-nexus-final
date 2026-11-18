@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { KpiTargetSyncService } from './kpi-target-sync.service.js';
 import {
   type CreateKpiTargetDto,
   type KpiDirection,
@@ -43,6 +44,7 @@ export class KpiTargetsService {
     private readonly audit: AuditService,
     private readonly accessContext: AccessContextService,
     @Optional() private readonly approvalGate?: ApprovalGateService,
+    @Optional() private readonly sync?: KpiTargetSyncService,
   ) {}
 
   async list(kpiId: string): Promise<PublicKpiTarget[]> {
@@ -87,6 +89,8 @@ export class KpiTargetsService {
       select: targetSelect,
     });
     await this.audit.record({ action: 'CREATE', entityType: 'KPITarget', entityId: created.id, metadata: { kpiId, type: created.type } });
+    // The target in effect is the KPI's target (UI-017).
+    await this.sync?.syncKpi(ctx.organizationId, kpiId);
     return created;
   }
 
@@ -127,12 +131,15 @@ export class KpiTargetsService {
       select: targetSelect,
     });
     await this.audit.record({ action: 'UPDATE', entityType: 'KPITarget', entityId: id });
+    await this.sync?.syncKpi(existing.organizationId, existing.kpiId);
     return updated;
   }
 
   async remove(id: string): Promise<void> {
-    await this.requireTarget(id);
+    const existing = await this.requireTarget(id);
     await this.prisma.kPITarget.delete({ where: { id } });
+    // Another target may now be the one in effect. If none is, the KPI keeps the target it has.
+    await this.sync?.syncKpi(existing.organizationId, existing.kpiId);
     await this.audit.record({ action: 'DELETE', entityType: 'KPITarget', entityId: id });
   }
 
@@ -143,21 +150,10 @@ export class KpiTargetsService {
   async resolveActive(kpiId: string, at: Date = new Date()): Promise<PublicKpiTarget | null> {
     const ctx = RequestContextStore.require();
     await this.requireKpi(kpiId);
-    const candidates = await this.prisma.kPITarget.findMany({
-      where: {
-        kpiId,
-        organizationId: ctx.organizationId,
-        AND: [
-          { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: at } }] },
-          { OR: [{ effectiveTo: null }, { effectiveTo: { gte: at } }] },
-        ],
-      },
-      select: targetSelect,
-      // Most-specific window wins: a dated effectiveFrom outranks an open-ended
-      // (null) one, hence nulls last.
-      orderBy: [{ effectiveFrom: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
-    });
-    return candidates[0] ?? null;
+    // One rule for "in effect", shared with what is written to the KPI.
+    const inEffect = this.sync ? await this.sync.inEffect(ctx.organizationId, kpiId, at) : null;
+    if (!inEffect) return null;
+    return this.prisma.kPITarget.findFirst({ where: { id: inEffect.id, organizationId: ctx.organizationId }, select: targetSelect });
   }
 
   private assertValid(dto: CreateKpiTargetDto, direction: KpiDirection): void {

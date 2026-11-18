@@ -15,6 +15,7 @@ import {
   assignKpiToUnit,
   assignKpiToUser,
   attachCascade,
+  getActiveTarget,
   type Benchmark,
   type Cascade,
   computeBenchmark,
@@ -788,19 +789,55 @@ function DataPointRow({
   );
 }
 
+/** What kind of target a row is, in words. */
+const TARGET_TYPE_LABELS: Record<string, string> = {
+  STATIC: 'Fixed',
+  TIME_VARYING: 'Dated',
+  TIERED: 'Tiered',
+  SCENARIO: 'Scenario',
+  DYNAMIC: 'Formula',
+  CONDITIONAL: 'Conditional',
+};
+
+/** Kinds that never become the KPI's target: a what-if, or no single figure. */
+const TARGET_NEVER_COUNTS = new Set(['SCENARIO', 'DYNAMIC', 'CONDITIONAL']);
+
 function TargetsTab({ kpiId }: { kpiId: string }) {
   const confirm = useConfirm();
-  const [targets, reload, loadError] = useAsync(() => listTargets(kpiId), [kpiId]);
+  const fmt = useFormat();
+  const [targets, reloadTargets, loadError] = useAsync(() => listTargets(kpiId), [kpiId]);
+  // The one that counts now, and the KPI's own target, which it is written to.
+  const [active, reloadActive] = useAsync(() => getActiveTarget(kpiId).catch(() => null), [kpiId]);
+  const [kpi, reloadKpi] = useAsync(() => getKpi(kpiId).catch(() => null), [kpiId]);
+  const reload = () => {
+    reloadTargets();
+    reloadActive();
+    reloadKpi();
+  };
   const [value, setValue] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     setPending(false);
+    if (from && to && to <= from) {
+      setErr('"Until" must be after "Applies from".');
+      return;
+    }
     try {
-      const created: unknown = await createTarget(kpiId, { type: 'STATIC', value: Number(value) });
+      const created: unknown = await createTarget(kpiId, {
+        type: 'STATIC',
+        value: Number(value),
+        // A day chosen here starts at its first moment and ends at its last.
+        effectiveFrom: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+        effectiveTo: to ? new Date(`${to}T23:59:59`).toISOString() : undefined,
+      });
       setValue('');
+      setFrom('');
+      setTo('');
       // 202: an active KPI_TARGET workflow queued the target instead of adding it.
       if (isApprovalPending(created)) setPending(true);
       else reload();
@@ -808,28 +845,65 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
       setErr(e2 instanceof ApiError ? e2.message : 'Failed to add target');
     }
   };
+  const now = Date.now();
+  const note = (t: KpiTarget): string | null => {
+    if (TARGET_NEVER_COUNTS.has(t.type)) return 'Kept for reference; never the KPI’s target';
+    if (t.effectiveFrom && new Date(t.effectiveFrom).getTime() > now) return 'Starts later';
+    if (t.effectiveTo && new Date(t.effectiveTo).getTime() < now) return 'Ended';
+    return null;
+  };
+  const period = (t: KpiTarget): string => {
+    if (t.effectiveFrom && t.effectiveTo) return `${fmt.day(t.effectiveFrom)} – ${fmt.day(t.effectiveTo)}`;
+    if (t.effectiveFrom) return `from ${fmt.day(t.effectiveFrom)}`;
+    if (t.effectiveTo) return `until ${fmt.day(t.effectiveTo)}`;
+    return 'no dates';
+  };
   return (
     <div className="space-y-4">
       <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
-          <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="flex items-end gap-3">
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="target-value-input">Static target value</Label>
-              <Input
-                id="target-value-input"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                type="number"
-                step="any"
-                required
-                data-testid="target-value"
-              />
-            </div>
-            <BusySubmit data-testid="target-add">
-              Add target
-            </BusySubmit>
-          </BusyForm></PermissionGuard>
+          <p className="text-sm text-content-muted">
+            The target in effect here is the KPI’s target: its status, attainment, dashboards and reports are
+            measured against it. A target with dates takes effect, and stops, on its own.
+          </p>
+          {targets && active === null && (
+            <p className="mt-2 text-sm text-content" data-testid="targets-none-in-effect">
+              No target here is in effect now.{' '}
+              {kpi?.targetValue != null
+                ? `The KPI keeps the target it has: ${fmt.number(kpi.targetValue)}.`
+                : 'The KPI has no target.'}
+            </p>
+          )}
+        </CardContent>
+      </UICard>
+      <UICard>
+        <CardContent>
+          <PermissionGuard permission="KPI_EDIT">
+            <BusyForm onSubmit={add} className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="target-value-input">Target value</Label>
+                <Input
+                  id="target-value-input"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  type="number"
+                  step="any"
+                  required
+                  data-testid="target-value"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="target-from-input">Applies from (optional)</Label>
+                <Input id="target-from-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} data-testid="target-from" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="target-to-input">Until (optional)</Label>
+                <Input id="target-to-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} data-testid="target-to" />
+              </div>
+              <BusySubmit data-testid="target-add">Add target</BusySubmit>
+            </BusyForm>
+          </PermissionGuard>
           {pending && (
             <div className="mt-3">
               <ApprovalPendingNotice what="This target" testId="target-approval-pending" />
@@ -847,10 +921,25 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
           {(targets ?? []).map((t: KpiTarget) => (
             <div
               key={t.id}
-              className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
+              data-testid={`target-row-${t.id}`}
+              className="flex items-center justify-between gap-3 border-b border-border-divider py-2 text-sm last:border-0"
             >
-              <span className="tabular-nums text-content-strong">
-                {t.type} {t.value ?? `${t.minValue}/${t.expectedValue}/${t.stretchValue}`}
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="tabular-nums font-medium text-content-strong">
+                  {t.value != null
+                    ? fmt.number(t.value)
+                    : [t.minValue, t.expectedValue, t.stretchValue].map((v) => (v == null ? '—' : fmt.number(v))).join(' / ')}
+                </span>
+                <span className="text-content-muted">
+                  {TARGET_TYPE_LABELS[t.type] ?? t.type} · {period(t)}
+                </span>
+                {active?.id === t.id ? (
+                  <Badge tone="success" data-testid="target-in-effect">
+                    In effect — the KPI’s target
+                  </Badge>
+                ) : (
+                  note(t) && <span className="text-xs text-content-muted">{note(t)}</span>
+                )}
               </span>
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
@@ -858,7 +947,10 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
                 onClick={() =>
                   void confirm({
                     title: `Delete the ${t.type.toLowerCase()} target?`,
-                    description: 'The KPI is measured against its remaining targets, or none. Recorded values are kept.',
+                    description:
+                      active?.id === t.id
+                        ? 'This is the target in effect. If another one applies now it takes over; otherwise the KPI keeps this figure as its target until you set another. Recorded values are kept.'
+                        : 'It is not the target in effect, so the KPI’s target does not change. Recorded values are kept.',
                     confirmLabel: 'Delete target',
                     tone: 'danger',
                     testId: 'target-delete-confirm',

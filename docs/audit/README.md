@@ -405,6 +405,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-054 (found 2026-11-18): AI insights and recommendations, which are stored and read by everyone who sees the KPI's insights, were written from the newest values of anyone | ✅ Fixed — both read organisation-level rows only. Left as they are: workflow rules and the background formula recompute still take a KPI's newest row of anyone (they run for the organisation and return nothing to a person) | #271 | `insights.service.spec.ts`, `recommendations.service.spec.ts` (one assertion each) |
 | QA-L1: template KPIs are created as Draft and nothing said what that means — a new organisation saw twenty 'DRAFT' badges | ✅ Fixed — while there is a draft, the KPI list says how many, that a draft works like any other KPI, and where to change it; statuses read 'Draft', 'Active', … | #272 | `e2e/kpi-draft-note.spec.ts` |
 | BE-055 (found 2026-11-18): a key result could be linked to any KPI id — one the caller cannot see, or not a KPI of the organisation — and 'Sync' then copied that KPI's value into it | ✅ Fixed — a link is accepted only to a KPI of the organisation that the caller can see; otherwise 404 and nothing written. Links already stored are not re-checked | #273 | `objectives.service.spec.ts` (+3), `key-results.service.spec.ts` (+2) |
+| QA-L9: a key result linked to a KPI showed no current value until 'Sync from linked KPIs' was pressed | ✅ Fixed — a key result takes the KPI's value when the link is made (created linked, or linked later), by the sync's rule; a typed value is kept. It does not follow the KPI afterwards without a sync | #274 | `key-results.service.spec.ts` (+3), `e2e/key-result-kpi-value.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -424,7 +425,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
-| QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
 | QA-L10 settings errors are generic ("Invalid request body") and name no field — fixed where a form now checks itself (password policy, formats, branding colour, AI caps, retention days); other settings forms still show the generic message | Low | ⬜ open | 7.4 |
 | QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |
 | QA-L17 the Kanban board is cramped at laptop width: cards wrap one word per line and the Cancelled column is cut off | Low | ⬜ open | 7.7 |

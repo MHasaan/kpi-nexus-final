@@ -86,7 +86,8 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 function makeService() {
   const prisma = new FakePrisma();
   const objectives = {
-    getById: vi.fn(async (id: string) => ({ id, organizationId: ORG })),
+    getById: vi.fn(async (id: string) => ({ id, organizationId: ORG, ownerUserId: 'owner' })),
+    linkedKpiValue: vi.fn(async (_ownerUserId: string | null, _kpiId: string): Promise<number | null> => 42),
     recomputeObjectiveProgress: vi.fn(async () => {}),
     assertKpiLinkable: vi.fn(async (_kpiId: string) => {}),
   };
@@ -110,7 +111,7 @@ describe('KeyResultsService', () => {
 
   test('create on a missing/foreign objective → 404 (objective check)', async () => {
     const { service, objectives } = makeService();
-    objectives.getById = vi.fn(async (_id: string): Promise<{ id: string; organizationId: string }> => {
+    objectives.getById = vi.fn(async (_id: string): Promise<{ id: string; organizationId: string; ownerUserId: string }> => {
       throw new NotFoundException();
     });
     await expect(withCtx({}, () => service.create('ghost', { name: 'X', targetValue: 10 }))).rejects.toBeInstanceOf(NotFoundException);
@@ -161,6 +162,39 @@ describe('KeyResultsService', () => {
     objectives.assertKpiLinkable.mockRejectedValueOnce(new NotFoundException());
     await expect(withCtx({}, () => service.update(kr.id, { kpiId: 'kpi_hidden' }))).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.krs[0]!.kpiId).toBeNull();
+  });
+
+  // QA-L9: a key result linked to a KPI showed no value until someone pressed "Sync".
+  test('create with a linked KPI and no value of its own starts from the KPI\'s value', async () => {
+    const { service, objectives } = makeService();
+    const kr = await withCtx({}, () => service.create('o1', { name: 'KR', baselineValue: 0, targetValue: 84, kpiId: 'kpi_1', weight: 1 }));
+    expect(objectives.linkedKpiValue).toHaveBeenCalledWith('owner', 'kpi_1');
+    expect(kr.currentValue).toBe(42);
+    expect(kr.progress).toBeCloseTo(0.5);
+  });
+
+  test('create keeps a value that was typed, and stays empty when the KPI has none', async () => {
+    const { service, objectives } = makeService();
+    const typed = await withCtx({}, () => service.create('o1', { name: 'KR', targetValue: 84, kpiId: 'kpi_1', currentValue: 3, weight: 1 }));
+    expect(typed.currentValue).toBe(3);
+    expect(objectives.linkedKpiValue).not.toHaveBeenCalled();
+
+    objectives.linkedKpiValue.mockResolvedValueOnce(null);
+    const empty = await withCtx({}, () => service.create('o1', { name: 'KR2', targetValue: 84, kpiId: 'kpi_2', weight: 1 }));
+    expect(empty.currentValue).toBeNull();
+  });
+
+  test('update takes the KPI\'s value when a KPI is newly linked, and not on other edits', async () => {
+    const { service, objectives } = makeService();
+    const kr = await withCtx({}, () => service.create('o1', { name: 'KR', baselineValue: 0, targetValue: 84, currentValue: 1, weight: 1 }));
+    const linked = await withCtx({}, () => service.update(kr.id, { kpiId: 'kpi_1' }));
+    expect(linked.currentValue).toBe(42);
+    expect(linked.progress).toBeCloseTo(0.5);
+
+    objectives.linkedKpiValue.mockClear();
+    await withCtx({}, () => service.update(kr.id, { name: 'Renamed' }));
+    await withCtx({}, () => service.update(kr.id, { kpiId: 'kpi_1', currentValue: 7 }));
+    expect(objectives.linkedKpiValue).not.toHaveBeenCalled();
   });
 
   test('list is org + objective scoped', async () => {

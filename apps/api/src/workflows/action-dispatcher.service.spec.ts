@@ -59,6 +59,40 @@ describe('ActionDispatcherService.dispatch', () => {
     expect((arg.dueAt as Date).toISOString()).toBe('2026-05-31T00:00:00.000Z');
   });
 
+  // A task made by an automation used to arrive with a title and nothing else:
+  // nobody opening it could tell why it existed or what had happened.
+  test('a task made by an automation says which one made it and the value that set it off', async () => {
+    const { service, tasks } = makeService();
+    await withCtx(() =>
+      service.dispatch({ kind: 'create_task', title: 'Review revenue' }, { kind: 'kpi_changed', kpiId: 'k', value: 35000 }, NOW, { name: 'Revenue dip' }),
+    );
+    const arg = tasks.create.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.description).toBe('Made by the automation "Revenue dip" when a value of 35000 was recorded.');
+  });
+
+  test('run by hand, it says so instead of naming a value nobody recorded', async () => {
+    const { service, tasks } = makeService();
+    await withCtx(() =>
+      service.run({ kind: 'create_task', title: 'Review revenue' }, { kind: 'kpi_changed', kpiId: 'k', value: 35000 }, NOW, { name: 'Revenue dip', byHand: true }),
+    );
+    const arg = tasks.create.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.description).toBe('Made by the automation "Revenue dip", run by hand.');
+  });
+
+  test("a description the automation was given comes first, with where the task came from after it", async () => {
+    const { service, tasks } = makeService();
+    await withCtx(() =>
+      service.dispatch(
+        { kind: 'create_task', title: 'T', description: 'Call the top five accounts.' },
+        { kind: 'alert', severity: 'HIGH' },
+        NOW,
+        { name: 'Big alerts' },
+      ),
+    );
+    const arg = tasks.create.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.description).toBe('Call the top five accounts.\n\nMade by the automation "Big alerts" when an alert was raised.');
+  });
+
   test('create_task without dueAtRelativeHours has no dueAt', async () => {
     const { service, tasks } = makeService();
     await withCtx(() => service.dispatch({ kind: 'create_task', title: 'T' }, { kind: 'kpi_changed', kpiId: 'k', value: 1 }, NOW));

@@ -50,7 +50,8 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { inSentence } from '../../lib/sentence-case';
-import { KPI_STATUS_LABELS, labelFor } from '../../lib/labels';
+import { KPI_STATUS_LABELS, KPI_TYPE_LABELS, SCOPE_LABELS, labelFor } from '../../lib/labels';
+import { useFormat } from '../../lib/format-context';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -259,10 +260,10 @@ function KpisPageInner() {
           titleTestId="kpis-heading"
           subtitle={
             <>
-              Track outcomes that matter. {kpiLabelPlural} have a scope: ORG_WIDE
-              (one value per period for the whole org), PER_UNIT (one value per
-              unit), or PER_USER (each {inSentence(terminology.memberLabel)} tracks
-              their own).
+              Track outcomes that matter. Each has a scope: {labelFor(SCOPE_LABELS, 'ORG_WIDE')} (one
+              value per period for the whole organisation), {labelFor(SCOPE_LABELS, 'PER_UNIT')} (one value
+              for each unit), or {labelFor(SCOPE_LABELS, 'PER_USER')} (each{' '}
+              {inSentence(terminology.memberLabel)} records their own).
             </>
           }
           actions={
@@ -371,9 +372,9 @@ function KpisPageInner() {
                   data-testid="kpis-scope-filter"
                 >
                   <option value="ALL">All scopes</option>
-                  <option value="ORG_WIDE">ORG_WIDE</option>
-                  <option value="PER_UNIT">PER_UNIT</option>
-                  <option value="PER_USER">PER_USER</option>
+                  <option value="ORG_WIDE">{labelFor(SCOPE_LABELS, 'ORG_WIDE')}</option>
+                  <option value="PER_UNIT">{labelFor(SCOPE_LABELS, 'PER_UNIT')}</option>
+                  <option value="PER_USER">{labelFor(SCOPE_LABELS, 'PER_USER')}</option>
                 </Select>
               </div>
             </div>
@@ -546,6 +547,7 @@ function KpiRow({
   setRecordPeriodEnd,
   onRecord,
 }: KpiRowProps) {
+  const fmt = useFormat();
   return (
     <>
       <TableRow data-testid={`kpi-row-${kpi.name}`} className="hover:bg-surface-hover">
@@ -566,8 +568,8 @@ function KpiRow({
           </span>
         </TableCell>
         <TableCell>
-          <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content">
-            {kpi.type}
+          <span data-testid="kpi-type" className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content">
+            {labelFor(KPI_TYPE_LABELS, kpi.type)}
           </span>
         </TableCell>
         <TableCell>
@@ -576,7 +578,14 @@ function KpiRow({
           </span>
         </TableCell>
         <TableCell className="text-right tabular-nums">
-          {kpi.targetValue !== null ? kpi.targetValue : <span className="text-content-muted">—</span>}
+          {kpi.targetValue !== null ? (
+            <span data-testid="kpi-target">
+              {fmt.number(kpi.targetValue)}
+              {kpi.unit ? ` ${kpi.unit}` : ''}
+            </span>
+          ) : (
+            <span className="text-content-muted">—</span>
+          )}
         </TableCell>
         <TableCell className="text-content-muted">
           {kpi.scope === 'PER_UNIT' && kpi.orgUnitAssignments.length > 0 && (

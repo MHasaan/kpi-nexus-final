@@ -1,9 +1,9 @@
-import { readFileSync } from 'node:fs';
 
 import { describe, expect, test } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import { SECRET_SPECS } from './secrets.js';
+import { readText } from './read-text.js';
 
 /**
  * The production stack on the Oracle Always Free VM (ADR-001): infra/prod
@@ -12,7 +12,7 @@ import { SECRET_SPECS } from './secrets.js';
  */
 
 const ROOT = new URL('../../../../', import.meta.url);
-const read = (path: string): string => readFileSync(new URL(path, ROOT), 'utf8');
+const read = (path: string): string => readText(new URL(path, ROOT));
 
 interface Service {
   image?: string;

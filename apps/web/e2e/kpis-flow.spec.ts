@@ -109,7 +109,7 @@ test.describe('/kpis page — admin CRUD + ORG_WIDE data entry', () => {
     const row = page.getByTestId(`kpi-row-${kpiName}`);
     await expect(row).toBeVisible();
     await expect(row.getByTestId('kpi-scope-badge')).toHaveText('Organisation-wide');
-    await expect(row).toContainText('CURRENCY');
+    await expect(row).toContainText('Currency');
 
     // 2. Click "Record value" → inline panel appears
     await row.getByTestId(`expand-kpi-${kpiName}`).click();

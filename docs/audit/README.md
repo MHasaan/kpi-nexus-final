@@ -403,6 +403,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | BE-052 (found 2026-11-18): `POST /kpis/:id/recompute` and `/rollup` returned a value worked out from other KPIs' values without checking that the caller may see the KPI or read those values | ✅ Fixed — 404 for a KPI the caller cannot see; 403 when a child or formula source holds values the caller reads only in part. The background worker is unaffected | #269 | `calculation-access.spec.ts` (5) |
 | BE-053 (found 2026-11-18): syncing an objective's key results copied the linked KPI's newest value of anyone, so a key result on a per-person KPI showed whoever recorded last | ✅ Fixed — a key result takes the organisation-level value, or the objective owner's own value on a per-person KPI; with neither it keeps what it had | #270 | `objectives.service.spec.ts` (+2) |
 | BE-054 (found 2026-11-18): AI insights and recommendations, which are stored and read by everyone who sees the KPI's insights, were written from the newest values of anyone | ✅ Fixed — both read organisation-level rows only. Left as they are: workflow rules and the background formula recompute still take a KPI's newest row of anyone (they run for the organisation and return nothing to a person) | #271 | `insights.service.spec.ts`, `recommendations.service.spec.ts` (one assertion each) |
+| QA-L1: template KPIs are created as Draft and nothing said what that means — a new organisation saw twenty 'DRAFT' badges | ✅ Fixed — while there is a draft, the KPI list says how many, that a draft works like any other KPI, and where to change it; statuses read 'Draft', 'Active', … | #272 | `e2e/kpi-draft-note.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -422,7 +423,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
-| QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
 | QA-L10 settings errors are generic ("Invalid request body") and name no field — fixed where a form now checks itself (password policy, formats, branding colour, AI caps, retention days); other settings forms still show the generic message | Low | ⬜ open | 7.4 |
 | QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |

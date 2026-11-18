@@ -42,6 +42,8 @@ import {
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
+import { type RangePreset, presetToRange } from '../../../lib/date-presets';
+import { useFiscalConfig } from '../../../lib/use-fiscal-config';
 
 // Dynamically import the grid (react-grid-layout requires client, no SSR)
 const DashboardGrid = dynamic(
@@ -55,15 +57,7 @@ export default function DashboardDetailPage() {
   );
 }
 
-type DatePreset = '7d' | '30d' | '90d' | '1y' | 'custom';
-
-function presetToRange(preset: DatePreset): { from: string; to: string } {
-  const now = new Date();
-  const to = now.toISOString().slice(0, 10);
-  const days = preset === '7d' ? 7 : preset === '30d' ? 30 : preset === '90d' ? 90 : 365;
-  const from = new Date(now.getTime() - days * 86400_000).toISOString().slice(0, 10);
-  return { from, to };
-}
+type DatePreset = RangePreset | 'custom';
 
 function DashboardDetailInner() {
   // Buttons that change the dashboard are shown only to those the API will let change it.
@@ -85,13 +79,15 @@ function DashboardDetailInner() {
 
   // Date range
   const [preset, setPreset] = useState<DatePreset>('30d');
+  // "This quarter" and "This fiscal year" start where the organisation's calendar says.
+  const fiscal = useFiscalConfig();
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const dateRange =
     preset === 'custom' && customFrom && customTo
       ? { from: customFrom, to: customTo }
       : preset !== 'custom'
-        ? presetToRange(preset)
+        ? presetToRange(preset, new Date(), fiscal.config)
         : undefined;
 
   // Add-widget editor state
@@ -452,6 +448,8 @@ function DashboardDetailInner() {
                   { label: '30d', value: '30d' },
                   { label: '90d', value: '90d' },
                   { label: '1y', value: '1y' },
+                  { label: 'This quarter', value: 'quarter' },
+                  { label: 'This fiscal year', value: 'fiscal-year' },
                   { label: 'Custom', value: 'custom' },
                 ]}
                 value={preset}

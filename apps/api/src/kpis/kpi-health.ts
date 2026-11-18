@@ -9,6 +9,8 @@
  *   3. direction-aware target grading (same as KPI assignments);
  *   4. otherwise NO_TARGET (or NO_DATA when there is no value).
  */
+import { bandMeaning } from '@kpi-nexus/contracts';
+
 import { type ThresholdBand, resolveStatus } from '../kpi-threshold-bands/threshold-resolver.js';
 import { type KpiDirection, computeAssignmentStatus } from '../user-kpis/assignment-status.js';
 
@@ -33,7 +35,7 @@ export function kpiHealthStatus(input: {
 
   if (bands.length > 0) {
     const resolved = resolveStatus(bands, recentValues);
-    if (resolved.band) return statusFromBandName(resolved.band);
+    if (resolved.band) return bandMeaning(resolved.band);
   }
 
   if (meta.warningThreshold !== null || meta.criticalThreshold !== null) {
@@ -58,14 +60,6 @@ export function attainmentPct(value: number | null, target: number | null, direc
   if (direction === 'HIGHER_IS_BETTER') return target === 0 ? null : (value / target) * 100;
   if (direction === 'LOWER_IS_BETTER') return value === 0 ? null : (target / value) * 100;
   return null;
-}
-
-/** Map a threshold-band name ("On Track", "At Risk", "Off Track", "Critical", …) to a status. */
-function statusFromBandName(name: string): KpiHealthStatus {
-  const n = name.toLowerCase();
-  if (/off|crit|red|behind|fail/.test(n)) return 'OFF_TRACK';
-  if (/risk|warn|amber|watch/.test(n)) return 'AT_RISK';
-  return 'ON_TRACK';
 }
 
 /** KPI.warningThreshold / criticalThreshold, direction-aware. */

@@ -408,6 +408,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | QA-L9: a key result linked to a KPI showed no current value until 'Sync from linked KPIs' was pressed | ✅ Fixed — a key result takes the KPI's value when the link is made (created linked, or linked later), by the sync's rule; a typed value is kept. It does not follow the KPI afterwards without a sync | #274 | `key-results.service.spec.ts` (+3), `e2e/key-result-kpi-value.spec.ts` |
 | QA-L14: the help drawer stayed open across pages and its tips described a top nav bar, a search icon and buttons the app does not have | ✅ Fixed — the drawer closes when the page changes and is hidden while closed; the tips were rewritten against the app as it is | #275 | `contextual-help.spec.ts` (+9), `e2e/help-drawer.spec.ts` (+1) |
 | QA-L17: the Kanban board was cramped at laptop width — columns 184 px wide at 1280 px, titles one word per line | ✅ Fixed — columns keep at least 240 px and the board scrolls sideways; the page does not | #276 | `e2e/kanban-laptop-width.spec.ts` |
+| Plan 7.7 (thresholds): the band form was five unlabelled boxes with no colour choice, and nothing said a band's name decides its status | ✅ Fixed — labelled fields, a colour picker, 'Counts as' presets, the meaning of a name shown before saving; the name rule lives in `packages/contracts` (`bandMeaning`) for API and form alike | #277 | `band-status.spec.ts` (13), `e2e/threshold-band-form.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

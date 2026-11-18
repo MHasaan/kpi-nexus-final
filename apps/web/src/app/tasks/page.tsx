@@ -498,7 +498,12 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="kanban">
+      {/* From `lg` up the five columns sit in one row that scrolls sideways when they do not
+          fit (QA-L17): squeezing them into the page left cards one word wide. */}
+      <div
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:overflow-x-auto lg:pb-2"
+        data-testid="kanban"
+      >
         {COLUMNS.map((col) => {
           const colTasks = visibleByColumn(col.status);
           const isOver = overCol === col.status && draggedId !== null;
@@ -514,7 +519,7 @@ export default function TasksPage() {
                 if (e.currentTarget === e.target) setOverCol((c) => (c === col.status ? null : c));
               }}
               onDrop={() => onDrop(col.status)}
-              className={`flex min-h-[200px] flex-col gap-2 rounded-xl border p-3 transition-colors duration-fast ${
+              className={`flex min-h-[200px] min-w-0 flex-col gap-2 rounded-xl border p-3 transition-colors duration-fast lg:min-w-[240px] lg:flex-1 ${
                 isOver ? 'border-accent-primary bg-accent-bg' : 'border-border bg-surface-1'
               }`}
             >
@@ -558,7 +563,7 @@ export default function TasksPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span
-                            className={`text-sm font-medium text-content-strong ${DONE_LIKE(task.status) ? 'line-through opacity-70' : ''}`}
+                            className={`min-w-0 break-words text-sm font-medium text-content-strong ${DONE_LIKE(task.status) ? 'line-through opacity-70' : ''}`}
                             data-testid="task-title"
                           >
                             {task.title}

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
-import { ApiError, loginRequest, setTokens } from '../../../lib/api-client';
+import { ApiError, loginRequest, requestPasswordReset, setTokens } from '../../../lib/api-client';
 import { safeNextPath } from '../../../lib/auth-redirect';
 
 export default function LoginPage() {
@@ -17,10 +17,29 @@ export default function LoginPage() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The password is right but older than the organisation allows: offer a reset link.
+  const [expired, setExpired] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+
+  async function sendReset() {
+    setSendingReset(true);
+    try {
+      await requestPasswordReset(email);
+      setResetSent(true);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'The reset link could not be sent. Try again.');
+    } finally {
+      setSendingReset(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setExpired(false);
+    setResetSent(false);
     setSubmitting(true);
     try {
       const result = await loginRequest({
@@ -35,6 +54,9 @@ export default function LoginPage() {
       if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
         setMfaRequired(true);
         setError('Enter your 6-digit authenticator code.');
+      } else if (err instanceof ApiError && err.code === 'PASSWORD_EXPIRED') {
+        setExpired(true);
+        setError('Your password has expired. Reset it to sign in.');
       } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
@@ -116,6 +138,23 @@ export default function LoginPage() {
           >
             {error}
           </div>
+        )}
+
+        {expired && !resetSent && (
+          <button
+            type="button"
+            onClick={() => void sendReset()}
+            disabled={sendingReset}
+            data-testid="login-send-reset"
+            className="w-full rounded-md border border-border-strong bg-surface-bg px-4 py-2 text-sm font-medium text-content-strong hover:bg-surface-hover disabled:opacity-60"
+          >
+            {sendingReset ? 'Sending…' : 'Email me a reset link'}
+          </button>
+        )}
+        {resetSent && (
+          <p role="status" data-testid="login-reset-sent" className="rounded-md border border-status-success/40 bg-status-success/10 px-3 py-2 text-sm text-status-success">
+            A reset link is on its way to {email}. Use it to choose a new password, then sign in.
+          </p>
         )}
 
         <button

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   checkPasswordPolicy,
   DEFAULT_PASSWORD_POLICY,
+  passwordExpired,
   resolvePasswordPolicy,
 } from './password-policy.js';
 
@@ -65,5 +66,24 @@ describe('resolvePasswordPolicy', () => {
     expect(resolved.minLength).toBe(12);
     expect(resolved.requireUppercase).toBe(true);
     expect(resolved.requireSpecial).toBe(false);
+  });
+});
+
+describe('passwordExpired (plan 6.5)', () => {
+  const now = new Date('2026-11-18T12:00:00.000Z');
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
+  const policy = (maxAgeDays: number) => ({ ...DEFAULT_PASSWORD_POLICY, maxAgeDays });
+
+  test('a maximum age of 0 never expires a password', () => {
+    expect(passwordExpired(policy(0), daysAgo(4000), now)).toBe(false);
+  });
+
+  test('a password older than the maximum age has expired', () => {
+    expect(passwordExpired(policy(90), daysAgo(91), now)).toBe(true);
+    expect(passwordExpired(policy(90), daysAgo(89), now)).toBe(false);
+  });
+
+  test('a password with no recorded date has not expired: the clock has not started for it', () => {
+    expect(passwordExpired(policy(90), null, now)).toBe(false);
   });
 });

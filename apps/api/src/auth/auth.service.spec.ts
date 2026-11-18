@@ -12,6 +12,7 @@
  *
  * Prisma is mocked; jwt/config/refreshTokens are unused by this method.
  */
+import * as bcrypt from 'bcrypt';
 import { createHash } from 'node:crypto';
 
 import { NotFoundException } from '@nestjs/common';
@@ -164,6 +165,43 @@ describe('AuthService.login() — attempt auditing (OT-009)', () => {
     expect(create).toHaveBeenCalledWith({
       data: expect.objectContaining({ email: 'nobody@example.test', status: 'USER_NOT_FOUND', ipAddress: '203.0.113.9', userAgent: 'audit-agent/1.0' }),
     });
+  });
+});
+
+describe('AuthService.login() — password maximum age (plan 6.5)', () => {
+  const user = (passwordChangedAt: Date | null) => ({
+    id: 'u1',
+    organizationId: 'org_a',
+    email: 'ada@example.test',
+    status: 'ACTIVE',
+    roleId: null,
+    mfaEnabled: false,
+    mfaSecret: null,
+    passwordHash: bcrypt.hashSync('correct-horse', 4),
+    passwordChangedAt,
+  });
+  const make = (passwordChangedAt: Date | null, maxAgeDays: number) => {
+    const create = vi.fn().mockResolvedValue({});
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(user(passwordChangedAt)) },
+      organization: { findUnique: vi.fn().mockResolvedValue({ passwordPolicy: { minLength: 8, maxAgeDays } }) },
+      loginAttempt: { create },
+    };
+    return { create, service: makeService(prisma) };
+  };
+
+  test('a password older than the organisation allows is refused with PASSWORD_EXPIRED, and the attempt says why', async () => {
+    const { service, create } = make(new Date(Date.now() - 100 * 24 * 60 * 60 * 1000), 90);
+    const err = await service.login({ email: 'ada@example.test', password: 'correct-horse' }).catch((e: unknown) => e);
+    expect((err as { getStatus: () => number }).getStatus()).toBe(401);
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({ code: 'PASSWORD_EXPIRED' });
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ status: 'INVALID_CREDENTIALS', reason: 'password_expired' }) });
+  });
+
+  test('a wrong password is still "invalid credentials" — expiry is only told to someone who knows the password', async () => {
+    const { service } = make(new Date(Date.now() - 100 * 24 * 60 * 60 * 1000), 90);
+    const err = await service.login({ email: 'ada@example.test', password: 'wrong' }).catch((e: unknown) => e);
+    expect((err as { getResponse: () => unknown }).getResponse()).toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 });
 

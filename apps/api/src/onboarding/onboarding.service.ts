@@ -325,6 +325,7 @@ export class OnboardingService {
             email: body.adminEmail,
             fullName: body.adminFullName,
             passwordHash,
+            passwordChangedAt: new Date(),
             roleId: adminRole.id,
             status: 'ACTIVE',
             emailVerifiedAt: new Date(),

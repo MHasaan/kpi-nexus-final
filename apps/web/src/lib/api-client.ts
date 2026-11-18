@@ -2245,8 +2245,21 @@ export interface NlqAnswer {
   provider: string;
   model: string;
 }
-export async function askNlq(question: string): Promise<NlqAnswer> {
-  return api('/nlq/ask', { method: 'POST', body: JSON.stringify({ question }) });
+/** One earlier turn of an Ask conversation, sent back with a follow-up. */
+export interface NlqTurn {
+  question: string;
+  answer: string;
+}
+/** The API takes at most this many earlier turns (apps/api/src/nlq/nlq-ask.dto.ts). */
+export const NLQ_MAX_HISTORY_TURNS = 3;
+export async function askNlq(question: string, history: NlqTurn[] = []): Promise<NlqAnswer> {
+  const recent = history
+    .slice(-NLQ_MAX_HISTORY_TURNS)
+    .map((t) => ({ question: t.question.slice(0, 1000), answer: t.answer.slice(0, 8000) }));
+  return api('/nlq/ask', {
+    method: 'POST',
+    body: JSON.stringify(recent.length > 0 ? { question, history: recent } : { question }),
+  });
 }
 
 // =============================================================================

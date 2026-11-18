@@ -5,7 +5,7 @@ import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'rea
 import { useRouter } from 'next/navigation';
 import { Bot, Check, Copy, Sparkles, Trash2 } from 'lucide-react';
 
-import { ApiError, type NlqAnswer, askNlq, getAccessToken } from '../../lib/api-client';
+import { ApiError, type NlqAnswer, type NlqTurn, askNlq, getAccessToken } from '../../lib/api-client';
 import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { PageHeader, Card, Button, Badge, EmptyState } from '../../components/ui';
@@ -26,6 +26,20 @@ const FOLLOW_UP_PROMPTS = [
   "What's trending down?",
   'Where should I focus next?',
 ];
+
+/**
+ * The finished turns of a conversation: each question that got an answer, with that answer.
+ * A question that failed has no answer after it and is left out.
+ */
+function turnsOf(messages: ChatMessage[]): NlqTurn[] {
+  const turns: NlqTurn[] = [];
+  for (let i = 0; i + 1 < messages.length; i += 1) {
+    const q = messages[i]!;
+    const a = messages[i + 1]!;
+    if (q.role === 'user' && a.role === 'assistant' && a.text.trim() !== '') turns.push({ question: q.text, answer: a.text });
+  }
+  return turns;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -179,7 +193,7 @@ export default function AskPage() {
     setMessages((m) => [...m, { role: 'user', text: q }]);
     setQuestion('');
     try {
-      const res = await askNlq(q);
+      const res = await askNlq(q, turnsOf(messages));
       setMessages((m) => [...m, { role: 'assistant', text: res.answer, answer: res }]);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Ask failed');
@@ -342,6 +356,12 @@ export default function AskPage() {
             >
               {error}
             </div>
+          )}
+
+          {lastIsAnswer && (
+            <p className="text-xs text-content-muted" data-testid="ask-context-note">
+              You can ask a follow-up: the last few questions and answers go with it. “New chat” starts over.
+            </p>
           )}
 
           <form onSubmit={ask} className="sticky bottom-0 flex gap-2 pb-2">

@@ -12,6 +12,7 @@ import { AccessContextService } from '../rbac/services/access-context.service.js
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
 import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
+import { MAX_HISTORY_TURNS, type NlqTurn } from './nlq-ask.dto.js';
 
 export interface NlqSource {
   kpiId: string;
@@ -91,7 +92,7 @@ export class NlqService {
     }
   }
 
-  async ask(question: string): Promise<NlqAnswer> {
+  async ask(question: string, history: NlqTurn[] = []): Promise<NlqAnswer> {
     const ctx = RequestContextStore.require();
     const started = this.now();
 
@@ -134,7 +135,7 @@ export class NlqService {
     const { context, deepIds } = await this.buildContext(ctx.organizationId, catalogIds, deepSet, metaById);
 
     const route = await this.configs.resolve('NLQ_PRIMARY');
-    const { result, costUsd, usage, toolCalls, warning } = await this.runToolLoop(question, context, metaById);
+    const { result, costUsd, usage, toolCalls, warning } = await this.runToolLoop(question, context, metaById, history);
 
     // Sources = the KPIs we put deep detail on (or all when the catalog is small),
     // plus any KPI a tool read.
@@ -184,7 +185,7 @@ export class NlqService {
    * `tool` turns. A model still calling tools after the last round gets a
    * partial answer flagged TOOL_ROUND_LIMIT.
    */
-  private async runToolLoop(question: string, context: string, metaById: Map<string, PublicKpi>) {
+  private async runToolLoop(question: string, context: string, metaById: Map<string, PublicKpi>, history: NlqTurn[] = []) {
     // Weeks are grouped in the organisation's calendar. Not knowing it is no reason to refuse the question.
     const ctx = RequestContextStore.require();
     const org = await this.prisma.organization
@@ -192,6 +193,12 @@ export class NlqService {
       .catch(() => null);
     const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts, fiscalConfigOf(org).weekStartsOn);
     const messages: AiMessage[] = [
+      // The conversation so far, so a follow-up has something to refer to. The KPI context goes
+      // with the new question only: it is the current state, and one copy is enough.
+      ...history.slice(-MAX_HISTORY_TURNS).flatMap((turn): AiMessage[] => [
+        { role: 'user', content: `Question: ${turn.question}` },
+        { role: 'assistant', content: turn.answer },
+      ]),
       {
         role: 'user',
         content: `Question: ${question}\n\nKPI context (current state of every KPI you can see):\n${context || '(no KPIs available)'}`,

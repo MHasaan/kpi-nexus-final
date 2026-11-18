@@ -80,6 +80,14 @@ describe('AuditService.list / exportCsv (plan 6.13)', () => {
     );
   });
 
+  test('the entity type filter ignores case — the page has a free-text box for it (plan 7.7)', async () => {
+    const { service, findMany } = makeList();
+    await RequestContextStore.run(tenant, () => service.list({ entityType: 'kpi' }));
+    expect((findMany.mock.calls[0]![0] as { where: Record<string, unknown> }).where.entityType).toEqual({ equals: 'kpi', mode: 'insensitive' });
+    await RequestContextStore.run(tenant, () => service.list({}));
+    expect((findMany.mock.calls[1]![0] as { where: Record<string, unknown> }).where.entityType).toBeUndefined();
+  });
+
   test('with no dates, no date condition is sent', async () => {
     const { service, findMany } = makeList();
     await RequestContextStore.run(tenant, () => service.list({}));

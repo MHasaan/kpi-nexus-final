@@ -397,6 +397,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Crawl 6's one warning: signed out, the home page asked the API who is signed in and got a 401 before going to sign-in | ✅ Fixed — with no session `useAccess` asks nothing, and ignores a profile cached by an earlier session | #263 | `e2e/signed-out-no-requests.spec.ts`. The crawl has not been re-run |
 | Plan 7.7 (KPI picker cache): the widget editor's KPI picker kept one list for the life of the tab — the next person to sign in in that tab was shown the previous person's KPI names, and a new KPI did not appear until a reload | ✅ Fixed — the list belongs to the signed-in session and is refreshed after a minute | #264 | `lib/kpi-list-cache.spec.ts` (5). Signing out and in as another organisation in one tab was not walked in a browser |
 | BE-049 (found 2026-11-18): the public KPI embed read the newest value of a KPI from any unit or person, so an embed link on a per-person or per-unit KPI showed an individual's or a unit's value to anyone holding it — the same fault as BE-047 on share links | ✅ Fixed — the embed reads organisation-level rows only | #265 | `embed-token.service.spec.ts` (+2). Not audited for the same question: signed-in readers of a KPI's newest value (threshold status, benchmarks, cascade, OKR sync) |
+| QA-L13: the public KPI embed printed 'No data' beside a valid value — it had a health rule of its own that answered 'unknown' without thresholds | ✅ Fixed — the embed uses the one health rule (bands, thresholds, target); a value with nothing to grade it against shows no status; 'No data' only with no value | #266 | `embed-token.service.spec.ts` (+4), `e2e/embed-status.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -419,7 +420,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |
 | QA-L10 settings errors are generic ("Invalid request body") and name no field — fixed where a form now checks itself (password policy, formats, branding colour, AI caps, retention days); other settings forms still show the generic message | Low | ⬜ open | 7.4 |
-| QA-L13 the public KPI embed shows "No data" next to a valid latest value | Low | ⬜ open | 4.6 |
 | QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |
 | QA-L17 the Kanban board is cramped at laptop width: cards wrap one word per line and the Cancelled column is cut off | Low | ⬜ open | 7.7 |
 | QA-T1 `prod-compose.spec.ts` fails on Windows because it splits on `\n` and the checkout has CRLF endings | Low | ⬜ open | new 0.7 |

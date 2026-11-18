@@ -60,7 +60,7 @@ function makeService(fixtures: KpiFixture[], maxExportRows: number | null) {
     name: f.name,
     scope: 'ORG_WIDE' as const,
     unit: f.unit,
-    targetValue: null,
+    targetValue: null as number | null,
     latestValue: f.pointCount > 0 ? f.pointCount : null,
     latestRecordedAt: null,
     aggregatedValue: null,
@@ -167,7 +167,8 @@ describe('ReportsService.buildDataset — what a KPI is measured against', () =>
         attainmentPct: 92,
         spark: [],
       },
-    ]);
+      // The shared fake's rows are typed without the health fields; this one carries them.
+    ] as never);
     const dataset = await withCtx(() => service.buildDataset({}));
     expect(dataset.kpis[0]).toMatchObject({ name: 'Revenue', latestValue: 920, targetValue: 1000, status: 'AT_RISK', attainmentPct: 92 });
   });

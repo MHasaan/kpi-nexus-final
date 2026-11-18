@@ -121,6 +121,9 @@ export class ReportsService {
           name: row.name,
           unit: row.unit,
           latestValue: row.latestValue,
+          targetValue: row.targetValue,
+          status: row.status,
+          attainmentPct: row.attainmentPct,
           points: points.map((p) => ({ recordedAt: p.recordedAt, value: p.value })),
         };
       }),

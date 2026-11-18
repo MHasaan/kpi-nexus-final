@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -62,8 +63,26 @@ export class PositionsService {
     return position;
   }
 
+  /** 400 unless `orgUnitId` is an org unit of this organisation (BE-056). */
+  private async assertUnitInOrganization(orgUnitId: string | null | undefined): Promise<void> {
+    if (orgUnitId == null) return;
+    const ctx = RequestContextStore.require();
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: orgUnitId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!unit) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'orgUnitId is not an org unit of this organisation',
+        details: { issues: [{ path: ['orgUnitId'], message: 'Choose an org unit of this organisation' }] },
+      });
+    }
+  }
+
   async create(dto: CreatePositionDto): Promise<PublicPosition> {
     const ctx = RequestContextStore.require();
+    await this.assertUnitInOrganization(dto.orgUnitId);
     try {
       return await this.prisma.position.create({
         data: { ...dto, organizationId: ctx.organizationId },
@@ -82,6 +101,7 @@ export class PositionsService {
 
   async update(id: string, dto: UpdatePositionDto): Promise<PublicPosition> {
     await this.getById(id);
+    await this.assertUnitInOrganization(dto.orgUnitId);
     try {
       return await this.prisma.position.update({
         where: { id },

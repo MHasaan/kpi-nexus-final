@@ -33,6 +33,8 @@ function statusLineMeta(status: string | null): StatusLineMeta | null {
   if (s === 'OK' || s === 'GREEN') {
     return { label: 'On track', Icon: CircleCheck, className: 'text-status-success' };
   }
+  // A value with nothing to grade it against: no status line. (It used to read "No data" beside the value.)
+  if (s === 'NO_TARGET') return null;
   return { label: 'No data', Icon: CircleDashed, className: 'text-content-muted' };
 }
 
@@ -117,7 +119,8 @@ function EmbedKpiInner() {
     );
   }
 
-  const status = statusLineMeta(snapshot.thresholdStatus);
+  // "No data" is said once, by the value line, when there is no value.
+  const status = snapshot.latestValue === null ? null : statusLineMeta(snapshot.thresholdStatus);
 
   return (
     <div

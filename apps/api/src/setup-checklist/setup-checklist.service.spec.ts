@@ -106,7 +106,8 @@ describe('SetupChecklistService.list — detection', () => {
   test('every check is scoped to the caller\'s organisation', async () => {
     const { list, wheres } = make({});
     await list();
-    expect(wheres.length).toBeGreaterThanOrEqual(15);
+    // One existence check per detected task, and two for the administrators.
+    expect(wheres.length).toBeGreaterThanOrEqual(14);
     expect(wheres.every((w) => w.organizationId === 'org-1')).toBe(true);
   });
 });

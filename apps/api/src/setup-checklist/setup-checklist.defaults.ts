@@ -1,6 +1,6 @@
 /**
  * Pure setup-checklist defaults + merge logic. Kept free of Prisma/Nest so the
- * lazy-default behaviour is unit-testable. A fresh org sees all 14 tasks as
+ * lazy-default behaviour is unit-testable. A fresh org sees every task as
  * `pending` without any rows persisted; only a status change persists a row.
  * What the organisation has really done is laid over that (`resolveChecklist`).
  */
@@ -22,24 +22,30 @@ export interface ChecklistItem extends ChecklistTaskDef {
 }
 
 /**
- * In the order a new organisation gets to them: people, data, what they look
- * at, what tells them when something is wrong, then the administrative rest.
+ * In the order a new organisation gets to them: the product itself first — a
+ * KPI, a value on it, a dashboard to look at, a rule that warns — then the
+ * people, then the administrative rest.
+ *
+ * Only things that can be done today are listed. Single sign-on and custom
+ * domains are not: their settings pages save but nothing acts on them yet
+ * (UI-014). Put them back when they work.
+ *
  * Keys are stored on OnboardingTask rows — rename a label freely, never a key.
+ * A row stored for a key no longer listed is simply ignored.
  */
 export const DEFAULT_TASKS: ChecklistTaskDef[] = [
-  { key: 'remaining_invites', category: 'Team', label: 'Invite your team', href: '/users' },
-  { key: 'historical_import', category: 'Data', label: 'Record or import KPI values', href: '/kpis/import' },
+  { key: 'first_kpi', category: 'KPIs', label: 'Create your first KPI', href: '/kpis/new' },
+  { key: 'historical_import', category: 'Data', label: 'Record a value on a KPI', href: '/kpis' },
   { key: 'default_dashboard', category: 'Dashboards', label: 'Add widgets to a dashboard', href: '/dashboards' },
+  { key: 'alert_rule', category: 'Alerts', label: 'Have a KPI watched by an alert rule', href: '/alerts/new' },
+  { key: 'remaining_invites', category: 'Team', label: 'Invite your team', href: '/users' },
   { key: 'channels', category: 'Alerts', label: 'Add a notification channel', href: '/alerts/channels' },
   { key: 'escalation', category: 'Alerts', label: 'Decide who is told when an alert is ignored', href: '/alerts/rules' },
   { key: 'scheduled_report', category: 'Reports', label: 'Schedule a report', href: '/reports' },
   { key: 'okrs', category: 'OKRs', label: 'Create your first objective', href: '/okrs' },
   { key: 'data_source', category: 'Data', label: 'Connect a data source', href: '/integrations' },
   { key: 'mfa', category: 'Security', label: 'Turn on two-step sign-in for administrators', href: '/profile' },
-  { key: 'sso', category: 'Security', label: 'Set up single sign-on', href: '/settings/sso' },
   { key: 'ai_tuning', category: 'AI', label: 'Review AI settings', href: '/settings/ai' },
-  { key: 'custom_domain', category: 'Setup', label: 'Add your own domain', href: '/settings/custom-domain' },
-  { key: 'domain_verification', category: 'Setup', label: 'Verify your domain', href: '/settings/custom-domain' },
   { key: 'compliance_review', category: 'Compliance', label: 'Review data retention and audit settings', href: '/settings/retention' },
 ];
 
@@ -66,7 +72,7 @@ export function resolveChecklist(
   });
 }
 
-/** Overlay persisted statuses onto the 14 defaults (unknown keys ignored). */
+/** Overlay persisted statuses onto the defaults (unknown keys ignored). */
 export function mergeChecklist(persisted: Array<{ key: string; status: string }>): ChecklistItem[] {
   return resolveChecklist(persisted, new Set());
 }

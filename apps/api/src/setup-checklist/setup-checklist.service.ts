@@ -17,8 +17,8 @@ export interface ChecklistView {
 }
 
 /**
- * Post-onboarding setup checklist. Lazily upserted: a fresh org's GET returns 14
- * pending tasks without persisting any rows; only a status change writes a row.
+ * Post-onboarding setup checklist. Lazily upserted: a fresh org's GET returns every
+ * task pending without persisting any rows; only a status change writes a row.
  * A task is also complete when the organisation has simply done it.
  */
 @Injectable()
@@ -44,6 +44,8 @@ export class SetupChecklistService {
     const where = { organizationId };
     const exists = (row: unknown): boolean => row !== null;
     const [
+      kpi,
+      alertRule,
       people,
       dataPoint,
       widget,
@@ -55,11 +57,10 @@ export class SetupChecklistService {
       connection,
       adminWithoutMfa,
       adminCount,
-      sso,
       aiConfig,
-      domain,
-      verifiedDomain,
     ] = await Promise.all([
+      this.prisma.kPI.findFirst({ where: { ...where, deletedAt: null }, select: { id: true } }),
+      this.prisma.alertRule.findFirst({ where, select: { id: true } }),
       this.prisma.user.count({ where: { ...where, status: { in: ['INVITED', 'PENDING_VERIFICATION', 'ACTIVE'] } } }),
       this.prisma.kPIDataPoint.findFirst({ where, select: { id: true } }),
       this.prisma.dashboardWidget.findFirst({ where, select: { id: true } }),
@@ -74,13 +75,12 @@ export class SetupChecklistService {
         select: { id: true },
       }),
       this.prisma.user.count({ where: { ...where, status: 'ACTIVE', role: { isAdmin: true } } }),
-      this.prisma.ssoConfig.findFirst({ where: { ...where, isActive: true }, select: { id: true } }),
       this.prisma.aiFeatureConfig.findFirst({ where, select: { id: true } }),
-      this.prisma.customDomain.findFirst({ where, select: { id: true } }),
-      this.prisma.customDomain.findFirst({ where: { ...where, verifiedAt: { not: null } }, select: { id: true } }),
     ]);
 
     const done = new Set<string>();
+    if (exists(kpi)) done.add('first_kpi');
+    if (exists(alertRule)) done.add('alert_rule');
     if (people > 1) done.add('remaining_invites');
     if (exists(dataPoint)) done.add('historical_import');
     if (exists(widget)) done.add('default_dashboard');
@@ -90,10 +90,7 @@ export class SetupChecklistService {
     if (exists(objective)) done.add('okrs');
     if (exists(connector) || exists(connection)) done.add('data_source');
     if (adminCount > 0 && !exists(adminWithoutMfa)) done.add('mfa');
-    if (exists(sso)) done.add('sso');
     if (exists(aiConfig)) done.add('ai_tuning');
-    if (exists(domain)) done.add('custom_domain');
-    if (exists(verifiedDomain)) done.add('domain_verification');
     return done;
   }
 

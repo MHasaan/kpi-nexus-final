@@ -47,6 +47,9 @@ interface FakeReport {
 class FakePrisma {
   private nextId = 1;
   store: FakeReport[] = [];
+  /** What the organisation's settings say; UTC unless a test changes it. */
+  organizationTimezone = 'UTC';
+  organization = { findUnique: vi.fn(async () => ({ timezone: this.organizationTimezone })) };
 
   scheduledReport = {
     create: vi.fn(async ({ data }: { data: Partial<FakeReport> }) => {
@@ -237,6 +240,15 @@ describe('ScheduledReportService', () => {
       expect(jobName).toBe('run');
       expect((opts as Record<string, unknown>).jobId).toBe(`scheduled-report:${row.id}`);
       expect(((opts as Record<string, unknown>).repeat as { pattern: string }).pattern).toBe('0 9 * * 1');
+    });
+  });
+
+  test("the schedule runs on the organisation's clock: the job carries its timezone (plan 6.1)", async () => {
+    prisma.organizationTimezone = 'Asia/Karachi';
+    await runAs(ORG_A, USER_A, async () => {
+      await service.create({ name: 'Morning numbers', cron: '0 8 * * *', format: 'CSV', recipients: ['ceo@example.com'] });
+      const opts = queue.add.mock.calls[0]![2] as { repeat: { pattern: string; tz?: string } };
+      expect(opts.repeat).toEqual({ pattern: '0 8 * * *', tz: 'Asia/Karachi' });
     });
   });
 

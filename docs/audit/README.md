@@ -389,6 +389,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 6.1 (API part): the PDF report printed a raw UTC time and unformatted numbers; a scheduled report's '08:00' meant 08:00 UTC whatever the organisation's timezone | ✅ Fixed — the PDF writes the time and the numbers the organisation's way; a schedule's repeating job carries the organisation's timezone. CSV and Excel keep ISO timestamps and plain numbers on purpose. Existing schedules move over when next saved | #257 | `report-text.spec.ts` (4), `scheduled-report.service.spec.ts` (+1). Still open: QA-M10 (PDF content) |
 | QA-H3 (plan 1.6): KPI health was computed two ways — the home page used bands, then thresholds, then target; the KPI page only bands — so one KPI read 'At risk' at home and 'No bands set' on its own page | ✅ Fixed — `GET /kpis/:id/threshold-bands/status` returns `health` from the same rule and the KPI page shows it, with what it rests on | #258 | `kpi-threshold-bands.service.spec.ts` (+4), `e2e/kpi-health-one-rule.spec.ts`. By design the home page grades the newest value in its date range, the KPI page the newest of all |
 | QA-M2: the Tasks page hid 'New task' from anyone without KPI_CREATE although `POST /tasks` needs only KPI_VIEW | ✅ Fixed — the button asks for the key the API asks for; nobody gains a permission (the quick-add and the API already allowed it) | #259 | `e2e/task-button-permission.spec.ts` |
+| QA-L16: page text lowercased the organisation's labels wholesale, so 'KPI' read 'kpi' | ✅ Fixed — `inSentence` lowercases a label but keeps an acronym; used in the eight files that lowercased labels | #260 | `lib/sentence-case.spec.ts`, `e2e/labels-keep-acronyms.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -415,7 +416,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 | QA-L10 settings errors are generic ("Invalid request body") and name no field | Low | ⬜ open | 7.4 |
 | QA-L13 the public KPI embed shows "No data" next to a valid latest value | Low | ⬜ open | 4.6 |
 | QA-L14 the help drawer stays open across pages and its tips describe a top nav bar and a search icon the app does not have | Low | ⬜ open | 7.7 |
-| QA-L16 lowercased terminology in copy ("your kpi data", "Search kpis…") | Low | ⬜ open | 7.3 |
 | QA-L17 the Kanban board is cramped at laptop width: cards wrap one word per line and the Cancelled column is cut off | Low | ⬜ open | 7.7 |
 | QA-T1 `prod-compose.spec.ts` fails on Windows because it splits on `\n` and the checkout has CRLF endings | Low | ⬜ open | new 0.7 |
 | QA-T3 `pnpm dev` API restart loop: `nest start --watch` restarts repeatedly and the API refuses connections while it does | Low | ⬜ open | new 0.7 |

@@ -236,7 +236,13 @@ describe('WorkflowsService.trigger — "Run now"', () => {
     prisma.latest = { value: 42 }; // far below the rule's 100000: a manual run does not care
     const wf = await withCtx({}, () => service.create(celebrate));
     await withCtx({}, () => service.trigger(wf.id));
-    expect(dispatcher.run).toHaveBeenCalledWith(celebrate.action, { kind: 'kpi_changed', kpiId: 'mrr', value: 42 });
+    expect(dispatcher.run).toHaveBeenCalledWith(
+      celebrate.action,
+      { kind: 'kpi_changed', kpiId: 'mrr', value: 42 },
+      expect.any(Date),
+      // What it makes says it was run by hand, not that a value was recorded.
+      { name: celebrate.name, byHand: true },
+    );
     expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
   });
 

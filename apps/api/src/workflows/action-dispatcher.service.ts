@@ -27,6 +27,22 @@ export interface SendNotificationAction {
 
 export type WorkflowAction = CreateTaskAction | PostWebhookAction | SendNotificationAction;
 
+/** The automation an action belongs to, so what it makes can say where it came from. */
+export interface ActionSource {
+  name: string;
+  /** "Run now": nobody recorded a value, a person pressed the button. */
+  byHand?: boolean;
+}
+
+/** One line for a task made by an automation: which one, and what set it off. */
+export function madeBy(source: ActionSource, event: WorkflowEvent): string {
+  const who = `Made by the automation "${source.name}"`;
+  if (source.byHand) return `${who}, run by hand.`;
+  return event.kind === 'kpi_changed'
+    ? `${who} when a value of ${event.value} was recorded.`
+    : `${who} when an alert was raised.`;
+}
+
 /**
  * Fires the side effect for a matched workflow action. Each branch is
  * best-effort and fail-soft — a dispatch failure must never break the
@@ -48,9 +64,9 @@ export class ActionDispatcherService {
    * workflow. A failure is logged and swallowed, because it must never break
    * the operation that triggered it.
    */
-  async dispatch(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date()): Promise<void> {
+  async dispatch(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<void> {
     try {
-      await this.run(action, event, now);
+      await this.run(action, event, now, source);
     } catch (err) {
       this.logger.warn(`Workflow action ${(action as { kind?: string }).kind} failed: ${String(err)}`);
     }
@@ -60,10 +76,10 @@ export class ActionDispatcherService {
    * Do the action and let a failure be seen. Used by "Run now", where the
    * person pressing the button is waiting to hear whether it worked.
    */
-  async run(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date()): Promise<void> {
+  async run(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<void> {
     switch (action.kind) {
       case 'create_task':
-        await this.createTask(action, event, now);
+        await this.createTask(action, event, now, source);
         return;
       case 'post_webhook':
         await this.postWebhook(action, event);
@@ -76,13 +92,14 @@ export class ActionDispatcherService {
     }
   }
 
-  private async createTask(action: CreateTaskAction, event: WorkflowEvent, now: Date): Promise<void> {
+  private async createTask(action: CreateTaskAction, event: WorkflowEvent, now: Date, source?: ActionSource): Promise<void> {
     const dueAt = action.dueAtRelativeHours
       ? new Date(now.getTime() + action.dueAtRelativeHours * 3_600_000)
       : undefined;
     await this.tasks.create({
       title: action.title,
-      description: action.description,
+      // Without this the task arrives with a title and nothing else: nobody opening it can tell why it exists.
+      description: [action.description, source ? madeBy(source, event) : undefined].filter(Boolean).join('\n\n') || undefined,
       assigneeUserId: action.assigneeUserId,
       priority: action.priority,
       dueAt,

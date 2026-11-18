@@ -15,6 +15,7 @@ import {
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { forgetFiscalConfig } from '../../../lib/use-fiscal-config';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -38,7 +39,7 @@ export default function FiscalSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const [startMonth, setStartMonth] = useState(1);
-  const [weekStartsOn, setWeekStartsOn] = useState(0);
+  const [weekStartsOn, setWeekStartsOn] = useState(1);
   const [dateFormat, setDateFormat] = useState('');
   const [numberFormat, setNumberFormat] = useState('');
 
@@ -51,7 +52,7 @@ export default function FiscalSettingsPage() {
       .then((data) => {
         setOrg(data);
         setStartMonth(readStartMonth(data.fiscalCalendar));
-        setWeekStartsOn(data.weekStartsOn ?? 0);
+        setWeekStartsOn(data.weekStartsOn ?? 1);
         setDateFormat(data.dateFormat ?? '');
         setNumberFormat(data.numberFormat ?? '');
       })
@@ -79,6 +80,8 @@ export default function FiscalSettingsPage() {
         numberFormat: numberFormat.trim() || undefined,
       });
       setOrg(updated);
+      // Forms that offer a default period read the calendar once; make them read the new one.
+      forgetFiscalConfig();
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Save failed');

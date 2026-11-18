@@ -136,7 +136,8 @@ model Organization {
   supportedLocales    String[]
   dateFormat          String        @default("YYYY-MM-DD")
   numberFormat        String        @default("en-US")
-  weekStartsOn        Int           @default(0)
+  // 0 = Sunday … 6 = Saturday. Monday by default: what every week in the app was before this took effect.
+  weekStartsOn        Int           @default(1)
   fiscalCalendar      Json?
   // Terminology — 8 customizable labels surfaced in UI
   roleLabel           String        @default("Role")

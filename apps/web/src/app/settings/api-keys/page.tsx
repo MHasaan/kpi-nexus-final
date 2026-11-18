@@ -13,6 +13,7 @@ import {
   type ApiKey,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
+import { CopyButton } from '../../../components/copy-button';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
@@ -124,7 +125,7 @@ export default function ApiKeysPage() {
             <p className="text-sm font-medium text-content-strong">Copy your API key now — it won&apos;t be shown again.</p>
             <div className="mt-2 flex items-center gap-2">
               <code className="flex-1 break-all rounded-md border border-border bg-surface-bg px-3 py-2 text-xs text-content-strong">{mintedPlaintext}</code>
-              <button type="button" onClick={() => void navigator.clipboard?.writeText(mintedPlaintext)} className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs hover:bg-surface-2">Copy</button>
+              <CopyButton value={mintedPlaintext} />
               <button type="button" onClick={() => setMintedPlaintext(null)} data-testid="apikey-plaintext-dismiss" className="rounded-md border border-border bg-surface-1 px-3 py-2 text-xs hover:bg-surface-2">Dismiss</button>
             </div>
           </div>
@@ -167,7 +168,7 @@ export default function ApiKeysPage() {
           <div className="overflow-hidden rounded-lg border border-border bg-surface-1" data-testid="apikeys-table">
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-surface-2 text-left text-xs uppercase text-content-muted">
-                <tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Prefix</th><th className="px-4 py-2">Scopes</th><th className="px-4 py-2">Status</th><th className="px-4 py-2 text-right">Actions</th></tr>
+                <tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Prefix</th><th className="px-4 py-2">Scopes</th><th className="px-4 py-2">Status</th><th className="px-4 py-2">Last used</th><th className="px-4 py-2 text-right">Actions</th></tr>
               </thead>
               <tbody>
                 {keys.map((k) => (
@@ -176,6 +177,7 @@ export default function ApiKeysPage() {
                     <td className="px-4 py-3 font-mono text-xs text-content-muted">{k.keyPrefix}…</td>
                     <td className="px-4 py-3 text-xs text-content-muted">{k.scopes.join(', ')}</td>
                     <td className="px-4 py-3">{k.revokedAt ? 'Revoked' : 'Active'}</td>
+                    <td className="px-4 py-3 text-xs text-content-muted">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</td>
                     <td className="px-4 py-3 text-right">
                       {!k.revokedAt && (
                         <PermissionGuard permission="ORG_SETTINGS"><button type="button" onClick={() => void handleRevoke(k.id)} disabled={busyId === k.id} data-testid={`apikey-revoke-${k.id}`} className="rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs text-status-critical hover:bg-status-critical/10 disabled:opacity-50">Revoke</button></PermissionGuard>

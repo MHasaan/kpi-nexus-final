@@ -14,7 +14,6 @@ import {
   Avatar,
   Badge,
   Card,
-  Delta,
   EmptyState,
   ScopeBadge,
   Segmented,
@@ -27,7 +26,7 @@ import {
   TabsTrigger,
 } from '../../components/ui';
 import type { BadgeTone, KpiScope, KpiStatus } from '../../components/ui';
-import { BarChart, Donut, Sparkline } from '../../components/charts';
+import { Donut, Sparkline } from '../../components/charts';
 import type { DonutDatum } from '../../components/charts';
 import {
   ApiError,
@@ -269,9 +268,16 @@ function KpiRow({
         ) : (
           formatValue(row.latestValue, row.unit, fmt.number)
         )}
+        {/* How far towards its target, in words, under the value. It used to be drawn beside the
+            status as "▼ 6%", which read as a fall. */}
+        {pct !== null ? (
+          <span data-testid="kpi-row-attainment" className="block whitespace-nowrap text-[11.5px] font-normal text-content-muted">
+            {Math.round(pct)}% of target
+          </span>
+        ) : null}
       </span>
       <div className="flex items-center gap-2">
-        {pct !== null ? <Delta value={Math.round(pct - 100)} pct={Math.round(pct - 100)} /> : null}
+
         <StatusBadge status={status} />
       </div>
     </Link>
@@ -409,7 +415,8 @@ export default function DashboardPage() {
         .sort((a, b) => b.pct - a.pct)
         .slice(0, 8)
         .map(({ row, pct }) => ({
-          label: row.name.length > 10 ? `${row.name.slice(0, 9)}…` : row.name,
+          kpiId: row.kpiId,
+          name: row.name,
           value: Math.round(pct),
           color: STATUS_COLOR[deriveStatus(row)],
         })),
@@ -595,11 +602,24 @@ export default function DashboardPage() {
                   </div>
                   <div className="p-4">
                     {attainmentBars.length > 0 ? (
-                      <BarChart
-                        data={attainmentBars}
-                        height={208}
-                        aria-label="KPI attainment versus target"
-                        className="w-full"
+                      <ul className="space-y-3" aria-label="KPI attainment versus target">
+                        {attainmentBars.map((b) => (
+                          <li key={b.kpiId} data-testid={`attainment-row-${b.name}`}>
+                            <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                              <span className="truncate font-medium text-content-strong">{b.name}</span>
+                              <span className="shrink-0 tabular-nums text-content-muted">{b.value}%</span>
+                            </div>
+                            {/* The bar stops at the target; anything beyond it is said in the number. */}
+                            <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                              <div className="h-full rounded-full" style={{ width: `${Math.max(2, Math.min(100, b.value))}%`, background: b.color }} />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : summary.some((r) => r.targetValue !== null) ? (
+                      <EmptyState
+                        title="No values yet"
+                        description="Your KPIs have targets, but nothing is recorded to compare with them. Record a value to see attainment here."
                       />
                     ) : (
                       <EmptyState

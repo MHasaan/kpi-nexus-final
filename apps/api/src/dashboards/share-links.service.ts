@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import {
+import { BadRequestException,
   GoneException,
   Injectable,
   NotFoundException,
@@ -159,6 +159,15 @@ export class ShareLinksService {
     const ctx = RequestContextStore.require();
     // Enforce visibility + org-scope; throws 404 if not found or not visible.
     await this.dashboards.getById(dashboardId);
+
+    // A link that has already run out opens nothing: refuse it rather than store it.
+    if (dto.expiresAt && dto.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Choose an expiry time in the future',
+        details: { issues: [{ path: ['expiresAt'], message: 'Choose an expiry time in the future' }] },
+      });
+    }
 
     const token = randomBytes(32).toString('base64url');
     const passwordHash = dto.password

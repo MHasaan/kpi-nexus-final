@@ -95,9 +95,13 @@ export default function DashboardSharePage() {
 
   async function handleCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setCreating(true);
     setCreateError(null);
     setNewLink(null);
+    if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+      setCreateError('Choose an expiry time in the future.');
+      return;
+    }
+    setCreating(true);
     try {
       const link = await createShareLink(dashboardId, {
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
@@ -147,7 +151,10 @@ export default function DashboardSharePage() {
     return `${window.location.origin}/share/${token}`;
   }
 
-  const activeLinks = links.filter((l) => !l.revokedAt);
+  // A link past its expiry opens nothing, so it is not "active": it is listed apart, to be removed.
+  const isExpired = (l: { expiresAt: string | null }) => l.expiresAt !== null && new Date(l.expiresAt).getTime() <= Date.now();
+  const activeLinks = links.filter((l) => !l.revokedAt && !isExpired(l));
+  const expiredLinks = links.filter((l) => !l.revokedAt && isExpired(l));
 
   return (
     <RequirePermission permission="DASHBOARD_MANAGE">
@@ -313,7 +320,7 @@ export default function DashboardSharePage() {
                             {link.expiresAt && (
                               <Badge tone="neutral">
                                 expires{' '}
-                                {fmt.date(link.expiresAt)}
+                                {fmt.dateTime(link.expiresAt)}
                               </Badge>
                             )}
                             <span className="tabular-nums text-content-muted">
@@ -365,6 +372,44 @@ export default function DashboardSharePage() {
             </div>
           )}
         </section>
+
+        {expiredLinks.length > 0 && (
+          <section data-testid="share-links-expired-section" className="mt-8">
+            <h2 className="mb-1 text-base font-semibold text-content-strong">
+              Expired links (<span className="tabular-nums">{expiredLinks.length}</span>)
+            </h2>
+            <p className="mb-4 text-sm text-content-muted">These no longer open the dashboard. Remove them, or leave them as a record.</p>
+            <div className="space-y-3">
+              {expiredLinks.map((link) => (
+                <Card key={link.id} data-testid={`share-link-expired-${link.id}`}>
+                  <CardContent>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <Badge tone="warning">expired</Badge>
+                        <span className="text-content-muted">on {fmt.dateTime(link.expiresAt!)}</span>
+                        {link.hasPassword && <Badge tone="neutral">password protected</Badge>}
+                        <span className="tabular-nums text-content-muted">
+                          {link.viewCount} view{link.viewCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleRevoke(link.id)}
+                        disabled={revokingId === link.id}
+                        isLoading={revokingId === link.id}
+                        data-testid={`share-revoke-${link.id}`}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </AppShell>
     </RequirePermission>

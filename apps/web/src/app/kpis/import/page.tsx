@@ -29,6 +29,9 @@ import {
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 
+/** The API takes up to a million characters of CSV (apps/api/src/kpis/kpis.controller.ts). */
+const MAX_CSV_BYTES = 1_000_000;
+
 const SAMPLE = `KPI Name,Type,Direction,Target,Tags
 Monthly Recurring Revenue,CURRENCY,HIGHER_IS_BETTER,50000,finance;growth
 Net Promoter Score,NUMBER,HIGHER_IS_BETTER,40,cx
@@ -57,6 +60,7 @@ export default function KpiImportPage() {
   const router = useRouter();
   const [csv, setCsv] = useState('');
   const [result, setResult] = useState<KpiImportDryRun | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +69,27 @@ export default function KpiImportPage() {
   useEffect(() => {
     if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
+
+  /** New text has not been checked: a result from an earlier dry-run no longer speaks for it. */
+  function changeCsv(next: string) {
+    setCsv(next);
+    setResult(null);
+    setDone(null);
+  }
+
+  async function loadFile(file: File) {
+    setError(null);
+    if (file.size > MAX_CSV_BYTES) {
+      setError(`That file is too large: ${Math.ceil(file.size / 1024)} KB. The limit is ${MAX_CSV_BYTES / 1000} KB.`);
+      return;
+    }
+    try {
+      changeCsv(await file.text());
+      setFileName(file.name);
+    } catch {
+      setError('That file could not be read.');
+    }
+  }
 
   async function handleDryRun() {
     setRunning(true);
@@ -92,6 +117,7 @@ export default function KpiImportPage() {
       setDone(`Imported ${createdCount} KPI${createdCount === 1 ? '' : 's'}.`);
       setResult(null);
       setCsv('');
+      setFileName(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Commit failed');
     } finally {
@@ -156,16 +182,40 @@ export default function KpiImportPage() {
               </li>
             </ul>
           </div>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="kpi-import-file"
+              className="inline-flex cursor-pointer items-center rounded-md border border-border bg-surface-bg px-3 py-1.5 text-sm font-medium text-content-strong hover:bg-surface-2 focus-within:ring-2 focus-within:ring-ring"
+            >
+              Choose a CSV file
+              <input
+                id="kpi-import-file"
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                className="sr-only"
+                data-testid="kpi-import-file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Let the same file be chosen again after a change on disk.
+                  e.target.value = '';
+                  if (file) void loadFile(file);
+                }}
+              />
+            </label>
+            <span className="text-xs text-content-muted" data-testid="kpi-import-file-name">
+              {fileName ? `From ${fileName}. You can still edit it below.` : 'or paste the CSV below'}
+            </span>
+          </div>
           <Textarea
             value={csv}
-            onChange={(e) => setCsv(e.target.value)}
+            onChange={(e) => changeCsv(e.target.value)}
             rows={10}
             data-testid="kpi-import-textarea"
             placeholder={SAMPLE}
             className="font-mono text-xs"
           />
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setCsv(SAMPLE)} data-testid="kpi-import-sample">
+            <Button variant="secondary" size="sm" onClick={() => changeCsv(SAMPLE)} data-testid="kpi-import-sample">
               Load sample
             </Button>
             <Button

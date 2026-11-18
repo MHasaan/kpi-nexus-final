@@ -66,6 +66,9 @@ interface FakeDataPoint {
 
 class FakePrisma {
   kpiStore: FakeKpi[] = [];
+  /** Threshold bands of the KPI; none unless a test adds them. */
+  bandStore: Array<{ name: string; lower: number | null; upper: number | null; color: string; order: number; consecutivePointsRequired: number }> = [];
+  kPIThresholdBand = { findMany: vi.fn(async () => this.bandStore) };
   dataPointStore: FakeDataPoint[] = [];
 
   kPI = {
@@ -595,5 +598,43 @@ describe('EmbedTokenService', () => {
     const snapshot = await service.resolve(token);
     expect(snapshot.latestValue).toBeNull();
     expect(snapshot.sparkline).toEqual([]);
+  });
+
+  // QA-L13: the embed had a health rule of its own. With a value and a target but no
+  // thresholds it answered "unknown", which the page printed as "No data" next to the value.
+  describe('status follows the one health rule (QA-L13)', () => {
+    const kpi = (over: Record<string, unknown>) => ({ id: KPI_ID, organizationId: ORG, name: 'Score', unit: '%', targetValue: 100, warningThreshold: null, criticalThreshold: null, direction: 'HIGHER_IS_BETTER', embedTokenVersion: 0, deletedAt: null, ...over });
+    const statusOf = async (prisma: FakePrisma) => {
+      const service = makeService(prisma);
+      const token = await withCtx({}, () => service.mint(KPI_ID));
+      return (await service.resolve(token)).thresholdStatus;
+    };
+    const withValue = (value: number, over: Record<string, unknown> = {}) => {
+      const prisma = new FakePrisma();
+      prisma.kpiStore.push(kpi(over) as never);
+      prisma.dataPointStore.push({ organizationId: ORG, kpiId: KPI_ID, recordedAt: new Date(), value });
+      return prisma;
+    };
+
+    test('a value graded against the target alone is ok / warning / critical — not "unknown"', async () => {
+      expect(await statusOf(withValue(120))).toBe('ok');
+      expect(await statusOf(withValue(40))).toBe('critical');
+    });
+
+    test('a value with nothing to grade it against has no status, and is not "no data"', async () => {
+      expect(await statusOf(withValue(40, { targetValue: null }))).toBe('no_target');
+    });
+
+    test('no value at all is unknown', async () => {
+      const prisma = new FakePrisma();
+      prisma.kpiStore.push(kpi({}) as never);
+      expect(await statusOf(prisma)).toBe('unknown');
+    });
+
+    test('a threshold band decides when there is one', async () => {
+      const prisma = withValue(120);
+      prisma.bandStore.push({ name: 'At risk', lower: 100, upper: null, color: '#f59e0b', order: 0, consecutivePointsRequired: 1 });
+      expect(await statusOf(prisma)).toBe('warning');
+    });
   });
 });

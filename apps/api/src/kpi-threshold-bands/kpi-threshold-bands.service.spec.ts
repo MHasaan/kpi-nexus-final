@@ -143,7 +143,15 @@ describe('KpiThresholdBandsService.resolveStatus — health (QA-H3)', () => {
 
   it("with no bands, the KPI's own thresholds decide — the same answer as the home page", async () => {
     const service = withKpi({ warningThreshold: 80, criticalThreshold: 50 }, [], [72]);
-    await expect(withCtx(() => service.resolveStatus(KPI_ID))).resolves.toEqual({ band: null, reason: 'no_bands', health: 'AT_RISK' });
+    await expect(withCtx(() => service.resolveStatus(KPI_ID))).resolves.toMatchObject({ band: null, reason: 'no_bands', health: 'AT_RISK' });
+  });
+
+  // Flow walk: the KPI's page shows how far the value has come towards its target.
+  it('says how far the newest value has come towards the target, direction-aware; null with nothing to compare', async () => {
+    await expect(withCtx(() => withKpi({ targetValue: 200 }, [], [150]).resolveStatus(KPI_ID))).resolves.toMatchObject({ attainmentPct: 75 });
+    await expect(withCtx(() => withKpi({ targetValue: 50, direction: 'LOWER_IS_BETTER' }, [], [100]).resolveStatus(KPI_ID))).resolves.toMatchObject({ attainmentPct: 50 });
+    await expect(withCtx(() => withKpi({ targetValue: null }, [], [150]).resolveStatus(KPI_ID))).resolves.toMatchObject({ attainmentPct: null });
+    await expect(withCtx(() => withKpi({ targetValue: 200 }, [], []).resolveStatus(KPI_ID))).resolves.toMatchObject({ attainmentPct: null });
   });
 
   it('with no bands and no thresholds, the target decides', async () => {

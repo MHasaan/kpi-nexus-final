@@ -46,7 +46,8 @@ export class ActivityService {
     const where: Prisma.AuditLogWhereInput = { organizationId: ctx.organizationId };
     // Non-admins only see their own activity.
     where.userId = resolved.isAdmin ? filter.userId : ctx.userId;
-    if (filter.entityType) where.entityType = filter.entityType;
+    // Typed into a free-text box: "kpi" must find KPI rows.
+    if (filter.entityType) where.entityType = { equals: filter.entityType, mode: 'insensitive' };
     if (filter.action) where.action = filter.action as Prisma.AuditLogWhereInput['action'];
     if (filter.from || filter.to) {
       where.createdAt = { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) };

@@ -19,6 +19,13 @@ interface FakeLog {
   createdAt: Date;
 }
 
+/** Like Prisma: a plain string must match exactly; `{ equals, mode: 'insensitive' }` ignores case. */
+function matchesEntityType(actual: string | null, filter: unknown): boolean {
+  if (typeof filter === 'string') return actual === filter;
+  const f = filter as { equals: string; mode?: string };
+  return f.mode === 'insensitive' ? actual?.toLowerCase() === f.equals.toLowerCase() : actual === f.equals;
+}
+
 class FakePrisma {
   logs: FakeLog[] = [];
   users = [{ id: 'alice', fullName: 'Alice' }, { id: 'bob', fullName: 'Bob' }];
@@ -26,7 +33,7 @@ class FakePrisma {
   auditLog = {
     findMany: vi.fn(async ({ where, take, cursor, skip }: { where: Record<string, unknown>; take: number; cursor?: { id: string }; skip?: number }) => {
       let rows = this.logs
-        .filter((l) => l.organizationId === where.organizationId && (where.userId === undefined ? true : l.userId === where.userId) && (where.entityType === undefined ? true : l.entityType === where.entityType))
+        .filter((l) => l.organizationId === where.organizationId && (where.userId === undefined ? true : l.userId === where.userId) && (where.entityType === undefined ? true : matchesEntityType(l.entityType, where.entityType)))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       if (cursor) {
         const idx = rows.findIndex((r) => r.id === cursor.id);
@@ -97,5 +104,13 @@ describe('ActivityService.list', () => {
     prisma.logs.push({ id: 'log_x', organizationId: ORG, userId: 'alice', action: 'CREATE', entityType: 'Dashboard', createdAt: new Date(2000) });
     const res = await withCtx({ userId: 'admin' }, () => service.list({ entityType: 'Dashboard', limit: 10 }));
     expect(res.items.every((i) => i.entityType === 'Dashboard')).toBe(true);
+  });
+
+  test('the filter ignores case: "dashboard" finds Dashboard rows (plan 7.7)', async () => {
+    const { service, prisma } = makeService(true);
+    seed(prisma);
+    prisma.logs.push({ id: 'log_x', organizationId: ORG, userId: 'alice', action: 'CREATE', entityType: 'Dashboard', createdAt: new Date(2000) });
+    const res = await withCtx({ userId: 'admin' }, () => service.list({ entityType: 'dashboard', limit: 10 }));
+    expect(res.items.map((i) => i.id)).toEqual(['log_x']);
   });
 });

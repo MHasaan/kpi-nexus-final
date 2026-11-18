@@ -1677,6 +1677,12 @@ export async function getScheduledReport(id: string): Promise<ScheduledReport> {
   return api(`/scheduled-reports/${id}`);
 }
 
+/** A download address for one finished run, made now and good for a few minutes. */
+export async function getReportRunDownloadUrl(reportId: string, runId: string): Promise<string> {
+  const res = await api<{ url: string }>(`/scheduled-reports/${reportId}/runs/${runId}/download`);
+  return res.url;
+}
+
 export async function updateScheduledReport(
   id: string,
   patch: Partial<{

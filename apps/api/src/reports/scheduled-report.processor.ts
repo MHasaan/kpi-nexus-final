@@ -10,13 +10,8 @@ import { escapeHtml } from '../email/escape-html.js';
 import { ReportsService } from './reports.service.js';
 import { StorageService } from './services/storage.service.js';
 import type { ScheduledReportJobData } from './scheduled-report.service.js';
+import { reportFileKey } from './report-file-key.js';
 
-// Extension lookup table for file naming.
-const FORMAT_EXT: Record<string, string> = {
-  CSV: 'csv',
-  EXCEL: 'xlsx',
-  PDF: 'pdf',
-};
 
 /**
  * P3.7 — ScheduledReportProcessor.
@@ -139,8 +134,7 @@ export class ScheduledReportProcessor extends WorkerHost {
       });
 
       // Upload to S3.
-      const ext = FORMAT_EXT[scheduledReport.format] ?? 'bin';
-      const key = `reports/${organizationId}/${run.id}.${ext}`;
+      const key = reportFileKey(organizationId, run.id, scheduledReport.format);
       await this.storage.upload(key, buffer, contentType);
       const fileUrl = await this.storage.getDownloadUrl(key);
 

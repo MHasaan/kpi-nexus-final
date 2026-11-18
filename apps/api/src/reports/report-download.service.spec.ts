@@ -22,7 +22,7 @@ function make(run: Record<string, unknown> | null, reportVisible = true) {
       return { id: 'rep_1' };
     }),
   };
-  const prisma = { reportRun: { findFirst: vi.fn(async () => run) } };
+  const prisma = { reportRun: { findFirst: vi.fn(async (_args: { where: Record<string, unknown> }) => run) } };
   const storage = { getDownloadUrl: vi.fn(async (key: string, seconds?: number) => `https://files.test/${key}?good-for=${seconds}`) };
   const service = new ReportDownloadService(
     prisma as unknown as PrismaService,

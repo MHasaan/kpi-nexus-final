@@ -15972,6 +15972,54 @@
         }
       }
     },
+    "/scheduled-reports/{id}/runs/{runId}/download": {
+      "get": {
+        "operationId": "ScheduledReportsController_download",
+        "tags": [
+          "ScheduledReports"
+        ],
+        "summary": "GET /scheduled-reports/:id/runs/:runId/download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "REPORTS_VIEW"
+          ]
+        }
+      }
+    },
     "/scheduled-reports/{id}/trigger": {
       "post": {
         "operationId": "ScheduledReportsController_trigger",

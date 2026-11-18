@@ -97,13 +97,13 @@ export class StorageService {
   }
 
   /**
-   * Get a presigned GET URL for the object, valid for 7 days.
+   * Get a presigned GET URL for the object, valid for 7 days unless a shorter life is asked for.
    * The URL points to the endpoint configured via S3_ENDPOINT.
    */
-  async getDownloadUrl(key: string): Promise<string> {
+  async getDownloadUrl(key: string, expiresInSeconds: number = SEVEN_DAYS_SECONDS): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     const url = await getSignedUrl(this.client, command, {
-      expiresIn: SEVEN_DAYS_SECONDS,
+      expiresIn: expiresInSeconds,
     });
     return url;
   }

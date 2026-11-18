@@ -5,13 +5,14 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
 import { isApprovalPending } from '../../lib/role-permissions';
 import { ApprovalPendingNotice } from '../approval-pending-notice';
+import { usePeople } from '../../lib/use-people';
+import { usePermissions } from '../../lib/use-permissions';
 
 import {
   ApiError,
   createKpi,
   listKpiCategories,
   listOrgUnits,
-  listUsers,
   updateKpi,
   type KpiCategory,
   type KpiDirection,
@@ -21,7 +22,6 @@ import {
   type KpiType,
   type KpiWriteBody,
   type OrgUnitSummary,
-  type UserSummary,
   getActiveTarget,
 } from '../../lib/api-client';
 import {
@@ -288,8 +288,11 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
     };
   }, [mode, kpiId]);
   const [values, setValues] = useState<KpiFormValues>(() => buildInitialValues(initial));
+  // The people the pickers offer: everyone for a reader who may list people; otherwise the
+  // reader and those this KPI already names (X-05) — never a request that would be refused.
+  const users = usePeople([values.ownerUserId, ...values.userIds]);
+  const canListPeople = usePermissions().has('USERS_VIEW');
   const [categories, setCategories] = useState<KpiCategory[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -298,11 +301,10 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
   // Load pickers.
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled([listKpiCategories(), listUsers(), listOrgUnits()]).then((results) => {
+    Promise.allSettled([listKpiCategories(), listOrgUnits()]).then((results) => {
       if (cancelled) return;
       if (results[0].status === 'fulfilled') setCategories(results[0].value);
-      if (results[1].status === 'fulfilled') setUsers(results[1].value);
-      if (results[2].status === 'fulfilled') setOrgUnits(results[2].value);
+      if (results[1].status === 'fulfilled') setOrgUnits(results[1].value);
     });
     return () => {
       cancelled = true;
@@ -470,10 +472,17 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
               <option value="">Unassigned</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.fullName} ({u.email})
+                  {u.fullName}
+                  {u.email ? ` (${u.email})` : ''}
                 </option>
               ))}
             </Select>
+            {!canListPeople && (
+              <p className="text-xs text-content-muted" data-testid="kpi-people-note">
+                You can choose yourself or the people already named on this KPI. Choosing anyone else needs
+                permission to see the list of people.
+              </p>
+            )}
           </Field>
         </div>
         <Field label="Tags" htmlFor="kpi-tags" help="Comma-separated, e.g. revenue, north-star">

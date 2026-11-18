@@ -82,18 +82,32 @@ export class KpiCascadesService {
       });
     }
 
+    // The roll-up method is the parent's, not the edge's: the engine reads one method for all of
+    // a parent's children. So an attach that names no method takes the one the parent has, and an
+    // attach that names one sets it on every child — what the page shows is what is computed.
+    const sibling = await this.prisma.kPICascade.findFirst({
+      where: { organizationId: ctx.organizationId, parentKpiId: dto.parentKpiId },
+      select: { method: true, customFormula: true },
+    });
+    const method = dto.method ?? sibling?.method ?? 'SUM';
+    const customFormula = method === 'CUSTOM_FORMULA' ? (dto.customFormula ?? sibling?.customFormula ?? null) : null;
+
     const saved = await this.prisma.kPICascade.upsert({
       where: { parentKpiId_childKpiId: { parentKpiId: dto.parentKpiId, childKpiId: dto.childKpiId } },
       create: {
         organizationId: ctx.organizationId,
         parentKpiId: dto.parentKpiId,
         childKpiId: dto.childKpiId,
-        method: dto.method,
-        weight: dto.weight,
-        customFormula: dto.customFormula,
+        method,
+        weight: dto.weight ?? 1,
+        customFormula,
       },
-      update: { method: dto.method, weight: dto.weight, customFormula: dto.customFormula },
+      update: { method, weight: dto.weight, customFormula },
       select: cascadeSelect,
+    });
+    await this.prisma.kPICascade.updateMany({
+      where: { organizationId: ctx.organizationId, parentKpiId: dto.parentKpiId, id: { not: saved.id } },
+      data: { method, customFormula },
     });
 
     await this.recomputeLevels();
@@ -101,7 +115,7 @@ export class KpiCascadesService {
       action: 'CREATE',
       entityType: 'KPICascade',
       entityId: saved.id,
-      metadata: { parentKpiId: dto.parentKpiId, childKpiId: dto.childKpiId, method: dto.method },
+      metadata: { parentKpiId: dto.parentKpiId, childKpiId: dto.childKpiId, method },
     });
     // Return the row with its freshly-computed level.
     return this.prisma.kPICascade.findUniqueOrThrow({ where: { id: saved.id }, select: cascadeSelect });

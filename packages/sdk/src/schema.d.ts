@@ -8311,13 +8311,9 @@ export interface operations {
                 "application/json": {
                     parentKpiId: string;
                     childKpiId: string;
-                    /**
-                     * @default SUM
-                     * @enum {string}
-                     */
-                    method: "SUM" | "AVG" | "WEIGHTED_AVG" | "MIN" | "MAX" | "CUSTOM_FORMULA";
-                    /** @default 1 */
-                    weight: number;
+                    /** @enum {string} */
+                    method?: "SUM" | "AVG" | "WEIGHTED_AVG" | "MIN" | "MAX" | "CUSTOM_FORMULA";
+                    weight?: number;
                     customFormula?: string;
                 };
             };

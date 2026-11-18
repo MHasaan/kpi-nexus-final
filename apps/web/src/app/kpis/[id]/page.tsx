@@ -95,6 +95,7 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
+import { useAllowed } from '../../../lib/use-allowed';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
@@ -880,6 +881,15 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
   );
 }
 
+/** How a parent KPI is worked out from its children (the API's roll-up methods, bar the custom formula). */
+const ROLLUP_METHOD_LABELS: Record<string, string> = {
+  SUM: 'The sum of them',
+  AVG: 'Their average',
+  WEIGHTED_AVG: 'Their weighted average',
+  MIN: 'The lowest of them',
+  MAX: 'The highest of them',
+};
+
 const EMPTY_BAND = { name: '', lower: '', upper: '', color: BAND_PRESETS[0]!.color, order: '0', consecutive: '1' };
 
 /** "50 to 80", "up to 49", "80 and above", "any value". */
@@ -1331,7 +1341,20 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
   const nm = (id: string) => names?.[id] ?? id.slice(0, 8);
   const parents = (edges ?? []).filter((e: Cascade) => e.childKpiId === kpiId);
   const children = (edges ?? []).filter((e: Cascade) => e.parentKpiId === kpiId);
-  const totalWeight = children.reduce((s, c) => s + c.weight, 0);
+  // One method for all of a parent's children (the engine reads one); a sum until something else is chosen.
+  const method = children[0]?.method ?? 'SUM';
+  const weighted = method === 'WEIGHTED_AVG';
+  const mayEdit = useAllowed('KPI_EDIT');
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const save = async (childKpiId: string, change: { method?: string; weight?: number }) => {
+    setSaveErr(null);
+    try {
+      await attachCascade({ parentKpiId: kpiId, childKpiId, ...change });
+    } catch (e) {
+      setSaveErr(e instanceof ApiError ? e.message : 'Could not save the change');
+    }
+    reload();
+  };
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <TabLoadError error={loadError} onRetry={reload} className="sm:col-span-2" />
@@ -1371,15 +1394,72 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
       </UICard>
       <UICard>
         <CardContent>
-          <p className="kn-eyebrow mb-2">Children (weight {totalWeight})</p>
+          <p className="kn-eyebrow mb-2">Children</p>
+          {children.length > 0 && (
+            <div className="mb-2 flex flex-col gap-1.5">
+              <Label htmlFor="cascade-method">This KPI is worked out from its children as</Label>
+              {method === 'CUSTOM_FORMULA' ? (
+                <p id="cascade-method" className="text-sm text-content-strong" data-testid="cascade-method-custom">
+                  A custom formula
+                </p>
+              ) : (
+                <>
+                  <Select
+                    disabled={!mayEdit}
+                    id="cascade-method"
+                    value={method}
+                    onChange={(ev) => void save(children[0]!.childKpiId, { method: ev.target.value })}
+                    data-testid="cascade-method"
+                  >
+                    {Object.entries(ROLLUP_METHOD_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </>
+              )}
+            </div>
+          )}
+          {saveErr && (
+            <p role="alert" data-testid="cascade-save-error" className="mb-2 text-sm text-status-critical">
+              {saveErr}
+            </p>
+          )}
           {children.map((e) => (
             <div
               key={e.id}
-              className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
+              data-testid={`cascade-child-row-${e.childKpiId}`}
+              className="flex items-center justify-between gap-2 border-b border-border-divider py-2 text-sm last:border-0"
             >
-              <span className="text-content-strong">
-                {nm(e.childKpiId)} <span className="tabular-nums text-content-muted">· {e.method} · w{e.weight}</span>
-              </span>
+              <span className="min-w-0 flex-1 truncate text-content-strong">{nm(e.childKpiId)}</span>
+              {/* A weight only counts in a weighted average, so it is only offered there. */}
+              {weighted && (
+                <>
+                  <label className="flex items-center gap-1.5 text-xs text-content-muted">
+                    Weight
+                    <Input
+                      key={`${e.id}-${e.weight}`}
+                      type="number"
+                      min={0}
+                      step="any"
+                      defaultValue={e.weight}
+                      disabled={!mayEdit}
+                      className="h-8 w-20"
+                      data-testid={`cascade-weight-${e.childKpiId}`}
+                      onBlur={(ev) => {
+                        const next = Number(ev.target.value);
+                        if (ev.target.value.trim() === '' || !Number.isFinite(next) || next < 0) {
+                          ev.target.value = String(e.weight);
+                          setSaveErr('A weight is a number, zero or more.');
+                          return;
+                        }
+                        if (next !== e.weight) void save(e.childKpiId, { weight: next });
+                      }}
+                    />
+                  </label>
+                </>
+              )}
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
@@ -1427,7 +1507,8 @@ function AddChildForm({
     if (!childKpiId) return;
     setErr(null);
     try {
-      await attachCascade({ parentKpiId: kpiId, childKpiId, method: 'SUM' });
+      // No method named: the child takes the one this KPI already uses.
+      await attachCascade({ parentKpiId: kpiId, childKpiId });
       setChildKpiId('');
       onAdded();
     } catch (e2) {

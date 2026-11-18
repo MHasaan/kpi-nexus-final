@@ -5656,7 +5656,6 @@
                     "minLength": 1
                   },
                   "method": {
-                    "default": "SUM",
                     "type": "string",
                     "enum": [
                       "SUM",
@@ -5668,7 +5667,6 @@
                     ]
                   },
                   "weight": {
-                    "default": 1,
                     "type": "number",
                     "minimum": 0
                   },
@@ -5680,9 +5678,7 @@
                 },
                 "required": [
                   "parentKpiId",
-                  "childKpiId",
-                  "method",
-                  "weight"
+                  "childKpiId"
                 ],
                 "additionalProperties": false
               }

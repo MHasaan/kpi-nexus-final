@@ -348,6 +348,9 @@ describe('InsightsService.generate confidence', () => {
     expect(insight!.confidence).toBeLessThanOrEqual(1);
     // Recent values = newest periods, not newest entries (AN-002).
     expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }] });
+    // Organisation-level rows only (BE-054): what is written is stored and read by others, so it is
+    // never built from one person's or one unit's values.
+    expect(prisma.kPIDataPoint.findMany.mock.calls[0]![0]).toMatchObject({ where: { userId: null, orgUnitId: null } });
   });
 
   test('rises with more data points (higher volume → higher confidence)', async () => {

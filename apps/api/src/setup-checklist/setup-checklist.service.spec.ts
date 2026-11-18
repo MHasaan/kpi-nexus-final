@@ -23,10 +23,9 @@ interface Has {
   connection?: boolean;
   admins?: number;
   adminWithoutMfa?: boolean;
-  sso?: boolean;
+  kpi?: boolean;
+  alertRule?: boolean;
   aiConfig?: boolean;
-  domain?: boolean;
-  verifiedDomain?: boolean;
 }
 
 function make(has: Has, persisted: Array<{ key: string; status: string }> = []) {
@@ -51,11 +50,9 @@ function make(has: Has, persisted: Array<{ key: string; status: string }> = []) 
     objective: { findFirst: track(row(has.objective)) },
     connector: { findFirst: track(row(has.connector)) },
     integrationConnection: { findFirst: track(row(has.connection)) },
-    ssoConfig: { findFirst: track(row(has.sso)) },
+    kPI: { findFirst: track(row(has.kpi)) },
+    alertRule: { findFirst: track(row(has.alertRule)) },
     aiFeatureConfig: { findFirst: track(row(has.aiConfig)) },
-    customDomain: {
-      findFirst: track(async ({ where }) => (('verifiedAt' in where ? has.verifiedDomain : has.domain) ? { id: 'd' } : null)),
-    },
   };
   const service = new SetupChecklistService(prisma as unknown as PrismaService);
   const list = () => RequestContextStore.run(ctx, () => service.list());
@@ -73,6 +70,8 @@ describe('SetupChecklistService.list — detection', () => {
   });
 
   test.each<[string, Has]>([
+    ['first_kpi', { kpi: true }],
+    ['alert_rule', { alertRule: true }],
     ['remaining_invites', { people: 2 }],
     ['historical_import', { dataPoint: true }],
     ['default_dashboard', { widget: true }],
@@ -83,15 +82,9 @@ describe('SetupChecklistService.list — detection', () => {
     ['data_source', { connector: true }],
     ['data_source', { connection: true }],
     ['mfa', { adminWithoutMfa: false }],
-    ['sso', { sso: true }],
     ['ai_tuning', { aiConfig: true }],
-    ['custom_domain', { domain: true }],
   ])('%s is complete once the organisation has it', async (key, has) => {
     expect(await done(has)).toEqual([key]);
-  });
-
-  test('a verified domain completes both domain tasks', async () => {
-    expect(await done({ domain: true, verifiedDomain: true })).toEqual(['custom_domain', 'domain_verification']);
   });
 
   test('the administrator alone is not "a team invited"', async () => {

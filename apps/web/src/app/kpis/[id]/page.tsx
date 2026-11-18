@@ -94,6 +94,7 @@ import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
 import { usePermissions } from '../../../lib/use-permissions';
@@ -879,15 +880,29 @@ function TargetsTab({ kpiId }: { kpiId: string }) {
   );
 }
 
+const EMPTY_BAND = { name: '', lower: '', upper: '', color: BAND_PRESETS[0]!.color, order: '0', consecutive: '1' };
+
+/** "50 to 80", "up to 49", "80 and above", "any value". */
+function bandRange(lower: number | null, upper: number | null): string {
+  if (lower != null && upper != null) return `${lower} to ${upper}`;
+  if (upper != null) return `up to ${upper}`;
+  if (lower != null) return `${lower} and above`;
+  return 'any value';
+}
+
 function ThresholdsTab({ kpiId }: { kpiId: string }) {
   const confirm = useConfirm();
   const [bands, reload, loadError] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
   const [status] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
-  const [form, setForm] = useState({ name: '', lower: '', upper: '', color: '#16a34a', order: '0' });
+  const [form, setForm] = useState(EMPTY_BAND);
   const [err, setErr] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
+    if (form.lower !== '' && form.upper !== '' && Number(form.lower) > Number(form.upper)) {
+      setErr('"From" must not be greater than "To".');
+      return;
+    }
     try {
       await createThresholdBand(kpiId, {
         name: form.name,
@@ -895,13 +910,16 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
         upper: form.upper === '' ? null : Number(form.upper),
         color: form.color,
         order: Number(form.order),
+        consecutivePointsRequired: Number(form.consecutive) || 1,
       });
-      setForm({ name: '', lower: '', upper: '', color: '#16a34a', order: '0' });
+      setForm(EMPTY_BAND);
       reload();
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Failed to add band');
     }
   };
+  // The select shows what the name typed so far counts as; choosing from it fills name and colour.
+  const meaning = form.name.trim() === '' ? '' : bandMeaning(form.name);
   return (
     <div className="space-y-4">
       <TabLoadError error={loadError} onRetry={reload} />
@@ -915,37 +933,110 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       </UICard>
       <UICard>
         <CardContent>
-          <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <Input
-              placeholder="name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-              data-testid="band-name"
-            />
-            <Input
-              placeholder="lower"
-              value={form.lower}
-              onChange={(e) => setForm({ ...form, lower: e.target.value })}
-              type="number"
-              step="any"
-            />
-            <Input
-              placeholder="upper"
-              value={form.upper}
-              onChange={(e) => setForm({ ...form, upper: e.target.value })}
-              type="number"
-              step="any"
-            />
-            <Input
-              value={form.order}
-              onChange={(e) => setForm({ ...form, order: e.target.value })}
-              type="number"
-            />
-            <BusySubmit data-testid="band-add">
-              Add band
-            </BusySubmit>
-          </BusyForm></PermissionGuard>
+          <PermissionGuard permission="KPI_EDIT">
+            <BusyForm onSubmit={add} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-meaning">Counts as</Label>
+                  <Select
+                    id="band-meaning"
+                    value={meaning}
+                    onChange={(e) => {
+                      const preset = BAND_PRESETS.find((p) => p.meaning === e.target.value);
+                      if (preset) setForm({ ...form, name: preset.name, color: preset.color });
+                    }}
+                  >
+                    <option value="" disabled>
+                      Choose…
+                    </option>
+                    {BAND_PRESETS.map((p) => (
+                      <option key={p.meaning} value={p.meaning}>
+                        {labelFor(HEALTH_STATUS_LABELS, p.meaning)}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-name">Name</Label>
+                  <Input
+                    id="band-name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                    maxLength={80}
+                    data-testid="band-name"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-lower">From</Label>
+                  <Input
+                    id="band-lower"
+                    placeholder="no lower limit"
+                    value={form.lower}
+                    onChange={(e) => setForm({ ...form, lower: e.target.value })}
+                    type="number"
+                    step="any"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-upper">To</Label>
+                  <Input
+                    id="band-upper"
+                    placeholder="no upper limit"
+                    value={form.upper}
+                    onChange={(e) => setForm({ ...form, upper: e.target.value })}
+                    type="number"
+                    step="any"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-color">Colour</Label>
+                  <input
+                    id="band-color"
+                    type="color"
+                    value={form.color}
+                    onChange={(e) => setForm({ ...form, color: e.target.value })}
+                    className="h-9 w-full cursor-pointer rounded-md border border-border bg-surface-bg p-1"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-order">Checked in position</Label>
+                  <Input
+                    id="band-order"
+                    value={form.order}
+                    onChange={(e) => setForm({ ...form, order: e.target.value })}
+                    type="number"
+                    min={0}
+                    max={1000}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="band-consecutive">Readings in a row</Label>
+                  <Input
+                    id="band-consecutive"
+                    value={form.consecutive}
+                    onChange={(e) => setForm({ ...form, consecutive: e.target.value })}
+                    type="number"
+                    min={1}
+                    max={100}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <BusySubmit data-testid="band-add">Add band</BusySubmit>
+                </div>
+              </div>
+              <p className="text-xs text-content-muted">
+                {meaning !== '' && (
+                  <span data-testid="band-meaning-hint" className="font-medium text-content">
+                    A band with this name counts as {labelFor(HEALTH_STATUS_LABELS, meaning)}.
+                  </span>
+                )}{' '}
+                The status a band gives comes from its name. Bands are checked from the lowest position up
+                and the first one holding the value wins; a band applies once the value has stayed in it
+                for the number of readings in a row.
+              </p>
+            </BusyForm>
+          </PermissionGuard>
           {err && (
             <p role="alert" data-testid="band-error" className="mt-2 text-sm text-status-critical">
               {err}
@@ -958,13 +1049,16 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
           {(bands ?? []).map((b: ThresholdBand) => (
             <div
               key={b.id}
+              data-testid={`band-row-${b.name}`}
               className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
             >
-              <span className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: b.color }} />
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: b.color }} aria-hidden />
                 <span className="text-content-strong">{b.name}</span>
-                <span className="tabular-nums text-content-muted">
-                  [{b.lower ?? '−∞'}, {b.upper ?? '∞'}]
+                <span className="tabular-nums text-content-muted">{bandRange(b.lower, b.upper)}</span>
+                <span className="text-content-muted">
+                  · Counts as {labelFor(HEALTH_STATUS_LABELS, bandMeaning(b.name))}
+                  {b.consecutivePointsRequired > 1 ? ` after ${b.consecutivePointsRequired} readings in a row` : ''}
                 </span>
               </span>
               <PermissionGuard permission="KPI_EDIT"><Button

@@ -112,8 +112,8 @@ test('wizard, by hand: sign up → six steps → an organisation with roles, uni
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
   await expect(page.getByTestId('toast').filter({ hasText: `Manual ${stamp} is ready` })).toContainText('One invitation was sent.');
 
-  // The setup checklist already knows a teammate was invited.
-  await expect(page.getByTestId('checklist-progress')).toHaveText('1 of 14 complete', { timeout: 15_000 });
+  // The setup checklist already knows a KPI was made and a teammate invited.
+  await expect(page.getByTestId('checklist-progress')).toHaveText('2 of 13 complete', { timeout: 15_000 });
 
   // Found in the app.
   await page.goto('/roles');

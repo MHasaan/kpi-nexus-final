@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
 
-import { ApiError, confirmPasswordReset } from '../../../lib/api-client';
+import { confirmPasswordReset } from '../../../lib/api-client';
+import { passwordRefusal } from '../../../lib/password-rules';
 
 export default function ResetPasswordPage() {
   return (
@@ -34,13 +35,8 @@ function ResetPasswordInner() {
       await confirmPasswordReset(token, password);
       setDone(true);
     } catch (err) {
-      if (err instanceof ApiError) {
-        // Policy violations come back as details.violations — show them, not just the summary.
-        const violations = (err.details as { violations?: string[] } | undefined)?.violations;
-        setError(violations?.length ? `${err.message}: ${violations.join('; ')}` : err.message);
-      } else {
-        setError('Could not reset your password. Please try again.');
-      }
+      // The rules the password broke, by name (they used to print as "[object Object]").
+      setError(passwordRefusal(err, 'Could not reset your password. Please try again.'));
     } finally {
       setSubmitting(false);
     }

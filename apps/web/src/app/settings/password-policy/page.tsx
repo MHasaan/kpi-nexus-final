@@ -16,6 +16,7 @@ import {
   type PasswordPolicy,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { passwordPolicyProblem } from '../../../lib/password-rules';
 
 const DEFAULT_POLICY: PasswordPolicy = {
   minLength: 8,
@@ -63,9 +64,12 @@ export default function PasswordPolicySettingsPage() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
-    setError(null);
     setSaved(false);
+    // A blank field arrives as 0 or NaN; the API refused it with "Invalid request body".
+    const problem = passwordPolicyProblem(policy);
+    setError(problem);
+    if (problem) return;
+    setSaving(true);
     try {
       const updated = await updateMyOrganization({ passwordPolicy: policy });
       setOrg(updated);
@@ -101,7 +105,7 @@ export default function PasswordPolicySettingsPage() {
           {!org && !error && <p className="mt-6 text-sm text-content-muted">Loading…</p>}
 
           {org && (
-            <form onSubmit={handleSave} className="mt-8 space-y-6" data-testid="password-policy-form">
+            <form onSubmit={handleSave} noValidate className="mt-8 space-y-6" data-testid="password-policy-form">
               <fieldset className="rounded-lg border border-border bg-surface-1 p-6">
                 <legend className="px-2 text-sm font-semibold text-content-strong">Length & expiry</legend>
                 <div className="grid gap-4 sm:grid-cols-2">

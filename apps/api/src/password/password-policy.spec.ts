@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   checkPasswordPolicy,
   DEFAULT_PASSWORD_POLICY,
+  describePasswordPolicy,
   passwordExpired,
   resolvePasswordPolicy,
 } from './password-policy.js';
@@ -85,5 +86,14 @@ describe('passwordExpired (plan 6.5)', () => {
 
   test('a password with no recorded date has not expired: the clock has not started for it', () => {
     expect(passwordExpired(policy(90), null, now)).toBe(false);
+  });
+});
+
+describe('describePasswordPolicy (plan 6.5)', () => {
+  test('lists what a password needs, in words', () => {
+    expect(describePasswordPolicy(DEFAULT_PASSWORD_POLICY)).toEqual(['at least 8 characters']);
+    expect(
+      describePasswordPolicy({ minLength: 10, requireUppercase: true, requireLowercase: true, requireDigit: true, requireSpecial: true, maxAgeDays: 90 }),
+    ).toEqual(['at least 10 characters', 'an uppercase letter', 'a lowercase letter', 'a digit', 'a special character']);
   });
 });

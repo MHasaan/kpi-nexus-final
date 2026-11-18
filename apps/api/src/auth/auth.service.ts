@@ -11,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
-import { passwordExpired, resolvePasswordPolicy } from '../password/password-policy.js';
+import { describePasswordPolicy, passwordExpired, resolvePasswordPolicy } from '../password/password-policy.js';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
@@ -49,6 +49,8 @@ export interface InvitationPreview {
   email: string;
   organizationName: string;
   expiresAt: string | null;
+  /** What the organisation's password policy asks for, in words. */
+  passwordRules: string[];
 }
 
 @Injectable()
@@ -401,7 +403,7 @@ export class AuthService {
           email: true,
           passwordHash: true,
           status: true,
-          organization: { select: { name: true } },
+          organization: { select: { name: true, passwordPolicy: true } },
         },
       });
       // Token already consumed via an accepted invitation manifests as an
@@ -416,6 +418,7 @@ export class AuthService {
         email: user.email,
         organizationName: user.organization.name,
         expiresAt: record.expiresAt.toISOString(),
+        passwordRules: describePasswordPolicy(resolvePasswordPolicy(user.organization.passwordPolicy)),
       };
     });
   }

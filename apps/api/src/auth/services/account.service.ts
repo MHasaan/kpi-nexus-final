@@ -41,6 +41,7 @@ const selfUserSelect = {
   status: true,
   notificationSettings: true,
   onboardingCompletedAt: true,
+  language: true,
 } as const;
 
 /**
@@ -65,9 +66,9 @@ export class AccountService {
    * Update what a person may change about themself: their display name, and
    * the mark that they have seen the first-login tour (kept on the account so
    * it follows them across browsers and is not shared with whoever signs in
-   * next on the same one).
+   * next on the same one), and the language the app is shown in for them.
    */
-  async updateProfile(input: { fullName?: string; tourCompleted?: true }): Promise<SelfUser> {
+  async updateProfile(input: { fullName?: string; tourCompleted?: true; language?: string }): Promise<SelfUser> {
     const ctx = RequestContextStore.require();
 
     const updated = await this.prisma.user.update({
@@ -75,6 +76,7 @@ export class AccountService {
       data: {
         ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
         ...(input.tourCompleted ? { onboardingCompletedAt: new Date() } : {}),
+        ...(input.language !== undefined ? { language: input.language } : {}),
       },
       select: selfUserSelect,
     });

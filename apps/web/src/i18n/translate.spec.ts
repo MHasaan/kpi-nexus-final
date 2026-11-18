@@ -1,6 +1,7 @@
+import { SUPPORTED_LOCALES } from '@kpi-nexus/contracts';
 import { describe, expect, test } from 'vitest';
 
-import { isRtl } from './dictionaries';
+import { LOCALES, isRtl } from './dictionaries';
 import { normalizeLocale, translate } from './translate';
 
 describe('translate', () => {
@@ -29,5 +30,11 @@ describe('isRtl', () => {
   test('ur-PK is RTL; en-US is not', () => {
     expect(isRtl('ur-PK')).toBe(true);
     expect(isRtl('en-US')).toBe(false);
+  });
+});
+
+describe('languages', () => {
+  test('the languages the app has are the ones an account may save (plan 6.2)', () => {
+    expect([...LOCALES]).toEqual([...SUPPORTED_LOCALES]);
   });
 });

@@ -380,6 +380,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 6.4 (second part): the assistant's weekly averages always used Monday weeks | ✅ Fixed — weeks are grouped by the organisation's first day of the week | #248 | `nlq.tools.spec.ts` (+1). |
 | Plan 6.4 (third part): the dashboard's date range had no fiscal periods | ✅ Built — 'This quarter' and 'This fiscal year', from the organisation's fiscal calendar to today | #249 | `lib/date-presets.spec.ts`, `e2e/dashboard-fiscal-presets.spec.ts`. Still open under 6.4: period labels on the board pack and reports |
 | Plan 6.12 (last part): a feature's fallback provider and model were stored but could not be chosen on the page | ✅ Built — an 'If it fails or is over budget' column in the routing table: the built-in fallback, or a provider and model | #250 | `e2e/ai-fallback-picker.spec.ts`. Closes 6.12 |
+| Plan 6.2 (language): a person's language lived only in the browser it was chosen in | ✅ Built — saved on the account (`PATCH /auth/me {language}`), returned by `GET /auth/me`, and applied on any device; the unused locale picker is removed | #251 | `account.service.spec.ts` (+1), `e2e/personal-language.spec.ts`. Still open under 6.2: personal timezone, which comes with date formatting (6.1) |
 
 ### UI completion round — open findings (2026-11-16)
 

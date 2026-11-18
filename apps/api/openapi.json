@@ -2495,6 +2495,15 @@
                   "tourCompleted": {
                     "type": "boolean",
                     "const": true
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "en-US",
+                      "es",
+                      "fr",
+                      "ur-PK"
+                    ]
                   }
                 },
                 "additionalProperties": false

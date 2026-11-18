@@ -30,9 +30,12 @@ export function RolePermissionMatrix({
 
   // Re-sync the draft when the persisted permissions change (incl. after our own
   // save); clear feedback only when switching to another role, so "saved" stays.
+  // Keyed on what the permissions are, not on the array: the page reloads its list in the
+  // background, and a fresh copy of the same permissions must not throw away unsaved ticks.
+  const savedKey = role.permissions.join('|');
   useEffect(() => {
     setDraft(role.permissions);
-  }, [role.permissions]);
+  }, [savedKey]);
   useEffect(() => {
     setFeedback(null);
   }, [role.id]);
@@ -85,7 +88,9 @@ export function RolePermissionMatrix({
                     key={key}
                     title={state.reason}
                     className={cn(
-                      'inline-flex w-44 items-center gap-2',
+                      // `relative`: the hidden checkbox is placed against its own label, so it scrolls
+                      // with it. Placed against the page, focusing or clicking it below the fold missed.
+                      'relative inline-flex w-44 items-center gap-2',
                       state.disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
                     )}
                   >

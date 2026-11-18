@@ -109,6 +109,16 @@ class FakePrisma {
     create: vi.fn(async () => undefined),
   };
 
+  /** People per role, for the list's member count; a test fills it. */
+  usersByRole: Array<{ organizationId: string; roleId: string; count: number }> = [];
+  user = {
+    groupBy: vi.fn(async ({ where }: { where: { organizationId: string; roleId: { in: string[] } } }) =>
+      this.usersByRole
+        .filter((u) => u.organizationId === where.organizationId && where.roleId.in.includes(u.roleId))
+        .map((u) => ({ roleId: u.roleId, _count: { _all: u.count } })),
+    ),
+  };
+
   roleInheritance = {
     findMany: vi.fn(
       async ({
@@ -252,6 +262,24 @@ describe('PERMISSION_PRESETS', () => {
     const mgr = DEFAULT_ROLES.find((r) => r.name === 'Manager')!;
     const mgrPreset = PERMISSION_PRESETS.find((p) => p.key === 'MANAGER')!;
     expect(mgrPreset.permissions).toEqual(mgr.permissions);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// list — how many people hold each role (plan 7.7)
+// ---------------------------------------------------------------------------
+
+describe('RolesService.list — member count', () => {
+  test('each role says how many people of this organisation hold it; none is 0', async () => {
+    const { service, prisma } = makeService();
+    prisma.roles.push(makeRole({ id: 'role_a', name: 'A' }), makeRole({ id: 'role_b', name: 'B' }));
+    prisma.usersByRole.push(
+      { organizationId: ORG, roleId: 'role_a', count: 3 },
+      { organizationId: 'org_other', roleId: 'role_b', count: 9 },
+    );
+    const roles = await withCtx(BASE_CTX, () => service.list());
+    expect(roles.find((r) => r.id === 'role_a')!.userCount).toBe(3);
+    expect(roles.find((r) => r.id === 'role_b')!.userCount).toBe(0);
   });
 });
 

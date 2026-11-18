@@ -41,6 +41,8 @@ export interface PublicRole {
   pageAccess: PageAccessConfig | null;
   createdAt: Date;
   updatedAt: Date;
+  /** How many people hold the role. Given by the list only. */
+  userCount?: number;
 }
 
 export interface RoleHierarchy {
@@ -128,7 +130,17 @@ export class RolesService {
       select: roleSelect,
       orderBy: [{ level: 'desc' }, { name: 'asc' }],
     });
-    return rows.map(toPublicRole);
+    // How many people hold each role — what decides whether it can be deleted.
+    const held =
+      rows.length > 0
+        ? await this.prisma.user.groupBy({
+            by: ['roleId'],
+            where: { organizationId: ctx.organizationId, roleId: { in: rows.map((r) => r.id) } },
+            _count: { _all: true },
+          })
+        : [];
+    const countByRole = new Map(held.map((h) => [h.roleId, h._count._all]));
+    return rows.map((row) => ({ ...toPublicRole(row), userCount: countByRole.get(row.id) ?? 0 }));
   }
 
   async getById(id: string): Promise<PublicRole> {

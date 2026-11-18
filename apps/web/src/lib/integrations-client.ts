@@ -62,13 +62,29 @@ export function createConnector(body: {
 }): Promise<Connector> {
   return api('/connectors', { method: 'POST', body: JSON.stringify(body) });
 }
+/** Change a connector. `config` replaces the stored one whole; `schedule: null` makes it manual only. */
+export function updateConnector(
+  id: string,
+  body: { name?: string; config?: Record<string, unknown>; schedule?: string | null; isActive?: boolean },
+): Promise<Connector> {
+  return api(`/connectors/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
 export function deleteConnector(id: string): Promise<void> {
   return api(`/connectors/${id}`, { method: 'DELETE' });
 }
 export function runConnector(id: string): Promise<{ status: string; rowCount: number; jobId: string; error?: string }> {
   return api(`/connectors/${id}/run`, { method: 'POST' });
 }
-export function listConnectorRuns(id: string): Promise<Array<{ id: string; kind: string; status: string; createdAt: string }>> {
+/** One run of a connector, as the API logs it: how many values it recorded, and why it failed if it did. */
+export interface ConnectorRun {
+  id: string;
+  kind: string;
+  status: string;
+  createdAt: string;
+  errorLog?: string | null;
+  source?: { rowCount?: number } | null;
+}
+export function listConnectorRuns(id: string): Promise<ConnectorRun[]> {
   return api(`/connectors/${id}/runs`);
 }
 

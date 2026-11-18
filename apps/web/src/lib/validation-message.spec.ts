@@ -10,6 +10,11 @@ describe('validationMessage — which field a refused request is about (QA-L10)'
     expect(out).toBe('Retention days: Too small: expected number to be >=1');
   });
 
+  test('the shorter generic message some routes use ("Invalid request") is treated the same', () => {
+    const out = validationMessage('Invalid request', 'VALIDATION_ERROR', { issues: [issue(['schedule'], 'schedule must be a 5-field cron expression')] });
+    expect(out).toBe('Schedule: schedule must be a 5-field cron expression');
+  });
+
   test('a field inside a list or a group reads as a path a person can follow', () => {
     const out = validationMessage('Invalid request body', 'VALIDATION_ERROR', { issues: [issue(['levels', 0, 'delayMinutes'], 'Too big')] });
     expect(out).toBe('Levels, item 1, delay minutes: Too big');

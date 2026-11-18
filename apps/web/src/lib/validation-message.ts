@@ -6,7 +6,7 @@ interface Issue {
 }
 
 /** Messages the API uses when it has nothing more to say than "the body was wrong". */
-const GENERIC = /^invalid (request )?(body|query|params|period|input)\b/i;
+const GENERIC = /^invalid (request( body)?|body|query|params|period|input)\b/i;
 
 function isIssue(value: unknown): value is Issue {
   if (typeof value !== 'object' || value === null) return false;

@@ -410,7 +410,8 @@ export default function TasksPage() {
         title="Tasks"
         subtitle="Drag cards across the lifecycle — moves are optimistic"
         actions={
-          <PermissionGuard permission="KPI_CREATE">
+          // The key POST /tasks asks for. (It was KPI_CREATE, which hid the button from people the API lets create tasks.)
+          <PermissionGuard permission="KPI_VIEW">
             <Button
               size="sm"
               data-testid="task-new"

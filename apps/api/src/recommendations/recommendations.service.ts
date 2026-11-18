@@ -100,7 +100,9 @@ export class RecommendationsService {
     if (!kpi) throw new NotFoundException({ code: 'KPI_NOT_FOUND', message: 'KPI not found' });
 
     const points = await this.prisma.kPIDataPoint.findMany({
-      where: { organizationId: ctx.organizationId, kpiId },
+      // Organisation-level rows only (BE-054). What is written here is stored and read by everyone who
+      // may see the KPI's insights, so it must not be built from one person's or one unit's values.
+      where: { organizationId: ctx.organizationId, kpiId, userId: null, orgUnitId: null },
       // Newest periods first ("latest" = newest period; entry time breaks ties).
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: 30,

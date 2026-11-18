@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { cn } from '@/lib/cn';
 
-import { listKpis, type KpiSummary } from '../../lib/api-client';
+import { getAccessToken, listKpis, type KpiSummary } from '../../lib/api-client';
+import { createKpiListCache } from '../../lib/kpi-list-cache';
 import { Badge, Input, ScopeBadge, Skeleton } from '../ui';
 
 export interface KpiPickerProps {
@@ -18,26 +19,8 @@ export interface KpiPickerProps {
   testId?: string;
 }
 
-// Module-level cache so multiple pickers don't each re-fetch the full list.
-let kpiCache: KpiSummary[] | null = null;
-let kpiCachePromise: Promise<KpiSummary[]> | null = null;
-
-async function loadKpisCached(): Promise<KpiSummary[]> {
-  if (kpiCache) return kpiCache;
-  if (!kpiCachePromise) {
-    kpiCachePromise = listKpis()
-      .then((rows) => {
-        kpiCache = rows;
-        return rows;
-      })
-      .catch((err) => {
-        // Allow a later retry after a failure.
-        kpiCachePromise = null;
-        throw err;
-      });
-  }
-  return kpiCachePromise;
-}
+// Shared by the pickers on a page; owned by the signed-in session and refreshed after a minute.
+const kpiList = createKpiListCache<KpiSummary>(() => listKpis());
 
 /**
  * Searchable KPI picker. Filters by name (case-insensitive), shows scope + unit,
@@ -51,8 +34,8 @@ export function KpiPicker({
   required = false,
   testId = 'kpi-picker',
 }: KpiPickerProps) {
-  const [loaded, setLoaded] = useState<KpiSummary[] | null>(kpis ?? kpiCache);
-  const [loading, setLoading] = useState(kpis == null && kpiCache == null);
+  const [loaded, setLoaded] = useState<KpiSummary[] | null>(kpis ?? null);
+  const [loading, setLoading] = useState(kpis == null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
@@ -62,15 +45,18 @@ export function KpiPicker({
       setLoading(false);
       return;
     }
-    if (kpiCache) {
-      setLoaded(kpiCache);
+    const token = getAccessToken();
+    const fresh = kpiList.peek(token);
+    if (fresh) {
+      setLoaded(fresh);
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadKpisCached()
+    kpiList
+      .load(token)
       .then((rows) => {
         if (!cancelled) {
           setLoaded(rows);

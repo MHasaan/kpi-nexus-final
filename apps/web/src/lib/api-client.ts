@@ -149,6 +149,8 @@ export interface AuthUser {
   onboardingCompletedAt?: string | null;
   /** The language this person chose, on any device; null until they choose one. */
   language?: string | null;
+  /** The timezone this person chose to see times in; null = the organisation's. */
+  timezone?: string | null;
 }
 
 export interface AuthOrganization {
@@ -205,14 +207,20 @@ export async function meRequest(): Promise<{ user: AuthUser; accessProfile?: Acc
   if (result.user.language && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(ACCOUNT_LANGUAGE_EVENT, { detail: result.user.language }));
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ACCOUNT_TIMEZONE_EVENT, { detail: result.user.timezone ?? null }));
+  }
   return result;
 }
+
+/** Sent on the window when the signed-in person's own timezone is learnt or changed; `detail` is the timezone or null. */
+export const ACCOUNT_TIMEZONE_EVENT = 'kpi-nexus:account-timezone';
 
 /** Sent on the window when the signed-in person's saved language is learnt; `detail` is the language. */
 export const ACCOUNT_LANGUAGE_EVENT = 'kpi-nexus:account-language';
 
 /** Update the current user's own profile (display name and/or language). Self-service. */
-export async function updateMyProfile(body: { fullName?: string; language?: string }): Promise<AuthUser> {
+export async function updateMyProfile(body: { fullName?: string; language?: string; timezone?: string | null }): Promise<AuthUser> {
   const result = await api<{ user: AuthUser }>('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(body),

@@ -5929,6 +5929,7 @@ export interface operations {
                     tourCompleted?: true;
                     /** @enum {string} */
                     language?: "en-US" | "es" | "fr" | "ur-PK";
+                    timezone?: string | null;
                 };
             };
         };

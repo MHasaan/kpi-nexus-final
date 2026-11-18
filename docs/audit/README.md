@@ -423,6 +423,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | X-02 (remainder): a failed load was hidden behind an empty picker or a plain 'Watch' on a KPI's watch button, Automations, an objective's page, Tasks, the new-report form and Access Center | ✅ Fixed — each says what could not be loaded (`lib/optional-list.ts`); the report form offers 'Try again'. X-02 is closed | #289 | `optional-list.spec.ts` (3), `e2e/optional-lists-say-failure.spec.ts` |
 | QA-T1: `prod-compose.spec.ts` failed on a Windows checkout — it split repo files on `\n` and the lines ended `\r\n` | ✅ Fixed — `config/read-text.ts` reads a repo file with Unix line endings; used by `prod-compose.spec.ts` and `env-template.spec.ts`. Not run on Windows | #290 | `read-text.spec.ts` (3) |
 | QA-L10: a form whose input the API refused showed 'Invalid request body' and named no field | ✅ Fixed — the web app builds the message from the refusal's issues, where every API reply is read: the field, then what is wrong. The wording after the field name is the API checker's own | #291 | `validation-message.spec.ts` (6), `e2e/validation-names-field.spec.ts` |
+| X-07 (remainder): the failed-deliveries page showed the newest 100 with no way to older ones and no sign there were more | ✅ Fixed — 'Show older' up to the 500 the API gives at once, and a line saying how many are shown and when there may be more. Activity already pages; the KPI list has no fixed cap. X-07 is closed; paging past 500 deliveries is not done | #292 | `e2e/deliveries-show-older.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -432,7 +433,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 |---|---|---|---|
 | UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⬜ open, waiting for ADR-002 and ADR-003 | 6.8, 6.9 |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers on Tasks and OKRs offer only the people already involved and themselves (no search yet); `/org-units` and the KPI form still load the people list directly | Low | 🟡 partly | 5.3 |
-| X-07 lists capped at 100 with no paging — alerts (#224) and the audit log (#238) page now; other long lists (KPIs, activity, deliveries) still stop at their cap | Low | ⬜ open | 7.5 |
 | UI-017 (found 2026-11-18) the Targets tab on a KPI saves targets that nothing reads: health, dashboards and attainment all use the target on the KPI itself (`KPI.targetValue`), and only `GET /kpis/:id/targets/active` returns a stored target. The form offers one type (static) of the API's six. Needs a decision: should the target in effect become the KPI's target, or should the tab go | Medium | ⬜ open, waiting for the owner | 7.7 |
 
 ### Second QA pass — 2026-11-17

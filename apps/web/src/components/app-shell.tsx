@@ -288,6 +288,7 @@ const TITLES: Record<string, { title: string; crumb: string }> = {
   activity: { title: 'Activity', crumb: 'Organize' },
   audit: { title: 'Audit', crumb: 'Organize' },
   settings: { title: 'Settings', crumb: 'Organize' },
+  billing: { title: 'Billing', crumb: 'Organize' },
   me: { title: 'Inbox', crumb: 'You' },
   profile: { title: 'Profile', crumb: 'You' },
 };
@@ -300,6 +301,48 @@ function titleForPath(pathname: string): { title: string; crumb: string } {
       crumb: 'Workspace',
     }
   );
+}
+
+/** The pages under /settings, by the name the Settings index gives each. */
+const SETTINGS_TITLES: Record<string, string> = {
+  organization: 'Organization',
+  branding: 'Branding',
+  fiscal: 'Fiscal calendar',
+  'password-policy': 'Password policy',
+  sso: 'Single sign-on',
+  scim: 'SCIM provisioning',
+  audit: 'Audit log',
+  'custom-domain': 'Custom domain',
+  notifications: 'Notifications',
+  'notifications/dlq': 'Failed deliveries',
+  ai: 'AI',
+  'api-keys': 'API keys',
+  webhooks: 'Webhooks',
+  retention: 'Data retention',
+  access: 'Access Center',
+};
+
+const sentence = (slug: string): string => slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
+
+/**
+ * The top bar's title and the trail before it, for a page that gives neither.
+ * A page under /settings is named, and its trail leads back to Settings (and to
+ * the settings page above it); it used to read "Organize / Settings" whichever
+ * page it was, with nothing to go back by.
+ */
+export function headingForPath(pathname: string): { title: string; crumbs: Array<{ label: string; href?: string }> } {
+  const segs = pathname.split('/').filter(Boolean);
+  if (segs[0] === 'settings' && segs.length > 1) {
+    const crumbs: Array<{ label: string; href?: string }> = [{ label: 'Settings', href: '/settings' }];
+    for (let i = 1; i < segs.length - 1; i++) {
+      const key = segs.slice(1, i + 1).join('/');
+      crumbs.push({ label: SETTINGS_TITLES[key] ?? sentence(segs[i]!), href: `/settings/${key}` });
+    }
+    const key = segs.slice(1).join('/');
+    return { title: SETTINGS_TITLES[key] ?? sentence(segs[segs.length - 1]!), crumbs };
+  }
+  const derived = titleForPath(pathname);
+  return { title: derived.title, crumbs: [{ label: derived.crumb }] };
 }
 
 // ---------------------------------------------------------------------------
@@ -499,14 +542,14 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   const { branding } = useBranding();
   const name = user?.fullName || user?.email || 'You';
   const initials = initialsOf(name);
-  const derived = titleForPath(pathname);
+  const derived = headingForPath(pathname);
   const pageTitle = title ?? derived.title;
   // Normalize the crumb trail; drop a trailing crumb identical to the title so
   // pages that include their own leaf in `crumbs` don't render it twice.
   const crumbTrail = (
     crumbs && crumbs.length > 0
       ? crumbs.map((c) => (typeof c === 'string' ? { label: c } : c))
-      : [{ label: derived.crumb }]
+      : derived.crumbs
   ).filter((c) => c.label && c.label !== pageTitle);
 
   // The mobile drawer is always full width, so it always shows labels.

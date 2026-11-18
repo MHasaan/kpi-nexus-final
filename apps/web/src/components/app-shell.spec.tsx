@@ -296,6 +296,8 @@ describe('headingForPath', () => {
   test('every other page keeps its section crumb', () => {
     expect(headingForPath('/settings')).toEqual({ title: 'Settings', crumbs: [{ label: 'Organize' }] });
     expect(headingForPath('/kpis/abc')).toEqual({ title: 'KPIs', crumbs: [{ label: 'Workspace' }] });
+    // Billing sits under Organize in the sidebar; its trail said Workspace.
+    expect(headingForPath('/billing')).toEqual({ title: 'Billing', crumbs: [{ label: 'Organize' }] });
   });
   test('every page the Settings index links to under /settings has a name', async () => {
     const { readFileSync } = await import('node:fs');

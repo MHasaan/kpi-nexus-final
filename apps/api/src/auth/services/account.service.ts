@@ -42,6 +42,7 @@ const selfUserSelect = {
   notificationSettings: true,
   onboardingCompletedAt: true,
   language: true,
+  timezone: true,
 } as const;
 
 /**
@@ -68,7 +69,7 @@ export class AccountService {
    * it follows them across browsers and is not shared with whoever signs in
    * next on the same one), and the language the app is shown in for them.
    */
-  async updateProfile(input: { fullName?: string; tourCompleted?: true; language?: string }): Promise<SelfUser> {
+  async updateProfile(input: { fullName?: string; tourCompleted?: true; language?: string; timezone?: string | null }): Promise<SelfUser> {
     const ctx = RequestContextStore.require();
 
     const updated = await this.prisma.user.update({
@@ -77,6 +78,8 @@ export class AccountService {
         ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
         ...(input.tourCompleted ? { onboardingCompletedAt: new Date() } : {}),
         ...(input.language !== undefined ? { language: input.language } : {}),
+        // null clears it: times go back to the organisation's timezone.
+        ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
       },
       select: selfUserSelect,
     });

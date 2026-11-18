@@ -12,9 +12,10 @@ import {
   formatDay,
   formatNumber,
   formatSettingsOf,
+  isTimeZone,
 } from '@kpi-nexus/contracts';
 
-import { getAccessToken, getMyOrganization } from './api-client';
+import { ACCOUNT_TIMEZONE_EVENT, getAccessToken, getMyOrganization } from './api-client';
 
 type DateInput = Date | string | number | null | undefined;
 
@@ -29,11 +30,13 @@ export interface Formatters {
   number: (value: number | null | undefined, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }) => string;
   currency: (value: number | null | undefined) => string;
   settings: FormatSettings;
+  /** The organisation's own timezone, whatever the person chose for themself. */
+  organizationTimezone: string;
   /** Read the settings again — call after saving them. */
   refresh: () => Promise<void>;
 }
 
-function build(settings: FormatSettings, refresh: () => Promise<void>): Formatters {
+function build(settings: FormatSettings, organizationTimezone: string, refresh: () => Promise<void>): Formatters {
   return {
     date: (value) => formatDate(value, settings),
     dateTime: (value) => formatDateTime(value, settings),
@@ -41,11 +44,12 @@ function build(settings: FormatSettings, refresh: () => Promise<void>): Formatte
     number: (value, options) => formatNumber(value, settings, options),
     currency: (value) => formatCurrency(value, settings),
     settings,
+    organizationTimezone,
     refresh,
   };
 }
 
-const FormatContext = createContext<Formatters>(build(DEFAULT_FORMAT_SETTINGS, async () => undefined));
+const FormatContext = createContext<Formatters>(build(DEFAULT_FORMAT_SETTINGS, DEFAULT_FORMAT_SETTINGS.timezone, async () => undefined));
 
 /**
  * Mounted once at the root. Reads the organisation's format settings whenever
@@ -53,11 +57,26 @@ const FormatContext = createContext<Formatters>(build(DEFAULT_FORMAT_SETTINGS, a
  * same way — the way Settings says.
  */
 export function FormatProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<FormatSettings>(DEFAULT_FORMAT_SETTINGS);
+  const [orgSettings, setSettings] = useState<FormatSettings>(DEFAULT_FORMAT_SETTINGS);
+  // The signed-in person's own timezone, when they chose one: it replaces the organisation's for them.
+  const [personalTimezone, setPersonalTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    const onTimezone = (event: Event) => {
+      const zone = (event as CustomEvent<unknown>).detail;
+      setPersonalTimezone(typeof zone === 'string' && isTimeZone(zone) ? zone : null);
+    };
+    window.addEventListener(ACCOUNT_TIMEZONE_EVENT, onTimezone);
+    return () => window.removeEventListener(ACCOUNT_TIMEZONE_EVENT, onTimezone);
+  }, []);
+  const settings = useMemo(
+    () => (personalTimezone ? { ...orgSettings, timezone: personalTimezone } : orgSettings),
+    [orgSettings, personalTimezone],
+  );
 
   const refresh = useCallback(async () => {
     if (!getAccessToken()) {
       setSettings(DEFAULT_FORMAT_SETTINGS);
+      setPersonalTimezone(null);
       return;
     }
     try {
@@ -76,7 +95,7 @@ export function FormatProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [pathname, refresh]);
 
-  const value = useMemo(() => build(settings, refresh), [settings, refresh]);
+  const value = useMemo(() => build(settings, orgSettings.timezone, refresh), [settings, orgSettings.timezone, refresh]);
   return <FormatContext.Provider value={value}>{children}</FormatContext.Provider>;
 }
 

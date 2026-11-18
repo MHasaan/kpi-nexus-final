@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { z, type ZodTypeAny, type infer as ZInfer } from 'zod';
 
-import { ALL_PERMISSIONS, SUPPORTED_LOCALES } from '@kpi-nexus/contracts';
+import { ALL_PERMISSIONS, SUPPORTED_LOCALES, isTimeZone } from '@kpi-nexus/contracts';
 import type { AccessProfile } from '@kpi-nexus/contracts';
 
 import { Public } from '../rbac/decorators/public.decorator.js';
@@ -43,9 +43,11 @@ const UpdateProfileDtoSchema = z
     tourCompleted: z.literal(true).optional(),
     /** The language the app is shown in for this person, on every device. */
     language: z.enum(SUPPORTED_LOCALES).optional(),
+    /** The timezone times are shown in for this person; null = the organisation's. */
+    timezone: z.string().min(1).max(60).refine(isTimeZone, { message: 'timezone must be an IANA name such as Asia/Karachi' }).nullable().optional(),
   })
   .strict()
-  .refine((dto) => dto.fullName !== undefined || dto.tourCompleted !== undefined || dto.language !== undefined, {
+  .refine((dto) => dto.fullName !== undefined || dto.tourCompleted !== undefined || dto.language !== undefined || dto.timezone !== undefined, {
     message: 'Nothing to update',
   });
 
@@ -145,6 +147,7 @@ export class AuthController {
       notificationSettings: unknown;
       onboardingCompletedAt: Date | null;
       language: string | null;
+      timezone: string | null;
       permissions: string[];
     };
     accessProfile: AccessProfile;
@@ -164,6 +167,7 @@ export class AuthController {
           notificationSettings: true,
           onboardingCompletedAt: true,
           language: true,
+          timezone: true,
         },
       }),
       this.permissionResolver.resolveForCurrentPrincipal(),

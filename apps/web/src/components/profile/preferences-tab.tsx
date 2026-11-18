@@ -6,11 +6,15 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '../../i18n/dictionaries';
 import { useTranslations } from '../../i18n/locale-provider';
 import {
+  ACCOUNT_TIMEZONE_EVENT,
   ApiError,
-  type NotificationSettings,
   meRequest,
+  type NotificationSettings,
+  updateMyProfile,
   updateNotificationSettings,
 } from '../../lib/api-client';
+import { useFormat } from '../../lib/format-context';
+import { useToast } from '../../lib/use-toast';
 import {
   Button,
   Card,
@@ -43,6 +47,7 @@ export function PreferencesTab() {
       <NotificationsCard />
       <AppearanceCard />
       <LanguageCard />
+      <TimezoneCard />
     </div>
   );
 }
@@ -258,6 +263,49 @@ function LanguageCard() {
           ))}
         </Select>
         <p className="text-xs text-content-muted">{t('profile.languageHint')}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Timezone — times are shown in the organisation's timezone unless the person
+// chooses their own; saved on their account (plan 6.2).
+// ---------------------------------------------------------------------------
+
+function TimezoneCard() {
+  const format = useFormat();
+  const toast = useToast();
+  const personal = format.settings.timezone === format.organizationTimezone ? '' : format.settings.timezone;
+  const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+  const choices = [...new Set([...zones, ...(personal ? [personal] : [])])].sort((a, b) => a.localeCompare(b));
+
+  const choose = async (zone: string) => {
+    try {
+      const user = await updateMyProfile({ timezone: zone === '' ? null : zone });
+      // Every open page reads the timezone from this event.
+      window.dispatchEvent(new CustomEvent(ACCOUNT_TIMEZONE_EVENT, { detail: user.timezone ?? null }));
+    } catch (err) {
+      toast.error('Your timezone could not be saved', err instanceof ApiError ? err.message : undefined);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle data-testid="timezone-heading">Timezone</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        <Label htmlFor="timezone-select">Show times in</Label>
+        <Select id="timezone-select" data-testid="timezone-select" value={personal} onChange={(e) => void choose(e.target.value)} className="max-w-xs">
+          <option value="">The organisation&apos;s timezone ({format.organizationTimezone})</option>
+          {choices.map((zone) => (
+            <option key={zone} value={zone}>
+              {zone}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-content-muted">Only you see times this way. Right now it is {format.dateTime(new Date())}.</p>
       </CardContent>
     </Card>
   );

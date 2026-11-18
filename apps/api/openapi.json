@@ -2504,6 +2504,18 @@
                       "fr",
                       "ur-PK"
                     ]
+                  },
+                  "timezone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false

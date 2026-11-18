@@ -113,6 +113,18 @@ describe('AccountService.updateProfile', () => {
     expect(Array.isArray(result.permissions)).toBe(true);
   });
 
+  test('language is saved on the person, and nothing else changes (plan 6.2)', async () => {
+    const { service, updateMock, auditMock } = makeMocks();
+
+    await RequestContextStore.run(fakeCtx, () => service.updateProfile({ language: 'fr' }));
+
+    const call = updateMock.mock.calls[0]![0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where).toEqual({ id: 'user_1', organizationId: 'org_1' });
+    expect(call.data).toEqual({ language: 'fr' });
+    // A language choice is a preference, not a profile change worth an audit row.
+    expect(auditMock).not.toHaveBeenCalled();
+  });
+
   test('tourCompleted stamps onboardingCompletedAt and nothing else (plan 3.4)', async () => {
     const { service, updateMock, auditMock } = makeMocks();
 

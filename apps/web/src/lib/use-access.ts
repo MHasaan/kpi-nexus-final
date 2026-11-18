@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import type { AccessProfile, Domain, Scope } from '@kpi-nexus/contracts';
 
-import { meRequest } from './api-client';
+import { getAccessToken, meRequest } from './api-client';
 import { getCachedAccessProfile, scopeAtLeast, scopeForDomain } from './access';
 
 export interface UseAccessResult {
@@ -33,6 +33,15 @@ export function useAccess(): UseAccessResult {
 
   useEffect(() => {
     let cancelled = false;
+
+    // No session: nothing to ask, and a profile cached by an earlier session must not count.
+    if (!getAccessToken()) {
+      setProfile(null);
+      setReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const cached = getCachedAccessProfile();
     if (cached) {

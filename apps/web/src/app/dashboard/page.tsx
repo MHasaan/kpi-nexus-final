@@ -268,14 +268,16 @@ function KpiRow({
         ) : (
           formatValue(row.latestValue, row.unit, fmt.number)
         )}
-      </span>
-      <div className="flex items-center gap-2">
-        {/* How far towards its target, in words. It used to be drawn as "▼ 6%", which read as a fall. */}
+        {/* How far towards its target, in words, under the value. It used to be drawn beside the
+            status as "▼ 6%", which read as a fall. */}
         {pct !== null ? (
-          <span data-testid="kpi-row-attainment" className="whitespace-nowrap text-xs tabular-nums text-content-muted">
+          <span data-testid="kpi-row-attainment" className="block whitespace-nowrap text-[11.5px] font-normal text-content-muted">
             {Math.round(pct)}% of target
           </span>
         ) : null}
+      </span>
+      <div className="flex items-center gap-2">
+
         <StatusBadge status={status} />
       </div>
     </Link>

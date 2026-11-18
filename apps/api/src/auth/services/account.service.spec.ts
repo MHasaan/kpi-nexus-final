@@ -125,6 +125,16 @@ describe('AccountService.updateProfile', () => {
     expect(auditMock).not.toHaveBeenCalled();
   });
 
+  test('a personal timezone is saved, and null goes back to the organisation\'s (plan 6.2)', async () => {
+    const { service, updateMock } = makeMocks();
+
+    await RequestContextStore.run(fakeCtx, () => service.updateProfile({ timezone: 'Asia/Karachi' }));
+    await RequestContextStore.run(fakeCtx, () => service.updateProfile({ timezone: null }));
+
+    const data = updateMock.mock.calls.map((c) => (c[0] as { data: Record<string, unknown> }).data);
+    expect(data).toEqual([{ timezone: 'Asia/Karachi' }, { timezone: null }]);
+  });
+
   test('tourCompleted stamps onboardingCompletedAt and nothing else (plan 3.4)', async () => {
     const { service, updateMock, auditMock } = makeMocks();
 

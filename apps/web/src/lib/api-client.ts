@@ -2705,6 +2705,17 @@ export async function listMySessions(): Promise<SessionSummary[]> {
   return api('/me/sessions');
 }
 
+/** The id of the session this browser is using, or null when it cannot be told. */
+export async function currentSessionId(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+  const res = await api<{ id: string | null }>('/me/sessions/current', {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken }),
+  });
+  return res.id;
+}
+
 export async function revokeSession(id: string): Promise<void> {
   return api(`/me/sessions/${id}`, { method: 'DELETE' });
 }

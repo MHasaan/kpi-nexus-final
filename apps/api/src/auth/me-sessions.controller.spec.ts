@@ -340,3 +340,51 @@ describe('MeSessionsController', () => {
     ).rejects.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Plan 7.7: which of the listed sessions is the one being used right now
+// ---------------------------------------------------------------------------
+describe('RefreshTokenService.currentSessionId', () => {
+  function makeService(found: { id: string } | null) {
+    const prisma = {
+      refreshToken: { findFirst: vi.fn().mockResolvedValue(found) },
+    } as unknown as PrismaService;
+    return { service: new RefreshTokenService(prisma), prisma };
+  }
+
+  test("finds the caller's own live session by the token it presents, by hash", async () => {
+    const { service, prisma } = makeService({ id: 'tok_current' });
+    expect(await service.currentSessionId('user_alice', 'presented-token')).toBe('tok_current');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const call = (prisma.refreshToken.findFirst as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(call.where.userId).toBe('user_alice');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(call.where.revokedAt).toBeNull();
+    // The token itself is never used to look up: only its hash.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(call.where.hashedToken).toMatch(/^[0-9a-f]{64}$/);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(call.select).toEqual({ id: true });
+  });
+
+  test("a token that is not one of the caller's live sessions names none", async () => {
+    const { service } = makeService(null);
+    expect(await service.currentSessionId('user_alice', 'someone-elses-token')).toBeNull();
+  });
+});
+
+describe('MeSessionsController.current', () => {
+  test('answers with the id of the session the presented token belongs to', async () => {
+    const service = { currentSessionId: vi.fn().mockResolvedValue('tok_current') } as unknown as RefreshTokenService;
+    const controller = new MeSessionsController(service);
+    const out = await RequestContextStore.run(fakeCtx, () => controller.current({ refreshToken: 'presented-token' }));
+    expect(out).toEqual({ id: 'tok_current' });
+    expect(service.currentSessionId).toHaveBeenCalledWith('user_alice', 'presented-token');
+  });
+
+  test('a body without a token is refused', async () => {
+    const controller = new MeSessionsController({ currentSessionId: vi.fn() } as unknown as RefreshTokenService);
+    await expect(RequestContextStore.run(fakeCtx, () => controller.current({}))).rejects.toMatchObject({ status: 400 });
+  });
+});

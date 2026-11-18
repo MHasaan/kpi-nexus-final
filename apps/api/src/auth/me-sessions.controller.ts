@@ -37,6 +37,12 @@ const RevokeAllBodySchema = z
   })
   .strict();
 
+const CurrentBodySchema = z
+  .object({
+    refreshToken: z.string().min(1).max(4096),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -48,6 +54,7 @@ const RevokeAllBodySchema = z
  *
  * Routes:
  *   GET  /me/sessions              — list active sessions
+ *   POST /me/sessions/current      — which session the presented refresh token is
  *   DELETE /me/sessions/:id        — revoke one session (204)
  *   POST /me/sessions/revoke-all   — revoke all sessions, optionally keeping current
  */
@@ -59,6 +66,20 @@ export class MeSessionsController {
   async list(): Promise<ActiveSessionInfo[]> {
     const ctx = RequestContextStore.require();
     return this.refreshTokens.listActiveForUser(ctx.userId);
+  }
+
+  /**
+   * Which listed session is the one in use. An access token does not name its
+   * session, so the page presents its refresh token — in the body, as revoke-all
+   * does, never in the address.
+   */
+  @Post('current')
+  @HttpCode(HttpStatus.OK)
+  @ApiBody(CurrentBodySchema)
+  async current(@Body() body: unknown): Promise<{ id: string | null }> {
+    const ctx = RequestContextStore.require();
+    const dto = parse(CurrentBodySchema, body);
+    return { id: await this.refreshTokens.currentSessionId(ctx.userId, dto.refreshToken) };
   }
 
   @Delete(':id')

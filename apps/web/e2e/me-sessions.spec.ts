@@ -83,6 +83,45 @@ test.describe('Active sessions page (/me/sessions)', () => {
     await expect(page.getByTestId('sessions-list')).toBeVisible();
   });
 
+  // Plan 7.7: nothing said which of the listed sessions was the one in use.
+  test('the session in use is marked "This device", listed first, and offers to sign out', async ({ page }) => {
+    test.skip(!apiAvailable, 'api not reachable');
+
+    const stamp = randomSuffix();
+    const adminEmail = `${stamp}@sessions-current.test.local`;
+    const adminPassword = 'correct-horse-battery-staple';
+    await registerOrgViaApi(page, {
+      orgName: `e2e-sessions-current-${stamp}`,
+      slug: `e2e-sessions-current-${stamp}`,
+      adminFullName: 'Sessions Admin',
+      adminEmail,
+      adminPassword,
+    });
+    // A second sign-in from somewhere else — newer than the browser's own session.
+    const other = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+    });
+    expect(other.status).toBe(200);
+
+    await page.goto('/me/sessions');
+    const rows = page.locator('[data-testid^="session-row-"]');
+    await expect(rows).toHaveCount(2);
+
+    // Exactly one is this device, and it is the first row although it is the older session.
+    await expect(page.getByTestId('session-current')).toHaveCount(1);
+    await expect(rows.first().getByTestId('session-current')).toHaveText('This device');
+    await expect(rows.first().getByRole('button')).toHaveText('Sign out');
+    await expect(rows.nth(1).getByRole('button')).toHaveText('Revoke');
+
+    // Revoking the other one leaves this device signed in.
+    await rows.nth(1).getByRole('button').click();
+    await expect(rows).toHaveCount(1);
+    await expect(page.getByTestId('session-current')).toHaveCount(1);
+    await expect(page).toHaveURL(/\/me\/sessions$/);
+  });
+
   test('unauthenticated access to /me/sessions redirects to /login', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
 

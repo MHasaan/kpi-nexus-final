@@ -1,10 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
+import { type KpiScope, isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { computeBenchmarkValue, resolveCutoff } from './benchmark-compute.js';
 import type { ComputeBenchmarkDto, CreateBenchmarkDto } from './dto/benchmark.dto.js';
@@ -74,7 +74,16 @@ export class KpiBenchmarksService {
    */
   async compute(kpiId: string, dto: ComputeBenchmarkDto): Promise<PublicKpiBenchmark> {
     const ctx = RequestContextStore.require();
-    await this.requireKpi(kpiId);
+    const scope = await this.requireKpi(kpiId);
+    // The average is over every value on the KPI and is stored for everyone to see (BE-051).
+    // Someone who may read only some of those values — their own, or their units' — must not be
+    // able to read an average of the rest off it, nor store a partial one as the KPI's benchmark.
+    if (Object.keys(await this.accessContext.kpiPointScopeWhere(scope)).length > 0) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'A historical benchmark averages every value recorded on this KPI. It can be computed only by someone who can see them all.',
+      });
+    }
     const now = new Date();
     const cutoff = resolveCutoff(now, dto.days);
 
@@ -107,11 +116,11 @@ export class KpiBenchmarksService {
     return created;
   }
 
-  private async requireKpi(kpiId: string): Promise<void> {
+  private async requireKpi(kpiId: string): Promise<KpiScope> {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, categoryId: true },
+      select: { id: true, categoryId: true, scope: true },
     });
     if (!kpi) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     // Layer-3 category allowlist (Phase 3): hide a KPI outside the allowed categories
@@ -124,6 +133,7 @@ export class KpiBenchmarksService {
     if (!(await this.accessContext.isKpiVisible(kpiId))) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
     }
+    return kpi.scope as KpiScope;
   }
 
   private async requireBenchmark(id: string): Promise<PublicKpiBenchmark> {

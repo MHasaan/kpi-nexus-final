@@ -25,6 +25,7 @@ import {
   clearTokens,
   getAccessToken,
   listNotificationDeliveries,
+  MAX_DELIVERIES_PER_REQUEST,
   retryNotificationDelivery,
   type NotificationDelivery,
 } from '../../../../lib/api-client';
@@ -33,6 +34,9 @@ import { RequirePermission } from '../../../../components/auth/require-permissio
 import { usePermissions } from '../../../../lib/use-permissions';
 import { useFormat } from '../../../../lib/format-context';
 
+const FIRST_PAGE = 100;
+const OLDER_STEP = 200;
+
 export default function DlqPage() {
   const fmt = useFormat();
   const router = useRouter();
@@ -40,10 +44,14 @@ export default function DlqPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // How many of the newest failed deliveries to ask for. "Show older" raises it, up to what the
+  // API gives at once; a full answer means there may be more than is on the page.
+  const [limit, setLimit] = useState(FIRST_PAGE);
+
   const refresh = useCallback(async () => {
     setLoadError(null);
     try {
-      setRows(await listNotificationDeliveries('FAILED'));
+      setRows(await listNotificationDeliveries('FAILED', limit));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearTokens();
@@ -52,7 +60,7 @@ export default function DlqPage() {
       }
       setLoadError(err instanceof ApiError ? err.message : 'Failed to load deliveries');
     }
-  }, [router]);
+  }, [router, limit]);
 
   // FE-014: load only once the page gate passes, so users without access
   // are redirected without first drawing a 403 from the api.
@@ -137,6 +145,28 @@ export default function DlqPage() {
             title="No failed deliveries"
             description="Every notification was delivered successfully. Nothing to retry right now."
           />
+        </div>
+      )}
+
+      {rows && rows.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-content-muted">
+          <p data-testid="dlq-count">
+            {rows.length < limit
+              ? `${rows.length} failed deliver${rows.length === 1 ? 'y' : 'ies'}.`
+              : limit < MAX_DELIVERIES_PER_REQUEST
+                ? `Showing the newest ${rows.length}.`
+                : `Showing the newest ${rows.length}. There may be older ones; retry or resolve some of these to see them.`}
+          </p>
+          {rows.length >= limit && limit < MAX_DELIVERIES_PER_REQUEST && (
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid="dlq-show-older"
+              onClick={() => setLimit((l) => Math.min(l + OLDER_STEP, MAX_DELIVERIES_PER_REQUEST))}
+            >
+              Show older
+            </Button>
+          )}
         </div>
       )}
 

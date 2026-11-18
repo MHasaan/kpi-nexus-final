@@ -2149,11 +2149,19 @@ export interface NotificationDelivery {
   createdAt: string;
 }
 
+/** The most deliveries the API gives in one answer (notification-deliveries.service.ts). */
+export const MAX_DELIVERIES_PER_REQUEST = 500;
+
+/** The newest deliveries, optionally of one status. `limit` defaults to 100 and is capped by the API. */
 export async function listNotificationDeliveries(
   status?: NotificationDeliveryStatus,
+  limit?: number,
 ): Promise<NotificationDelivery[]> {
-  const q = status ? `?status=${status}` : '';
-  return api(`/notification-deliveries${q}`);
+  const q = new URLSearchParams();
+  if (status) q.set('status', status);
+  if (limit) q.set('limit', String(limit));
+  const qs = q.toString();
+  return api(`/notification-deliveries${qs ? `?${qs}` : ''}`);
 }
 
 export async function retryNotificationDelivery(id: string): Promise<NotificationDelivery> {

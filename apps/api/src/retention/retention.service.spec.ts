@@ -15,6 +15,10 @@ interface FakePolicy { organizationId: string; entityType: string; days: number 
 class FakePrisma {
   policies: FakePolicy[] = [];
   retentionPolicy = {
+    findUnique: vi.fn(async ({ where }: { where: { organizationId_entityType: { organizationId: string; entityType: string } } }) => {
+      const key = where.organizationId_entityType;
+      return this.policies.find((p) => p.organizationId === key.organizationId && p.entityType === key.entityType) ?? null;
+    }),
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => this.policies.filter((p) => p.organizationId === where.organizationId)),
     upsert: vi.fn(async ({ where, create, update }: { where: { organizationId_entityType: { organizationId: string; entityType: string } }; create: FakePolicy; update: { days: number } }) => {
       const key = where.organizationId_entityType;

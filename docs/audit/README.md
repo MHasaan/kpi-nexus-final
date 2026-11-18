@@ -438,6 +438,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk 2026-11-18 (member): a value recorded under My KPIs was saved for 'now to now', an instant, whatever the KPI's frequency | ✅ Fixed — My KPIs uses the shared record form: the period the frequency implies, shown and changeable. Values saved earlier are not changed | #305 | `e2e/user-kpi-views.spec.ts` |
 | Flow walk 2026-11-18 (member): a per-person KPI's page told its member 'No target set' though their own target was set, and sent them to the Data tab to record | ✅ Fixed — the member sees their own target, value and attainment and is sent to My KPIs; someone with no assignment sees 'Set per person' | #306 | `attainment.spec.ts` (3), `e2e/per-person-kpi-page.spec.ts` |
 | Flow walk 2026-11-18 (KPI list): the heading and the scope filter used the codes ORG_WIDE / PER_UNIT / PER_USER, the type read 'NUMBER', a target read '50000' | ✅ Fixed — words throughout, and the target written the organisation's way with its unit | #307 | `e2e/kpi-list-plain-words.spec.ts` |
+| Flow walk 2026-11-18 (alerts): an alert read 'Value 38000 < threshold 45000' and did not say which KPI; the alert page showed a build note ('…arrive in later phases (P5/P7)') | ✅ Fixed — the message begins with the KPI's name and says the comparison in words ('Monthly revenue: Value 38,000 is below 45,000'); the note is gone. Alerts already raised keep their message | #308 | `static-threshold.spec.ts` (+1), `alert-engine.service.spec.ts` (+2) |
 
 ### UI completion round — open findings (2026-11-16)
 

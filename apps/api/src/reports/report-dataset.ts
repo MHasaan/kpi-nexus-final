@@ -16,6 +16,12 @@ export interface ReportKpi {
   name: string;
   unit: string | null;
   latestValue: number | null;
+  /** What the KPI is measured against, from the same summary the pages use (QA-M10). */
+  targetValue?: number | null;
+  /** ON_TRACK | AT_RISK | OFF_TRACK | NO_TARGET | NO_DATA — the one health rule. */
+  status?: string;
+  /** Direction-aware percentage of the target reached, or null. */
+  attainmentPct?: number | null;
   /** Most recent ~1000 data points, descending. */
   points: ReportDataPoint[];
 }

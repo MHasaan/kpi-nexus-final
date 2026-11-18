@@ -60,7 +60,7 @@ function makeService(fixtures: KpiFixture[], maxExportRows: number | null) {
     name: f.name,
     scope: 'ORG_WIDE' as const,
     unit: f.unit,
-    targetValue: null,
+    targetValue: null as number | null,
     latestValue: f.pointCount > 0 ? f.pointCount : null,
     latestRecordedAt: null,
     aggregatedValue: null,
@@ -95,7 +95,7 @@ function makeService(fixtures: KpiFixture[], maxExportRows: number | null) {
     prisma as unknown as PrismaService,
     accessContext as unknown as AccessContextService,
   );
-  return { service, listForKpi };
+  return { service, listForKpi, kpiData };
 }
 
 function totalPoints(dataset: { kpis: Array<{ points: unknown[] }> }): number {
@@ -143,5 +143,33 @@ describe('ReportsService.buildDataset — Layer-4 maxExportRows cap', () => {
     const dataset = await withCtx(() => service.buildDataset({}));
     expect(totalPoints(dataset)).toBe(0);
     expect(dataset.kpis).toHaveLength(3);
+  });
+});
+
+// QA-M10: the report files gave a KPI's values and nothing to judge them by.
+describe('ReportsService.buildDataset — what a KPI is measured against', () => {
+  test('each KPI carries its target, its status and its attainment from the one summary', async () => {
+    const { service, kpiData } = makeService([{ kpiId: 'kpi_1', name: 'Revenue', unit: 'USD', pointCount: 3 }], null);
+    kpiData.dashboardSummary.mockResolvedValueOnce([
+      {
+        kpiId: 'kpi_1',
+        name: 'Revenue',
+        scope: 'ORG_WIDE' as const,
+        unit: 'USD',
+        targetValue: 1000,
+        latestValue: 920,
+        latestRecordedAt: null,
+        aggregatedValue: null,
+        pointCount: 3,
+        scorecardQuadrant: null,
+        direction: 'HIGHER_IS_BETTER',
+        status: 'AT_RISK' as const,
+        attainmentPct: 92,
+        spark: [],
+      },
+      // The shared fake's rows are typed without the health fields; this one carries them.
+    ] as never);
+    const dataset = await withCtx(() => service.buildDataset({}));
+    expect(dataset.kpis[0]).toMatchObject({ name: 'Revenue', latestValue: 920, targetValue: 1000, status: 'AT_RISK', attainmentPct: 92 });
   });
 });

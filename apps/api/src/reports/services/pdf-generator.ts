@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 
 import type { GeneratedReport, ReportDataset } from '../report-dataset.js';
-import { generatedLine, latestValueLine } from '../report-text.js';
+import { attainmentText, generatedLine, latestValueLine, statusCountsLine, statusLabel, summaryRow, targetLine } from '../report-text.js';
 
 /**
  * Bounding box passed to sparkline helpers. Origin (x, y) is the top-left
@@ -112,6 +112,52 @@ function drawSparkline(
   doc.restore();
 }
 
+/** Column starts and widths of the summary table, across an A4 page with 50pt margins (495pt). */
+const SUMMARY_COLUMNS = [
+  { title: 'KPI', x: 50, width: 190 },
+  { title: 'Latest', x: 245, width: 85 },
+  { title: 'Target', x: 335, width: 85 },
+  { title: 'Attained', x: 425, width: 50 },
+  { title: 'Status', x: 480, width: 65 },
+] as const;
+
+/**
+ * The table on the first page: one line per KPI — latest value, target,
+ * attainment and status. Runs on to further pages, repeating its header.
+ */
+function drawSummaryTable(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pdfkit has no TS types in this version
+  doc: any,
+  dataset: ReportDataset,
+): void {
+  const rowHeight = 16;
+  const bottom = doc.page.height - 60;
+  const header = () => {
+    const y = doc.y;
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#555555');
+    for (const col of SUMMARY_COLUMNS) doc.text(col.title, col.x, y, { width: col.width, lineBreak: false });
+    doc.moveTo(50, y + 12).lineTo(545, y + 12).strokeColor('#cccccc').lineWidth(0.5).stroke();
+    doc.y = y + rowHeight;
+  };
+  header();
+  for (const kpi of dataset.kpis) {
+    if (doc.y + rowHeight > bottom) {
+      doc.addPage();
+      header();
+    }
+    const y = doc.y;
+    const cells = summaryRow(kpi, dataset.format);
+    doc.fontSize(9).font('Helvetica').fillColor('#1a1a1a');
+    SUMMARY_COLUMNS.forEach((col, i) => {
+      // One line per KPI: a long name is cut with an ellipsis rather than wrapped into the next row.
+      doc.text(cells[i]!, col.x, y, { width: col.width, height: rowHeight, lineBreak: false, ellipsis: true });
+    });
+    doc.y = y + rowHeight;
+  }
+  doc.x = 50;
+  doc.fillColor('#000000');
+}
+
 /**
  * Generates a PDF report using pdfkit (imperative, no JSX required).
  * Structure:
@@ -135,8 +181,12 @@ export async function generatePdf(dataset: ReportDataset): Promise<GeneratedRepo
     doc.moveDown(0.5);
     doc.fontSize(12).fillColor('#555555').text(generatedLine(dataset.generatedAt, dataset.format), { align: 'center' });
     doc.fillColor('#000000');
-    doc.moveDown(2);
-    doc.fontSize(11).text(`Total KPIs: ${dataset.kpis.length}`, { align: 'center' });
+    doc.moveDown(1.5);
+    doc.fontSize(11).text(statusCountsLine(dataset.kpis), { align: 'center' });
+    doc.moveDown(1.5);
+
+    // ── Summary table (QA-M10): every KPI on one line, with what it is measured against ──
+    drawSummaryTable(doc, dataset);
     doc.addPage();
 
     // ── Per-KPI sections ─────────────────────────────────────────────────────
@@ -150,6 +200,9 @@ export async function generatePdf(dataset: ReportDataset): Promise<GeneratedRepo
       doc.moveDown(0.3);
 
       doc.fontSize(12).font('Helvetica').fillColor('#333333').text(latestValueLine(kpi, dataset.format));
+      doc.fontSize(11).fillColor('#555555').text(
+        `${targetLine(kpi, dataset.format)}   ·   Attainment: ${attainmentText(kpi.attainmentPct)}   ·   Status: ${statusLabel(kpi.status)}`,
+      );
       doc.moveDown(0.4);
 
       // Sparkline — replace former text list of data points.

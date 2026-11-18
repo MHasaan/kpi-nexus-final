@@ -2404,6 +2404,8 @@ export interface ThresholdStatus {
   band: string | null;
   reason?: string;
   color?: string;
+  /** The KPI's health by the rule the home page uses: bands, then its thresholds, then its target. */
+  health?: BoardPackStatus;
 }
 export async function listThresholdBands(kpiId: string): Promise<ThresholdBand[]> {
   return api(`/kpis/${kpiId}/threshold-bands`);

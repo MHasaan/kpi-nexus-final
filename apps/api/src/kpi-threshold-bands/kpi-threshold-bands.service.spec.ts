@@ -119,3 +119,44 @@ describe('KpiThresholdBandsService.resolveStatus (AN-002)', () => {
     });
   });
 });
+
+// QA-H3: the KPI page asked only "which band?", so a KPI graded by its own
+// warning / critical thresholds (what the KPI form writes) read "At risk" on
+// the home page and "no bands" on its own page. The status now carries the
+// same health the home page shows, from the same rule.
+describe('KpiThresholdBandsService.resolveStatus — health (QA-H3)', () => {
+  function withKpi(meta: Record<string, unknown>, bands: unknown[], values: number[]) {
+    const prisma = {
+      kPI: { findFirst: vi.fn(async () => ({ id: KPI_ID, categoryId: null, direction: 'HIGHER_IS_BETTER', targetValue: 100, warningThreshold: null, criticalThreshold: null, ...meta })) },
+      kPIThresholdBand: { findMany: vi.fn(async () => bands) },
+      kPIDataPoint: { findMany: vi.fn(async (_args: unknown) => values.map((value) => ({ value }))) },
+    };
+    return new KpiThresholdBandsService(
+      prisma as unknown as PrismaService,
+      new FakeAudit() as unknown as AuditService,
+      new FakeAccessContext(null) as unknown as AccessContextService,
+    );
+  }
+
+  it("with no bands, the KPI's own thresholds decide — the same answer as the home page", async () => {
+    const service = withKpi({ warningThreshold: 80, criticalThreshold: 50 }, [], [72]);
+    await expect(withCtx(() => service.resolveStatus(KPI_ID))).resolves.toEqual({ band: null, reason: 'no_bands', health: 'AT_RISK' });
+  });
+
+  it('with no bands and no thresholds, the target decides', async () => {
+    await expect(withCtx(() => withKpi({}, [], [120]).resolveStatus(KPI_ID))).resolves.toMatchObject({ health: 'ON_TRACK' });
+    await expect(withCtx(() => withKpi({ targetValue: null }, [], [120]).resolveStatus(KPI_ID))).resolves.toMatchObject({ health: 'NO_TARGET' });
+  });
+
+  it('with no value at all, it says so', async () => {
+    await expect(withCtx(() => withKpi({ warningThreshold: 80 }, [], []).resolveStatus(KPI_ID))).resolves.toMatchObject({ health: 'NO_DATA' });
+  });
+
+  it('a band that matches still wins, and names itself', async () => {
+    const band = { name: 'Off track', lower: null, upper: 60, color: '#dc2626', order: 0, consecutivePointsRequired: 1 };
+    await expect(withCtx(() => withKpi({ warningThreshold: 10, criticalThreshold: 5 }, [band], [40]).resolveStatus(KPI_ID))).resolves.toMatchObject({
+      band: 'Off track',
+      health: 'OFF_TRACK',
+    });
+  });
+});

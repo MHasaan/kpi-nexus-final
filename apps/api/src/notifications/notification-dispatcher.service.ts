@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 
+import { isTimeZone } from '@kpi-nexus/contracts';
+
 import { PrismaService } from '../prisma/prisma.service.js';
 import { decryptConfig } from '../notification-channels/notification-crypto.js';
 import {
@@ -9,6 +11,8 @@ import {
   NonRetryableDeliveryError,
   type NotificationPayload,
 } from './notification-adapters.service.js';
+
+import { decideDelivery, readNotificationSettings } from './notification-preferences.js';
 
 export const NOTIFICATION_RETRY_QUEUE = 'notification-retry';
 
@@ -77,6 +81,48 @@ export class NotificationDispatcherService {
   }
 
   /**
+   * Notify people by name — each gets an email of their own, and their own
+   * notification preferences decide what happens to it: a muted kind is not
+   * sent (the row says so), a digest keeps it for the digest, and inside their
+   * mute hours it waits until they end. Returns the created delivery ids.
+   */
+  async dispatchToPeople(params: { organizationId: string; alertId: string; userIds: string[]; now?: Date }): Promise<string[]> {
+    if (params.userIds.length === 0) return [];
+    const now = params.now ?? new Date();
+    const [people, org] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { organizationId: params.organizationId, id: { in: params.userIds }, status: 'ACTIVE' },
+        select: { id: true, timezone: true, notificationSettings: true },
+      }),
+      this.prisma.organization.findUnique({ where: { id: params.organizationId }, select: { timezone: true } }),
+    ]);
+
+    const ids: string[] = [];
+    for (const person of people) {
+      // Mute hours are on the person's own clock: their timezone, else the organisation's.
+      const timezone = [person.timezone, org?.timezone].find((zone): zone is string => typeof zone === 'string' && isTimeZone(zone)) ?? 'UTC';
+      const decision = decideDelivery(readNotificationSettings(person.notificationSettings), 'EMAIL', now, timezone);
+      const row = await this.prisma.notificationDelivery.create({
+        data: {
+          organizationId: params.organizationId,
+          alertId: params.alertId,
+          channelId: null,
+          kind: 'EMAIL',
+          targetUserId: person.id,
+          status: decision.action === 'suppress' ? 'SUPPRESSED' : 'PENDING',
+          held: decision.action === 'digest' ? 'DIGEST' : decision.action === 'wait' ? 'MUTE_HOURS' : null,
+          error: decision.action === 'suppress' ? 'Muted by the recipient' : null,
+        },
+        select: { id: true },
+      });
+      ids.push(row.id);
+      if (decision.action === 'send') await this.attemptDelivery(row.id);
+      if (decision.action === 'wait') await this.scheduleRetry(row.id, params.organizationId, Math.max(0, decision.until.getTime() - now.getTime()));
+    }
+    return ids;
+  }
+
+  /**
    * Attempt (or re-attempt) a single delivery. Marks SENT on success; on a
    * retryable failure marks FAILED and schedules the next attempt with backoff
    * until MAX_ATTEMPTS; non-retryable failures go terminal immediately.
@@ -89,6 +135,9 @@ export class NotificationDispatcherService {
         organizationId: true,
         alertId: true,
         channelId: true,
+        kind: true,
+        targetUserId: true,
+        held: true,
         attempts: true,
         status: true,
       },
@@ -96,6 +145,8 @@ export class NotificationDispatcherService {
     if (!delivery) return;
     // Refuse to re-send something already terminal-sent (idempotent on retry).
     if (delivery.status === 'SENT') return;
+    // Muted by the recipient, or kept for their digest (only the digest sends those).
+    if (delivery.status === 'SUPPRESSED' || delivery.held === 'DIGEST') return;
 
     const alert = await this.prisma.alert.findUnique({
       where: { id: delivery.alertId },
@@ -128,6 +179,18 @@ export class NotificationDispatcherService {
       } catch {
         config = {};
       }
+    } else if (delivery.kind === 'EMAIL' && delivery.targetUserId) {
+      // A person's own email: sent to the address on their account.
+      const person = await this.prisma.user.findUnique({
+        where: { id: delivery.targetUserId },
+        select: { email: true, status: true },
+      });
+      if (!person || person.status !== 'ACTIVE') {
+        await this.markFailed(deliveryId, 'Recipient missing or not active', delivery.attempts + 1);
+        return;
+      }
+      kind = 'EMAIL';
+      config = { recipients: [person.email] };
     }
 
     const attemptNo = delivery.attempts + 1;
@@ -135,7 +198,7 @@ export class NotificationDispatcherService {
       await this.adapters.send(kind, config, payload);
       await this.prisma.notificationDelivery.update({
         where: { id: deliveryId },
-        data: { status: 'SENT', sentAt: new Date(), attempts: attemptNo },
+        data: { status: 'SENT', sentAt: new Date(), attempts: attemptNo, held: null },
       });
     } catch (err) {
       const terminal =

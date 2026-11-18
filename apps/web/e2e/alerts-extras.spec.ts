@@ -65,14 +65,14 @@ test.describe('P4 FE extras', () => {
     await expect(page.getByTestId('notif-settings-heading')).toBeVisible();
 
     await page.getByTestId('digest-DAILY').check();
-    await page.getByTestId('mute-kind-SMS').check();
+    await page.getByTestId('mute-kind-EMAIL').check();
     await page.getByTestId('notif-settings-save').click();
     await expect(page.getByTestId('notif-settings-saved')).toBeVisible({ timeout: 10_000 });
 
     // Reload → persisted.
     await page.reload();
     await expect(page.getByTestId('digest-DAILY')).toBeChecked();
-    await expect(page.getByTestId('mute-kind-SMS')).toBeChecked();
+    await expect(page.getByTestId('mute-kind-EMAIL')).toBeChecked();
   });
 
   test('DLQ view shows empty state for a fresh org', { tag: ['@extras'] }, async ({ page }) => {

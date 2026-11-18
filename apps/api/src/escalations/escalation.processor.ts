@@ -93,6 +93,9 @@ export class EscalationProcessor extends WorkerHost {
       targetUserId: alert.targetUserId,
     });
 
+    // Each person named on this level gets an email of their own, as their preferences allow (plan 6.6).
+    await this.dispatcher.dispatchToPeople({ organizationId, alertId, userIds });
+
     // Kick the digest collator for each notified user (collapses within window).
     for (const uid of userIds) {
       await this.digest.enqueueDigest(organizationId, uid);

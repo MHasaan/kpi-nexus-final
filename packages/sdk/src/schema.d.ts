@@ -14241,10 +14241,9 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     level?: number;
-                    /** @enum {string} */
-                    track?: "IC" | "MANAGEMENT" | "EXECUTIVE";
-                    payGrade?: string;
-                    description?: string;
+                    track?: ("IC" | "MANAGEMENT" | "EXECUTIVE") | null;
+                    payGrade?: string | null;
+                    description?: string | null;
                     orgUnitId?: string;
                     isActive?: boolean;
                 };

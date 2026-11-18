@@ -264,6 +264,11 @@ export interface RoleSummary {
   userCount?: number;
 }
 
+/** Every role and which inherits from which (`childRoleId` inherits from `parentRoleId`). ROLES_MANAGE. */
+export async function getRoleHierarchy(): Promise<{ roles: RoleSummary[]; edges: Array<{ parentRoleId: string; childRoleId: string }> }> {
+  return api('/roles/hierarchy');
+}
+
 export async function listRoles(): Promise<RoleSummary[]> {
   return api('/roles');
 }

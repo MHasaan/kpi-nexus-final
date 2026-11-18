@@ -32,6 +32,7 @@ import {
   getAccessToken,
   listKpiCategories,
   listPermissionPresets,
+  getRoleHierarchy,
   listRoles,
   updateRole,
   type DataLimitsConfig,
@@ -52,6 +53,7 @@ import { ApprovalPendingNotice } from '../../components/approval-pending-notice'
 import { isApprovalPending } from '../../lib/role-permissions';
 import { usePermissions } from '../../lib/use-permissions';
 import { inSentence } from '../../lib/sentence-case';
+import { type RoleEdge, inheritedFrom } from '../../lib/role-inheritance';
 
 const ROLE_DOT = [
   'bg-chart-2',
@@ -97,6 +99,8 @@ function RolesPageInner() {
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  // Which role inherits from which. Read-only: the API has no route to change it.
+  const [edges, setEdges] = useState<RoleEdge[]>([]);
   // Renaming a role and saying what it is for. Permissions are untouched, so no approval is involved.
   const [details, setDetails] = useState<{ id: string; name: string; description: string } | null>(null);
   const [savingDetails, setSavingDetails] = useState(false);
@@ -145,6 +149,13 @@ function RolesPageInner() {
       .catch(() => {
         /* non-fatal — preset UI degrades gracefully */
       });
+  }, [canManageRoles]);
+  // The hierarchy is a ROLES_MANAGE resource too. Without it the page shows no inheritance line.
+  useEffect(() => {
+    if (!canManageRoles) return;
+    getRoleHierarchy()
+      .then((h) => setEdges(h.edges))
+      .catch(() => undefined);
   }, [canManageRoles]);
 
   const [selectedPreset, setSelectedPreset] = useState<Record<string, string>>({});
@@ -272,6 +283,12 @@ function RolesPageInner() {
   const selectedRole = useMemo(
     () => roles?.find((r) => r.id === selectedRoleId) ?? null,
     [roles, selectedRoleId],
+  );
+
+  // What the selected role gets from the roles above it. The matrix shows only its own ticks.
+  const inherited = useMemo(
+    () => (selectedRole && roles ? inheritedFrom(selectedRole.id, roles, edges) : { from: [], permissions: [] }),
+    [selectedRole, roles, edges],
   );
 
   return (
@@ -456,6 +473,14 @@ function RolesPageInner() {
                           </Badge>
                         )}
                       </h2>
+                      {inherited.from.length > 0 && (
+                        <p className="mt-1 max-w-xl text-sm text-content-default" data-testid="role-inherits">
+                          Inherits from <span className="font-medium text-content-strong">{inherited.from.join(', ')}</span>.{' '}
+                          {inherited.permissions.length > 0
+                            ? `On top of the ticks below it also has: ${inherited.permissions.join(', ')}.`
+                            : 'That adds nothing to the ticks below.'}
+                        </p>
+                      )}
                       {selectedRole.description && (
                         <p className="mt-1 max-w-xl text-sm text-content-default" data-testid="role-description">
                           {selectedRole.description}

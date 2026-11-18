@@ -2624,6 +2624,8 @@ export interface MyKpiRow {
   kpiId: string;
   name: string;
   unit: string | null;
+  /** How often the KPI is measured — it decides the period a recorded value is for. */
+  frequency: string;
   targetValue: number | null;
   currentValue: number | null;
   status: string | null;
@@ -2637,8 +2639,8 @@ export async function listTeamKpis(): Promise<Array<{ userId: string; fullName: 
 export async function listUserKpis(userId: string): Promise<MyKpiRow[]> {
   return api(`/user-kpis/user/${userId}`);
 }
-export async function recordMyKpiData(assignmentId: string, value: number, periodStart: string, periodEnd: string): Promise<DataPoint> {
-  return api(`/user-kpis/my-kpis/${assignmentId}/data`, { method: 'POST', body: JSON.stringify({ value, periodStart, periodEnd }) });
+export async function recordMyKpiData(assignmentId: string, value: number, periodStart: string, periodEnd: string, note?: string): Promise<DataPoint> {
+  return api(`/user-kpis/my-kpis/${assignmentId}/data`, { method: 'POST', body: JSON.stringify({ value, periodStart, periodEnd, ...(note ? { note } : {}) }) });
 }
 
 export interface UnitAssignmentRow {

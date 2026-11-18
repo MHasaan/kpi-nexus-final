@@ -44,9 +44,22 @@ test('my-kpis records inline; user panel + team render', async ({ page }) => {
   // My KPIs: record inline → current value updates.
   await page.goto('/my-kpis');
   await expect(page.getByText(`Self KPI ${stamp}`)).toBeVisible();
-  await page.getByTestId(`mykpi-value-${kpi.id}`).fill('95');
-  await page.getByTestId(`mykpi-record-${kpi.id}`).click();
+  // Flow walk, 2026-11-18: the value used to be saved for "now to now" — an instant — whatever the
+  // KPI's frequency, and nothing said which period it was for. A monthly KPI records for this month.
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastDay = String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0');
+  await expect(page.getByTestId(`mykpi-${kpi.id}-period-start`)).toHaveValue(`${month}-01`);
+  await expect(page.getByTestId(`mykpi-${kpi.id}-period-end`)).toHaveValue(`${month}-${lastDay}`);
+  await page.getByTestId(`mykpi-${kpi.id}-value`).fill('95');
+  await page.getByTestId(`mykpi-${kpi.id}-record`).click();
   await expect(page.getByTestId(`mykpi-current-${kpi.id}`)).toHaveText('95');
+  const points = (await (await api.get('/user-kpis/my-kpis')).json()) as Array<{ kpiId: string; currentValue: number | null; frequency: string }>;
+  expect(points.find((p) => p.kpiId === kpi.id)).toMatchObject({ currentValue: 95, frequency: 'MONTHLY' });
+  const saved = (await (await api.get(`/kpis/${kpi.id}/data`)).json()) as Array<{ value: number; periodStart: string; periodEnd: string }>;
+  expect(saved).toHaveLength(1);
+  expect(saved[0]!.periodStart.slice(0, 10)).toBe(`${month}-01`);
+  expect(saved[0]!.periodEnd.slice(0, 10)).toBe(`${month}-${lastDay}`);
 
   // Per-user panel shows it.
   await page.goto(`/users/${me.id}`);

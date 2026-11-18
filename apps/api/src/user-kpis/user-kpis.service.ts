@@ -16,6 +16,8 @@ export interface MyKpiRow {
   kpiId: string;
   name: string;
   unit: string | null;
+  /** How often the KPI is measured — it decides the period a recorded value is for. */
+  frequency: string;
   targetValue: number | null;
   currentValue: number | null;
   status: string | null;
@@ -134,7 +136,7 @@ export class UserKpisService {
         targetValue: true,
         currentValue: true,
         status: true,
-        kpi: { select: { name: true, unit: true, categoryId: true } },
+        kpi: { select: { name: true, unit: true, frequency: true, categoryId: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -145,6 +147,7 @@ export class UserKpisService {
         kpiId: r.kpiId,
         name: r.kpi.name,
         unit: r.kpi.unit,
+        frequency: r.kpi.frequency,
         targetValue: r.targetValue,
         currentValue: r.currentValue,
         status: r.status,

@@ -30,9 +30,12 @@ export function RolePermissionMatrix({
 
   // Re-sync the draft when the persisted permissions change (incl. after our own
   // save); clear feedback only when switching to another role, so "saved" stays.
+  // Keyed on what the permissions are, not on the array: the page reloads its list in the
+  // background, and a fresh copy of the same permissions must not throw away unsaved ticks.
+  const savedKey = role.permissions.join('|');
   useEffect(() => {
     setDraft(role.permissions);
-  }, [role.permissions]);
+  }, [savedKey]);
   useEffect(() => {
     setFeedback(null);
   }, [role.id]);

@@ -388,6 +388,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-015 (plan 6.10): 'Connect' on Integrations stored a connection with no credentials and called it connected, for any card and any provider name | ✅ Fixed — Slack stores the workspace ID (one organisation per workspace) and Jira a generated webhook secret shown once; a connection is PENDING until the provider is heard from; other providers are refused; the other cards link to the page that sets them up; the Email-in card is removed | #256 | `integrations-connect.spec.ts` (8), `e2e/integrations-connect.spec.ts`, `test/integration/jira-webhook.spec.ts`. Not built: a per-connection Slack signing secret; connector edit and run result |
 | Plan 6.1 (API part): the PDF report printed a raw UTC time and unformatted numbers; a scheduled report's '08:00' meant 08:00 UTC whatever the organisation's timezone | ✅ Fixed — the PDF writes the time and the numbers the organisation's way; a schedule's repeating job carries the organisation's timezone. CSV and Excel keep ISO timestamps and plain numbers on purpose. Existing schedules move over when next saved | #257 | `report-text.spec.ts` (4), `scheduled-report.service.spec.ts` (+1). Still open: QA-M10 (PDF content) |
 | QA-H3 (plan 1.6): KPI health was computed two ways — the home page used bands, then thresholds, then target; the KPI page only bands — so one KPI read 'At risk' at home and 'No bands set' on its own page | ✅ Fixed — `GET /kpis/:id/threshold-bands/status` returns `health` from the same rule and the KPI page shows it, with what it rests on | #258 | `kpi-threshold-bands.service.spec.ts` (+4), `e2e/kpi-health-one-rule.spec.ts`. By design the home page grades the newest value in its date range, the KPI page the newest of all |
+| QA-M2: the Tasks page hid 'New task' from anyone without KPI_CREATE although `POST /tasks` needs only KPI_VIEW | ✅ Fixed — the button asks for the key the API asks for; nobody gains a permission (the quick-add and the API already allowed it) | #259 | `e2e/task-button-permission.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -408,7 +409,6 @@ A separate hands-on pass ran the same build independently: 84 routes as three ro
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| QA-M2 contributors cannot create tasks in the UI although `POST /tasks` only needs KPI_VIEW (the New task button is gated on KPI_CREATE) | Medium | ⬜ open | 5.2 |
 | QA-M10 the scheduled-report PDF is nearly blank: page 1 is a title and "Total KPIs: 37", values are unformatted, no target, status or attainment | Medium | ⬜ open | 6.1 |
 | QA-L1 template KPIs are all created as Draft, so a new org shows 20 KPIs with "No data" and nothing says to activate them. Checked in 3.2b: a Draft KPI does accept values, so nothing is blocked; what is missing is a word on the KPI list about what Draft means | Low | ⬜ open | 7.3 |
 | QA-L9 a key result linked to a KPI shows no current value until "Sync from linked KPIs" is pressed | Low | ⬜ open | 7.7 |

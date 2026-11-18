@@ -1,3 +1,4 @@
+import { formatSettingsOf } from '@kpi-nexus/contracts';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { KpiDataService } from '../kpis/kpi-data.service.js';
@@ -65,7 +66,7 @@ export class ReportsService {
     // ── Org name ──────────────────────────────────────────────────────────────
     const org = await this.prisma.organization.findUnique({
       where: { id: ctx.organizationId },
-      select: { name: true },
+      select: { name: true, timezone: true, locale: true, currency: true, dateFormat: true, numberFormat: true },
     });
     const orgName = org?.name ?? 'Unknown Org';
 
@@ -142,6 +143,8 @@ export class ReportsService {
     return {
       orgName,
       generatedAt: new Date(),
+      // The file writes dates and numbers the way the organisation's pages do.
+      format: formatSettingsOf(org),
       kpis: cappedKpis,
     };
   }

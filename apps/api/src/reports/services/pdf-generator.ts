@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 
 import type { GeneratedReport, ReportDataset } from '../report-dataset.js';
+import { generatedLine, latestValueLine } from '../report-text.js';
 
 /**
  * Bounding box passed to sparkline helpers. Origin (x, y) is the top-left
@@ -132,7 +133,7 @@ export async function generatePdf(dataset: ReportDataset): Promise<GeneratedRepo
     doc.moveDown(0.5);
     doc.fontSize(16).font('Helvetica').text(dataset.orgName, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(12).fillColor('#555555').text(`Generated: ${dataset.generatedAt.toUTCString()}`, { align: 'center' });
+    doc.fontSize(12).fillColor('#555555').text(generatedLine(dataset.generatedAt, dataset.format), { align: 'center' });
     doc.fillColor('#000000');
     doc.moveDown(2);
     doc.fontSize(11).text(`Total KPIs: ${dataset.kpis.length}`, { align: 'center' });
@@ -148,9 +149,7 @@ export async function generatePdf(dataset: ReportDataset): Promise<GeneratedRepo
       doc.fontSize(16).font('Helvetica-Bold').fillColor('#1a1a1a').text(kpi.name);
       doc.moveDown(0.3);
 
-      const unit = kpi.unit ? ` ${kpi.unit}` : '';
-      const latest = kpi.latestValue !== null ? `${kpi.latestValue}${unit}` : 'No data';
-      doc.fontSize(12).font('Helvetica').fillColor('#333333').text(`Latest value: ${latest}`);
+      doc.fontSize(12).font('Helvetica').fillColor('#333333').text(latestValueLine(kpi, dataset.format));
       doc.moveDown(0.4);
 
       // Sparkline — replace former text list of data points.

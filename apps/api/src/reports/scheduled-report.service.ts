@@ -1,3 +1,4 @@
+import { isTimeZone } from '@kpi-nexus/contracts';
 import { BillingService } from '../billing/billing.service.js';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -71,11 +72,14 @@ export class ScheduledReportService {
    * We use a deterministic jobId so we can remove it by pattern.
    */
   private async addRepeatableJob(id: string, organizationId: string, cron: string): Promise<void> {
+    // "08:00 every day" means 08:00 where the organisation is, not 08:00 UTC.
+    const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { timezone: true } });
+    const tz = org?.timezone && isTimeZone(org.timezone) ? org.timezone : 'UTC';
     await this.queue.add(
       'run',
       { scheduledReportId: id, organizationId },
       {
-        repeat: { pattern: cron },
+        repeat: { pattern: cron, tz },
         jobId: this.jobId(id),
       },
     );

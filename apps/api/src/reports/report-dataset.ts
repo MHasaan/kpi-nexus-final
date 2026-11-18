@@ -1,3 +1,5 @@
+import type { FormatSettings } from '@kpi-nexus/contracts';
+
 /**
  * Normalised internal dataset passed from ReportsService into each generator.
  * Generators must not access Prisma / RequestContextStore — they receive this
@@ -21,6 +23,8 @@ export interface ReportKpi {
 export interface ReportDataset {
   orgName: string;
   generatedAt: Date;
+  /** How the organisation writes dates and numbers; the defaults when absent. */
+  format?: FormatSettings;
   kpis: ReportKpi[];
 }
 

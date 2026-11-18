@@ -128,6 +128,7 @@ function buildService(opts: {
   };
 
   const prisma = {
+    organization: { findUnique: vi.fn(async () => ({ weekStartsOn: 1, fiscalCalendar: null })) },
     kPIDataPoint: {
       findMany: vi.fn().mockImplementation(async ({ where }: { where: { kpiId: string } }) => {
         // Service fetches DESC and reverses; return DESC here.

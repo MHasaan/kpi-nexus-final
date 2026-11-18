@@ -1,3 +1,4 @@
+import { DEFAULT_FISCAL_CONFIG, weekRange } from '@kpi-nexus/contracts';
 import type { NormalizedTool, NormalizedToolCall } from '@kpi-nexus/ai';
 
 import type { ForecastsService } from '../analytics/forecasts.service.js';
@@ -92,13 +93,10 @@ function parseDate(raw: unknown): Date | undefined {
   return d;
 }
 
-function bucket(d: Date, agg: string): string {
+/** The period a value falls in. A week is named by its first day, in the organisation's calendar. */
+function bucket(d: Date, agg: string, weekStartsOn: number): string {
   if (agg === 'month') return d.toISOString().slice(0, 7);
-  if (agg === 'week') {
-    const monday = new Date(d);
-    monday.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-    return day(monday);
-  }
+  if (agg === 'week') return weekRange(d, weekStartsOn).periodStart;
   return day(d);
 }
 
@@ -115,6 +113,8 @@ export class NlqToolbox {
     private readonly kpiData: Pick<KpiDataService, 'listForKpi'>,
     private readonly visible: Map<string, PublicKpi>,
     private readonly forecasts: Pick<ForecastsService, 'forecast'>,
+    /** The organisation's first day of the week, 0 (Sunday) to 6. */
+    private readonly weekStartsOn: number = DEFAULT_FISCAL_CONFIG.weekStartsOn,
   ) {}
 
   async run(call: NormalizedToolCall): Promise<ToolRun> {
@@ -200,7 +200,7 @@ export class NlqToolbox {
     }
     const buckets = new Map<string, number[]>();
     for (const p of rows) {
-      const key = bucket(p.periodStart, agg);
+      const key = bucket(p.periodStart, agg, this.weekStartsOn);
       buckets.set(key, [...(buckets.get(key) ?? []), p.value]);
     }
     const points = [...buckets.entries()].map(([period, values]) => ({

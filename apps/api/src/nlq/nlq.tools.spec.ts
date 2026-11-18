@@ -16,7 +16,7 @@ const kpi = (id: string, extra: Partial<PublicKpi> = {}) =>
 
 const point = (period: string, value: number, extra: Record<string, unknown> = {}) => ({ periodStart: new Date(period), value, userId: null, orgUnitId: null, ...extra });
 
-function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}) {
+function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}, weekStartsOn?: number) {
   // listForKpi returns newest first, like the real reader.
   const listForKpi = vi.fn(async (kpiId: string) => [...(series[kpiId] ?? [])].sort((a, b) => b.periodStart.getTime() - a.periodStart.getTime()));
   const visible = new Map([kpi('rev'), kpi('churn', { direction: 'LOWER_IS_BETTER', unit: '%' }), kpi('calls', { scope: 'PER_USER' })].map((k) => [k.id, k]));
@@ -26,7 +26,7 @@ function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}) {
     model: 'NAIVE',
     predictions: Array.from({ length: opts.horizon }, (_, i) => ({ ds: `2027-0${i + 1}-01`, yhat: 10 + i, yhat_lower_80: 8, yhat_upper_80: 12, extra: 'x' })),
   }));
-  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService);
+  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService, weekStartsOn);
   return { toolbox, listForKpi, forecast };
 }
 
@@ -92,6 +92,23 @@ describe('NlqToolbox', () => {
     expect((out.result as { points: unknown }).points).toEqual([
       { period: '2026-01', value: 15, count: 2 },
       { period: '2026-02', value: 40, count: 1 },
+    ]);
+  });
+
+  it("query_timeseries groups by the organisation's week (plan 6.4)", async () => {
+    // 2026-11-15 is a Sunday, 2026-11-16 a Monday.
+    const series = { rev: [point('2026-11-14', 10), point('2026-11-15', 20), point('2026-11-16', 40)] };
+    const byWeek = async (weekStartsOn?: number) =>
+      ((await makeToolbox(series, weekStartsOn).toolbox.run(call('query_timeseries', { kpiId: 'rev', agg: 'week' }))).result as { points: unknown }).points;
+    // Monday weeks (the default): Saturday and Sunday close one week, Monday opens the next.
+    expect(await byWeek()).toEqual([
+      { period: '2026-11-09', value: 15, count: 2 },
+      { period: '2026-11-16', value: 40, count: 1 },
+    ]);
+    // Sunday weeks: Sunday and Monday are in the same week.
+    expect(await byWeek(0)).toEqual([
+      { period: '2026-11-08', value: 10, count: 1 },
+      { period: '2026-11-15', value: 30, count: 2 },
     ]);
   });
 

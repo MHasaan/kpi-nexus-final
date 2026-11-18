@@ -258,6 +258,8 @@ export interface RoleSummary {
   pageAccess: PageAccessConfig | null;
   createdAt: string;
   updatedAt: string;
+  /** How many people hold the role; given by the list. */
+  userCount?: number;
 }
 
 export async function listRoles(): Promise<RoleSummary[]> {
@@ -267,6 +269,9 @@ export async function listRoles(): Promise<RoleSummary[]> {
 export async function updateRole(
   id: string,
   patch: {
+    name?: string;
+    /** An empty string takes the description away. */
+    description?: string;
     /** Full permission list (FE-002). May be queued for approval: see isApprovalPending. */
     permissions?: string[];
     scopeConfig?: ScopeConfig;

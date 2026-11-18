@@ -97,6 +97,30 @@ function RolesPageInner() {
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+  // Renaming a role and saying what it is for. Permissions are untouched, so no approval is involved.
+  const [details, setDetails] = useState<{ id: string; name: string; description: string } | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  async function saveDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!details) return;
+    if (details.name.trim().length < 2) {
+      setDetailsError('Give the role a name of at least two characters.');
+      return;
+    }
+    setSavingDetails(true);
+    setDetailsError(null);
+    try {
+      await updateRole(details.id, { name: details.name.trim(), description: details.description.trim() });
+      setDetails(null);
+      await refresh();
+    } catch (err) {
+      setDetailsError(err instanceof ApiError ? err.message : 'Could not save the role');
+    } finally {
+      setSavingDetails(false);
+    }
+  }
 
   // Create-role form state
   const [newName, setNewName] = useState('');
@@ -145,7 +169,8 @@ function RolesPageInner() {
   // Patch a single role in local state after a config save (so re-selecting it
   // shows persisted values without a full refetch).
   const handleRoleUpdated = useCallback((updated: RoleSummary) => {
-    setRoles((prev) => (prev ? prev.map((r) => (r.id === updated.id ? updated : r)) : prev));
+    // An update answers without the member count: keep the one the list gave.
+    setRoles((prev) => (prev ? prev.map((r) => (r.id === updated.id ? { ...updated, userCount: r.userCount } : r)) : prev));
   }, []);
 
   async function refresh() {
@@ -385,13 +410,20 @@ function RolesPageInner() {
                               ROLE_DOT[i % ROLE_DOT.length],
                             )}
                           />
-                          <span
-                            className={cn(
-                              'flex-1 truncate text-sm',
-                              active ? 'font-semibold' : 'font-medium text-content-default',
+                          <span className="min-w-0 flex-1">
+                            <span
+                              className={cn(
+                                'block truncate text-sm',
+                                active ? 'font-semibold' : 'font-medium text-content-default',
+                              )}
+                            >
+                              {role.name}
+                            </span>
+                            {role.userCount !== undefined && (
+                              <span className="block text-xs text-content-muted" data-testid={`role-members-${role.name}`}>
+                                {role.userCount === 0 ? 'No one' : role.userCount === 1 ? '1 person' : `${role.userCount} people`}
+                              </span>
                             )}
-                          >
-                            {role.name}
                           </span>
                           {role.isAdmin && (
                             <Badge tone="info" className="text-[10px]">
@@ -424,6 +456,11 @@ function RolesPageInner() {
                           </Badge>
                         )}
                       </h2>
+                      {selectedRole.description && (
+                        <p className="mt-1 max-w-xl text-sm text-content-default" data-testid="role-description">
+                          {selectedRole.description}
+                        </p>
+                      )}
                       <p className="mt-1 max-w-xl text-xs text-content-muted">
                         {selectedRole.isAdmin
                           ? 'Admin roles bypass every permission check.'
@@ -432,6 +469,21 @@ function RolesPageInner() {
                     </div>
                     <PermissionGuard permission="ROLES_MANAGE">
                       <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          data-testid="role-edit-details"
+                          onClick={() => {
+                            setDetailsError(null);
+                            setDetails(
+                              details?.id === selectedRole.id
+                                ? null
+                                : { id: selectedRole.id, name: selectedRole.name, description: selectedRole.description ?? '' },
+                            );
+                          }}
+                        >
+                          Edit details
+                        </Button>
                         {presets.length > 0 && (
                           <>
                             <Select
@@ -506,13 +558,52 @@ function RolesPageInner() {
                     </p>
                   )}
 
-                  <RolePermissionMatrix role={selectedRole} onSaved={handleRoleUpdated} />
-
-                  {selectedRole.description && (
-                    <p className="mt-5 border-t border-border-divider pt-4 text-sm text-content-muted">
-                      {selectedRole.description}
-                    </p>
+                  {details?.id === selectedRole.id && (
+                    <form
+                      onSubmit={(e) => void saveDetails(e)}
+                      data-testid="role-details-form"
+                      className="mt-4 grid gap-4 rounded-lg border border-border bg-surface-1 p-4 sm:grid-cols-[1fr_2fr_auto] sm:items-end"
+                    >
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="role-details-name" required>
+                          Name
+                        </Label>
+                        <Input
+                          id="role-details-name"
+                          value={details.name}
+                          onChange={(e) => setDetails({ ...details, name: e.target.value })}
+                          disabled={savingDetails}
+                          maxLength={60}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="role-details-description">Description</Label>
+                        <Input
+                          id="role-details-description"
+                          value={details.description}
+                          onChange={(e) => setDetails({ ...details, description: e.target.value })}
+                          disabled={savingDetails}
+                          maxLength={500}
+                          placeholder="(none)"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" isLoading={savingDetails}>
+                          Save
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setDetails(null)} disabled={savingDetails}>
+                          Cancel
+                        </Button>
+                      </div>
+                      {detailsError && (
+                        <p role="alert" data-testid="role-details-error" className="text-sm text-status-critical sm:col-span-3">
+                          {detailsError}
+                        </p>
+                      )}
+                    </form>
                   )}
+
+                  <RolePermissionMatrix role={selectedRole} onSaved={handleRoleUpdated} />
 
                   <RoleAccessConfig
                     key={selectedRole.id}

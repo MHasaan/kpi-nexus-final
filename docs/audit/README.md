@@ -418,6 +418,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Plan 7.7 (org units): a unit's parent and description could not be changed after it was created, and the API could not move a unit back to the top level | ✅ Fixed — Edit on each unit; the unit and those below it are not offered as parents; `PATCH /org-units/:id` accepts null for parent and description | #284 | `org-units.service.spec.ts` (+2), `e2e/org-unit-edit.spec.ts` |
 | Plan 7.7 (positions): a position could be created and deleted but not changed | ✅ Fixed — Edit opens name, track, level and pay grade; `PATCH /positions/:id` accepts null for track, pay grade and description | #285 | `position.dto.spec.ts` (3), `e2e/position-edit.spec.ts` |
 | Plan 7.7 (roles): nothing showed how many people hold a role, and a role could not be renamed or described | ✅ Fixed — `GET /roles` returns `userCount`, shown on each role; 'Edit details' renames and describes. Also: a permission's hidden checkbox stays with its label when the matrix scrolls. Role hierarchy on the page is not done | #286 | `roles.service.spec.ts` (+1), `e2e/role-rename-member-count.spec.ts` |
+| Plan 7.7 (KPI import): CSV could only be pasted; text edited after a dry-run could be committed unchecked by the page | ✅ Fixed — a CSV file can be chosen (read in the browser, up to 1,000 KB); editing the text clears the dry-run, so commit waits for another | #287 | `e2e/kpi-import-file.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

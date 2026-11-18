@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_FISCAL_CONFIG, currentPeriod, fiscalConfigOf, fiscalQuarterRange, fiscalYearRange, weekRange } from './fiscal.js';
+import { DEFAULT_FISCAL_CONFIG, currentPeriod, fiscalConfigOf, fiscalQuarterRange, fiscalYearRange, weekRange, fiscalPeriodLabel } from './fiscal.js';
 
 const at = (iso: string) => new Date(`${iso}T12:00:00.000Z`);
 
@@ -68,5 +68,29 @@ describe('currentPeriod', () => {
   it('with no calendar given, it is the calendar year and Monday weeks', () => {
     expect(currentPeriod('WEEKLY', at('2026-11-18'))).toEqual({ periodStart: '2026-11-16', periodEnd: '2026-11-22' });
     expect(currentPeriod('YEARLY', at('2026-11-18'))).toEqual({ periodStart: '2026-01-01', periodEnd: '2026-12-31' });
+  });
+});
+
+// Plan 6.4: reports and the board pack name the fiscal period a date falls in.
+describe('fiscalPeriodLabel — the fiscal year and quarter a date falls in, in words', () => {
+  const at = (iso: string) => new Date(`${iso}T12:00:00Z`);
+
+  test('a fiscal year that is the calendar year is named by that year', () => {
+    expect(fiscalPeriodLabel(at('2026-11-18'), 1)).toBe('FY 2026, Q4');
+    expect(fiscalPeriodLabel(at('2026-01-01'), 1)).toBe('FY 2026, Q1');
+    expect(fiscalPeriodLabel(at('2026-06-30'), 1)).toBe('FY 2026, Q2');
+  });
+
+  test('a fiscal year that starts mid-year is named by the two years it spans', () => {
+    // July start: November 2026 is in the year July 2026 – June 2027, second quarter.
+    expect(fiscalPeriodLabel(at('2026-11-18'), 7)).toBe('FY 2026/27, Q2');
+    // …and May 2026 is in the year before, last quarter.
+    expect(fiscalPeriodLabel(at('2026-05-10'), 7)).toBe('FY 2025/26, Q4');
+    // April start, across a century boundary in the short year.
+    expect(fiscalPeriodLabel(at('2099-12-01'), 4)).toBe('FY 2099/00, Q3');
+  });
+
+  test('with no start month given it uses the default calendar', () => {
+    expect(fiscalPeriodLabel(at('2026-03-31'))).toBe('FY 2026, Q1');
   });
 });

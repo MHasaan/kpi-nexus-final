@@ -429,6 +429,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | UI-017 (follow-up): with a target in effect on the Targets tab, the KPI's Edit form still offered to change the target, which would not have lasted | ✅ Fixed — the form shows the tab's figure, does not edit it, links to the tab, and leaves the target out of the save | #296 | `e2e/kpi-form-target-from-tab.spec.ts` |
 | X-05 (remainder, part): the org units page and the KPI form asked for the people list on behalf of someone who may not have it | ✅ Fixed — both use `usePeople`: everyone for a reader with USERS_VIEW, otherwise the reader and the people the page already names; no refused request | #297 | `e2e/people-list-only-when-allowed.spec.ts` |
 | Plan 6.10 (connectors): a connector could not be edited from the page, and a run showed only a status word | ✅ Fixed — an edit form (name, address, value path, KPI, schedule, active); 'Run now' and the run history say how many values came in and why a run failed. A successful run against a real address is not tested | #298 | `e2e/connector-edit-run-result.spec.ts` |
+| Plan 6.4 (board pack): the period line printed two raw timestamps and named no fiscal period | ✅ Fixed — dates written the organisation's way, then the fiscal year and quarter the period ends in (`fiscalPeriodLabel` in contracts). The report files carry no fiscal label: they cover all values, not a period | #299 | `fiscal.spec.ts` (+3), `e2e/board-pack-period.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

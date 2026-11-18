@@ -29,6 +29,7 @@ import {
   Skeleton,
 } from '../ui';
 import { useFormat } from '../../lib/format-context';
+import { otpauthQrDataUrl } from '../../lib/otpauth-qr';
 
 interface SecurityTabProps {
   user: AuthUser;
@@ -177,6 +178,21 @@ function ChangePasswordCard() {
 
 function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
   const [enrollment, setEnrollment] = useState<MfaEnrollResult | null>(null);
+  // The QR code for the secret, drawn in the browser. Without it the key below still works.
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    setQr(null);
+    if (!enrollment) return;
+    let live = true;
+    otpauthQrDataUrl(enrollment.otpauthUrl)
+      .then((url) => {
+        if (live) setQr(url);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [enrollment]);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [confirmCode, setConfirmCode] = useState('');
@@ -283,11 +299,23 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
           >
             <div>
               <h4 className="text-sm font-semibold text-content-strong">
-                1. Add this secret to your authenticator app
+                1. Add this account to your authenticator app
               </h4>
               <p className="mt-1 text-xs text-content-muted">
-                Scan the otpauth URL or copy the secret directly.
+                Scan the code with the app. If you cannot scan it, type in the key below instead.
               </p>
+              {qr && (
+                // A data: image drawn in the browser: nothing to fetch, so a plain <img>.
+                <img
+                  src={qr}
+                  alt="QR code for your authenticator app"
+                  width={176}
+                  height={176}
+                  data-testid="mfa-qr"
+                  className="mt-3 rounded-md border border-border bg-white p-1"
+                />
+              )}
+              <p className="mt-3 text-xs font-medium text-content-muted">Key</p>
               <p
                 className="mt-2 break-all rounded bg-surface-bg px-2 py-1 font-mono text-xs text-content-strong"
                 data-testid="mfa-secret"

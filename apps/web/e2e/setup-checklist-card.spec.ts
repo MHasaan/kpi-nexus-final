@@ -39,7 +39,7 @@ test('checklist card: each task links to where it is done, and done work shows a
   }
   const card = page.getByTestId('setup-checklist-card');
   await expect(card).toBeVisible({ timeout: 15_000 });
-  await expect(card.getByTestId('checklist-progress')).toHaveText('0 of 14 complete');
+  await expect(card.getByTestId('checklist-progress')).toHaveText('0 of 13 complete');
 
   // A task is a link to the page where it is done.
   await expect(card.getByTestId('checklist-remaining_invites').getByRole('link', { name: 'Invite your team' })).toHaveAttribute('href', '/users');
@@ -48,7 +48,7 @@ test('checklist card: each task links to where it is done, and done work shows a
   // Invite someone — nothing is ticked by hand.
   expect((await ctx.api.post('/users', { data: { email: `mate-${ctx.stamp}@clcard.test.local`, fullName: 'Team Mate' } })).status()).toBe(201);
   await page.reload();
-  await expect(card.getByTestId('checklist-progress')).toHaveText('1 of 14 complete');
+  await expect(card.getByTestId('checklist-progress')).toHaveText('1 of 13 complete');
   await expect(card.getByTestId('checklist-remaining_invites')).toHaveCount(0);
   await card.getByTestId('checklist-toggle-done').click();
   const done = card.getByTestId('checklist-done-remaining_invites');
@@ -58,9 +58,9 @@ test('checklist card: each task links to where it is done, and done work shows a
 
   // Ticking one by hand still works, and can be undone.
   await card.getByTestId('checklist-compliance_review-complete').click();
-  await expect(card.getByTestId('checklist-progress')).toHaveText('2 of 14 complete');
+  await expect(card.getByTestId('checklist-progress')).toHaveText('2 of 13 complete');
   await card.getByTestId('checklist-done-compliance_review').getByRole('button', { name: /undo/i }).click();
-  await expect(card.getByTestId('checklist-progress')).toHaveText('1 of 14 complete');
+  await expect(card.getByTestId('checklist-progress')).toHaveText('1 of 13 complete');
 });
 
 test('checklist card: a failed load or action is shown, not swallowed', async ({ page }) => {

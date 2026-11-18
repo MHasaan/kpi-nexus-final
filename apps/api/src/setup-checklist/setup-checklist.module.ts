@@ -5,7 +5,7 @@ import { SetupChecklistController } from './setup-checklist.controller.js';
 import { SetupChecklistService } from './setup-checklist.service.js';
 
 /**
- * SetupChecklistModule — the 14-task post-onboarding setup checklist shown on
+ * SetupChecklistModule — the post-onboarding setup checklist shown on
  * the home page. Auth-only (no specific permission); lazily upserted.
  */
 @Module({

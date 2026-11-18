@@ -1,6 +1,6 @@
 /**
  * P6 SetupChecklistModule. API-level e2e via Playwright request. A fresh org
- * sees 14 pending tasks (lazy, no rows); status changes persist. Requires the
+ * sees 13 pending tasks (lazy, no rows); status changes persist. Requires the
  * api at $API_URL.
  */
 import { expect, request, test } from '@playwright/test';
@@ -42,12 +42,12 @@ async function adminApi() {
 
 interface View { items: Array<{ key: string; status: string }>; total: number; complete: number }
 
-test('setup checklist: 14 lazy pending, complete/dismiss/reset persist', async () => {
+test('setup checklist: 13 lazy pending, complete/dismiss/reset persist', async () => {
   test.skip(!apiAvailable, 'api not reachable');
   const api = await adminApi();
 
   const fresh = (await (await api.get('/setup-checklist')).json()) as View;
-  expect(fresh.total).toBe(14);
+  expect(fresh.total).toBe(13);
   expect(fresh.complete).toBe(0);
   expect(fresh.items.every((i) => i.status === 'pending')).toBe(true);
 

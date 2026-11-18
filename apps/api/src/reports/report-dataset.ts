@@ -1,4 +1,4 @@
-import type { FormatSettings } from '@kpi-nexus/contracts';
+import type { FormatSettings, KpiHolders } from '@kpi-nexus/contracts';
 
 /**
  * Normalised internal dataset passed from ReportsService into each generator.
@@ -22,6 +22,9 @@ export interface ReportKpi {
   status?: string;
   /** Direction-aware percentage of the target reached, or null. */
   attainmentPct?: number | null;
+  /** The KPI's scope and, for a per-person or per-unit KPI with several holders in sight, their count (UI-018). */
+  scope?: string;
+  holders?: KpiHolders | null;
   /** Most recent ~1000 data points, descending. */
   points: ReportDataPoint[];
 }

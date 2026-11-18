@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '../../../com
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { changeTone } from '../../../lib/kpi-health';
 import { useFormat } from '../../../lib/format-context';
-import { fiscalPeriodLabel } from '@kpi-nexus/contracts';
+import { fiscalPeriodLabel, holdersText } from '@kpi-nexus/contracts';
 
 import { useFiscalConfig } from '../../../lib/use-fiscal-config';
 
@@ -259,7 +259,7 @@ export default function BoardPackPage() {
                             >
                               <span className="truncate text-content">{kpi.name}</span>
                               <span className="shrink-0 font-medium tabular-nums text-content-strong">
-                                {fmt.number(kpi.value)}
+                                {kpi.holders ? holdersText(kpi.holders, kpi.scope ?? 'PER_USER') : fmt.number(kpi.value)}
                               </span>
                             </li>
                           ))}

@@ -13,6 +13,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
 import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
 import { MAX_HISTORY_TURNS, type NlqTurn } from './nlq-ask.dto.js';
+import { type KpiHolders, holdersText } from '@kpi-nexus/contracts';
 
 export interface NlqSource {
   kpiId: string;
@@ -246,11 +247,11 @@ export class NlqService {
     metaById: Map<string, PublicKpi>,
   ): Promise<{ context: string; deepIds: string[] }> {
     // Latest value per KPI in ONE visibility + dataLimits aware call.
-    const summaryByKpi = new Map<string, { latestValue: number | null; latestRecordedAt: Date | null }>();
+    const summaryByKpi = new Map<string, { latestValue: number | null; latestRecordedAt: Date | null; holders: KpiHolders | null; scope: string }>();
     try {
       const summary = await this.kpiData.dashboardSummary();
       for (const row of summary) {
-        summaryByKpi.set(row.kpiId, { latestValue: row.latestValue, latestRecordedAt: row.latestRecordedAt });
+        summaryByKpi.set(row.kpiId, { latestValue: row.latestValue, latestRecordedAt: row.latestRecordedAt, holders: row.holders, scope: row.scope });
       }
     } catch (err) {
       this.logger.warn(`dashboardSummary failed (non-fatal): ${String(err)}`);
@@ -276,6 +277,14 @@ export class NlqService {
 
       const latest = summaryByKpi.get(id)?.latestValue ?? null;
       const latestAt = summaryByKpi.get(id)?.latestRecordedAt ?? null;
+
+      // A per-person or per-unit KPI with several holders in sight has no one value and no one
+      // series (UI-018): say how many are on track, and draw no trend through different people's values.
+      const held = summaryByKpi.get(id);
+      if (held?.holders) {
+        lines.push(`${this.formatLine(meta, null, latestAt, [], categoryById)} | ${holdersText(held.holders, held.scope)} (each holder has their own value and target)`);
+        continue;
+      }
 
       let recent: number[] = [];
       if (deepSet.has(id)) {

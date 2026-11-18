@@ -1,4 +1,4 @@
-import { DEFAULT_FORMAT_SETTINGS, type FormatSettings, formatDateTime, formatNumber } from '@kpi-nexus/contracts';
+import { DEFAULT_FORMAT_SETTINGS, type FormatSettings, type KpiHolders, formatDateTime, formatNumber, holdersText } from '@kpi-nexus/contracts';
 
 /**
  * The words a report file prints. Kept apart from the PDF drawing so they can
@@ -12,7 +12,12 @@ export function generatedLine(generatedAt: Date, format: FormatSettings | undefi
 }
 
 /** "Latest value: <number> <unit>", the number written the organisation's way. */
-export function latestValueLine(kpi: { latestValue: number | null; unit: string | null }, format: FormatSettings | undefined): string {
+export function latestValueLine(
+  kpi: { latestValue: number | null; unit: string | null; holders?: KpiHolders | null; scope?: string },
+  format: FormatSettings | undefined,
+): string {
+  // A per-person or per-unit KPI with several holders has no one value (UI-018).
+  if (kpi.holders) return holdersText(kpi.holders, kpi.scope ?? 'PER_USER');
   if (kpi.latestValue === null) return 'Latest value: No data';
   const number = formatNumber(kpi.latestValue, format ?? DEFAULT_FORMAT_SETTINGS);
   return `Latest value: ${number}${kpi.unit ? ` ${kpi.unit}` : ''}`;
@@ -44,13 +49,20 @@ export function statusLabel(status: string | undefined): string {
   return status ? (STATUS_LABELS[status] ?? status) : '—';
 }
 
-type SummaryKpi = Measured & { name: string; latestValue: number | null; attainmentPct?: number | null; status?: string };
+type SummaryKpi = Measured & {
+  name: string;
+  latestValue: number | null;
+  attainmentPct?: number | null;
+  status?: string;
+  holders?: KpiHolders | null;
+  scope?: string;
+};
 
 /** One row of the first page's table: name, latest value, target, attainment, status. */
 export function summaryRow(kpi: SummaryKpi, format: FormatSettings | undefined): [string, string, string, string, string] {
   return [
     kpi.name,
-    kpi.latestValue === null ? 'No data' : withUnit(kpi.latestValue, kpi.unit, format),
+    kpi.holders ? holdersText(kpi.holders, kpi.scope ?? 'PER_USER') : kpi.latestValue === null ? 'No data' : withUnit(kpi.latestValue, kpi.unit, format),
     kpi.targetValue == null ? '—' : withUnit(kpi.targetValue, kpi.unit, format),
     kpi.attainmentPct == null ? '—' : `${Math.round(kpi.attainmentPct)}%`,
     statusLabel(kpi.status),

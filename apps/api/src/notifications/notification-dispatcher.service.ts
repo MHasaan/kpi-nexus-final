@@ -13,6 +13,7 @@ import {
 } from './notification-adapters.service.js';
 
 import { decideDelivery, readNotificationSettings } from './notification-preferences.js';
+import { emailBrandOf } from '../email/branded-email.js';
 
 export const NOTIFICATION_RETRY_QUEUE = 'notification-retry';
 
@@ -154,12 +155,18 @@ export class NotificationDispatcherService {
     });
     if (!alert) return;
 
+    // Whose alert it is, for an email's header and colour. Not knowing is no reason to hold the alert back.
+    const org = await this.prisma.organization
+      .findUnique({ where: { id: delivery.organizationId }, select: { name: true, logoUrl: true, primaryColor: true } })
+      .catch(() => null);
+
     const payload: NotificationPayload = {
       alertId: alert.id,
       kpiId: alert.kpiId,
       severity: alert.severity,
       message: alert.message,
       title: 'KPI Alert',
+      brand: emailBrandOf(org),
     };
 
     let kind = 'IN_APP';

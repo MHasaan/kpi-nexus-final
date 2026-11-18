@@ -1,4 +1,4 @@
-import { DATE_FORMATS, NUMBER_FORMATS, isCurrency, isLocale, isTimeZone } from '@kpi-nexus/contracts';
+import { DATE_FORMATS, NUMBER_FORMATS, brandColorProblem, isCurrency, isLocale, isTimeZone } from '@kpi-nexus/contracts';
 import { z } from 'zod';
 
 import { PasswordPolicySchema } from '../../password/password-policy.js';
@@ -19,9 +19,11 @@ export const UpdateOrganizationDtoSchema = z.object({
   // Branding
   logoUrl: z.string().url().nullable().optional(),
   faviconUrl: z.string().url().nullable().optional(),
+  // The accent carries white text, so a colour white cannot be read on is refused (plan 6.3).
   primaryColor: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
+    .refine((color) => brandColorProblem(color) === null, { message: 'primaryColor is too light for white text; choose a darker colour' })
     .nullable()
     .optional(),
   secondaryColor: z

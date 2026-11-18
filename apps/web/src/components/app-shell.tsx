@@ -66,6 +66,7 @@ import {
   isPageAllowed,
   type PageAccessResolved,
 } from '../lib/access';
+import { useBranding } from '../lib/branding-context';
 import { navLabelFor } from '../lib/nav-terminology';
 import { useTerminology } from '../lib/terminology-context';
 import { usePageAccess } from '../lib/use-page-access';
@@ -494,6 +495,8 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
   }, [mounted, pageAccessReady, pageAccess, pathname, router]);
 
   const email = user?.email ?? '';
+  // The organisation's name and logo head the sidebar, once they are known.
+  const { branding } = useBranding();
   const name = user?.fullName || user?.email || 'You';
   const initials = initialsOf(name);
   const derived = titleForPath(pathname);
@@ -539,18 +542,23 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
             collapsed && 'justify-center px-0',
           )}
         >
-          <span
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-sm"
-          >
-            <Target className="h-4 w-4 text-white" />
-          </span>
+          {branding.logoUrl ? (
+            // The organisation's own logo, from the address it gave: not an asset the build can optimise.
+            <img src={branding.logoUrl} alt="" data-testid="brand-logo" className="h-7 w-7 shrink-0 rounded-lg object-contain" />
+          ) : (
+            <span
+              aria-hidden
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-brand shadow-sm"
+            >
+              <Target className="h-4 w-4 text-white" />
+            </span>
+          )}
           {showLabels && (
             <span className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-[13.5px] font-bold tracking-tight text-content-strong">
-                KPI Nexus
+              <span data-testid="brand-name" className="truncate text-[13.5px] font-bold tracking-tight text-content-strong">
+                {branding.name ?? 'KPI Nexus'}
               </span>
-              <span className="truncate text-[11px] text-content-muted">Workspace</span>
+              <span className="truncate text-[11px] text-content-muted">{branding.name ? 'KPI Nexus' : 'Workspace'}</span>
             </span>
           )}
           {showLabels && (

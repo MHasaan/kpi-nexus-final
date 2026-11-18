@@ -19,6 +19,7 @@ import {
   UpdateScheduledReportDtoSchema,
 } from './dto/reports.dto.js';
 import { ScheduledReportService } from './scheduled-report.service.js';
+import { ReportDownloadService } from './report-download.service.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
 
 const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
@@ -45,7 +46,10 @@ const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
  */
 @Controller('scheduled-reports')
 export class ScheduledReportsController {
-  constructor(private readonly scheduledReports: ScheduledReportService) {}
+  constructor(
+    private readonly scheduledReports: ScheduledReportService,
+    private readonly downloads: ReportDownloadService,
+  ) {}
 
   @Get()
   @RequirePermissions(PermissionKey.REPORTS_VIEW)
@@ -81,6 +85,13 @@ export class ScheduledReportsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
     await this.scheduledReports.remove(id);
+  }
+
+  /** A download address for one finished run, signed now and good for a few minutes. */
+  @Get(':id/runs/:runId/download')
+  @RequirePermissions(PermissionKey.REPORTS_VIEW)
+  download(@Param('id') id: string, @Param('runId') runId: string): Promise<{ url: string }> {
+    return this.downloads.freshUrl(id, runId);
   }
 
   @Post(':id/trigger')

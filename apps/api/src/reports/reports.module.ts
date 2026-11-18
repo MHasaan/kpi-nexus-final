@@ -14,6 +14,7 @@ import { ScheduledReportsController } from './scheduled-reports.controller.js';
 import { BoardPackService } from './services/board-pack.service.js';
 import { EmbedTokenService } from './services/embed-token.service.js';
 import { StorageService } from './services/storage.service.js';
+import { ReportDownloadService } from './report-download.service.js';
 import { queueProcessors } from '../config/queue-workers.js';
 
 /**
@@ -45,6 +46,7 @@ import { queueProcessors } from '../config/queue-workers.js';
     EmbedTokenService,
     StorageService,
     ScheduledReportService,
+    ReportDownloadService,
     ...queueProcessors([ScheduledReportProcessor]),
   ],
   exports: [EmbedTokenService],

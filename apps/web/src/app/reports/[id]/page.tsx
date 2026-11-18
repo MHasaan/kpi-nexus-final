@@ -17,6 +17,7 @@ import {
   ApiError,
   clearTokens,
   getAccessToken,
+  getReportRunDownloadUrl,
   getScheduledReport,
   triggerScheduledReport,
   type ReportRun,
@@ -82,6 +83,28 @@ export default function ReportDetailPage() {
   const [triggering, setTriggering] = useState(false);
   const [triggerError, setTriggerError] = useState<string | null>(null);
   const [triggered, setTriggered] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // The address stored on a run stops working a week after the report ran, so a new one is
+  // asked for on each press. The tab is opened at once, while the press still counts as the
+  // user's own, and pointed at the file when the address arrives.
+  const download = async (runId: string) => {
+    setDownloadError(null);
+    setDownloadingId(runId);
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+    try {
+      const url = await getReportRunDownloadUrl(reportId, runId);
+      if (tab) tab.location.href = url;
+      else window.location.assign(url);
+    } catch (e) {
+      tab?.close();
+      setDownloadError(e instanceof ApiError ? e.message : 'Could not prepare the download');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -235,6 +258,11 @@ export default function ReportDetailPage() {
                 <CardTitle>Run history</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
+                {downloadError && (
+                  <p role="alert" data-testid="run-download-error" className="px-4 py-2 text-sm text-status-critical">
+                    {downloadError}
+                  </p>
+                )}
                 {report.runs.length === 0 ? (
                   <div
                     data-testid="report-runs-empty"
@@ -263,16 +291,16 @@ export default function ReportDetailPage() {
                           </TableCell>
                           <TableCell>
                             {run.status === 'SUCCEEDED' && run.fileUrl ? (
-                              <a
-                                href={run.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => void download(run.id)}
+                                disabled={downloadingId === run.id}
                                 data-testid={`run-download-${run.id}`}
-                                className="inline-flex items-center gap-1.5 text-accent-primary hover:underline"
+                                className="inline-flex items-center gap-1.5 text-accent-primary hover:underline disabled:opacity-60"
                               >
                                 <Download className="h-3.5 w-3.5" aria-hidden />
-                                Download
-                              </a>
+                                {downloadingId === run.id ? 'Preparing…' : 'Download'}
+                              </button>
                             ) : (
                               <span className="text-content-muted">—</span>
                             )}

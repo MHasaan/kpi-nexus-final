@@ -146,7 +146,8 @@ export class AuditService {
     return this.prisma.auditLog.findMany({
       where: {
         organizationId: ctx.organizationId,
-        entityType: filters.entityType,
+        // Typed into a free-text box on the page: "kpi" must find KPI rows.
+        entityType: filters.entityType ? { equals: filters.entityType, mode: 'insensitive' } : undefined,
         entityId: filters.entityId,
         userId: filters.userId,
         action: filters.action,

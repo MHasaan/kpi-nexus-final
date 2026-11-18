@@ -15,6 +15,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 import type { SeriesPoint } from './series';
 import { toSeries } from './series';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 interface BarChartWidgetProps {
   widget: DashboardWidget;
@@ -40,7 +41,7 @@ export function BarChartWidget({ widget, dataPoints = [] }: BarChartWidgetProps)
       </p>
       {chartData.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-content-muted">No data</p>
+          <p className="text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0">

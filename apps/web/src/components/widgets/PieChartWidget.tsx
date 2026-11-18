@@ -14,6 +14,7 @@ import type { DashboardWidget } from '../../lib/api-client';
 import type { SeriesPoint, WidgetKpi } from './series';
 import { latestPoint, toSeries } from './series';
 import { useFormat } from '../../lib/format-context';
+import { NO_VALUES_IN_RANGE } from './series';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
 
@@ -53,7 +54,7 @@ export function PieChartWidget({ widget, kpi, dataPoints = [] }: PieChartWidgetP
       </p>
       {chartData.length === 0 || (chartData.length === 1 && chartData[0]!.value === 0) ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-content-muted">No data</p>
+          <p className="text-sm text-content-muted">{NO_VALUES_IN_RANGE}</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0">

@@ -43,3 +43,10 @@ export function previousPoint<T extends SeriesPoint>(points: readonly T[] | unde
 export function periodLabel(point: Pick<SeriesPoint, 'periodStart'>, locale?: string): string {
   return new Date(point.periodStart).toLocaleDateString(locale);
 }
+
+/**
+ * What a widget says when the board's date range holds no value for its KPI.
+ * Not "No data": the KPI may well have values outside the range, and a reader
+ * took "No data" to mean nothing was ever recorded.
+ */
+export const NO_VALUES_IN_RANGE = 'No values in this date range';

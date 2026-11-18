@@ -31,7 +31,7 @@ test('dashboard card: a KPI whose values are outside the range says so; the targ
   expect((await api.post(`/kpis/${kpi.id}/data`, { data: { value: 41000, periodStart: '2024-01-01', periodEnd: '2024-01-31' } })).status()).toBe(201);
   const dashboard = (await (await api.post('/dashboards', { data: { name: `Board ${stamp}` } })).json()) as { id: string };
   const widget = (await (await api.post(`/dashboards/${dashboard.id}/widgets`, {
-    data: { type: 'kpi_card', title: 'Revenue', config: { kpiId: kpi.id }, position: { x: 0, y: 0, w: 4, h: 3 } },
+    data: { widgetType: 'kpi_card', title: 'Revenue', config: { kpiId: kpi.id }, position: { x: 0, y: 0, w: 4, h: 3 } },
   })).json()) as { id: string };
 
   await page.goto(`/dashboards/${dashboard.id}`);

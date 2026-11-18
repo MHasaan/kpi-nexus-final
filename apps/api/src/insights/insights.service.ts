@@ -81,7 +81,9 @@ export class InsightsService {
   /** Most-recent values for a KPI, oldest→newest. */
   private async recentValues(organizationId: string, kpiId: string): Promise<number[]> {
     const points = await this.prisma.kPIDataPoint.findMany({
-      where: { organizationId, kpiId },
+      // Organisation-level rows only (BE-054). What is written here is stored and read by everyone who
+      // may see the KPI's insights, so it must not be built from one person's or one unit's values.
+      where: { organizationId, kpiId, userId: null, orgUnitId: null },
       // Newest periods first ("latest" = newest period; entry time breaks ties).
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: POINTS_WINDOW,

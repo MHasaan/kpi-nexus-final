@@ -95,22 +95,41 @@ export class AnomalyService {
     }));
 
     if (opts.persist) {
-      const created = await Promise.all(
-        enriched.map((a) =>
-          this.prisma.anomalyDetection.create({
-            data: {
-              organizationId: ctx.organizationId,
-              kpiId,
-              dataPointId: a.dataPointId,
-              score: a.score,
-              method: (opts.method ?? 'ensemble').toUpperCase(),
-            },
-            select: { id: true, dataPointId: true, score: true },
-          }),
-        ),
+      const method = (opts.method ?? 'ensemble').toUpperCase();
+      // Looking again finds the same values again. One already saved — the same value, by the same
+      // method — is kept and given the newer score; it used to be saved a second time, leaving two
+      // rows for one value, each waiting to be confirmed.
+      const pointIds = enriched.map((a) => a.dataPointId).filter((id): id is string => id !== null);
+      const already = pointIds.length
+        ? await this.prisma.anomalyDetection.findMany({
+            where: { organizationId: ctx.organizationId, kpiId, method, dataPointId: { in: pointIds } },
+            orderBy: { detectedAt: 'asc' },
+            select: { id: true, dataPointId: true },
+          })
+        : [];
+      const savedFor = new Map<string, string>();
+      for (const row of already) {
+        if (row.dataPointId && !savedFor.has(row.dataPointId)) savedFor.set(row.dataPointId, row.id);
+      }
+      const ids = await Promise.all(
+        enriched.map(async (a) => {
+          const existing = a.dataPointId ? savedFor.get(a.dataPointId) : undefined;
+          if (existing) {
+            await this.prisma.anomalyDetection.updateMany({
+              where: { id: existing, organizationId: ctx.organizationId },
+              data: { score: a.score },
+            });
+            return existing;
+          }
+          const row = await this.prisma.anomalyDetection.create({
+            data: { organizationId: ctx.organizationId, kpiId, dataPointId: a.dataPointId, score: a.score, method },
+            select: { id: true },
+          });
+          return row.id;
+        }),
       );
       return {
-        anomalies: enriched.map((a, i) => ({ ...a, id: created[i]?.id })),
+        anomalies: enriched.map((a, i) => ({ ...a, id: ids[i] })),
       };
     }
     return { anomalies: enriched };

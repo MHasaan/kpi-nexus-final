@@ -33,7 +33,9 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={cn('inline-flex items-center gap-0.5 rounded-lg bg-surface-1 p-1 shadow-inset', className)}
+      // max-w-full + overflow-x-auto: with options kept on one line, a switch too wide for a narrow
+      // screen scrolls inside itself instead of pushing the page sideways.
+      className={cn('inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-surface-1 p-1 shadow-inset', className)}
     >
       {options.map((opt) => {
         const selected = opt.value === value;
@@ -46,6 +48,8 @@ export function Segmented<T extends string>({
             data-testid={testIdPrefix ? `${testIdPrefix}-${opt.value}` : undefined}
             onClick={() => onChange(opt.value)}
             className={cn(
+              // One line each: squeezed, an option broke into a word a line ("Last / 7 / days").
+              'whitespace-nowrap',
               'rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               selected ? 'bg-surface-bg text-content-strong shadow-xs' : 'text-content-muted hover:text-content-strong',
             )}

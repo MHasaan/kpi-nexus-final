@@ -484,7 +484,8 @@ export default function DashboardPage() {
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Wraps: on a phone the range and the button sit on two lines instead of squeezing each other. */}
+          <div className="flex flex-wrap items-center gap-2">
             <div data-testid="dashboard-range">
               <Segmented
                 aria-label="Dashboard time range"

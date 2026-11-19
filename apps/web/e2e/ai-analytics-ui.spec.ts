@@ -91,6 +91,15 @@ test('forecast page: generate renders chart + fit metrics', async ({ page }) => 
   await page.getByTestId('fc-run').click();
   await expect(page.getByTestId('fc-chart')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('fc-metrics')).toBeVisible();
+
+  // Flow walk (forecast): the table was headed "Date / yhat" with rows "t+1", "t+2".
+  // Each row is a real period — the months after December 2026, the last one recorded.
+  const table = page.getByTestId('fc-predictions');
+  await expect(table.getByRole('columnheader')).toHaveText(['Period', 'Forecast', 'Likely range (80%)', 'Wider range (95%)']);
+  await expect(table.getByRole('row')).toHaveCount(6);
+  await expect(table.getByRole('row').nth(1)).toContainText('2027');
+  await expect(table).not.toContainText('t+1');
+  await expect(table).not.toContainText('yhat');
 });
 
 test('forecast page: picking ARIMA runs ARIMA (OT-005)', async ({ page }) => {

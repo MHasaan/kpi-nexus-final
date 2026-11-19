@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { CATEGORY_ICONS, categoryIcon } from '../../../lib/category-icons';
 import { useConfirm } from '../../../lib/use-confirm';
 
 /** A valid 3/6-digit hex color usable by <input type="color">. */
@@ -179,7 +180,7 @@ export default function KpiCategoriesPage() {
             KPI categories
           </h1>
           <p className="text-sm text-content-muted">
-            Group KPIs by category. A category&apos;s colour marks its KPIs in the KPI list.
+            Group KPIs by category. A category&apos;s colour and icon mark its KPIs in the KPI list.
           </p>
         </div>
 
@@ -238,15 +239,11 @@ export default function KpiCategoriesPage() {
                 <Label htmlFor="category-icon">
                   Icon <span className="text-content-muted">(optional)</span>
                 </Label>
-                <Input
-                  id="category-icon"
-                  value={icon}
-                  onChange={(e) => setIcon(e.target.value)}
-                  data-testid="category-icon-input"
-                  placeholder="TrendingUp"
-                  className="w-40"
-                />
-                <span className="text-xs text-content-muted">lucide icon name</span>
+                {/* Chosen from a short list and drawn: it was a box asking for "a lucide icon name". */}
+                <div className="flex items-center gap-2">
+                  <IconChoice id="category-icon" value={icon} onChange={setIcon} testId="category-icon-input" />
+                  <IconPreview name={icon} testId="category-icon-preview" />
+                </div>
               </div>
               <Button type="submit" disabled={creating} isLoading={creating} data-testid="category-create-submit">
                 Add
@@ -364,14 +361,14 @@ export default function KpiCategoriesPage() {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input
+                        <IconChoice
                           value={editIcon}
-                          onChange={(e) => setEditIcon(e.target.value)}
-                          placeholder="TrendingUp"
-                          aria-label="Category icon (lucide name)"
-                          data-testid={`category-edit-icon-${c.id}`}
-                          className="w-36"
+                          onChange={setEditIcon}
+                          label="Category icon"
+                          testId={`category-edit-icon-${c.id}`}
                         />
+                      ) : categoryIcon(c.icon) ? (
+                        <IconPreview name={c.icon} testId={`category-icon-${c.id}`} color={c.color} />
                       ) : c.icon ? (
                         <span className="font-mono text-xs text-content-muted">{c.icon}</span>
                       ) : (
@@ -470,5 +467,51 @@ export default function KpiCategoriesPage() {
       </div>
     </AppShell>
     </RequirePermission>
+  );
+}
+
+/** The icons on offer, in words, with "No icon" first. A name typed before the list existed stays chosen. */
+function IconChoice({
+  id,
+  value,
+  onChange,
+  label,
+  testId,
+}: {
+  id?: string;
+  value: string;
+  onChange: (name: string) => void;
+  label?: string;
+  testId: string;
+}) {
+  const known = CATEGORY_ICONS.some((i) => i.name === value);
+  return (
+    <select
+      id={id}
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      data-testid={testId}
+      className="h-9 w-44 rounded-md border border-border bg-surface-bg px-2 text-sm text-content-strong"
+    >
+      <option value="">No icon</option>
+      {CATEGORY_ICONS.map((i) => (
+        <option key={i.name} value={i.name}>
+          {i.label}
+        </option>
+      ))}
+      {value && !known && <option value={value}>{value}</option>}
+    </select>
+  );
+}
+
+/** The chosen icon, drawn; nothing when there is none to draw. */
+function IconPreview({ name, testId, color }: { name: string | null | undefined; testId: string; color?: string | null }) {
+  const Icon = categoryIcon(name);
+  if (!Icon) return null;
+  return (
+    <span data-testid={testId} data-icon={name} className="inline-flex" style={color ? { color } : undefined}>
+      <Icon className="h-4 w-4" aria-hidden />
+    </span>
   );
 }

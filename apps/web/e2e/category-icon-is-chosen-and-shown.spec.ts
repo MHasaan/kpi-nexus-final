@@ -36,9 +36,11 @@ test('a category’s icon is chosen from a list and drawn beside its KPIs', asyn
   await expect(page.getByTestId('category-icon-preview')).toHaveAttribute('data-icon', 'Truck');
   await page.getByTestId('category-create-submit').click();
 
-  const categories = (await (await api.get('/kpi-categories')).json()) as Array<{ id: string; name: string; icon: string | null }>;
-  const made = categories.find((c) => c.name === `Logistics ${stamp}`)!;
-  expect(made.icon).toBe('Truck');
+  // Read it back once the save has landed: asking at once could find no category yet.
+  const saved = async () =>
+    ((await (await api.get('/kpi-categories')).json()) as Array<{ id: string; name: string; icon: string | null }>).find((c) => c.name === `Logistics ${stamp}`);
+  await expect.poll(async () => (await saved())?.icon).toBe('Truck');
+  const made = (await saved())!;
   await expect(page.getByTestId(`category-icon-${made.id}`)).toHaveAttribute('data-icon', 'Truck');
 
   const name = `Deliveries ${stamp}`;

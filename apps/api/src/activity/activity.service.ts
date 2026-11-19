@@ -84,10 +84,16 @@ export class ActivityService {
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
-    // Side-load user names.
-    const userIds = [...new Set(page.map((r) => r.userId).filter((id): id is string => !!id))];
+    // Side-load the names of the people who acted, and of the people the rows are about (an
+    // invitation, a role change): this organisation's only. Only names: a person's email is not
+    // given out here.
+    const personIds = page.filter((r) => r.entityType?.toLowerCase() === 'user' && r.entityId).map((r) => r.entityId!);
+    const userIds = [...new Set([...page.map((r) => r.userId), ...personIds].filter((id): id is string => !!id))];
     const users = userIds.length
-      ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, fullName: true } })
+      ? await this.prisma.user.findMany({
+          where: { organizationId: ctx.organizationId, id: { in: userIds } },
+          select: { id: true, fullName: true },
+        })
       : [];
     const names = new Map(users.map((u) => [u.id, u.fullName]));
 
@@ -104,7 +110,8 @@ export class ActivityService {
       const meta = fields(row.metadata);
       const kpiId = kpiIdOf(row);
       const kpiName = kpiId ? (kpiNames.get(kpiId) ?? null) : null;
-      return { name: text(meta.name) ?? text(meta.title), kpiId: kpiName ? kpiId : null, kpiName };
+      const person = row.entityType?.toLowerCase() === 'user' && row.entityId ? (names.get(row.entityId) ?? null) : null;
+      return { name: person ?? text(meta.name) ?? text(meta.title), kpiId: kpiName ? kpiId : null, kpiName };
     };
 
     return {

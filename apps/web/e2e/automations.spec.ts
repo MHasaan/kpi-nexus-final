@@ -63,24 +63,32 @@ test('an automation made on the page creates a task when its KPI crosses the lin
   await record(150_000, '02');
   await expect.poll(taskTitles).toContain(`Celebrate ${stamp}`);
 
-  // Paused: crossing the line again creates no second task.
+  // While that task is open, crossing the line again makes no second one; once it is done, the next crossing does.
+  const mine = async () =>
+    ((await (await api.get('/tasks')).json()) as Array<{ id: string; title: string; description: string | null }>).filter((t) => t.title === `Celebrate ${stamp}`);
+  await expect(page.getByTestId('wf-holds-back-note')).toContainText('still open');
+  await record(155_000, '03');
+  const [first] = await mine();
+  expect((await api.patch(`/tasks/${first!.id}`, { data: { status: 'DONE' } })).status()).toBe(200);
+  await record(160_000, '04');
+  await expect.poll(async () => (await mine()).length).toBe(2);
+  expect((await mine()).map((t) => t.description)).not.toContain('Made by the automation "Celebrate big revenue" when a value of 155000 was recorded.');
+
+  // Paused: crossing the line again creates no task.
   await row.getByTestId('wf-toggle').click();
   await expect(row).toContainText('Paused');
-  await record(160_000, '03');
-  expect((await taskTitles()).filter((t) => t === `Celebrate ${stamp}`)).toHaveLength(1);
+  await record(165_000, '05');
+  expect(await mine()).toHaveLength(2);
 
-  // Run now does the action whatever the value is, and says so.
+  // Run now does the action whatever the value is and whatever is still open, and says so.
   await row.getByTestId('wf-run').click();
   await expect(page.getByTestId('toast').filter({ hasText: 'Automation ran' })).toBeVisible();
-  await expect.poll(async () => (await taskTitles()).filter((t) => t === `Celebrate ${stamp}`).length).toBe(2);
+  await expect.poll(async () => (await mine()).length).toBe(3);
 
   // Each task says where it came from: which automation, and the value that set it off (or that it was run by hand).
-  const notes = ((await (await api.get('/tasks')).json()) as Array<{ title: string; description: string | null }>)
-    .filter((t) => t.title === `Celebrate ${stamp}`)
-    .map((t) => t.description)
-    .sort();
-  expect(notes).toEqual([
+  expect((await mine()).map((t) => t.description).sort()).toEqual([
     'Made by the automation "Celebrate big revenue" when a value of 150000 was recorded.',
+    'Made by the automation "Celebrate big revenue" when a value of 160000 was recorded.',
     'Made by the automation "Celebrate big revenue", run by hand.',
   ]);
 

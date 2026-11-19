@@ -100,7 +100,7 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 
 function makeService() {
   const prisma = new FakePrisma();
-  const dispatcher = { dispatch: vi.fn(async () => {}), run: vi.fn(async () => {}) };
+  const dispatcher = { dispatch: vi.fn(async (): Promise<string> => 'done'), run: vi.fn(async (): Promise<string> => 'done') };
   const audit = { record: vi.fn(async () => {}) };
   const service = new WorkflowsService(
     prisma as unknown as PrismaService,
@@ -135,7 +135,18 @@ describe('WorkflowsService.runEvent', () => {
     expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
     expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
     // The automation's name goes with the action, so what it makes can say where it came from.
-    expect((dispatcher.dispatch.mock.calls[0] as unknown[])[3]).toEqual({ name: 'celebrate' });
+    expect((dispatcher.dispatch.mock.calls[0] as unknown[])[3]).toEqual({ id: prisma.workflows[0]!.id, name: 'celebrate' });
+  });
+
+  test('an automation that held back (its last task is still open) is not recorded as having run', async () => {
+    const { service, prisma, dispatcher } = makeService();
+    dispatcher.dispatch = vi.fn(async (): Promise<string> => 'held');
+    await withCtx({}, () =>
+      service.create({ name: 'x', triggers: ['kpi_changed'], action: { kind: 'create_task', title: 'X' } }),
+    );
+    await withCtx({}, () => service.runEvent('kpi_changed', { kind: 'kpi_changed', kpiId: 'mrr', value: 1 }));
+    expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
+    expect(prisma.workflows[0]!.lastRunAt).toBeNull();
   });
 
   test('does NOT dispatch when the rule does not match', async () => {
@@ -173,7 +184,7 @@ describe('WorkflowsService.runEvent', () => {
 
   test('runEvent never throws even if a dispatch fails', async () => {
     const { service, dispatcher } = makeService();
-    dispatcher.dispatch = vi.fn(async (): Promise<void> => {
+    dispatcher.dispatch = vi.fn(async (): Promise<string> => {
       throw new Error('boom');
     });
     await withCtx({}, () =>
@@ -241,14 +252,14 @@ describe('WorkflowsService.trigger — "Run now"', () => {
       { kind: 'kpi_changed', kpiId: 'mrr', value: 42 },
       expect.any(Date),
       // What it makes says it was run by hand, not that a value was recorded.
-      { name: celebrate.name, byHand: true },
+      { id: wf.id, name: celebrate.name, byHand: true },
     );
     expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
   });
 
   test('a failure is reported to whoever pressed the button, and the run is not recorded', async () => {
     const { service, prisma, dispatcher } = makeService();
-    dispatcher.run = vi.fn(async (): Promise<void> => {
+    dispatcher.run = vi.fn(async (): Promise<string> => {
       throw new Error('The notification channel no longer exists or is switched off');
     });
     const wf = await withCtx({}, () => service.create(celebrate));

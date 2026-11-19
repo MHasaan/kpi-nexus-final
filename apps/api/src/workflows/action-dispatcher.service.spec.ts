@@ -23,11 +23,12 @@ function withCtx<T>(fn: () => Promise<T> | T): Promise<T> | T {
   );
 }
 
-function makeService() {
+function makeService(openTask: { id: string } | null = null) {
   const tasks = { create: vi.fn(async (_input: Record<string, unknown>) => ({ id: 'task_1' })) };
   const webhooks = { dispatchEvent: vi.fn(async (_org: string, _event: string, _payload: unknown) => {}) };
   const email = { send: vi.fn(async () => {}) };
   const prisma = {
+    task: { findFirst: vi.fn(async (_args: unknown) => openTask) },
     notificationChannel: {
       findFirst: vi.fn(async () => ({ id: 'ch_1', kind: 'EMAIL', config: { recipients: ['ops@x.test'] } })),
     },
@@ -93,6 +94,36 @@ describe('ActionDispatcherService.dispatch', () => {
     expect(arg.description).toBe('Call the top five accounts.\n\nMade by the automation "Big alerts" when an alert was raised.');
   });
 
+  // Three low months used to give three identical tasks. An automation now waits
+  // for the task it made to be closed before it makes another.
+  describe('holding back while its last task is still open', () => {
+    const action = { kind: 'create_task', title: 'Review revenue' } as const;
+    const event = { kind: 'kpi_changed', kpiId: 'k', value: 1 } as const;
+    const source = { id: 'wf_1', name: 'Revenue dip' };
+
+    test('a task it makes is marked as its own', async () => {
+      const { service, tasks } = makeService();
+      await expect(withCtx(() => service.dispatch(action, event, NOW, source))).resolves.toBe('done');
+      expect(tasks.create.mock.calls[0]![1]).toEqual({ workflowId: 'wf_1' });
+    });
+
+    test('with one of its tasks still open it makes no other, and says it held back', async () => {
+      const { service, tasks, prisma } = makeService({ id: 'task_open' });
+      await expect(withCtx(() => service.dispatch(action, event, NOW, source))).resolves.toBe('held');
+      expect(tasks.create).not.toHaveBeenCalled();
+      // Only this organisation's tasks, only this automation's, only the ones not finished.
+      expect(prisma.task.findFirst.mock.calls[0]![0]).toMatchObject({
+        where: { organizationId: ORG, workflowId: 'wf_1', status: { in: ['TODO', 'IN_PROGRESS', 'BLOCKED'] } },
+      });
+    });
+
+    test('run by hand it makes the task anyway: a person asked for it', async () => {
+      const { service, tasks } = makeService({ id: 'task_open' });
+      await expect(withCtx(() => service.run(action, event, NOW, { ...source, byHand: true }))).resolves.toBe('done');
+      expect(tasks.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   test('create_task without dueAtRelativeHours has no dueAt', async () => {
     const { service, tasks } = makeService();
     await withCtx(() => service.dispatch({ kind: 'create_task', title: 'T' }, { kind: 'kpi_changed', kpiId: 'k', value: 1 }, NOW));
@@ -125,6 +156,6 @@ describe('ActionDispatcherService.dispatch', () => {
     const { service } = makeService();
     await expect(
       withCtx(() => service.dispatch({ kind: 'nonsense' } as never, { kind: 'kpi_changed', kpiId: 'k', value: 1 }, NOW)),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe('failed');
   });
 });

@@ -384,7 +384,7 @@ function initialsOf(input: string): string {
  * grouped permission-filtered nav, and the bottom user menu. The topbar holds
  * the sidebar toggle, breadcrumb + page title, global search, alerts bell, a
  * mentions bell, and a theme toggle. `children` render in a scroll container
- * capped at 1180px. The contextual `<HelpDrawer/>` stays mounted everywhere.
+ * capped at 1180px. The contextual `<HelpDrawer/>` sits in the top bar on every page.
  */
 export function AppShell({ children, title, crumbs }: AppShellProps) {
   const router = useRouter();
@@ -821,6 +821,8 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
                 <Moon className="h-[18px] w-[18px]" aria-hidden />
               )}
             </button>
+            {/* Help for the page being looked at. Here, not floating over the page's own buttons. */}
+            <HelpDrawer />
           </div>
         </header>
 
@@ -829,9 +831,6 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
           <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7">{children}</div>
         </main>
       </div>
-
-      {/* Floating contextual-help drawer — visible on every AppShell page */}
-      <HelpDrawer />
     </div>
   );
 }

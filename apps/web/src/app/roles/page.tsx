@@ -447,11 +447,14 @@ function RolesPageInner() {
                               admin
                             </Badge>
                           )}
+                          {/* An administrator role passes every check without holding any permission:
+                              its count is 0, which read as "can do nothing" beside a matrix of ticked boxes. */}
                           <span
                             className="text-xs tabular-nums text-content-muted"
-                            title={`${role.permissions.length} permissions`}
+                            data-testid={`role-permission-count-${role.name}`}
+                            title={role.isAdmin ? 'Every permission' : `${role.permissions.length} permissions`}
                           >
-                            {role.permissions.length}
+                            {role.isAdmin ? 'All' : role.permissions.length}
                           </span>
                         </button>
                       </li>

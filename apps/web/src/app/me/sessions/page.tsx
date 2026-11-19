@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AppShell } from '../../../components/app-shell';
+import { deviceLabel } from '../../../lib/device-label';
 import {
   ApiError,
   type SessionSummary,
@@ -96,7 +97,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell title="Sessions" crumbs={[{ label: 'You' }]}>
       <div className="mx-auto max-w-3xl px-6 py-10">
         <div className="mb-6 flex items-center justify-between">
           <h1
@@ -157,7 +158,7 @@ export default function SessionsPage() {
               >
                 <div className="min-w-0 flex-1 pr-4">
                   <p className="flex items-center gap-2 text-sm font-medium text-content-strong">
-                    <span className="truncate">{s.deviceInfo ?? s.userAgent ?? 'Unknown device'}</span>
+                    <span className="truncate">{s.deviceInfo ?? deviceLabel(s.userAgent)}</span>
                     {s.id === currentId && (
                       <span
                         data-testid="session-current"

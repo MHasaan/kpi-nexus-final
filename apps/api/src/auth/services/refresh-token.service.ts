@@ -45,7 +45,8 @@ export class RefreshTokenService {
         hashedToken,
         deviceInfo,
         ipAddress,
-        userAgent,
+        // Kept so a person can tell their sessions apart; a browser string has no fixed length.
+        userAgent: userAgent?.slice(0, 500),
         expiresAt,
       },
     });
@@ -57,7 +58,10 @@ export class RefreshTokenService {
    * unknown token, expired token, or detected reuse (which also revokes the
    * entire downstream chain).
    */
-  async rotate(presentedToken: string): Promise<IssuedRefreshToken & { userId: string }> {
+  async rotate(
+    presentedToken: string,
+    client: { ip?: string; userAgent?: string } = {},
+  ): Promise<IssuedRefreshToken & { userId: string }> {
     const hashedToken = this.hash(presentedToken);
     const existing = await this.prisma.refreshToken.findUnique({
       where: { hashedToken },
@@ -82,7 +86,14 @@ export class RefreshTokenService {
       throw new UnauthorizedException({ code: 'UNAUTHENTICATED', message: 'Refresh token revoked' });
     }
 
-    const next = await this.issue(existing.userId);
+    // The renewed session is still the same one: it keeps where it was made
+    // from, unless the caller renewing it says where it is now.
+    const next = await this.issue(
+      existing.userId,
+      existing.deviceInfo ?? undefined,
+      client.ip ?? existing.ipAddress ?? undefined,
+      client.userAgent ?? existing.userAgent ?? undefined,
+    );
     const nextRecord = await this.prisma.refreshToken.findUnique({
       where: { hashedToken: this.hash(next.plaintext) },
       select: { id: true },

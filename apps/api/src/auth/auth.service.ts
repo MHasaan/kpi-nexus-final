@@ -53,6 +53,12 @@ export interface InvitationPreview {
   passwordRules: string[];
 }
 
+/** Where a request came from: its address and the browser (or program) that sent it. */
+export interface ClientInfo {
+  ip?: string;
+  userAgent?: string;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -68,6 +74,7 @@ export class AuthService {
 
   async registerOrganization(
     dto: RegisterOrgDto,
+    client: ClientInfo = {},
   ): Promise<AuthPair & { user: PublicUser; organization: PublicOrganization }> {
     return RequestContextStore.runWithBypass('registerOrganization', async () => {
       const slugTaken = await this.prisma.organization.findUnique({
@@ -136,12 +143,15 @@ export class AuthService {
         return { organization, adminUser, adminRole };
       });
 
-      const pair = await this.issuePair({
-        sub: adminUser.id,
-        org: organization.id,
-        rid: adminRole.id,
-        adm: true,
-      });
+      const pair = await this.issuePair(
+        {
+          sub: adminUser.id,
+          org: organization.id,
+          rid: adminRole.id,
+          adm: true,
+        },
+        client,
+      );
 
       return {
         ...pair,
@@ -153,7 +163,7 @@ export class AuthService {
 
   async login(
     dto: LoginDto,
-    client: { ip?: string; userAgent?: string } = {},
+    client: ClientInfo = {},
   ): Promise<AuthPair & { user: PublicUser }> {
     return RequestContextStore.runWithBypass('login', async () => {
       // Find user (within org if specified, else first ACTIVE match across orgs).
@@ -256,12 +266,15 @@ export class AuthService {
 
       await recordAttempt('SUCCESS');
 
-      const pair = await this.issuePair({
-        sub: user.id,
-        org: user.organizationId,
-        rid: user.roleId,
-        adm: isAdmin,
-      });
+      const pair = await this.issuePair(
+        {
+          sub: user.id,
+          org: user.organizationId,
+          rid: user.roleId,
+          adm: isAdmin,
+        },
+        client,
+      );
 
       return { ...pair, user: this.publicUser(user) };
     });
@@ -273,10 +286,13 @@ export class AuthService {
    * consumes the token, and issues a fresh auth pair. Returns the same
    * shape as login.
    */
-  async acceptInvitation(args: {
-    token: string;
-    password: string;
-  }): Promise<AuthPair & { user: PublicUser }> {
+  async acceptInvitation(
+    args: {
+      token: string;
+      password: string;
+    },
+    client: ClientInfo = {},
+  ): Promise<AuthPair & { user: PublicUser }> {
     return RequestContextStore.runWithBypass('acceptInvitation', async () => {
       const hashedToken = createHash('sha256').update(args.token).digest('hex');
       const record = await this.prisma.emailVerificationToken.findUnique({
@@ -364,12 +380,15 @@ export class AuthService {
           )
         : false;
 
-      const pair = await this.issuePair({
-        sub: user.id,
-        org: user.organizationId,
-        rid: user.roleId,
-        adm: isAdmin,
-      });
+      const pair = await this.issuePair(
+        {
+          sub: user.id,
+          org: user.organizationId,
+          rid: user.roleId,
+          adm: isAdmin,
+        },
+        client,
+      );
 
       return { ...pair, user: this.publicUser(user) };
     });
@@ -423,12 +442,12 @@ export class AuthService {
     });
   }
 
-  async refresh(refreshToken: string): Promise<AuthPair> {
+  async refresh(refreshToken: string, client: ClientInfo = {}): Promise<AuthPair> {
     // Public route: the caller is known only by the refresh token, so the token
     // rotation and these lookups are cross-tenant by nature — run them under the
     // RLS bypass, like login (OT-014).
     const { next, user, isAdmin } = await RequestContextStore.runWithBypass('refresh', async () => {
-      const next = await this.refreshTokens.rotate(refreshToken);
+      const next = await this.refreshTokens.rotate(refreshToken, client);
       const user = await this.prisma.user.findUniqueOrThrow({
         where: { id: next.userId },
         select: { id: true, organizationId: true, roleId: true },
@@ -463,9 +482,14 @@ export class AuthService {
     await RequestContextStore.runWithBypass('logout', () => this.refreshTokens.revoke(refreshToken));
   }
 
-  private async issuePair(payload: JwtPayload): Promise<AuthPair> {
+  /**
+   * `client` is where the session is being made from. It is written on the
+   * session so the person can tell their sessions apart: without it every row
+   * of "Active sessions" read "Unknown device".
+   */
+  private async issuePair(payload: JwtPayload, client: ClientInfo = {}): Promise<AuthPair> {
     const accessToken = await this.signAccess(payload);
-    const refresh = await this.refreshTokens.issue(payload.sub);
+    const refresh = await this.refreshTokens.issue(payload.sub, undefined, client.ip, client.userAgent);
     return { accessToken, refreshToken: refresh.plaintext, expiresIn: this.accessTtlSeconds };
   }
 

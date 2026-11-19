@@ -19,7 +19,7 @@ import { AccessContextService } from '../rbac/services/access-context.service.js
 import { PermissionResolverService } from '../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { AuthService } from './auth.service.js';
+import { AuthService, type ClientInfo } from './auth.service.js';
 import { AccountService, type SelfUser } from './services/account.service.js';
 import { AcceptInvitationDtoSchema } from './dto/accept-invitation.dto.js';
 import { InvitationPreviewDtoSchema } from './dto/invitation-preview.dto.js';
@@ -58,6 +58,18 @@ const ChangePasswordDtoSchema = z
   })
   .strict();
 
+/** The parts of a request that say where it came from. */
+interface ClientRequest {
+  ip?: string;
+  headers: Record<string, string | string[] | undefined>;
+}
+
+/** Where a request came from, to write on the session it makes or renews. */
+function clientOf(req: ClientRequest): ClientInfo {
+  const ua = req.headers['user-agent'];
+  return { ip: req.ip, userAgent: Array.isArray(ua) ? ua[0] : ua };
+}
+
 const parse = <S extends ZodTypeAny>(schema: S, body: unknown): ZInfer<S> => {
   const result = schema.safeParse(body);
   if (!result.success) {
@@ -84,37 +96,36 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiBody(RegisterOrgDtoSchema)
-  register(@Body() body: unknown) {
+  register(@Body() body: unknown, @Req() req: ClientRequest) {
     const dto = parse(RegisterOrgDtoSchema, body);
-    return this.auth.registerOrganization(dto);
+    return this.auth.registerOrganization(dto, clientOf(req));
   }
 
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiBody(LoginDtoSchema)
-  login(@Body() body: unknown, @Req() req: { ip?: string; headers: Record<string, string | string[] | undefined> }) {
+  login(@Body() body: unknown, @Req() req: ClientRequest) {
     const dto = parse(LoginDtoSchema, body);
-    const ua = req.headers['user-agent'];
-    return this.auth.login(dto, { ip: req.ip, userAgent: Array.isArray(ua) ? ua[0] : ua });
+    return this.auth.login(dto, clientOf(req));
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiBody(RefreshDtoSchema)
-  refresh(@Body() body: unknown) {
+  refresh(@Body() body: unknown, @Req() req: ClientRequest) {
     const dto = parse(RefreshDtoSchema, body);
-    return this.auth.refresh(dto.refreshToken);
+    return this.auth.refresh(dto.refreshToken, clientOf(req));
   }
 
   @Public()
   @Post('accept-invitation')
   @HttpCode(HttpStatus.OK)
   @ApiBody(AcceptInvitationDtoSchema)
-  acceptInvitation(@Body() body: unknown) {
+  acceptInvitation(@Body() body: unknown, @Req() req: ClientRequest) {
     const dto = parse(AcceptInvitationDtoSchema, body);
-    return this.auth.acceptInvitation(dto);
+    return this.auth.acceptInvitation(dto, clientOf(req));
   }
 
   @Public()

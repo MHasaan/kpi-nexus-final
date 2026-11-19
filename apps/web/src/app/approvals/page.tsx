@@ -26,6 +26,7 @@ import { useConfirm } from '../../lib/use-confirm';
 import { usePermissions } from '../../lib/use-permissions';
 import { useToast } from '../../lib/use-toast';
 import { useFormat } from '../../lib/format-context';
+import { inSentence } from '../../lib/sentence-case';
 
 const RESOLVED_STATUSES: ApprovalRequestStatus[] = ['APPROVED', 'REJECTED', 'CANCELLED'];
 
@@ -258,7 +259,8 @@ export default function ApprovalsPage() {
                           <p className="text-xs text-content-muted">{kind.about}</p>
 
                           <fieldset className="flex flex-col gap-1.5 border-t border-border-divider pt-3 text-sm" disabled={saving}>
-                            <legend className="sr-only">Who can approve {kind.title.toLowerCase()}</legend>
+                            {/* First letter down, the rest as written: lower-casing it whole made "KPI" a word, "kpi". */}
+                            <legend className="sr-only">Who can approve {inSentence(kind.title)}</legend>
                             <span className="text-content-muted">Who can approve</span>
                             {(config.data?.roles ?? []).map((role) => (
                               <label key={role.id} className="flex items-center gap-2">

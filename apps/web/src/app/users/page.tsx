@@ -361,8 +361,9 @@ function UsersPageInner() {
             </div>
           )}
 
-          {/* minmax(0,…): a bare 1fr is never narrower than the table, which pushed the form off a 1280-pixel screen. */}
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          {/* minmax(0,…): a bare column is never narrower than the table, which pushed the form off a 1280-pixel
+              screen — and, with one column, pushed the whole page off a phone. */}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <section data-testid="users-list-section">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <Segmented

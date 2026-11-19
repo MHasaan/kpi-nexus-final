@@ -236,7 +236,7 @@ export default function WorkflowsPage() {
                             {wf.name}
                             <Badge tone={wf.isActive ? 'success' : 'neutral'}>{wf.isActive ? 'On' : 'Paused'}</Badge>
                           </div>
-                          <p className="text-xs text-content-muted">{describeWorkflow(wf, kpiName)}</p>
+                          <p className="text-xs text-content-muted">{describeWorkflow(wf, kpiName, fmt.number)}</p>
                           <p className="text-xs text-content-muted">{wf.lastRunAt ? `Last ran ${fmt.dateTime(wf.lastRunAt)}` : 'Has not run yet'}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1">

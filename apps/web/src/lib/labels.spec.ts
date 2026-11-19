@@ -12,6 +12,7 @@ import {
   SCOPE_LABELS,
   WIDGET_TYPE_LABELS,
   activityLabel,
+  activitySentence,
   entityLabel,
   humanize,
   labelFor,
@@ -71,5 +72,33 @@ describe('activity wording', () => {
     expect(activityLabel('DELETE', 'Objective')).toBe('deleted an objective');
     expect(activityLabel('LOGIN', 'User')).toBe('signed in');
     expect(activityLabel('LOGOUT', null)).toBe('signed out');
+  });
+});
+
+// Flow walk (activity): every row read "created a KPI value" — not which KPI, not what value.
+describe('activitySentence', () => {
+  const num = (n: number) => n.toLocaleString('en-US');
+  const row = (action: string, entityType: string, entityId: string | null, metadata: unknown, subject: { name: string | null; kpiId: string | null; kpiName: string | null }) => ({ action, entityType, entityId, metadata, subject });
+  const none = { name: null, kpiId: null, kpiName: null };
+  const rev = { name: null, kpiId: 'k1', kpiName: 'Monthly revenue' };
+
+  test('a recorded value says the value and the KPI, and leads to the KPI', () => {
+    expect(activitySentence(row('CREATE', 'KPIDataPoint', 'dp', { kpiId: 'k1', value: 35000 }, rev), num)).toEqual({ text: 'recorded 35,000 on Monthly revenue', href: '/kpis/k1' });
+  });
+  test('a corrected value says from what to what', () => {
+    expect(activitySentence(row('UPDATE', 'KPIDataPoint', 'dp', { kpiId: 'k1', previousValue: 42, newValue: 45 }, rev), num).text).toBe('changed a value on Monthly revenue from 42 to 45');
+  });
+  test('a thing with a name is named, and linked when it has a page', () => {
+    expect(activitySentence(row('CREATE', 'KPI', 'k1', { name: 'Monthly revenue' }, { ...rev, name: 'Monthly revenue' }), num)).toEqual({ text: 'created the KPI “Monthly revenue”', href: '/kpis/k1' });
+    expect(activitySentence(row('CREATE', 'Objective', 'o1', { name: 'Grow' }, { ...none, name: 'Grow' }), num)).toEqual({ text: 'created the objective “Grow”', href: '/okrs/o1' });
+    expect(activitySentence(row('CREATE', 'Task', 't1', { title: 'Call the bank' }, { ...none, name: 'Call the bank' }), num)).toEqual({ text: 'created the task “Call the bank”', href: '/tasks' });
+  });
+  test('something about a KPI that has no name of its own says which KPI', () => {
+    expect(activitySentence(row('CREATE', 'KPITarget', 't', { kpiId: 'k1' }, rev), num)).toEqual({ text: 'created a KPI target on Monthly revenue', href: '/kpis/k1' });
+  });
+  test('a deleted thing is named but not linked; a row that knows nothing more reads as before', () => {
+    expect(activitySentence(row('DELETE', 'Dashboard', 'd1', { name: 'Board' }, { ...none, name: 'Board' }), num)).toEqual({ text: 'deleted the dashboard “Board”', href: null });
+    expect(activitySentence(row('CREATE', 'KPIDataPoint', 'dp', { kpiId: 'gone', value: 1 }, none), num)).toEqual({ text: 'created a KPI value', href: null });
+    expect(activitySentence(row('LOGIN', 'User', 'u', null, none), num)).toEqual({ text: 'signed in', href: null });
   });
 });

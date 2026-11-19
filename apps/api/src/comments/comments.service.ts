@@ -37,6 +37,9 @@ const commentSelect = {
 
 export type PublicComment = Prisma.CommentGetPayload<{ select: typeof commentSelect }>;
 
+/** How many colleagues one look-up offers. */
+const MENTIONABLE_LIMIT = 8;
+
 @Injectable()
 export class CommentsService {
   constructor(
@@ -138,6 +141,37 @@ export class CommentsService {
     });
     if (!comment) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Comment not found' });
     return comment;
+  }
+
+  /**
+   * Colleagues to mention, by name (owner decision 2026-11-19: names only).
+   *
+   * Someone who may comment but may not list people was offered only those who
+   * had already commented on the item, so a first mention reached nobody. This
+   * answers what they type after "@": a name and an id — never an email, a
+   * role or a status — for active members of their own organisation whose
+   * first or any later name starts with it. It is a look-up, not a list:
+   * nothing typed finds nobody, and one answer holds a handful of names.
+   */
+  async mentionable(query: string): Promise<Array<{ id: string; fullName: string }>> {
+    const typed = query.trim();
+    if (!typed) return [];
+    const ctx = RequestContextStore.require();
+    const rows = await this.prisma.user.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        status: 'ACTIVE',
+        id: { not: ctx.userId },
+        OR: [
+          { fullName: { startsWith: typed, mode: 'insensitive' } },
+          { fullName: { contains: ` ${typed}`, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: 'asc' },
+      take: MENTIONABLE_LIMIT,
+    });
+    return rows.map((row) => ({ id: row.id, fullName: row.fullName }));
   }
 
   /** Dedupe + strip self, then keep only ids that are members of the org. */

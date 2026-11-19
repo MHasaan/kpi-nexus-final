@@ -74,7 +74,9 @@ test('a member who may not list people can still look a colleague up by name to 
   const box = eliPage.getByTestId('comment-body');
   await box.pressSequentially('Is this right? @Ad');
   const offered = eliPage.getByTestId('mention-suggestions').getByRole('option');
-  await expect(offered).toHaveText(['Ada Admin']);
+  // One colleague is offered: not the invited Adele, not the other organisation's Adam.
+  await expect(offered).toHaveCount(1);
+  await expect(offered.first()).toContainText('Ada Admin');
   await offered.first().click();
   await expect(box).toHaveValue('Is this right? @AdaAdmin ');
   await expect(eliPage.getByTestId('comment-mention-note')).toContainText('Will notify Ada Admin');

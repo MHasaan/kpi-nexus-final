@@ -67,6 +67,14 @@ export function createComment(body: {
 export function updateComment(id: string, body: { body: string; mentionedUserIds?: string[] }): Promise<Comment> {
   return api(`/comments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
+/**
+ * Colleagues to mention whose name starts with what was typed: names and ids
+ * only. For someone who may comment but may not list people.
+ */
+export function lookupMentionable(query: string): Promise<Array<{ id: string; fullName: string }>> {
+  return api('/comments/mentionable', { method: 'POST', body: JSON.stringify({ query }) });
+}
+
 /** Delete one's own comment. */
 export function deleteComment(id: string): Promise<void> {
   return api(`/comments/${id}`, { method: 'DELETE' });

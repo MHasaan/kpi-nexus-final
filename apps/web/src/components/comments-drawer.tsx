@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 
 import { ApiError, meRequest } from '../lib/api-client';
-import { resolveMentions as findMentions, mentionQueryAt, pickMention, suggestMentions } from '../lib/mentions';
+import { resolveMentions as findMentions, isLookupQuery, mentionQueryAt, mergeMentionable, pickMention, suggestMentions } from '../lib/mentions';
 import { useConfirm } from '../lib/use-confirm';
-import { usePeople } from '../lib/use-people';
+import { type Person, usePeople } from '../lib/use-people';
+import { usePermissions } from '../lib/use-permissions';
 import {
   type Comment,
   type CommentEntityType,
   createComment,
   deleteComment,
   listComments,
+  lookupMentionable,
   updateComment,
 } from '../lib/collab-client';
 import { Button, Avatar, Textarea, EmptyState, Skeleton } from './ui';
@@ -113,16 +115,49 @@ export function CommentsDrawer({
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  // Who a text will notify. A name that matches no one is said under the box, not swallowed.
-  const resolveMentions = (text: string): string[] => findMentions(text, users, myId).people.map((p) => p.id);
-
-  // The @word being typed, the people offered for it, and who the comment as written will notify.
+  // The @word being typed.
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState(0);
   const typing = mentionQueryAt(body, caret);
-  const offered = typing ? suggestMentions(users, typing.query, myId) : [];
-  const notified = findMentions(body, users, myId);
-  const pick = (person: (typeof users)[number]) => {
+
+  // Someone who may not list people knows only who has commented here already, so a first
+  // mention reached nobody. What they type after "@" is looked up instead: colleagues'
+  // names and nothing else (owner decision 2026-11-19).
+  const { ready: permissionsReady, has } = usePermissions();
+  const looksUp = permissionsReady && !has('USERS_VIEW');
+  const [lookedUp, setLookedUp] = useState<Person[]>([]);
+  const [lookupFailed, setLookupFailed] = useState(false);
+  const typed = typing?.query ?? '';
+  useEffect(() => {
+    if (!open || !looksUp || !isLookupQuery(typed)) return;
+    let stale = false;
+    // A short wait, so a name typed quickly is asked for once, not once a letter.
+    const timer = setTimeout(() => {
+      lookupMentionable(typed).then(
+        (found) => {
+          if (stale) return;
+          setLookedUp((before) => mergeMentionable(before, found));
+          setLookupFailed(false);
+        },
+        () => {
+          if (!stale) setLookupFailed(true);
+        },
+      );
+    }, 150);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [open, looksUp, typed]);
+  const people = useMemo(() => mergeMentionable(users, lookedUp), [users, lookedUp]);
+
+  // Who a text will notify. A name that matches no one is said under the box, not swallowed.
+  const resolveMentions = (text: string): string[] => findMentions(text, people, myId).people.map((p) => p.id);
+
+  // The people offered for the @word, and who the comment as written will notify.
+  const offered = typing ? suggestMentions(people, typing.query, myId) : [];
+  const notified = findMentions(body, people, myId);
+  const pick = (person: Person) => {
     if (!typing) return;
     const next = pickMention(body, typing, person);
     setBody(next.text);
@@ -306,7 +341,11 @@ export function CommentsDrawer({
               )}
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-xs text-content-muted" data-testid="comment-mention-note" aria-live="polite">
-                  {notified.unknown.length > 0 ? (
+                  {notified.unknown.length > 0 && lookupFailed ? (
+                    <span className="text-status-warning">
+                      Colleagues could not be looked up just now, so {notified.unknown.map((w) => `@${w}`).join(', ')} may notify nobody.
+                    </span>
+                  ) : notified.unknown.length > 0 ? (
                     <span className="text-status-warning">
                       No one here matches {notified.unknown.map((w) => `@${w}`).join(', ')}, so nobody is notified by it.
                     </span>

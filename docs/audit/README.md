@@ -503,6 +503,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (first use): the welcome tour’s third slide was titled “Strategy map”, a page that does not exist | ✅ Fixed — it names the Scorecard and the Tree, under KPIs | #370 | `e2e/onboarding-tour.spec.ts` |
 | Flow walk (first use): the wizard’s step list read “1 units”, “1 categories”, “1 people” | ✅ Fixed — one of something is written as one | #371 | `e2e/wizard-step-list-counts-in-words.spec.ts` |
 | Whole-suite run: `e2e/templates-in-words.spec.ts` (from #332) read a filter’s options before the page had drawn them and failed now and then | ✅ Fixed — the check waits for the options | #372 | `e2e/templates-in-words.spec.ts` |
+| Flow walk (the invited person): Account settings → Security listed sessions by their raw browser string, and the long line pushed the tab off the side at 1280 px | ✅ Fixed — each row names the device (“Chrome on Linux”) and marks the one in use; the tab fits | #373 | `e2e/profile-sessions-name-the-device.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

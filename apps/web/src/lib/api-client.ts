@@ -1992,12 +1992,27 @@ export async function getAlert(id: string): Promise<Alert> {
   return api(`/alerts/${id}`);
 }
 
+/**
+ * Sent on the window when an alert has been acknowledged or resolved, wherever
+ * that was done. The bell in the top bar counts again on hearing it: it used
+ * to go on showing an alert for up to thirty seconds after it was dealt with.
+ */
+export const ALERTS_CHANGED_EVENT = 'kpi-nexus:alerts-changed';
+
+function alertsChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ALERTS_CHANGED_EVENT));
+}
+
 export async function acknowledgeAlert(id: string): Promise<Alert> {
-  return api(`/alerts/${id}/acknowledge`, { method: 'POST' });
+  const alert = await api<Alert>(`/alerts/${id}/acknowledge`, { method: 'POST' });
+  alertsChanged();
+  return alert;
 }
 
 export async function resolveAlert(id: string): Promise<Alert> {
-  return api(`/alerts/${id}/resolve`, { method: 'POST' });
+  const alert = await api<Alert>(`/alerts/${id}/resolve`, { method: 'POST' });
+  alertsChanged();
+  return alert;
 }
 
 export async function getAlertUnreadCount(): Promise<{ count: number }> {

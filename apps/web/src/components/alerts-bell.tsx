@@ -8,6 +8,7 @@ import {
   ApiError,
   getAccessToken,
   getAlertUnreadCount,
+  ALERTS_CHANGED_EVENT,
   listAlerts,
   type Alert,
 } from '../lib/api-client';
@@ -16,7 +17,8 @@ const POLL_MS = 30_000;
 
 /**
  * Header notification bell: shows the count of OPEN alerts and a dropdown of
- * the most recent ones with inline acknowledge. Polls every 30s.
+ * the most recent ones with inline acknowledge. Polls every 30s, and counts
+ * again at once when an alert is acknowledged or resolved.
  */
 export function AlertsBell() {
   const [count, setCount] = useState(0);
@@ -40,7 +42,13 @@ export function AlertsBell() {
   useEffect(() => {
     void refreshCount();
     const id = setInterval(() => void refreshCount(), POLL_MS);
-    return () => clearInterval(id);
+    // An alert acknowledged or resolved anywhere on the page is counted out at once, not at the next poll.
+    const onChanged = () => void refreshCount();
+    window.addEventListener(ALERTS_CHANGED_EVENT, onChanged);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener(ALERTS_CHANGED_EVENT, onChanged);
+    };
   }, [refreshCount]);
 
   // Close on outside click.

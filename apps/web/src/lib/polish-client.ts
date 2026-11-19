@@ -26,6 +26,10 @@ export interface ActivityItem {
   action: string;
   entityType: string | null;
   entityId: string | null;
+  /** What the action recorded about itself: a value, a name, a reason. */
+  metadata?: unknown;
+  /** What the row is about: its own name, and the KPI it concerns when that KPI still exists. */
+  subject?: { name: string | null; kpiId: string | null; kpiName: string | null };
   createdAt: string;
 }
 export interface ActivityPage {

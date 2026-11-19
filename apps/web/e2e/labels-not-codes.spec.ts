@@ -61,7 +61,7 @@ test('names and words, not codes and ids', async ({ page }) => {
 
   // The activity feed reads as sentences.
   await page.goto('/activity');
-  await expect(page.getByTestId('activity-list')).toContainText('created a KPI');
+  await expect(page.getByTestId('activity-list')).toContainText('created the KPI “Revenue');
   await expect(page.getByTestId('activity-list')).not.toContainText('CREATE');
 
   // The profile names the role.

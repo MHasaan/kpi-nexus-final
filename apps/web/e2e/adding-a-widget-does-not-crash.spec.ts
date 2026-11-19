@@ -99,6 +99,10 @@ test('a widget saved too small by the old fault is shown at a usable size', asyn
   }
   const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${session.accessToken}` } });
   const kpi = (await (await api.post('/kpis', { data: { name: `Revenue ${stamp}`, scope: 'ORG_WIDE' } })).json()) as { id: string };
+  // With values, so the chart really draws: an empty chart in a tiny box did not bring the page down.
+  for (const [month, value] of [['01', 2.1], ['02', 2.6], ['03', 3.4], ['04', 4.2], ['05', 5.1]] as const) {
+    expect((await api.post(`/kpis/${kpi.id}/data`, { data: { value, periodStart: `2026-${month}-01`, periodEnd: `2026-${month}-28` } })).status()).toBe(201);
+  }
   const dashboard = (await (await api.post('/dashboards', { data: { name: `Board ${stamp}` } })).json()) as { id: string };
   const made = await api.post(`/dashboards/${dashboard.id}/widgets`, {
     data: { widgetType: 'line', config: { kpiId: kpi.id }, position: { x: 0, y: 0, w: 1, h: 1 } },
@@ -109,7 +113,17 @@ test('a widget saved too small by the old fault is shown at a usable size', asyn
   await page.goto(`/dashboards/${dashboard.id}`);
   const card = page.getByTestId(`widget-card-${widget.id}`);
   await expect(card).toBeVisible();
-  // Two cells wide at least: about a sixth of the board, not a twelfth.
+
+  // Adding another widget beside it is what brought the page down every time.
+  await page.getByTestId('dashboard-add-widget-toggle').click();
+  await page.getByTestId('widget-type-kpi_card').click();
+  await page.getByTestId('kpi-picker').getByText(`Revenue ${stamp}`).click();
+  await page.getByTestId('widget-editor-submit').click();
+  await page.waitForTimeout(1500);
+  await expect(page.getByText('Something went wrong')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="widget-card-"]')).toHaveCount(2);
+
+  // Two cells wide and tall at least: about a sixth of the board, not a twelfth.
   expect((await card.boundingBox())!.width).toBeGreaterThan(120);
   expect((await card.boundingBox())!.height).toBeGreaterThan(150);
 });

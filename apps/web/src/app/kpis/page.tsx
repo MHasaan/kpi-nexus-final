@@ -478,6 +478,7 @@ function KpisPageInner() {
                     <KpiRow
                       key={kpi.id}
                       kpi={kpi}
+                      category={categories.find((c) => c.id === kpi.categoryId) ?? null}
                       terminology={terminology}
                       expanded={expandedKpiId === kpi.id}
                       deleting={deletingId === kpi.id}
@@ -510,6 +511,8 @@ function KpisPageInner() {
 
 interface KpiRowProps {
   kpi: KpiSummary;
+  /** The category this KPI is in, when it is in one. */
+  category: KpiCategory | null;
   terminology: { memberLabel: string };
   expanded: boolean;
   deleting: boolean;
@@ -531,6 +534,7 @@ interface KpiRowProps {
 
 function KpiRow({
   kpi,
+  category,
   terminology,
   expanded,
   deleting,
@@ -562,6 +566,18 @@ function KpiRow({
           </Link>
           {kpi.unit && (
             <span className="ml-2 font-mono text-xs text-content-muted">{kpi.unit}</span>
+          )}
+          {/* The category, marked with its own colour: the colour chosen on the Categories page was shown nowhere. */}
+          {category && (
+            <span data-testid="kpi-category" className="mt-0.5 flex items-center gap-1.5 text-xs text-content-muted">
+              <span
+                data-testid="kpi-category-colour"
+                aria-hidden
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: category.color ?? 'hsl(var(--border-strong))' }}
+              />
+              {category.name}
+            </span>
           )}
         </TableCell>
         <TableCell>

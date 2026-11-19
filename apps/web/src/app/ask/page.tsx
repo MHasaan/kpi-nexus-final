@@ -277,7 +277,9 @@ export default function AskPage() {
               >
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-xl px-4 py-3 text-sm shadow-xs',
+                    // A long unbroken run (a web address, an identifier) wraps inside the bubble: it used
+                    // to widen the bubble past the page.
+                    'min-w-0 max-w-[85%] rounded-xl px-4 py-3 text-sm shadow-xs [overflow-wrap:anywhere]',
                     m.role === 'user'
                       ? 'bg-accent-primary text-white'
                       : 'border border-border bg-surface-bg text-content-strong',

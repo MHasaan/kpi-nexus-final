@@ -504,6 +504,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (first use): the wizard’s step list read “1 units”, “1 categories”, “1 people” | ✅ Fixed — one of something is written as one | #371 | `e2e/wizard-step-list-counts-in-words.spec.ts` |
 | Whole-suite run: `e2e/templates-in-words.spec.ts` (from #332) read a filter’s options before the page had drawn them and failed now and then | ✅ Fixed — the check waits for the options | #372 | `e2e/templates-in-words.spec.ts` |
 | Flow walk (the invited person): Account settings → Security listed sessions by their raw browser string, and the long line pushed the tab off the side at 1280 px | ✅ Fixed — each row names the device (“Chrome on Linux”) and marks the one in use; the tab fits | #373 | `e2e/profile-sessions-name-the-device.spec.ts` |
+| Flow walk (the invited person): on the home page a KPI with a value and no target read “12,500 · No data” and was counted under “No data” | ✅ Fixed — the badge reads “No target”, and KPI health counts the two apart | #374 | `e2e/home-says-no-target.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -112,7 +112,7 @@ describe('KpiDataService.dashboardSummary — per-person and per-unit KPIs', () 
       { kpiId: 'kpi_calls', currentValue: 22, targetValue: 40, status: 'behind' },
     ]);
     const [row] = await makeSvc().dashboardSummary();
-    expect(row!.holders).toEqual({ total: 2, withValue: 2, onTrack: 1 });
+    expect(row!.holders).toEqual({ total: 2, withValue: 2, withTarget: 2, onTrack: 1 });
     expect(row!.latestValue).toBeNull();
     expect(row!.aggregatedValue).toBeNull();
     expect(row!.attainmentPct).toBeNull();
@@ -134,7 +134,21 @@ describe('KpiDataService.dashboardSummary — per-person and per-unit KPIs', () 
       { kpiId: 'kpi_calls', currentValue: 44, targetValue: 100, status: null },
     ]);
     const [row] = await makeSvc().dashboardSummary();
-    expect(row!.holders).toEqual({ total: 3, withValue: 3, onTrack: 1 });
+    expect(row!.holders).toEqual({ total: 3, withValue: 3, withTarget: 3, onTrack: 1 });
+  });
+
+  // No target on the KPI and none on the holders: nobody is off track against a target that does not
+  // exist. It used to read "0 of 2 on track" and OFF_TRACK.
+  it('holders with no target anywhere are counted apart, and the KPI has no target', async () => {
+    mockPrisma.kPI.findMany.mockResolvedValue([perPerson]);
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue(twoValues);
+    mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
+      { kpiId: 'kpi_calls', currentValue: 44, targetValue: null, status: null },
+      { kpiId: 'kpi_calls', currentValue: null, targetValue: null, status: null },
+    ]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.holders).toEqual({ total: 2, withValue: 1, withTarget: 0, onTrack: 0 });
+    expect(row!.status).toBe('NO_TARGET');
   });
 
   it('seen by its one holder: their own value, as before', async () => {

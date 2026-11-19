@@ -71,7 +71,7 @@ test('a person or unit with no target of their own is measured against the KPIâ€
 
   // The organisation's view counts him on track: one of two, the other has recorded nothing.
   const summary = (await (await admin.get('/kpis/dashboard-summary')).json()) as Array<{ kpiId: string; holders: { total: number; withValue: number; onTrack: number } | null }>;
-  expect(summary.find((r) => r.kpiId === calls.id)!.holders).toEqual({ total: 2, withValue: 1, onTrack: 1 });
+  expect(summary.find((r) => r.kpiId === calls.id)!.holders).toEqual({ total: 2, withValue: 1, withTarget: 2, onTrack: 1 });
 
   // The same for a unit: target on the KPI, none on the unit.
   const unit = (await (await admin.post('/org-units', { data: { name: `Sales ${stamp}` } })).json()) as { id: string };

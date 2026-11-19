@@ -145,7 +145,7 @@ describe('BoardPackService', () => {
 
   // UI-018: a per-person KPI used to appear with the value of whoever recorded last.
   test('a per-person KPI with several holders carries their count, not a value, and is not a mover', async () => {
-    const counted = { total: 2, withValue: 2, onTrack: 1 };
+    const counted = { total: 2, withValue: 2, withTarget: 2, onTrack: 1 };
     const current = [row('calls', null, { name: 'Calls', scope: 'PER_USER', status: 'AT_RISK', holders: counted })];
     const previous = [row('calls', null, { name: 'Calls', scope: 'PER_USER', holders: counted })];
     const r = await withCtx(() => make({ current, previous }).service.compose({ sinceDays: 30 }));

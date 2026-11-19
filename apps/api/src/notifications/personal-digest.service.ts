@@ -1,21 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { isTimeZone } from '@kpi-nexus/contracts';
 
 import { EmailService } from '../email/email.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
-import { readNotificationSettings } from './notification-preferences.js';
+import { readNotificationSettings, wallClock } from './notification-preferences.js';
 
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** The most alerts one digest email lists; the rest are counted. */
 const MAX_LISTED = 50;
 
+/** The hour a digest goes out, on each person's own clock. */
+export const DIGEST_HOUR = 7;
+
 /**
  * Sends what was kept for people who chose a digest: one email each, with
  * every alert notification kept for them since the last one.
  *
- *  - DAILY: on every run (the job runs once a day).
- *  - WEEKLY: on Mondays (UTC).
+ * The job runs every hour; a person's digest goes out on the run that falls at
+ * 07:00 on their own clock — their timezone, else their organisation's (since
+ * 2026-11-20; it was 07:00 UTC for everyone):
+ *
+ *  - DAILY: every day at 07:00 their time.
+ *  - WEEKLY: on Mondays at 07:00 their time.
  *  - Someone who has since turned the digest off gets what was kept on the next run.
  *
  * Runs with no request context, across organisations.
@@ -44,14 +52,19 @@ export class PersonalDigestService {
 
       let people = 0;
       let notifications = 0;
+      const orgZones = new Map<string, string | null>();
       for (const [userId, rows] of byPerson) {
         const user = await this.prisma.user.findUnique({
           where: { id: userId },
-          select: { email: true, status: true, notificationSettings: true },
+          select: { email: true, status: true, notificationSettings: true, timezone: true, organizationId: true },
         });
         if (!user || user.status !== 'ACTIVE') continue;
         const mode = readNotificationSettings(user.notificationSettings).digestMode;
-        if (mode === 'WEEKLY' && now.getUTCDay() !== 1) continue;
+        if (mode !== 'OFF') {
+          const local = wallClock(now, await this.zoneOf(user, orgZones));
+          if (local.hour !== DIGEST_HOUR) continue;
+          if (mode === 'WEEKLY' && local.weekday !== 1) continue;
+        }
 
         const alerts = await this.prisma.alert.findMany({
           where: { id: { in: [...new Set(rows.map((r) => r.alertId))] } },
@@ -73,6 +86,18 @@ export class PersonalDigestService {
       }
       return { people, notifications };
     });
+  }
+
+  /** The person's own clock: their timezone, else their organisation's, else UTC. */
+  private async zoneOf(
+    user: { timezone: string | null; organizationId: string },
+    orgZones: Map<string, string | null>,
+  ): Promise<string> {
+    if (!orgZones.has(user.organizationId)) {
+      const org = await this.prisma.organization.findUnique({ where: { id: user.organizationId }, select: { timezone: true } });
+      orgZones.set(user.organizationId, org?.timezone ?? null);
+    }
+    return [user.timezone, orgZones.get(user.organizationId)].find((zone): zone is string => typeof zone === 'string' && isTimeZone(zone)) ?? 'UTC';
   }
 
   private compose(

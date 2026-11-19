@@ -8,10 +8,18 @@ export const PERSONAL_DIGEST_QUEUE = 'personal-digest';
 /** Stable job name, also the deterministic jobId. */
 export const PERSONAL_DIGEST_JOB = 'personal-digest-daily';
 
-/** Cron expression: daily at 07:00 UTC. Weekly digests go out on the Monday run. */
-export const PERSONAL_DIGEST_CRON = '0 7 * * *';
+/**
+ * Cron expression: every hour, on the hour. Each person's digest goes out on the
+ * run that falls at 07:00 on their own clock (see PersonalDigestService). It was
+ * once a day at 07:00 UTC.
+ */
+export const PERSONAL_DIGEST_CRON = '0 * * * *';
 
-/** Schedules the daily digest run on module init; the same jobId on every deploy keeps it to one job. */
+/**
+ * Schedules the hourly digest run on module init; the same jobId on every deploy keeps it to one
+ * job. A run registered by an earlier version with another schedule is removed first: left
+ * behind, the old daily run would be a second run at 07:00 UTC, racing the hourly one.
+ */
 @Injectable()
 export class PersonalDigestProducer implements OnModuleInit {
   private readonly logger = new Logger(PersonalDigestProducer.name);
@@ -20,6 +28,12 @@ export class PersonalDigestProducer implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     try {
+      for (const job of await this.queue.getRepeatableJobs()) {
+        if ((job.id === PERSONAL_DIGEST_JOB || job.name === PERSONAL_DIGEST_JOB) && job.pattern !== PERSONAL_DIGEST_CRON) {
+          await this.queue.removeRepeatableByKey(job.key);
+          this.logger.log(`Removed the earlier personal digest schedule (${String(job.pattern)})`);
+        }
+      }
       await this.queue.add(
         PERSONAL_DIGEST_JOB,
         {},

@@ -470,6 +470,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (what-if): “driver”, “mechanic”, “delta”, “aggregate lift”, and two unlabelled bars | ✅ Fixed — says what it works out, labels the two totals with their figures | #337 | `e2e/ai-analytics-ui.spec.ts` |
 | Flow walk (sessions): every session read “Unknown device” — none was written with its browser; the top bar called the page “Inbox” | ✅ Fixed — sign-up, sign-in, invitation and renewal write the browser and address; the page shows “Firefox on Windows”; the top bar reads “You / Sessions” | #338 | `refresh-token.service.spec.ts` (4), `device-label.spec.ts` (3), `e2e/sessions-name-the-device.spec.ts` |
 | Flow walk (roles): the administrator role was listed with “0” permissions beside a fully ticked matrix | ✅ Fixed — reads “All” | #339 | `e2e/admin-role-count.spec.ts` |
+| Flow walk (new dashboard): ticking the first starter KPI put a “1 selected” line above the list, moving every row down under the pointer | ✅ Fixed — the count sits below the list | #340 | `e2e/starter-list-does-not-jump.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

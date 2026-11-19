@@ -271,15 +271,6 @@ function NewDashboardInner() {
                     />
                   </div>
 
-                  {selectedIds.length > 0 && (
-                    <p
-                      className="text-xs text-content-muted"
-                      data-testid="starter-kpis-count"
-                    >
-                      {selectedIds.length} selected
-                    </p>
-                  )}
-
                   <div
                     data-testid="starter-kpis"
                     className="max-h-[280px] overflow-auto rounded-md border border-border bg-surface-bg"
@@ -355,9 +346,15 @@ function NewDashboardInner() {
                     )}
                   </div>
 
-                  {selectedIds.length === 0 && (
+                  {/* One line, always here, below the list. The count used to appear above it on the
+                      first tick, moving every row down under the pointer. */}
+                  {selectedIds.length === 0 ? (
                     <Badge tone="neutral" className="self-start">
-                      None picked → you&apos;ll start with a blank dashboard
+                      None picked: you&apos;ll start with a blank dashboard
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral" className="self-start" data-testid="starter-kpis-count">
+                      {selectedIds.length} selected
                     </Badge>
                   )}
                 </div>

@@ -480,6 +480,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (a member’s home page): an Employee was shown the organisation’s setup list, with tasks they may not do and links they may not open | ✅ Fixed — shown, and asked for, only for `ORG_SETTINGS` holders | #347 | `e2e/setup-checklist-card.spec.ts` (+1) |
 | Flow walk (home page): “Pending approvals 1” was shown to everyone, whoever the request waited for | ✅ Fixed — the tile counts what the reader can decide; otherwise the card says “Approvals in progress” | #348 | `e2e/home-approvals-waiting-for-you.spec.ts` |
 | Flow walk (a member’s KPI list): the drafts note told someone with no Edit to “open Edit and set its status” | ✅ Fixed — only `KPI_EDIT` holders are told how to change it | #349 | `e2e/draft-note-fits-the-reader.spec.ts` |
+| Flow walk (phone): at 375 px the home page’s range switch broke each option onto three lines (“Last / 7 / days”) | ✅ Fixed — a segmented switch keeps an option on one line; the header row wraps | #350 | `e2e/home-range-on-a-phone.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

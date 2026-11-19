@@ -31,6 +31,7 @@ import {
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { useFormat } from '../../../../lib/format-context';
 import { usePermissions } from '../../../../lib/use-permissions';
 
 interface DataPoint {
@@ -49,6 +50,8 @@ interface Anomaly {
   method: string;
   isConfirmed: boolean;
   detectedAt: string;
+  /** The value it was found on, and the period that value is for. Null once the value is gone. */
+  point?: { value: number; periodStart: string } | null;
 }
 
 // Shared analytics navigation strip — lets users move between the KPI's
@@ -90,6 +93,7 @@ function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
 
 export default function AnomaliesPage() {
   const { id } = useParams<{ id: string }>();
+  const fmt = useFormat();
   const router = useRouter();
   const [series, setSeries] = useState<number[]>([]);
   const [detected, setDetected] = useState<Detected[] | null>(null);
@@ -323,7 +327,9 @@ export default function AnomaliesPage() {
                 <Table data-testid="anom-saved">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Score</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="text-right">How unusual</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead className="text-right">State</TableHead>
                     </TableRow>
@@ -331,7 +337,12 @@ export default function AnomaliesPage() {
                   <TableBody>
                     {saved.map((a) => (
                       <TableRow key={a.id} data-testid={`anom-row-${a.id}`}>
-                        <TableCell className="tabular-nums text-content-strong">
+                        {/* Which value, and when: a score and a method alone told a reader nothing. */}
+                        <TableCell className="tabular-nums text-content">{a.point ? fmt.day(a.point.periodStart) : '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold text-content-strong">
+                          {a.point ? fmt.number(a.point.value) : 'No longer recorded'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-content-muted" title="The higher the score, the further this value is from what the others led the method to expect.">
                           {a.score.toFixed(2)}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-content-muted">

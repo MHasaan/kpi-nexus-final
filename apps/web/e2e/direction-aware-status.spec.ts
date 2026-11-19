@@ -36,7 +36,9 @@ test('a lower-is-better KPI under its target reads On target on the scorecard', 
   // Churn at 3.5% against a 4% ceiling: good. And revenue short of target: not.
   const kpis = [
     { name: `Churn ${stamp}`, direction: 'LOWER_IS_BETTER', targetValue: 4, value: 3.5, expected: 'On target' },
-    { name: `Revenue ${stamp}`, direction: 'HIGHER_IS_BETTER', targetValue: 100, value: 40, expected: 'Below' },
+    { name: `Revenue ${stamp}`, direction: 'HIGHER_IS_BETTER', targetValue: 100, value: 40, expected: 'Off target' },
+    // Flow walk (scorecard): costs over their ceiling were labelled "Below" — they are above it. A miss is "Off target" either way.
+    { name: `Costs ${stamp}`, direction: 'LOWER_IS_BETTER', targetValue: 30000, value: 42000, expected: 'Off target' },
   ] as const;
 
   for (const k of kpis) {
@@ -71,5 +73,8 @@ test('a lower-is-better KPI under its target reads On target on the scorecard', 
     const row = quadrant.locator('li').filter({ hasText: k.name });
     await expect(row, `${k.name} is listed`).toHaveCount(1);
     await expect(row, `${k.name} reads "${k.expected}"`).toContainText(k.expected);
+    await expect(row).not.toContainText('Below');
   }
+  // Figures are written the organisation's way, not as stored.
+  await expect(quadrant.locator('li').filter({ hasText: `Costs ${stamp}` })).toContainText('42,000 / 30,000');
 });

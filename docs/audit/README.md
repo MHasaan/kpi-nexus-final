@@ -489,6 +489,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (dashboards): every new widget went to the left edge of a row of its own — one tall column | ✅ Fixed — the first free place, left to right, top to bottom | #356 | `widget-placement.spec.ts` (5), `e2e/adding-a-widget-does-not-crash.spec.ts` |
 | Flow walk (dashboards): preview widget kinds read “A…” and “S…”; the hint said “Pick a kpi card target before you can add it” | ✅ Fixed — names in full, badge beneath; “Choose the KPI this KPI card shows.” | #357 | `e2e/widget-type-names-readable.spec.ts` |
 | Flow walk (shared dashboard): a widget saved at 1×1 was drawn as a sliver on the public page | ✅ Fixed — it flows at the usual size | #358 | `share-view.spec.ts` (+1) |
+| Flow walk (dashboards): a line, bar, pie or trend widget was headed “LINE CHART” — nothing said which KPI it showed | ✅ Fixed — headed by the KPI’s name when it has no title of its own | #359 | `e2e/adding-a-widget-does-not-crash.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

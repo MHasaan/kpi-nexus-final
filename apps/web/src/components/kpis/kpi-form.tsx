@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
+import { useFormat } from '../../lib/format-context';
 import { isApprovalPending } from '../../lib/role-permissions';
 import { ApprovalPendingNotice } from '../approval-pending-notice';
 import { usePeople } from '../../lib/use-people';
@@ -240,12 +241,14 @@ function Field({
   label,
   htmlFor,
   help,
+  helpTestId,
   required,
   children,
 }: {
   label: string;
   htmlFor?: string;
   help?: string;
+  helpTestId?: string;
   required?: boolean;
   children: ReactNode;
 }) {
@@ -255,7 +258,7 @@ function Field({
         {label}
       </Label>
       {children}
-      {help && <p className="text-xs text-content-muted">{help}</p>}
+      {help && <p className="text-xs text-content-muted" data-testid={helpTestId}>{help}</p>}
     </div>
   );
 }
@@ -275,6 +278,7 @@ export interface KpiFormProps {
 }
 
 export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormProps) {
+  const fmt = useFormat();
   // The figure of the target in effect on the Targets tab, when there is one (UI-017): it is the
   // KPI's target, so the field below shows it and is not for changing it.
   const [tabTarget, setTabTarget] = useState<number | null>(null);
@@ -327,6 +331,8 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
     });
 
   const isEdit = mode === 'edit';
+  // What an empty unit becomes on a new money KPI (the API fills it in when the KPI is created).
+  const moneyUnit = !isEdit && values.type === 'CURRENCY' ? fmt.settings.currency : null;
   // Why a per-unit or per-user KPI cannot be sent yet: nobody is chosen to record it.
   const [assignProblem, setAssignProblem] = useState<string | null>(null);
   // Choosing someone, or another scope, answers it.
@@ -546,12 +552,18 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
               ))}
             </Select>
           </Field>
-          <Field label="Unit" htmlFor="kpi-unit" help='e.g. "$", "%", "ms"'>
+          <Field
+            label="Unit"
+            htmlFor="kpi-unit"
+            // A new money KPI with no unit takes the organisation's currency: say so before it happens.
+            help={moneyUnit ? `Leave empty to use your organisation's currency (${moneyUnit}).` : 'e.g. "$", "%", "ms"'}
+            helpTestId="kpi-unit-help"
+          >
             <Input
               id="kpi-unit"
               value={values.unit}
               onChange={(e) => set('unit', e.target.value)}
-              placeholder="%"
+              placeholder={moneyUnit ?? '%'}
               data-testid="kpi-unit"
             />
           </Field>

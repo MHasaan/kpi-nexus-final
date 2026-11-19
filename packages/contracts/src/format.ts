@@ -58,6 +58,22 @@ export const isCurrency = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z]{3}$/.test(value) && usable(() => new Intl.NumberFormat('en-US', { style: 'currency', currency: value }));
 
 /**
+ * The unit a new KPI starts with. One the person typed is theirs. A money KPI
+ * with none takes the organisation's currency — the setting is asked for at
+ * sign-up as "used for money", and without this a Currency KPI read as bare
+ * numbers. Any other kind of KPI stays without a unit.
+ *
+ * Only at creation: values already recorded were recorded in that currency, so
+ * changing the organisation's currency later does not relabel them.
+ */
+export function unitForNewKpi(type: string | null | undefined, unit: string | null | undefined, currency: unknown): string | null {
+  const typed = unit?.trim();
+  if (typed) return typed;
+  if (type === 'CURRENCY' && isCurrency(currency)) return currency.toUpperCase();
+  return null;
+}
+
+/**
  * The format settings of an organisation as stored. Anything missing or
  * unusable falls back to the default — a bad value in a setting must not break
  * every page that shows a date.

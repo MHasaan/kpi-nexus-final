@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { holderStanding } from '../user-kpis/assignment-status.js';
 
 export interface UnitAssignmentRow {
   assignmentId: string;
@@ -54,7 +55,7 @@ export class KpiAssignmentsService {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, scope: true, categoryId: true },
+      select: { id: true, scope: true, categoryId: true, targetValue: true, direction: true },
     });
     // A KPI the caller cannot list has no readable assignments: 404, no
     // existence leak (the rule GET /kpis/:id/data follows).
@@ -87,9 +88,9 @@ export class KpiAssignmentsService {
           name: r.orgUnit.name,
           inherited: r.inherited,
           inheritedFromUnitId: r.inheritedFromUnitId,
-          targetValue: r.targetValue,
+          // The unit's own target, or the KPI's when it has none; its status against that.
+          ...holderStanding(r, kpi),
           currentValue: r.currentValue,
-          status: r.status,
         })),
         users: [],
       };
@@ -116,9 +117,9 @@ export class KpiAssignmentsService {
           assignmentId: r.id,
           userId: r.userId,
           name: r.user.fullName,
-          targetValue: r.targetValue,
+          // The person's own target, or the KPI's when they have none; their status against that.
+          ...holderStanding(r, kpi),
           currentValue: r.currentValue,
-          status: r.status,
         })),
       };
     }

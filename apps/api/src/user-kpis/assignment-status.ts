@@ -36,3 +36,20 @@ export function computeAssignmentStatus(
   // No clear better-direction: a target exists but proximity isn't graded here.
   return 'on_track';
 }
+
+/**
+ * What a holder of a KPI — a person, or a unit — is measured against, and
+ * where they stand: their own target when one was set for them, else the
+ * KPI's. A KPI given a target and handed to people used to show each of them
+ * no target and no status, because only their own target counted.
+ *
+ * Worked out from what is stored now, so a target changed on the KPI is
+ * reflected at once; the status column on the assignment is not relied on.
+ */
+export function holderStanding(
+  holder: { targetValue: number | null; currentValue: number | null },
+  kpi: { targetValue: number | null; direction: string },
+): { targetValue: number | null; status: AssignmentStatus | null } {
+  const targetValue = holder.targetValue ?? kpi.targetValue ?? null;
+  return { targetValue, status: computeAssignmentStatus(holder.currentValue, targetValue, kpi.direction as KpiDirection) };
+}

@@ -1,9 +1,9 @@
 'use client';
 
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useReducer, useState } from 'react';
 
 import { ApiError } from '../../lib/api-client';
-import { type Period, currentPeriod, periodFromStart, toApiPeriod } from '../../lib/period';
+import { initialRecordPeriod, recordPeriodReducer, toApiPeriod } from '../../lib/period';
 import { useFiscalConfig } from '../../lib/use-fiscal-config';
 import { Button, Input, Label } from '../ui';
 
@@ -40,16 +40,15 @@ export function RecordValueForm({
   children,
 }: RecordValueFormProps) {
   const [value, setValue] = useState('');
-  const [period, setPeriod] = useState<Period>(() => currentPeriod(frequency));
   // The organisation's calendar arrives a moment after the form: until the person changes the
   // period themselves, the default follows it (a fiscal quarter, a week starting on their day).
+  // Until they set the end themself, it follows the start: the frequency says how long a period is.
+  // One reducer keeps all of it, so a date typed as the calendar arrives is not lost to the default.
   const fiscal = useFiscalConfig();
-  const [periodTouched, setPeriodTouched] = useState(false);
-  // Until the person sets the end themself, it follows the start: the frequency says how long a period is.
-  const [endChosen, setEndChosen] = useState(false);
+  const [{ period }, dispatchPeriod] = useReducer(recordPeriodReducer, frequency, initialRecordPeriod);
   useEffect(() => {
-    if (fiscal.ready && !periodTouched) setPeriod(currentPeriod(frequency, new Date(), fiscal.config));
-  }, [fiscal.ready, fiscal.config, frequency, periodTouched]);
+    if (fiscal.ready) dispatchPeriod({ type: 'calendar', frequency, config: fiscal.config, now: new Date() });
+  }, [fiscal.ready, fiscal.config, frequency]);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -100,10 +99,7 @@ export function RecordValueForm({
           id={`${testIdPrefix}-period-start`}
           type="date"
           value={period.periodStart}
-          onChange={(e) => {
-            setPeriodTouched(true);
-            setPeriod((p) => periodFromStart(frequency, e.target.value, p, endChosen, fiscal.config));
-          }}
+          onChange={(e) => dispatchPeriod({ type: 'start', frequency, value: e.target.value, config: fiscal.config })}
           data-testid={`${testIdPrefix}-period-start`}
         />
       </div>
@@ -113,11 +109,7 @@ export function RecordValueForm({
           id={`${testIdPrefix}-period-end`}
           type="date"
           value={period.periodEnd}
-          onChange={(e) => {
-            setPeriodTouched(true);
-            setEndChosen(true);
-            setPeriod((p) => ({ ...p, periodEnd: e.target.value }));
-          }}
+          onChange={(e) => dispatchPeriod({ type: 'end', value: e.target.value })}
           data-testid={`${testIdPrefix}-period-end`}
         />
       </div>

@@ -54,6 +54,10 @@ test('a dashboard viewer sees no button the API would refuse; a manager sees the
   await page.goto(`/dashboards/${dashboard.id}`);
   for (const id of MANAGE_BUTTONS) await expect(page.getByTestId(id), id).toBeVisible();
   await expect(page.getByTestId('dashboard-detail-empty')).toContainText('Add widget');
+  // Flow walk (dashboards): an empty dashboard said "no widgets yet" twice, in two boxes, and the first
+  // told its reader to click Edit before Add widget — which is right there and needs no Edit.
+  await expect(page.getByText(/No widgets yet/)).toHaveCount(1);
+  await expect(page.getByTestId('dashboard-detail-empty')).toHaveText(/No widgets yet\. Use Add widget, above, to add the first one\./);
 
   // A viewer: DASHBOARD_VIEW and no DASHBOARD_MANAGE.
   const role = await admin.post('/roles', { data: { name: `Board viewer ${stamp}`, permissions: ['KPI_VIEW', 'DASHBOARD_VIEW'] } });

@@ -117,7 +117,7 @@ test.describe('Dashboard builder — widget add + persistence', () => {
       await expect(page.getByTestId('dashboard-detail-heading')).toBeVisible();
 
       // No widgets yet — empty state
-      await expect(page.getByTestId('dashboard-widgets-empty')).toBeVisible();
+      await expect(page.getByTestId('dashboard-detail-empty')).toBeVisible();
 
       // 1. Open the add-widget editor
       await page.getByTestId('dashboard-add-widget-toggle').click();

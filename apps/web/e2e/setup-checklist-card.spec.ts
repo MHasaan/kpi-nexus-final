@@ -91,3 +91,51 @@ test('checklist card: a failed load or action is shown, not swallowed', async ({
   await problem.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByTestId('setup-checklist-card')).toBeVisible();
 });
+
+// Flow walk (a member's home page): an Employee was shown the organisation's setup list —
+// "Turn on two-step sign-in for administrators", "Review AI settings" — tasks they may not do,
+// linking to pages they may not open. Setting up is for the people who can.
+test('checklist card: only someone who can act on the setup list is shown it', async ({ page, browser }) => {
+  let ctx: Awaited<ReturnType<typeof start>>;
+  try {
+    ctx = await start(page, 'clwho');
+  } catch {
+    test.skip(true, 'api not reachable');
+    return;
+  }
+  // The administrator has it.
+  await expect(page.getByTestId('setup-checklist-card')).toBeVisible({ timeout: 15_000 });
+
+  // An Employee does not, and the list is not even asked for on their behalf.
+  const anon = await request.newContext({ baseURL: API_URL });
+  const roles = (await (await ctx.api.get('/roles')).json()) as Array<{ id: string; name: string }>;
+  const invited = (await (await ctx.api.post('/users', {
+    data: { email: `eli-${ctx.stamp}@clwho.test.local`, fullName: 'Eli Employee', roleId: roles.find((r) => r.name === 'Employee')!.id },
+  })).json()) as { inviteToken: string };
+  const eli = (await (await anon.post('/auth/accept-invitation', { data: { token: invited.inviteToken, password: 'correct-horse-battery-staple' } })).json()) as {
+    accessToken: string;
+    refreshToken: string;
+  };
+  const context = await browser.newContext({
+    storageState: { cookies: [], origins: [{ origin: 'http://localhost:3000', localStorage: [{ name: 'kpi-nexus.tour-completed', value: '1' }] }] },
+  });
+  const member = await context.newPage();
+  await member.goto('/');
+  await member.evaluate(
+    ([a, r]) => {
+      window.localStorage.setItem('kpi-nexus.access-token', a);
+      window.localStorage.setItem('kpi-nexus.refresh-token', r);
+    },
+    [eli.accessToken, eli.refreshToken] as const,
+  );
+  const asked: string[] = [];
+  member.on('request', (req) => {
+    if (req.url().includes('/setup-checklist')) asked.push(req.url());
+  });
+  await member.goto('/dashboard');
+  await expect(member.getByRole('heading', { name: /Eli/ })).toBeVisible({ timeout: 15_000 });
+  await expect(member.getByTestId('setup-checklist-card')).toHaveCount(0);
+  await expect(member.getByText('Finish setting up')).toHaveCount(0);
+  expect(asked).toEqual([]);
+  await context.close();
+});

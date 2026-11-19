@@ -477,6 +477,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (alert rules): the list gave a rule’s type (“Threshold”, “Anomaly (σ)”), not what it watches for | ✅ Fixed — each row says the condition (“When the value is below 50,000”) | #344 | `alert-rule-form.spec.ts` (+2), `e2e/alert-rules-say-what-they-watch.spec.ts` |
 | Flow walk (alerts): the bell went on counting an alert for up to thirty seconds after it was resolved | ✅ Fixed — it counts again as soon as an alert is acknowledged or resolved | #345 | `e2e/bell-follows-alert-changes.spec.ts` |
 | Flow walk (KPI page): the Thresholds tab said “Current band: no_bands” | ✅ Fixed — words | #346 | `e2e/band-status-in-words.spec.ts` |
+| Flow walk (a member’s home page): an Employee was shown the organisation’s setup list, with tasks they may not do and links they may not open | ✅ Fixed — shown, and asked for, only for `ORG_SETTINGS` holders | #347 | `e2e/setup-checklist-card.spec.ts` (+1) |
 
 ### UI completion round — open findings (2026-11-16)
 

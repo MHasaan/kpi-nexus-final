@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ApiError, api } from '../lib/api-client';
 import { useAsyncData } from '../lib/use-async-data';
 import { PermissionGuard } from './auth/permission-guard';
+import { usePermissions } from '../lib/use-permissions';
 
 interface ChecklistItem {
   key: string;
@@ -26,11 +27,15 @@ interface ChecklistView {
 /**
  * The post-onboarding setup checklist shown on the dashboard. Each task links
  * to the page where it is done, and is ticked off on its own once it has been
- * (plan 3.3 / 3.11). Everyone sees progress; only ORG_SETTINGS holders can tick,
- * dismiss or undo an item (BE-022).
+ * (plan 3.3 / 3.11). Only ORG_SETTINGS holders are shown it: they are the ones
+ * who can tick, dismiss or undo an item (BE-022), and open the pages it links to.
  */
 export function SetupChecklistCard() {
-  const { data: loaded, error: loadError, reload } = useAsyncData(() => api<ChecklistView>('/setup-checklist'), []);
+  // Setting the organisation up is for the people who can: an Employee was shown
+  // "Turn on two-step sign-in for administrators" and links to pages they may not open.
+  const { ready, has } = usePermissions();
+  const canSetUp = ready && has('ORG_SETTINGS');
+  const { data: loaded, error: loadError, reload } = useAsyncData(() => api<ChecklistView>('/setup-checklist'), [], { enabled: canSetUp });
   const [changed, setChanged] = useState<ChecklistView | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -49,6 +54,7 @@ export function SetupChecklistCard() {
     }
   };
 
+  if (!canSetUp) return null;
   if (!view) {
     if (!loadError) return null;
     return (

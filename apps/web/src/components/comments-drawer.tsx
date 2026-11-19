@@ -308,7 +308,7 @@ export function CommentsDrawer({
                 <span className="text-xs text-content-muted" data-testid="comment-mention-note" aria-live="polite">
                   {notified.unknown.length > 0 ? (
                     <span className="text-status-warning">
-                      No one here matches {notified.unknown.map((w) => `@${w}`).join(', ')}. Pick a name from the list to notify them.
+                      No one here matches {notified.unknown.map((w) => `@${w}`).join(', ')}, so nobody is notified by it.
                     </span>
                   ) : notified.people.length > 0 ? (
                     `Will notify ${notified.people.map((p) => p.fullName).join(', ')}`

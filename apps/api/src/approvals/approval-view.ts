@@ -24,10 +24,16 @@ export function canDecide(
   request: DecidableRequest,
   viewer: ApprovalViewer,
   approverRoleIds: readonly string[] | undefined,
+  /**
+   * `soleApprover`: the viewer is an administrator and nobody else could decide this request. Then
+   * they may decide their own; otherwise an organisation with one administrator could never get an
+   * approved change through.
+   */
+  opts: { soleApprover?: boolean } = {},
 ): boolean {
   if (request.status !== 'PENDING') return false;
-  if (request.requesterUserId === viewer.userId) return false;
   if (!viewer.roleId || !approverRoleIds?.includes(viewer.roleId)) return false;
+  if (request.requesterUserId === viewer.userId && !opts.soleApprover) return false;
   const decisions = Array.isArray(request.decisions) ? (request.decisions as Array<{ userId?: unknown }>) : [];
   return !decisions.some((d) => d.userId === viewer.userId);
 }

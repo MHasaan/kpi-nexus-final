@@ -385,6 +385,14 @@ export default function ApprovalsPage() {
                     </div>
                   </div>
 
+                  {/* A sole administrator may decide their own request: say why the buttons are there. */}
+                  {standing === 'decide' && currentUserId !== null && req.requesterUserId === currentUserId && (
+                    <p data-testid={`own-request-note-${req.id}`} className="text-xs text-content-muted">
+                      You asked for this change, and nobody else can approve it, so as an administrator you may decide it
+                      yourself. The decision is recorded as one made on your own request.
+                    </p>
+                  )}
+
                   <div data-testid={`approval-diff-${req.id}`}>
                     <div className="kn-eyebrow mb-1.5">{hasBefore ? 'What would change' : 'What is asked for'}</div>
                     <ChangeList rows={approvalChanges(req.proposedPayload, req.currentPayload, changeFormat)} />

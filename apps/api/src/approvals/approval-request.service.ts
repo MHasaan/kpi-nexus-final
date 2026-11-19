@@ -28,6 +28,8 @@ export type PublicApprovalRequest = Prisma.ApprovalRequestGetPayload<{ select: t
 /** A request as the inbox shows it: who asked, what it is about, and whether the reader can decide it. */
 export type ApprovalRequestView = PublicApprovalRequest & {
   canDecide: boolean;
+  /** The reader asked for this change themself. */
+  ownRequest: boolean;
   requesterName: string | null;
   /** The name of the KPI or role the change is about; null if it no longer exists. */
   entityLabel: string | null;
@@ -36,6 +38,8 @@ export type ApprovalRequestView = PublicApprovalRequest & {
 interface StoredDecision extends ApprovalDecision {
   comment?: string;
   decidedAt: string;
+  /** Decided by the person who asked for the change, because nobody else could (a sole administrator). */
+  ownRequest?: boolean;
 }
 
 @Injectable()
@@ -83,10 +87,18 @@ export class ApprovalRequestService {
     const kpiName = new Map(kpis.map((k) => [k.id, k.name]));
     const roleName = new Map(roles.map((r) => [r.id, r.name]));
     const viewer = { userId: ctx.userId, roleId: ctx.roleId };
+    // Whether the reader may decide their own waiting requests: only when nobody else could.
+    const soleFor = new Map<string, boolean>();
+    for (const r of requests) {
+      if (r.status === 'PENDING' && r.requesterUserId === ctx.userId && !soleFor.has(r.workflowId)) {
+        soleFor.set(r.workflowId, await this.isSoleApprover(ctx.organizationId, ctx.userId, ctx.roleId, approvers.get(r.workflowId) ?? []));
+      }
+    }
 
     return requests.map((r) => ({
       ...r,
-      canDecide: canDecide(r, viewer, approvers.get(r.workflowId)),
+      canDecide: canDecide(r, viewer, approvers.get(r.workflowId), { soleApprover: soleFor.get(r.workflowId) === true }),
+      ownRequest: r.requesterUserId === ctx.userId,
       requesterName: personName.get(r.requesterUserId) ?? null,
       entityLabel:
         (r.entityType === 'ROLE_PERMISSIONS'
@@ -106,15 +118,18 @@ export class ApprovalRequestService {
     });
     if (!request) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Pending approval request not found' });
 
-    if (request.requesterUserId === ctx.userId) {
-      throw new ForbiddenException({ code: 'SELF_APPROVAL', message: 'You cannot decide on your own request' });
-    }
-
     const workflow = await this.prisma.approvalWorkflow.findFirst({
       where: { id: request.workflowId, organizationId: ctx.organizationId },
       select: { requiredApproverRoleIds: true, requireAll: true },
     });
     if (!workflow) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Approval workflow not found' });
+
+    // Nobody decides their own request — unless they are an administrator and nobody else could:
+    // an organisation with one administrator could otherwise never get an approved change through.
+    const ownRequest = request.requesterUserId === ctx.userId;
+    if (ownRequest && !(await this.isSoleApprover(ctx.organizationId, ctx.userId, ctx.roleId, workflow.requiredApproverRoleIds))) {
+      throw new ForbiddenException({ code: 'SELF_APPROVAL', message: 'You cannot decide on your own request while someone else can' });
+    }
 
     if (!ctx.roleId || !workflow.requiredApproverRoleIds.includes(ctx.roleId)) {
       throw new ForbiddenException({ code: 'NOT_AN_APPROVER', message: 'Your role is not an approver for this workflow' });
@@ -127,7 +142,13 @@ export class ApprovalRequestService {
 
     const nextDecisions: StoredDecision[] = [
       ...decisions,
-      { userId: ctx.userId, decision: input.decision, comment: input.comment, decidedAt: new Date().toISOString() },
+      {
+        userId: ctx.userId,
+        decision: input.decision,
+        comment: input.comment,
+        decidedAt: new Date().toISOString(),
+        ...(ownRequest ? { ownRequest: true } : {}),
+      },
     ];
 
     const status = resolveStatus({
@@ -150,7 +171,7 @@ export class ApprovalRequestService {
       action: 'UPDATE',
       entityType: 'ApprovalRequest',
       entityId: requestId,
-      metadata: { decision: input.decision, status },
+      metadata: { decision: input.decision, status, ...(ownRequest ? { ownRequest: true } : {}) },
     });
 
     if (status === 'APPROVED') {
@@ -162,6 +183,25 @@ export class ApprovalRequestService {
     }
 
     return updated;
+  }
+
+  /**
+   * Whether this person may decide their own request: they hold an approving role, that role is an
+   * administrator's, and no other active person in the organisation holds an approving role.
+   */
+  private async isSoleApprover(
+    organizationId: string,
+    userId: string,
+    roleId: string | null,
+    approverRoleIds: readonly string[],
+  ): Promise<boolean> {
+    if (!roleId || !approverRoleIds.includes(roleId)) return false;
+    const role = await this.prisma.roleDefinition.findFirst({ where: { id: roleId, organizationId }, select: { isAdmin: true } });
+    if (!role?.isAdmin) return false;
+    const others = await this.prisma.user.count({
+      where: { organizationId, status: 'ACTIVE', id: { not: userId }, roleId: { in: [...approverRoleIds] } },
+    });
+    return others === 0;
   }
 
   async cancel(requestId: string): Promise<PublicApprovalRequest> {

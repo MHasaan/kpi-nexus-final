@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation';
 import { Flag, Pencil, Trash2, X } from 'lucide-react';
 
 import { ApiError, getAccessToken, meRequest } from '../../lib/api-client';
-import { usePeople } from '../../lib/use-people';
+import { withFound } from '../../lib/people';
+import { useFoundPeople, usePeople } from '../../lib/use-people';
 import {
   type Objective,
   type ObjectiveStatus,
@@ -20,6 +21,7 @@ import {
 import { cn } from '../../lib/cn';
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
+import { FindColleague } from '../../components/find-colleague';
 import {
   PageHeader,
   Card,
@@ -73,7 +75,10 @@ export default function OkrsPage() {
   const router = useRouter();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   // Owners' names, without asking for the people list on behalf of someone who may not have it (X-05).
-  const users = usePeople(objectives.map((o) => o.ownerUserId));
+  const known = usePeople(objectives.map((o) => o.ownerUserId));
+  // And anyone found by name under an owner picker (X-05, names only).
+  const [found, addFound] = useFoundPeople();
+  const users = withFound(known, found);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState('');
@@ -300,6 +305,13 @@ export default function OkrsPage() {
                 >
                   {ownerOptions}
                 </Select>
+                <FindColleague
+                  testId={`edit-owner-${o.id}`}
+                  onPick={(person) => {
+                    addFound(person);
+                    setEditState((s) => (s ? { ...s, ownerUserId: person.id } : s));
+                  }}
+                />
               </div>
               <div>
                 <Label htmlFor={`edit-status-${o.id}`}>Status</Label>
@@ -525,6 +537,13 @@ export default function OkrsPage() {
                   {cOwner === '' && <option value="">Select owner…</option>}
                   {ownerOptions}
                 </Select>
+                <FindColleague
+                  testId="okr-create-owner"
+                  onPick={(person) => {
+                    addFound(person);
+                    setCOwner(person.id);
+                  }}
+                />
               </div>
               <div>
                 <Label htmlFor="create-status">Status</Label>

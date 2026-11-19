@@ -28,6 +28,7 @@ import {
 import { AppShell } from '../../../components/app-shell';
 import { CommentsDrawer } from '../../../components/comments-drawer';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
+import { FindColleague } from '../../../components/find-colleague';
 import { KpiPicker } from '../../../components/dashboard-grid/kpi-picker';
 import {
   Badge,
@@ -46,7 +47,8 @@ import {
 } from '../../../components/ui';
 import type { BadgeTone } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
-import { usePeople } from '../../../lib/use-people';
+import { withFound } from '../../../lib/people';
+import { useFoundPeople, usePeople } from '../../../lib/use-people';
 import { useFormat } from '../../../lib/format-context';
 import { optionalList } from '../../../lib/optional-list';
 import { humanize } from '../../../lib/labels';
@@ -126,7 +128,10 @@ export default function ObjectiveDetailPage() {
   const [krs, setKrs] = useState<KeyResult[]>([]);
   const [allObjectives, setAllObjectives] = useState<Objective[]>([]);
   // The owner's name (and the other owners', for the picker), without asking for the people list on behalf of someone who may not have it (X-05).
-  const users = usePeople([objective?.ownerUserId, ...allObjectives.map((o) => o.ownerUserId)]);
+  const known = usePeople([objective?.ownerUserId, ...allObjectives.map((o) => o.ownerUserId)]);
+  // And anyone found by name under the owner picker (X-05, names only).
+  const [found, addFound] = useFoundPeople();
+  const users = withFound(known, found);
   const [kpis, setKpis] = useState<KpiSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -523,6 +528,13 @@ export default function ObjectiveDetailPage() {
                       {objEdit.ownerUserId === '' && <option value="">Select owner…</option>}
                       {ownerOptions}
                     </Select>
+                    <FindColleague
+                      testId="okr-edit-owner"
+                      onPick={(person) => {
+                        addFound(person);
+                        setObjEdit((s) => (s ? { ...s, ownerUserId: person.id } : s));
+                      }}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="obj-edit-status">Status</Label>

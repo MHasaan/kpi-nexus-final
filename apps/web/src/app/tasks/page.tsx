@@ -11,7 +11,8 @@ import {
   getAccessToken,
   listKpis,
 } from '../../lib/api-client';
-import { type Person, usePeople } from '../../lib/use-people';
+import { withFound } from '../../lib/people';
+import { type Person, useFoundPeople, usePeople } from '../../lib/use-people';
 import {
   type Task,
   type TaskStatus,
@@ -23,6 +24,7 @@ import {
 } from '../../lib/collab-client';
 import { AppShell } from '../../components/app-shell';
 import { CommentsDrawer } from '../../components/comments-drawer';
+import { FindColleague } from '../../components/find-colleague';
 import { PermissionGuard } from '../../components/auth/permission-guard';
 import { KpiPicker } from '../../components/dashboard-grid/kpi-picker';
 import {
@@ -218,7 +220,10 @@ export default function TasksPage() {
 
   // Names for everyone on the board, without asking for the people list on
   // behalf of someone who may not have it (X-05).
-  const users = usePeople(tasks.flatMap((t) => [t.assigneeUserId, t.createdById]));
+  const known = usePeople(tasks.flatMap((t) => [t.assigneeUserId, t.createdById]));
+  // And anyone found by name under an assignee picker (X-05, names only).
+  const [found, addFound] = useFoundPeople();
+  const users = withFound(known, found);
 
   useEffect(() => {
     // Not asked for when signed out: the page is about to go to the sign-in page.
@@ -735,6 +740,13 @@ export default function TasksPage() {
                       <option value="">Unassigned</option>
                       {userOptions}
                     </Select>
+                    <FindColleague
+                      testId="task-create-assignee"
+                      onPick={(person) => {
+                        addFound(person);
+                        setCreate((c) => ({ ...c, assigneeUserId: person.id }));
+                      }}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="task-create-due">Due date</Label>
@@ -873,6 +885,13 @@ export default function TasksPage() {
                       <option value="">Unassigned</option>
                       {userOptions}
                     </Select>
+                    <FindColleague
+                      testId="task-detail-assignee"
+                      onPick={(person) => {
+                        addFound(person);
+                        setEdit((e) => (e ? { ...e, assigneeUserId: person.id } : e));
+                      }}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="task-detail-due">Due date</Label>

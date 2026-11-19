@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback, useState } from 'react';
+
 import { type PersonLite, listUsers, meRequest, userNames } from './api-client';
 import { distinctIds, peopleFor } from './people';
 import { useAsyncData } from './use-async-data';
@@ -17,6 +19,16 @@ import { usePermissions } from './use-permissions';
  */
 /** A person a page can name; the email is present only for readers who may list people. */
 export type Person = PersonLite & { email?: string };
+
+/**
+ * Colleagues found by name on this page (X-05), to offer in its pickers beside the people it knows: see
+ * `withFound` and `FindColleague`. Adding someone already found changes nothing.
+ */
+export function useFoundPeople(): [PersonLite[], (person: PersonLite) => void] {
+  const [found, setFound] = useState<PersonLite[]>([]);
+  const add = useCallback((person: PersonLite) => setFound((before) => (before.some((p) => p.id === person.id) ? before : [...before, person])), []);
+  return [found, add];
+}
 
 export function usePeople(ids: ReadonlyArray<string | null | undefined>): Person[] {
   const { ready, authenticated, has } = usePermissions();

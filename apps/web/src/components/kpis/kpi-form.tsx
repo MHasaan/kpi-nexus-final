@@ -6,7 +6,9 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useFormat } from '../../lib/format-context';
 import { isApprovalPending } from '../../lib/role-permissions';
 import { ApprovalPendingNotice } from '../approval-pending-notice';
-import { usePeople } from '../../lib/use-people';
+import { withFound } from '../../lib/people';
+import { useFoundPeople, usePeople } from '../../lib/use-people';
+import { FindColleague } from '../find-colleague';
 import { usePermissions } from '../../lib/use-permissions';
 
 import {
@@ -298,8 +300,13 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
   const [values, setValues] = useState<KpiFormValues>(() => buildInitialValues(initial));
   // The people the pickers offer: everyone for a reader who may list people; otherwise the
   // reader and those this KPI already names (X-05) — never a request that would be refused.
-  const users = usePeople([values.ownerUserId, ...values.userIds]);
-  const canListPeople = usePermissions().has('USERS_VIEW');
+  const known = usePeople([values.ownerUserId, ...values.userIds]);
+  // And anyone found by name under a picker (X-05, names only).
+  const [found, addFound] = useFoundPeople();
+  const users = withFound(known, found);
+  const perms = usePermissions();
+  const canListPeople = perms.has('USERS_VIEW');
+  const canFindPeople = perms.has('KPI_VIEW');
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -509,10 +516,18 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
             </Select>
             {!canListPeople && (
               <p className="text-xs text-content-muted" data-testid="kpi-people-note">
-                You can choose yourself or the people already named on this KPI. Choosing anyone else needs
-                permission to see the list of people.
+                {canFindPeople
+                  ? 'The list holds you and the people already named on this KPI; find anyone else by name below.'
+                  : 'You can choose yourself or the people already named on this KPI. Choosing anyone else needs permission to see the list of people.'}
               </p>
             )}
+            <FindColleague
+              testId="kpi-owner"
+              onPick={(person) => {
+                addFound(person);
+                set('ownerUserId', person.id);
+              }}
+            />
           </Field>
         </div>
         <Field label="Tags" htmlFor="kpi-tags" help="Comma-separated, e.g. revenue, north-star">
@@ -709,6 +724,13 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
                 ))}
               </div>
             )}
+            <FindColleague
+              testId="kpi-user-picker"
+              onPick={(person) => {
+                addFound(person);
+                toggleId('userIds', person.id, true);
+              }}
+            />
           </div>
         )}
         {assignProblem && (

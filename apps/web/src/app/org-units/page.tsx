@@ -6,6 +6,7 @@ import { Building2, ChevronDown, Network, Plus, UserPlus, Users } from 'lucide-r
 
 import { AppShell } from '../../components/app-shell';
 import { PermissionGuard } from '../../components/auth/permission-guard';
+import { FindColleague } from '../../components/find-colleague';
 import { OrgUnitReorg } from '../../components/org-unit-reorg';
 import { UnitKpiPanel } from '../../components/org-units/unit-kpi-panel';
 import {
@@ -43,7 +44,8 @@ import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { treeOrder } from '../../lib/tree-order';
 import { inSentence } from '../../lib/sentence-case';
-import { type Person, usePeople } from '../../lib/use-people';
+import { withFound } from '../../lib/people';
+import { type Person, useFoundPeople, usePeople } from '../../lib/use-people';
 
 export default function OrgUnitsPage() {
   return (
@@ -70,7 +72,10 @@ function OrgUnitsPageInner() {
   const [unitMembers, setUnitMembers] = useState<OrgUnitMember[] | null>(null);
   // The people this page can name and offer: everyone for a reader who may list people; otherwise
   // the reader and the members of the open unit (X-05) — never a request that would be refused.
-  const users = usePeople((unitMembers ?? []).map((m) => m.userId));
+  const known = usePeople((unitMembers ?? []).map((m) => m.userId));
+  // And anyone found by name under the add-member picker (X-05, names only).
+  const [found, addFound] = useFoundPeople();
+  const users = withFound(known, found);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
 
@@ -253,13 +258,14 @@ function OrgUnitsPageInner() {
 
   // Users who can be added to the currently expanded unit — exclude those
   // already in it (active membership: leftAt = null).
+  const activeMemberIds = useMemo(
+    () => new Set((unitMembers ?? []).filter((m) => !m.leftAt).map((m) => m.userId)),
+    [unitMembers],
+  );
   const availableUsers = useMemo(() => {
     if (!unitMembers) return users;
-    const activeMemberIds = new Set(
-      unitMembers.filter((m) => !m.leftAt).map((m) => m.userId),
-    );
     return users.filter((u) => !activeMemberIds.has(u.id));
-  }, [users, unitMembers]);
+  }, [users, unitMembers, activeMemberIds]);
 
   const groupLabelPlural = pluralize(terminology.groupLabel);
   const groupLabelLower = inSentence(terminology.groupLabel);
@@ -613,6 +619,14 @@ function OrgUnitsPageInner() {
                                     </option>
                                   ))}
                                 </Select>
+                                <FindColleague
+                                  testId="add-member"
+                                  exclude={activeMemberIds}
+                                  onPick={(person) => {
+                                    addFound(person);
+                                    setMemberUserId(person.id);
+                                  }}
+                                />
                               </div>
                               <div className="flex flex-col gap-1.5">
                                 <Label htmlFor={`add-member-role-${unit.id}`}>Role</Label>

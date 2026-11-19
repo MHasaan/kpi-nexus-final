@@ -14,6 +14,7 @@ import {
   NAV_ITEMS,
   filterNav,
   filterNavGroups,
+  headingForPath,
   matchNavHref,
   navTestId,
   visibleNavItems,
@@ -263,5 +264,48 @@ describe('matchNavHref (route-guard mapping)', () => {
     expect(matchNavHref('/me/sessions')).toBeNull();
     expect(matchNavHref('/unauthorized')).toBeNull();
     expect(matchNavHref('/login')).toBeNull();
+  });
+});
+
+// A settings page used to be headed "Organize / Settings" whichever one it was,
+// with nothing in the trail to go back by.
+describe('headingForPath', () => {
+  test('a settings page is named, and its trail leads back to Settings', () => {
+    expect(headingForPath('/settings/fiscal')).toEqual({
+      title: 'Fiscal calendar',
+      crumbs: [{ label: 'Settings', href: '/settings' }],
+    });
+    expect(headingForPath('/settings/password-policy').title).toBe('Password policy');
+    expect(headingForPath('/settings/api-keys').title).toBe('API keys');
+  });
+  test('a page under a settings page leads back through both', () => {
+    expect(headingForPath('/settings/notifications/dlq')).toEqual({
+      title: 'Failed deliveries',
+      crumbs: [
+        { label: 'Settings', href: '/settings' },
+        { label: 'Notifications', href: '/settings/notifications' },
+      ],
+    });
+  });
+  test('a settings page with no name of its own is named from its address', () => {
+    expect(headingForPath('/settings/something-new')).toEqual({
+      title: 'Something new',
+      crumbs: [{ label: 'Settings', href: '/settings' }],
+    });
+  });
+  test('every other page keeps its section crumb', () => {
+    expect(headingForPath('/settings')).toEqual({ title: 'Settings', crumbs: [{ label: 'Organize' }] });
+    expect(headingForPath('/kpis/abc')).toEqual({ title: 'KPIs', crumbs: [{ label: 'Workspace' }] });
+    // Billing sits under Organize in the sidebar; its trail said Workspace.
+    expect(headingForPath('/billing')).toEqual({ title: 'Billing', crumbs: [{ label: 'Organize' }] });
+  });
+  test('every page the Settings index links to under /settings has a name', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../app/settings/page.tsx', import.meta.url), 'utf8');
+    const links = [...src.matchAll(/href: '\/settings\/([a-z-]+)', title: '([^']+)'/g)];
+    expect(links.length).toBeGreaterThan(8);
+    for (const [, slug, title] of links) {
+      expect(headingForPath(`/settings/${slug}`).title, slug).toBe(title);
+    }
   });
 });

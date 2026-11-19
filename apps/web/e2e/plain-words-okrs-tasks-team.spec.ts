@@ -37,7 +37,8 @@ test('OKRs and tasks read in plain words and formatted numbers', async ({ page }
 
   await page.goto(`/okrs/${objective.id}`);
   await expect(page.getByTestId('objective-status')).toHaveText('Active');
-  await expect(page.getByTestId(`kr-${kr.id}`).getByTestId('kr-values')).toHaveText('30,000 → 47,200 → 50,000');
+  // Each figure says what it is: three bare numbers joined by arrows did not (flow walk, objectives).
+  await expect(page.getByTestId(`kr-${kr.id}`).getByTestId('kr-values')).toHaveText('Start 30,000 · Now 47,200 · Target 50,000');
 
   await page.goto('/tasks');
   await expect(page.locator('main')).not.toContainText('optimistic');

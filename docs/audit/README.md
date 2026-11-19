@@ -541,6 +541,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (settings): API key scopes and webhook events were offered and listed by code alone (“KPI_DATA_ENTRY”, “okr_progress_changed”) | ✅ Fixed — each reads in words, with the code in small type beside it | #408 | `lib/webhook-events.spec.ts`, `e2e/settings-keys-webhooks.spec.ts` |
 | Flow walk (activity): inviting someone read “created a user” and changing their role “updated a user” — no word of who | ✅ Fixed — a row about a person names them and links to them (the name only, looked up in the organisation only) | #409 | `activity.service.spec.ts`, `lib/labels.spec.ts`, `e2e/activity-names-the-person.spec.ts` |
 | Flow walk (integrations): at 1280 px each integration card squeezed its icon, status, name and description into one row — “Not connected” broke over two lines and the description was a few words wide | ✅ Fixed — the card header is a column | #410 | `e2e/integration-cards-not-cramped.spec.ts` |
+| Flow walk (KPI categories): a category’s icon was a free-text box for “a lucide icon name”, and was drawn nowhere | ✅ Fixed — chosen from sixteen icons offered in words, drawn in the category list and, in the category’s colour, beside each of its KPIs; a name typed earlier is kept | #411 | `lib/category-icons.spec.ts`, `e2e/category-icon-is-chosen-and-shown.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

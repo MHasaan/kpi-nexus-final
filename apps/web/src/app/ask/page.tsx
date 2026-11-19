@@ -11,13 +11,8 @@ import { RequirePermission } from '../../components/auth/require-permission';
 import { PageHeader, Card, Button, Badge, EmptyState } from '../../components/ui';
 import { cn } from '../../lib/cn';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
-
-// Static starter prompts shown in the empty state — clicking one submits it.
-const SUGGESTED_PROMPTS = [
-  'Which KPIs are off track this quarter?',
-  'Forecast MRR for next 3 months',
-  'Compare CAC across org units',
-];
+import { starterQuestions } from '../../lib/ask-starters';
+import { useKpiNames } from '../../lib/use-kpi-names';
 
 // Smart follow-up chips offered after every answer.
 const FOLLOW_UP_PROMPTS = [
@@ -172,6 +167,8 @@ function CopyButton({ text }: { text: string }) {
 export default function AskPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Example questions about the KPIs this organisation has, not about ones it may not.
+  const starters = starterQuestions(useKpiNames().kpis.map((k) => k.name));
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -252,7 +249,7 @@ export default function AskPage() {
                     className="flex flex-wrap gap-2 border-t border-border px-6 py-4"
                     data-testid="ask-suggestions"
                   >
-                    {SUGGESTED_PROMPTS.map((prompt, i) => (
+                    {starters.map((prompt, i) => (
                       <button
                         key={prompt}
                         type="button"

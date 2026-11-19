@@ -36,7 +36,8 @@ test('the tour shows a Viewer only what a Viewer can open', async ({ page, brows
   })).json()) as { inviteToken: string };
   const tokens = (await (await anon.post('/auth/accept-invitation', { data: { token: invited.inviteToken, password: PASSWORD } })).json()) as { accessToken: string; refreshToken: string };
 
-  const context = await browser.newContext();
+  // The test set-up marks the tour as seen for every browser it opens: this one starts clean.
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const view = await context.newPage();
   await view.goto('/');
   await view.evaluate(

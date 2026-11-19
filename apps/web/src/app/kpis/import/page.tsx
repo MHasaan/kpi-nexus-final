@@ -147,9 +147,10 @@ export default function KpiImportPage() {
           >
             Bulk import KPIs
           </h1>
-          <p className="text-sm text-content-muted">
-            Paste CSV with a header row, run a dry-run to validate, then commit. Imports create{' '}
-            <span className="font-medium text-content-strong">ORG_WIDE</span> KPIs.
+          <p className="text-sm text-content-muted" data-testid="kpi-import-intro">
+            Paste CSV with a header row, run a dry-run to validate, then commit. Every imported KPI is{' '}
+            <span className="font-medium text-content-strong">organisation-wide</span>: one value for the whole
+            organisation.
           </p>
         </div>
 

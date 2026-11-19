@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertTriangle, Check, Clock, Info, ListTree, OctagonAlert } from 'lucide-react';
+import { AlertTriangle, Check, Info, ListTree, OctagonAlert } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { AppShell } from '../../../components/app-shell';
@@ -24,15 +24,23 @@ import {
   getAccessToken,
   getAlert,
   getAlertRule,
+  listNotificationChannels,
   listNotificationDeliveriesForAlert,
+  listRoles,
+  listUsers,
   resolveAlert,
   type Alert,
   type AlertSeverity,
   type AlertStatus,
+  type EscalationLevelInput,
   type NotificationDelivery,
 } from '../../../lib/api-client';
 import { ALERT_STATUS_LABELS, labelFor } from '../../../lib/labels';
+import { type RecipientDirectory, levelSummary } from '../../../lib/alert-rule-form';
+import { deliveryLine, narrowLevels } from '../../../lib/alert-trail';
+import { useAsyncData } from '../../../lib/use-async-data';
 import { useKpiNames } from '../../../lib/use-kpi-names';
+import { usePeople } from '../../../lib/use-people';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
 import { useFormat } from '../../../lib/format-context';
@@ -55,40 +63,6 @@ const DELIVERY_STATUS_TONE: Record<string, BadgeTone> = {
   FAILED: 'error',
   SUPPRESSED: 'neutral',
 };
-
-/** A single configured escalation level, narrowed from the `unknown` levels blob. */
-interface EscalationLevel {
-  delayMinutes: number;
-  channelCount: number;
-  roleCount: number;
-  userCount: number;
-}
-
-function asNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function arrayLength(value: unknown): number {
-  return Array.isArray(value) ? value.length : 0;
-}
-
-/**
- * Safely narrows `escalationRule.levels` (typed `unknown`) into a typed array of
- * escalation levels. Anything that isn't an array yields an empty list; each
- * level reads its fields defensively (optional / wrong-typed fields → 0).
- */
-function narrowEscalationLevels(levels: unknown): EscalationLevel[] {
-  if (!Array.isArray(levels)) return [];
-  return levels.map((raw) => {
-    const level = (raw ?? {}) as Record<string, unknown>;
-    return {
-      delayMinutes: asNumber(level.delayMinutes),
-      channelCount: arrayLength(level.channelIds),
-      roleCount: arrayLength(level.notifyRoleIds),
-      userCount: arrayLength(level.notifyUserIds),
-    };
-  });
-}
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -123,7 +97,7 @@ export default function AlertDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Escalation trail: configured levels (from the rule) + best-effort deliveries.
-  const [escalationLevels, setEscalationLevels] = useState<EscalationLevel[] | null>(null);
+  const [escalationLevels, setEscalationLevels] = useState<EscalationLevelInput[] | null>(null);
   const [deliveries, setDeliveries] = useState<NotificationDelivery[] | null>(null);
   const [trailLoaded, setTrailLoaded] = useState(false);
 
@@ -172,7 +146,7 @@ export default function AlertDetailPage() {
         const rule = await getAlertRule(rId);
         if (!cancelled) {
           setRuleName(rule.name);
-          setEscalationLevels(narrowEscalationLevels(rule.escalationRule?.levels));
+          setEscalationLevels(narrowLevels(rule.escalationRule?.levels));
         }
       } catch {
         // Rule fetch failed — show the section without configured levels.
@@ -196,6 +170,23 @@ export default function AlertDetailPage() {
       cancelled = true;
     };
   }, [ruleId, resolvedAlertId, canSeeDeliveries]);
+
+  // The names behind the trail's ids. Each list is asked for only by someone allowed to read it;
+  // a name that cannot be read is said as "one person" or "a channel", never as an id or a count.
+  const trailUserIds = [
+    ...(escalationLevels ?? []).flatMap((level) => level.notifyUserIds),
+    ...(deliveries ?? []).map((d) => d.targetUserId),
+  ];
+  const people = usePeople(trailUserIds);
+  const roles = useAsyncData(() => listRoles(), [], { enabled: permsReady && Boolean(ruleId) });
+  const everyone = useAsyncData(() => listUsers(), [], { enabled: permsReady && has('USERS_VIEW') && Boolean(ruleId) });
+  const channels = useAsyncData(() => listNotificationChannels(), [], { enabled: canSeeDeliveries && Boolean(ruleId) });
+  const directory: RecipientDirectory = {
+    roles: roles.data ?? [],
+    users: everyone.data ?? [],
+    channels: channels.data ?? [],
+    names: people,
+  };
 
   async function act(fn: (id: string) => Promise<Alert>) {
     setBusy(true);
@@ -284,7 +275,7 @@ export default function AlertDetailPage() {
 
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle>Trigger details</CardTitle>
+                <CardTitle>What set it off</CardTitle>
               </CardHeader>
               <CardContent>
                 <dl className="grid gap-4 text-sm sm:grid-cols-2">
@@ -299,7 +290,7 @@ export default function AlertDetailPage() {
                     value={alert.resolvedAt ? fmt.dateTime(alert.resolvedAt) : '—'}
                   />
                   {alert.meta && typeof alert.meta.value === 'number' && (
-                    <Field label="Breach value" value={typeof alert.meta.value === 'number' ? fmt.number(alert.meta.value) : String(alert.meta.value)} />
+                    <Field label="The value" value={typeof alert.meta.value === 'number' ? fmt.number(alert.meta.value) : String(alert.meta.value)} />
                   )}
                 </dl>
               </CardContent>
@@ -311,7 +302,7 @@ export default function AlertDetailPage() {
                   <CardTitle>
                     <span className="inline-flex items-center gap-2">
                       <ListTree className="h-4 w-4 text-content-muted" aria-hidden />
-                      Escalation trail
+                      Who was told
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -324,46 +315,17 @@ export default function AlertDetailPage() {
                   ) : (
                     <div className="space-y-6">
                       <div>
-                        <p className="kn-eyebrow">Configured levels</p>
+                        <p className="kn-eyebrow">Who is told, and when</p>
                         {escalationLevels && escalationLevels.length > 0 ? (
                           <ol className="mt-2 space-y-2" data-testid="escalation-levels">
                             {escalationLevels.map((level, i) => (
                               <li
                                 key={i}
-                                className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-surface-bg px-3 py-2 text-sm"
+                                className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg border border-border bg-surface-bg px-3 py-2 text-sm"
                               >
-                                <span className="font-semibold text-content-strong">
-                                  Level {i + 1}
-                                </span>
-                                <span className="text-content-muted" aria-hidden>
-                                  ·
-                                </span>
-                                <span className="inline-flex items-center gap-1 text-content-muted">
-                                  <Clock className="h-3.5 w-3.5" aria-hidden />
-                                  after <span className="tabular-nums">{level.delayMinutes}</span>m
-                                </span>
-                                <span className="text-content-muted" aria-hidden>
-                                  ·
-                                </span>
-                                <span className="tabular-nums text-content-muted">
-                                  {level.channelCount} channels
-                                </span>
-                                <span className="text-content-muted" aria-hidden>
-                                  ·
-                                </span>
-                                <span className="tabular-nums text-content-muted">
-                                  {level.roleCount} roles
-                                </span>
-                                {level.userCount > 0 && (
-                                  <>
-                                    <span className="text-content-muted" aria-hidden>
-                                      ·
-                                    </span>
-                                    <span className="tabular-nums text-content-muted">
-                                      {level.userCount} users
-                                    </span>
-                                  </>
-                                )}
+                                <span className="font-semibold text-content-strong">Step {i + 1}</span>
+                                {/* The same sentence the rule's form shows: when, and who by name. */}
+                                <span className="text-content">{levelSummary(level, directory)}</span>
                               </li>
                             ))}
                           </ol>
@@ -372,33 +334,31 @@ export default function AlertDetailPage() {
                             className="mt-2 text-sm text-content-muted"
                             data-testid="escalation-levels-empty"
                           >
-                            No escalation levels configured for this rule.
+                            This rule notifies nobody: the alert only appears on the Alerts page.
                           </p>
                         )}
                       </div>
 
                       {deliveries && deliveries.length > 0 && (
                         <div data-testid="escalation-deliveries">
-                          <p className="kn-eyebrow">Delivery history</p>
+                          <p className="kn-eyebrow">What was sent</p>
                           <ul className="mt-2 space-y-2">
-                            {deliveries.map((d) => (
-                              <li
-                                key={d.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-bg px-3 py-2 text-sm"
-                              >
-                                <span className="break-all font-medium text-content-strong">
-                                  {d.channelId ?? 'In-app'}
-                                </span>
-                                <span className="flex items-center gap-3">
-                                  <Badge tone={DELIVERY_STATUS_TONE[d.status] ?? 'neutral'}>
-                                    {d.status}
-                                  </Badge>
-                                  <span className="tabular-nums text-content-muted">
-                                    {d.sentAt ? fmt.dateTime(d.sentAt) : 'not sent'}
+                            {deliveries.map((d) => {
+                              // What it was and to whom — an email to a person used to read "In-app".
+                              const line = deliveryLine(d, { people, channels: channels.data ?? [] });
+                              return (
+                                <li
+                                  key={d.id}
+                                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-bg px-3 py-2 text-sm"
+                                >
+                                  <span className="font-medium text-content-strong">{line.what}</span>
+                                  <span className="flex items-center gap-3">
+                                    <Badge tone={DELIVERY_STATUS_TONE[d.status] ?? 'neutral'}>{line.state}</Badge>
+                                    {d.sentAt && <span className="tabular-nums text-content-muted">{fmt.dateTime(d.sentAt)}</span>}
                                   </span>
-                                </span>
-                              </li>
-                            ))}
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       )}

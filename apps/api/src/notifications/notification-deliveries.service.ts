@@ -11,6 +11,10 @@ const deliverySelect = {
   alertId: true,
   channelId: true,
   targetUserId: true,
+  // How it went out (to a person: EMAIL…) and why a waiting one has not gone (DIGEST, MUTE_HOURS):
+  // without them a page could only call an email to a person "in-app".
+  kind: true,
+  held: true,
   status: true,
   attempts: true,
   error: true,

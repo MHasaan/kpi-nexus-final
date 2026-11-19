@@ -200,6 +200,8 @@ export interface RecipientDirectory {
   roles: ReadonlyArray<{ id: string; name: string }>;
   users: ReadonlyArray<{ id: string; fullName: string; roleId: string | null; status: string }>;
   channels: ReadonlyArray<{ id: string; name: string }>;
+  /** Names for ids, for a reader who may not list people: enough to name a person, not to count a role. */
+  names?: ReadonlyArray<{ id: string; fullName: string }>;
 }
 
 /** "after 30 minutes" / "straight away". */
@@ -227,7 +229,7 @@ export function levelSummary(level: EscalationLevelInput, directory: RecipientDi
   }
   for (const userId of level.notifyUserIds) {
     if (reached.has(userId)) continue;
-    parts.push(directory.users.find((u) => u.id === userId)?.fullName ?? 'one person');
+    parts.push(directory.users.find((u) => u.id === userId)?.fullName ?? directory.names?.find((u) => u.id === userId)?.fullName ?? 'one person');
   }
   for (const channelId of level.channelIds) {
     parts.push(`the ${directory.channels.find((c) => c.id === channelId)?.name ?? 'chosen'} channel`);

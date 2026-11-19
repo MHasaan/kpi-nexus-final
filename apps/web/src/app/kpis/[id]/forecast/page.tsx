@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart as LineChartIcon } from 'lucide-react';
 
 import { AppShell } from '../../../../components/app-shell';
+import { useKpiHeading } from '../../../../lib/use-kpi-heading';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
   PageHeader,
@@ -149,13 +150,14 @@ export default function ForecastPage() {
     };
   }, [fc]);
 
-  const crumbs = useMemo(() => ['KPIs', 'Forecast'], []);
+  // Which KPI this is: in the top bar (a link back to it) and after the page's title.
+  const heading = useKpiHeading(id, 'Forecast');
 
   return (
-    <AppShell title="Forecast" crumbs={crumbs}>
+    <AppShell title="Forecast" crumbs={heading.crumbs}>
      <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
-        title="Forecast"
+        title={heading.title}
         subtitle="Project this KPI forward with 80/95% confidence bands. The forecast segment is dashed; bands render as translucent fills."
       />
 

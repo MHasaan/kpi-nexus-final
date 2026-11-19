@@ -11,6 +11,10 @@ import type { AccessProfile } from '@kpi-nexus/contracts';
  * shows the kept copy first and then asks the server; `meRequest` writes the
  * answer back to the kept copy, and the hooks that asked take it up.
  *
+ * The server answers from the role in the session token, which is renewed every
+ * 15 minutes: a changed role reaches the screen once the token has been renewed,
+ * not before.
+ *
  * Resolves to null when the server could not be asked: the kept copy stands.
  */
 export interface FreshSession {

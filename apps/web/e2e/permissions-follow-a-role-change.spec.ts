@@ -1,9 +1,12 @@
 /**
- * Flow walk: what a person may do was read once and kept in the browser. When
- * an administrator then changed their role, their menu and buttons stayed as
- * they were — until they signed out and in again. (The API always enforced the
- * new role; the screen just did not show it.) The kept copy is now checked
- * against the server when a page loads.
+ * Flow walk: what a person may do was read once and kept in the browser, and
+ * never checked again. When an administrator changed their role, their menu
+ * and buttons stayed as they were until they signed out and in.
+ *
+ * The API itself takes a person's role from their session token, which is
+ * renewed every 15 minutes: that is when a changed role takes effect on the
+ * server. The screen now follows it — the kept copy is checked against the
+ * server when a page loads — instead of waiting for a sign-out.
  */
 import { type Browser, type Page, expect, request, test } from '@playwright/test';
 
@@ -29,7 +32,7 @@ async function signInAs(browser: Browser, tokens: { accessToken: string; refresh
   return page;
 }
 
-test('a changed role shows in the menu on the next page load, without signing out', async ({ page, browser }) => {
+test('a changed role shows in the menu once the session is renewed, without signing out', async ({ page, browser }) => {
   test.setTimeout(90_000);
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   let session: { accessToken: string };
@@ -64,6 +67,17 @@ test('a changed role shows in the menu on the next page load, without signing ou
 
   // An administrator makes them an administrator.
   expect((await admin.patch(`/users/${invited.user.id}`, { data: { roleId: roleId('Admin') } })).ok()).toBe(true);
+
+  // Their session token is renewed, as the app does by itself every 15 minutes. From then on the API
+  // knows the new role; the copy kept in the browser is still the old one.
+  const renewed = (await (await anon.post('/auth/refresh', { data: { refreshToken: tokens.refreshToken } })).json()) as { accessToken: string; refreshToken: string };
+  await view.evaluate(
+    ([a, r]) => {
+      window.localStorage.setItem('kpi-nexus.access-token', a);
+      window.localStorage.setItem('kpi-nexus.refresh-token', r);
+    },
+    [renewed.accessToken, renewed.refreshToken] as const,
+  );
 
   // They open another page, as anyone would: the menu now shows what they may do.
   await view.goto('/tasks');

@@ -556,7 +556,15 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
             label="Unit"
             htmlFor="kpi-unit"
             // A new money KPI with no unit takes the organisation's currency: say so before it happens.
-            help={moneyUnit ? `Leave empty to use your organisation's currency (${moneyUnit}).` : 'e.g. "$", "%", "ms"'}
+            // An existing one keeps the currency it was given (owner's decision, 2026-11-19): this box is
+            // where that one KPI's currency is changed, and changing it converts nothing.
+            help={
+              moneyUnit
+                ? `Leave empty to use your organisation's currency (${moneyUnit}).`
+                : isEdit && values.type === 'CURRENCY'
+                  ? 'This KPI’s currency. Changing it changes the label on values already recorded: they are not converted.'
+                  : 'e.g. "$", "%", "ms"'
+            }
             helpTestId="kpi-unit-help"
           >
             <Input

@@ -198,7 +198,11 @@ function OrganizationSettingsInner() {
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
-                  <span className="mt-1 block text-xs text-content-muted">A new money KPI takes this as its unit.</span>
+                  {/* Owner's decision (2026-11-19): the currency is fixed on a KPI when it is created. */}
+                  <span className="mt-1 block text-xs text-content-muted" data-testid="org-currency-help">
+                    A new money KPI takes this as its unit. A KPI that already exists keeps its own: change it in the Unit box
+                    under that KPI’s Edit.
+                  </span>
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-content-default">Language and number format</span>

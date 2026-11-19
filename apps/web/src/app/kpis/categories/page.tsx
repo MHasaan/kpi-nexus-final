@@ -179,7 +179,7 @@ export default function KpiCategoriesPage() {
             KPI categories
           </h1>
           <p className="text-sm text-content-muted">
-            Group KPIs by category. A category color and icon are used as the KPI accent in lists and charts.
+            Group KPIs by category. A category&apos;s colour marks its KPIs in the KPI list.
           </p>
         </div>
 

@@ -508,6 +508,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (the invited person): in the KPI list only an organisation-wide KPI had “Record value”; a per-unit or per-person row had nothing | ✅ Fixed — those rows lead to the KPI’s Data tab, where the form asks whose value it is | #375 | `e2e/kpi-list-record-leads-to-scoped-kpi.spec.ts` |
 | Flow walk (the invited person): the accept-invitation page gave the expiry in UTC without saying so, and the email as a raw “Thu, 26 Nov 2026 08:53:40 GMT” | ✅ Fixed — the page uses the reader’s own clock and names it; the email uses the organisation’s time zone and date format and names the zone | #376 | `users.service.invite-email.spec.ts`, `lib/invite-feedback.spec.ts`, `e2e/invitation-expiry-says-whose-clock.spec.ts` |
 | Flow walk (KPI pages): the Tree page spoke of “BFS level” and the Import page of “ORG_WIDE” KPIs | ✅ Fixed — both say it in words | #377 | `e2e/kpi-tree-and-import-in-words.spec.ts` |
+| Flow walk (KPI pages): a category’s colour and icon were said to be “used as the KPI accent in lists and charts” and were used nowhere; the KPI list did not show a KPI’s category | ✅ Fixed for the colour — each KPI row names its category in that colour, and the page says only that. The icon is still shown nowhere (owner to decide: a picker, or remove the field) | #378 | `e2e/kpi-list-shows-category.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

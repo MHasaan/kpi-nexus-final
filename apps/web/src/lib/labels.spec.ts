@@ -16,6 +16,7 @@ import {
   entityLabel,
   humanize,
   labelFor,
+  auditSubjectName,
 } from './labels';
 
 describe('labelFor (X-03)', () => {
@@ -100,5 +101,21 @@ describe('activitySentence', () => {
     expect(activitySentence(row('DELETE', 'Dashboard', 'd1', { name: 'Board' }, { ...none, name: 'Board' }), num)).toEqual({ text: 'deleted the dashboard “Board”', href: null });
     expect(activitySentence(row('CREATE', 'KPIDataPoint', 'dp', { kpiId: 'gone', value: 1 }, none), num)).toEqual({ text: 'created a KPI value', href: null });
     expect(activitySentence(row('LOGIN', 'User', 'u', null, none), num)).toEqual({ text: 'signed in', href: null });
+  });
+});
+
+describe('auditSubjectName', () => {
+  test('takes the name, title or email the record holds', () => {
+    expect(auditSubjectName({ name: 'Monthly revenue', scope: 'ORG_WIDE' })).toBe('Monthly revenue');
+    expect(auditSubjectName({ title: 'Call the bank' })).toBe('Call the bank');
+    expect(auditSubjectName({ reason: 'invited', email: 'bilal@example.test' })).toBe('bilal@example.test');
+  });
+
+  test('is null when the record holds no name', () => {
+    expect(auditSubjectName({ value: 42 })).toBeNull();
+    expect(auditSubjectName({ name: '   ' })).toBeNull();
+    expect(auditSubjectName(null)).toBeNull();
+    expect(auditSubjectName('Monthly revenue')).toBeNull();
+    expect(auditSubjectName(['Monthly revenue'])).toBeNull();
   });
 });

@@ -201,6 +201,21 @@ const ENTITY_LABELS: LabelMap = {
   passwordresettoken: 'password reset',
 };
 
+/**
+ * The name an audit record holds for the thing it is about — a KPI's name, a
+ * task's title, an invited person's email — or null when it holds none. The
+ * audit log showed only the kind of thing and the start of its id.
+ */
+export function auditSubjectName(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const fields = metadata as Record<string, unknown>;
+  for (const key of ['name', 'title', 'email']) {
+    const value = fields[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 /** A thing's name from its audit `entityType`: "KPI value", "role", "org unit". */
 export function entityLabel(entityType: string | null | undefined): string {
   if (!entityType) return 'item';

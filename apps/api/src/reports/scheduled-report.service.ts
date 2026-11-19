@@ -1,6 +1,6 @@
 import { isTimeZone } from '@kpi-nexus/contracts';
 import { BillingService } from '../billing/billing.service.js';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, type OnApplicationBootstrap } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import type { ReportFormat } from '@kpi-nexus/db';
@@ -22,15 +22,19 @@ const QUEUE_NAME = 'scheduled-report';
 
 /**
  * P3.7 — ScheduledReportService.
- * Creates/manages ScheduledReport rows and synchronises BullMQ repeatable jobs.
+ * Creates/manages ScheduledReport rows and keeps each active report on a schedule of its own.
  *
- * Job naming convention:
- *   name: 'run'
- *   jobId (for deduplication): 'scheduled-report:<id>'
- *   repeat pattern: the stored cron expression
+ * Each active report has one BullMQ job scheduler, named `scheduled-report-<id>`, that adds a
+ * 'run' job at the stored cron time on the organisation's clock. The name is how it is found again
+ * to move it to a new time (an upsert replaces it) or to remove it.
+ *
+ * Until 2026-11-20 reports were scheduled with `add(…, { repeat, jobId })` and found again by that
+ * jobId, which BullMQ 5's schedules do not carry: nothing was ever removed. A changed time left the
+ * old schedule running beside the new one, so the report went out at both, and every paused or
+ * deleted report left its schedule behind. `reconcileSchedules` clears those at start-up.
  */
 @Injectable()
-export class ScheduledReportService {
+export class ScheduledReportService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ScheduledReportService.name);
 
   constructor(
@@ -61,47 +65,76 @@ export class ScheduledReportService {
     return { in: ids };
   }
 
-  private jobId(id: string): string {
-    return `scheduled-report:${id}`;
+  /**
+   * No colon in it: asked about an id with one that it does not hold, BullMQ reads the id as an
+   * old-style repeat key and answers with an empty placeholder instead of nothing.
+   */
+  private schedulerId(id: string): string {
+    return `scheduled-report-${id}`;
   }
 
-  /**
-   * Register a BullMQ repeatable job for the given scheduled report.
-   * In BullMQ v5 the repeatable job identity key is:
-   *   `<queue>:<name>:<jobId>:<cron>`
-   * We use a deterministic jobId so we can remove it by pattern.
-   */
-  private async addRepeatableJob(id: string, organizationId: string, cron: string): Promise<void> {
-    // "08:00 every day" means 08:00 where the organisation is, not 08:00 UTC.
+  /** "08:00 every day" means 08:00 where the organisation is, not 08:00 UTC. */
+  private async timezoneOf(organizationId: string): Promise<string> {
     const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { timezone: true } });
-    const tz = org?.timezone && isTimeZone(org.timezone) ? org.timezone : 'UTC';
-    await this.queue.add(
-      'run',
-      { scheduledReportId: id, organizationId },
-      {
-        repeat: { pattern: cron, tz },
-        jobId: this.jobId(id),
-      },
-    );
-    this.logger.log(`Registered repeatable job for scheduled-report ${id} with cron "${cron}"`);
+    return org?.timezone && isTimeZone(org.timezone) ? org.timezone : 'UTC';
   }
 
   /**
-   * Remove the repeatable job for a scheduled report.
-   * BullMQ v5: removeRepeatableByKey expects the repeat job's key which is
-   *   `repeat:<jobId>:<cron-hash>`.
-   * A more reliable approach is to iterate getRepeatableJobs() and remove by
-   * matching our jobId pattern, which is deterministic.
+   * Put a report on its schedule, or move it to a new time: the scheduler named for the report is
+   * replaced, so no earlier time stays behind.
    */
-  private async removeRepeatableJob(id: string): Promise<void> {
-    const repeatableJobs = await this.queue.getRepeatableJobs();
-    const target = repeatableJobs.find((j) => j.id === this.jobId(id));
-    if (target) {
-      await this.queue.removeRepeatableByKey(target.key);
-      this.logger.log(`Removed repeatable job for scheduled-report ${id}`);
-    } else {
-      this.logger.warn(`No repeatable job found for scheduled-report ${id} — skipping removal`);
+  private async schedule(id: string, organizationId: string, cron: string, tz?: string): Promise<void> {
+    await this.queue.upsertJobScheduler(
+      this.schedulerId(id),
+      { pattern: cron, tz: tz ?? (await this.timezoneOf(organizationId)) },
+      { name: 'run', data: { scheduledReportId: id, organizationId } },
+    );
+  }
+
+  /** Take a report off its schedule (paused or deleted). Nothing to remove is not a problem. */
+  private async unschedule(id: string): Promise<void> {
+    if (await this.queue.removeJobScheduler(this.schedulerId(id))) {
+      this.logger.log(`Took report ${id} off its schedule`);
     }
+  }
+
+  /** On start-up, make the schedules match the reports; see `reconcileSchedules`. */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const { removed, scheduled } = await this.reconcileSchedules();
+      this.logger.log(`Report schedules: ${scheduled} active, ${removed} left over removed`);
+    } catch (err) {
+      // Redis may not be up yet; the schedules are reconciled on the next start.
+      this.logger.warn(`Could not reconcile report schedules: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /**
+   * Make BullMQ's schedules for this queue exactly one per active report: remove every schedule
+   * that is not an active report's own — those left by paused, deleted or re-timed reports, which
+   * could not be removed before 2026-11-20 — and put each active report on its own. Running it
+   * again changes nothing. This queue holds report schedules only.
+   */
+  async reconcileSchedules(): Promise<{ removed: number; scheduled: number }> {
+    const active = await RequestContextStore.runWithBypass('scheduled-report-schedules', () =>
+      this.prisma.scheduledReport.findMany({ where: { isActive: true }, select: { id: true, organizationId: true, cron: true } }),
+    );
+    const wanted = new Set(active.map((r) => this.schedulerId(r.id)));
+    let removed = 0;
+    for (const scheduler of await this.queue.getJobSchedulers(0, -1)) {
+      if (wanted.has(scheduler.key)) continue;
+      if (await this.queue.removeJobScheduler(scheduler.key)) removed += 1;
+    }
+    const zones = new Map<string, string>();
+    for (const report of active) {
+      let tz = zones.get(report.organizationId);
+      if (tz === undefined) {
+        tz = await RequestContextStore.runWithBypass('scheduled-report-schedules', () => this.timezoneOf(report.organizationId));
+        zones.set(report.organizationId, tz);
+      }
+      await this.schedule(report.id, report.organizationId, report.cron, tz);
+    }
+    return { removed, scheduled: active.length };
   }
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
@@ -126,7 +159,8 @@ export class ScheduledReportService {
       },
     });
 
-    await this.addRepeatableJob(row.id, ctx.organizationId, dto.cron);
+    await this.schedule(row.id, ctx.organizationId, dto.cron);
+    this.logger.log(`Scheduled report ${row.id} at "${dto.cron}"`);
 
     await this.audit.record({
       action: 'CREATE',
@@ -179,19 +213,17 @@ export class ScheduledReportService {
     const cronChanged = patch.cron !== undefined && patch.cron !== existing.cron;
     const isActiveChanged = patch.isActive !== undefined && patch.isActive !== existing.isActive;
 
-    // Synchronise the repeatable job:
-    // - If cron changed: remove old, add new (if still/becoming active).
-    // - If toggled inactive: remove.
-    // - If toggled active (no cron change): re-add with existing cron.
+    // Keep the schedule in step: active ⇒ on its schedule at the (new) time, which replaces any
+    // earlier one; paused ⇒ off it.
     const newCron = patch.cron ?? existing.cron;
     const newIsActive = patch.isActive ?? existing.isActive;
 
     if (cronChanged || isActiveChanged) {
-      // Always remove first to avoid duplicates.
-      await this.removeRepeatableJob(id);
-
       if (newIsActive) {
-        await this.addRepeatableJob(id, ctx.organizationId, newCron);
+        await this.schedule(id, ctx.organizationId, newCron);
+        this.logger.log(`Scheduled report ${id} at "${newCron}"`);
+      } else {
+        await this.unschedule(id);
       }
     }
 
@@ -222,7 +254,7 @@ export class ScheduledReportService {
   async remove(id: string): Promise<void> {
     const existing = await this.get(id); // tenant + REPORTS-scope gate (404 if out of scope)
 
-    await this.removeRepeatableJob(id);
+    await this.unschedule(id);
 
     await this.prisma.scheduledReport.delete({ where: { id } });
 

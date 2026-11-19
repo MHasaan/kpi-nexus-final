@@ -273,7 +273,8 @@ function KpiRow({
       </span>
       <div className="flex items-center gap-2">
 
-        <StatusBadge status={status} />
+        {/* A KPI with values and no target has data: what it lacks is something to judge it by. */}
+        <StatusBadge status={status} label={row.status === 'NO_TARGET' ? 'No target' : undefined} />
       </div>
     </Link>
   );
@@ -431,11 +432,14 @@ export default function DashboardPage() {
     [summary],
   );
 
+  // KPIs that cannot be judged, told apart: nothing recorded, or values with no target to hold them to.
+  const noTarget = summary.filter((r) => r.status === 'NO_TARGET').length;
   const donutData: DonutDatum[] = [
     { label: 'On track', value: statusCounts['on-track'], color: STATUS_COLOR['on-track'] },
     { label: 'At risk', value: statusCounts['at-risk'], color: STATUS_COLOR['at-risk'] },
     { label: 'Off track', value: statusCounts['off-track'], color: STATUS_COLOR['off-track'] },
-    { label: 'No data', value: statusCounts['no-data'], color: STATUS_COLOR['no-data'] },
+    { label: 'No data', value: statusCounts['no-data'] - noTarget, color: STATUS_COLOR['no-data'] },
+    ...(noTarget > 0 ? [{ label: 'No target', value: noTarget, color: 'hsl(var(--border-strong))' }] : []),
   ];
 
   const chip = access.profile ? scopeChip(access.scopeFor('KPIS')) : null;
@@ -578,7 +582,7 @@ export default function DashboardPage() {
                       centerLabel="KPIs"
                       aria-label="KPI health distribution"
                     />
-                    <ul className="flex min-w-[140px] flex-col gap-2">
+                    <ul className="flex min-w-[140px] flex-col gap-2" data-testid="kpi-health-legend">
                       {donutData.map((d) => (
                         <li key={d.label} className="flex items-center justify-between gap-3 text-[13px]">
                           <span className="flex items-center gap-2 text-content">
@@ -589,7 +593,7 @@ export default function DashboardPage() {
                             />
                             {d.label}
                           </span>
-                          <span className="font-semibold tabular-nums text-content-strong">{d.value}</span>
+                          <span data-testid={`kpi-health-${d.label}`} className="font-semibold tabular-nums text-content-strong">{d.value}</span>
                         </li>
                       ))}
                     </ul>

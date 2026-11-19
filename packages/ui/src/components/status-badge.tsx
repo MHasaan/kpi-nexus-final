@@ -19,17 +19,19 @@ const map: Record<KpiStatus, StatusMeta> = {
 
 export interface StatusBadgeProps {
   status: KpiStatus;
+  /** Words to show instead of the status's own — "No target" for a KPI that has values but nothing to judge them by. */
+  label?: string;
   className?: string;
 }
 
 /** Status indicator — always pairs an icon with a text label (never colour-only). */
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, label, className }: StatusBadgeProps) {
   const s = map[status] ?? map['no-data'];
   const { Icon } = s;
   return (
     <Badge tone={s.tone} className={cn('gap-1', className)}>
       <Icon aria-hidden className="h-3 w-3" />
-      {s.label}
+      {label ?? s.label}
     </Badge>
   );
 }

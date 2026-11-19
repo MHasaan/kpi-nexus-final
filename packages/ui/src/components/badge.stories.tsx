@@ -33,6 +33,7 @@ export const KpiStatus: Story = {
       <StatusBadge status="at-risk" />
       <StatusBadge status="off-track" />
       <StatusBadge status="no-data" />
+      <StatusBadge status="no-data" label="No target" />
     </div>
   ),
 };

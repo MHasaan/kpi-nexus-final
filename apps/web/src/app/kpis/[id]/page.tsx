@@ -589,7 +589,7 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
                   frequency={kpi.frequency}
                   unit={kpi.unit}
                   onRecord={(body) =>
-                    recordMyKpiData(mine[0]!.assignmentId, body.value, body.periodStart, body.periodEnd)
+                    recordMyKpiData(mine[0]!.assignmentId, body.value, body.periodStart, body.periodEnd, body.note)
                   }
                   onRecorded={afterRecord}
                 >
@@ -610,6 +610,7 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
               <TableHead>Period</TableHead>
               {kpi.scope !== 'ORG_WIDE' && <TableHead>{kpi.scope === 'PER_UNIT' ? 'Unit' : 'Person'}</TableHead>}
               <TableHead>Recorded</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead>Flags</TableHead>
               <TableHead className="sr-only">Actions</TableHead>
             </TableRow>
@@ -632,7 +633,7 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
             ))}
             {points && points.length === 0 && (
               <TableRow>
-                <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="py-4 text-center text-content-muted">
+                <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 6 : 7} className="py-4 text-center text-content-muted">
                   No data points yet.
                 </TableCell>
               </TableRow>
@@ -879,6 +880,10 @@ function DataPointRow({
                   </TableCell>
                 )}
                 <TableCell className="text-content-muted">{fmt.date(p.recordedAt)}</TableCell>
+                {/* What the person who recorded it wrote beside it. */}
+                <TableCell className="max-w-[18rem] text-content-muted">
+                  {p.note ? <span data-testid="data-point-note">{p.note}</span> : ''}
+                </TableCell>
                 <TableCell>
                   {(p as DataPoint & { isOutlier?: boolean }).isOutlier ? (
                     <Badge tone="warning">outlier</Badge>
@@ -903,7 +908,7 @@ function DataPointRow({
       </TableRow>
       {(editing || err || history) && (
         <TableRow>
-          <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 5 : 6} className="bg-surface-bg">
+          <TableCell colSpan={kpi.scope === 'ORG_WIDE' ? 6 : 7} className="bg-surface-bg">
             {editing && (
               <BusyForm onSubmit={save} className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">

@@ -1728,7 +1728,8 @@ export async function updateScheduledReport(
     format: ReportFormat;
     recipients: string[];
     isActive: boolean;
-    dashboardId: string;
+    /** null takes the dashboard off the report. */
+    dashboardId: string | null;
     kpiIds: string[];
     description: string;
   }>,

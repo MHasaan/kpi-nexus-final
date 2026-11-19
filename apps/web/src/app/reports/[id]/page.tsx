@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   CircleDashed,
   Download,
   Loader2,
+  Pencil,
   Play,
   RefreshCw,
   XCircle,
@@ -24,6 +26,7 @@ import {
   type ScheduledReport,
 } from '../../../lib/api-client';
 import { AppShell } from '../../../components/app-shell';
+import { PermissionGuard } from '../../../components/auth/permission-guard';
 import {
   Badge,
   Button,
@@ -179,6 +182,14 @@ export default function ReportDetailPage() {
             subtitle={report.description ?? undefined}
             actions={
               <>
+                {/* Changing a report is REPORTS_MANAGE on the API. */}
+                <PermissionGuard permission="REPORTS_MANAGE">
+                  <Link href={`/reports/${report.id}/edit`}>
+                    <Button variant="secondary" data-testid="report-detail-edit" leftIcon={<Pencil className="h-4 w-4" aria-hidden />}>
+                      Edit
+                    </Button>
+                  </Link>
+                </PermissionGuard>
                 <Button
                   variant="secondary"
                   onClick={() => void handleTrigger()}

@@ -459,6 +459,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (reports): a report’s page printed its schedule as `0 9 * * 1`; the list worded only four schedules; nothing said whose clock the time is on | ✅ Fixed — one helper words daily, weekly, weekday-range and monthly schedules on the list, the page and the form, followed by the organisation’s time zone | #326 | `report-schedule.spec.ts` (3), `e2e/report-schedule-in-words.spec.ts` |
 | Flow walk (automations): the sentence read “goes above 100000” under an example saying “100,000” | ✅ Fixed — the organisation’s number format | #327 | `workflow-form.spec.ts` (+1), `e2e/automations.spec.ts` |
 | Flow walk: the Execute pages named their place differently in the top bar (“Automation / Workflows / Automations”, “OKRs / Objectives”, Tasks and Approvals with no group) | ✅ Fixed — each reads “Execute / <page>” | #328 | `e2e/execute-pages-trail.spec.ts` |
+| Flow walk (objectives): a key result showed “— → 35,000 → 50,000” with no word on which figure was which | ✅ Fixed — “Start — · Now 35,000 · Target 50,000” | #329 | `e2e/plain-words-okrs-tasks-team.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

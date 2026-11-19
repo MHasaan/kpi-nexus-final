@@ -10,6 +10,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { KpiSubnav } from '../../../components/kpis/kpi-subnav';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton, StatTile } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 import { isOnTarget, onTargetTally } from '../../../lib/kpi-health';
 
 const QUADRANTS: Array<{ key: string; label: string }> = [
@@ -106,6 +107,7 @@ export default function ScorecardPage() {
 
 function QuadrantCard({ label, rows, testid }: { label: string; rows: DashboardSummaryRow[]; testid: string }) {
   const tally = onTargetTally(rows);
+  const fmt = useFormat();
   return (
     <Card data-testid={testid}>
       <CardHeader>
@@ -133,9 +135,9 @@ function QuadrantCard({ label, rows, testid }: { label: string; rows: DashboardS
                 </Link>
                 <span className="flex items-center gap-2">
                   <span className="tabular-nums text-content-muted">
-                    {r.latestValue ?? '—'}
+                    {r.latestValue === null ? '—' : fmt.number(r.latestValue)}
+                    {r.targetValue !== null ? ` / ${fmt.number(r.targetValue)}` : ''}
                     {r.unit ? ` ${r.unit}` : ''}
-                    {r.targetValue !== null ? ` / ${r.targetValue}` : ''}
                   </span>
                   {onTarget !== null && (
                     <span
@@ -149,7 +151,8 @@ function QuadrantCard({ label, rows, testid }: { label: string; rows: DashboardS
                           onTarget ? 'bg-status-positive' : 'bg-status-warning'
                         }`}
                       />
-                      {onTarget ? 'On target' : 'Below'}
+                      {/* "Below" was wrong for a lower-is-better KPI over its ceiling: a miss is off target on either side. */}
+                      {onTarget ? 'On target' : 'Off target'}
                     </span>
                   )}
                 </span>

@@ -54,11 +54,13 @@ const prisma = {
 };
 const audit = { record: vi.fn(async () => undefined) };
 const accessContext = {
+  invalidate: vi.fn((_org: string, _user: string) => undefined),
   isPersonVisible: vi.fn(async (id: string) => visible === null || visible.includes(id)),
   resolveForCurrentPrincipal: vi.fn(async () => ({ isAdmin: callerIsAdmin })),
 };
 
-const svc = () => new UserUpdateService(prisma as never, audit as never, accessContext as never);
+const resolver = { invalidate: vi.fn((_org: string, _user: string) => undefined) };
+const svc = () => new UserUpdateService(prisma as never, audit as never, accessContext as never, resolver as never);
 const user = (id: string, over: Partial<U> = {}): U => ({
   id,
   organizationId: ORG,
@@ -107,6 +109,28 @@ describe('UserUpdateService.update (UI-010)', () => {
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'UPDATE', entityType: 'User', entityId: 'dev' }),
     );
+  });
+
+  // Flow walk: what a person may do is kept in memory for five minutes; a role change left the old
+  // answer in place.
+  it('a changed role drops what was kept about that person’s permissions', async () => {
+    await svc().update('dev', { roleId: 'role_admin' });
+    expect(resolver.invalidate).toHaveBeenCalledWith(ORG, 'dev');
+    expect(accessContext.invalidate).toHaveBeenCalledWith(ORG, 'dev');
+  });
+
+  it('a changed manager drops what was kept about the person and both managers', async () => {
+    // dev reports to lead; move them under the ceo.
+    await svc().update('dev', { managerId: 'ceo' });
+    const dropped = accessContext.invalidate.mock.calls.map((c) => c[1]).sort();
+    expect(dropped).toEqual(['ceo', 'dev', 'lead']);
+    expect(resolver.invalidate).not.toHaveBeenCalled();
+  });
+
+  it('a changed name drops nothing', async () => {
+    await svc().update('dev', { fullName: 'Dev Renamed' });
+    expect(resolver.invalidate).not.toHaveBeenCalled();
+    expect(accessContext.invalidate).not.toHaveBeenCalled();
   });
 
   it('null clears a manager and a position; a key left out is left alone', async () => {

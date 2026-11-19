@@ -502,6 +502,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (first use): the organisation’s currency, asked for at sign-up as “used for money everywhere”, was used nowhere — a Currency KPI with no unit showed bare numbers | ✅ Fixed — a money KPI created with no unit starts with the organisation’s currency as its unit (form, API, wizard), and the form says so. Set once at creation; existing KPIs untouched (owner to confirm) | #369 | `contracts/format.spec.ts`, `kpis/kpi-currency-unit.spec.ts`, `e2e/currency-kpi-takes-org-currency.spec.ts` |
 | Flow walk (first use): the welcome tour’s third slide was titled “Strategy map”, a page that does not exist | ✅ Fixed — it names the Scorecard and the Tree, under KPIs | #370 | `e2e/onboarding-tour.spec.ts` |
 | Flow walk (first use): the wizard’s step list read “1 units”, “1 categories”, “1 people” | ✅ Fixed — one of something is written as one | #371 | `e2e/wizard-step-list-counts-in-words.spec.ts` |
+| Whole-suite run: `e2e/templates-in-words.spec.ts` (from #332) read a filter’s options before the page had drawn them and failed now and then | ✅ Fixed — the check waits for the options | #372 | `e2e/templates-in-words.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

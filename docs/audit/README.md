@@ -452,6 +452,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (tasks): the round help button floated over the bottom-right corner of every page, on top of the task drawer’s Save and the comments drawer’s Post comment | ✅ Fixed — help is one of the top bar’s tools; its drawer is portalled to the body | #319 | `e2e/task-drawer-save-reachable.spec.ts`, `e2e/help-drawer.spec.ts` |
 | Flow walk (comments): a mention matched only the exact full name without its space; nothing was offered while typing and a miss notified nobody without saying so | ✅ Fixed — typing @ lists people to pick; the box says who will be notified, or which @word matches no one. Left for a decision: someone without the people-list permission is offered only people who already commented | #320 | `mentions.spec.ts` (10), `e2e/mention-pick-a-person.spec.ts` |
 | Flow walk (objectives, tasks): status and priority pickers, and the objectives list badge, printed stored keys (`AT_RISK`, `MEDIUM`) | ✅ Fixed — the same words as the cards | #321 | `e2e/pickers-read-as-words.spec.ts` |
+| Flow walk (reports): a scheduled report could be paused or deleted but not changed — one more recipient meant deleting it, with its run history, and making it again | ✅ Fixed — Edit on the report’s page (`REPORTS_MANAGE`) opens the same form, filled in; a custom schedule is kept; the API was already able | #322 | `e2e/scheduled-report-edit.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

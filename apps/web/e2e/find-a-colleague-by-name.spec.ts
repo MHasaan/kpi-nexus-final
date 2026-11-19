@@ -98,8 +98,9 @@ test('an editor who may not list people finds the owner of a KPI and of an objec
   test.setTimeout(120_000);
   let ctx: Awaited<ReturnType<typeof setUp>>;
   try {
+    // An editor of KPIs and viewer of units, as in people-list-only-when-allowed — with no USERS_VIEW.
     ctx = await setUp(page, browser, async (admin, stamp) =>
-      ((await (await admin.post('/roles', { data: { name: `Editor ${stamp}`, permissions: ['KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT'] } })).json()) as { id: string }).id,
+      ((await (await admin.post('/roles', { data: { name: `Editor ${stamp}`, permissions: ['KPI_VIEW', 'KPI_CREATE', 'KPI_EDIT', 'GROUPS_VIEW'] } })).json()) as { id: string }).id,
     );
   } catch {
     test.skip(true, 'api not reachable');
@@ -123,7 +124,7 @@ test('an editor who may not list people finds the owner of a KPI and of an objec
   await expect(view.getByTestId('okr-create-owner')).toHaveValue(farah.id);
   await view.getByTestId('okr-create-submit').click();
   await expect
-    .poll(async () => ((await (await admin.get('/okrs')).json()) as Array<{ name: string; ownerUserId: string }>).find((o) => o.name === `Grow margin ${stamp}`)?.ownerUserId)
+    .poll(async () => ((await (await admin.get('/objectives')).json()) as Array<{ name: string; ownerUserId: string }>).find((o) => o.name === `Grow margin ${stamp}`)?.ownerUserId)
     .toBe(farah.id);
 
   // A name that is no one's says so; text that is not a name is not sent at all.

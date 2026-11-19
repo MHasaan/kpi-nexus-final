@@ -54,7 +54,7 @@ test('an automation made on the page creates a task when its KPI crosses the lin
 
   // Listed as a sentence, with the KPI by name — not an id.
   const row = page.getByTestId('workflow-list').locator('[data-testid^="workflow-"]').first();
-  await expect(row).toContainText(`When Monthly Revenue ${stamp} goes above 100000, create the task “Celebrate ${stamp}”`);
+  await expect(row).toContainText(`When Monthly Revenue ${stamp} goes above 100,000, create the task “Celebrate ${stamp}”`);
   await expect(row).not.toContainText(kpi.id);
 
   // Below the line: nothing. Above it: the task exists.
@@ -98,7 +98,7 @@ test('an automation made on the page creates a task when its KPI crosses the lin
   await expect(page.getByTestId('wf-value')).toHaveValue('100000');
   await page.getByTestId('wf-value').fill('200000');
   await page.getByTestId('wf-create').click();
-  await expect(row).toContainText('goes above 200000');
+  await expect(row).toContainText('goes above 200,000');
 
   // Delete asks first.
   await row.getByTestId('wf-delete').click();

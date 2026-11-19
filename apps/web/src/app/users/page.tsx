@@ -361,7 +361,8 @@ function UsersPageInner() {
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
+          {/* minmax(0,…): a bare 1fr is never narrower than the table, which pushed the form off a 1280-pixel screen. */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <section data-testid="users-list-section">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <Segmented
@@ -404,7 +405,6 @@ function UsersPageInner() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Manager</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>{terminology.roleLabel}</TableHead>
@@ -434,11 +434,12 @@ function UsersPageInner() {
                                 className="inline-flex items-center gap-2.5 hover:text-accent-primary"
                               >
                                 <Avatar name={user.fullName} size="sm" />
-                                <span className="font-semibold">{user.fullName}</span>
+                                {/* The email sits under the name: as a column of its own the list was wider than its room. */}
+                                <span className="min-w-0">
+                                  <span className="block font-semibold">{user.fullName}</span>
+                                  <span className="block break-all font-mono text-xs font-normal text-content-muted">{user.email}</span>
+                                </span>
                               </Link>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-content-muted">
-                              {user.email}
                             </TableCell>
                             <TableCell className="text-content-default">
                               {managerName}

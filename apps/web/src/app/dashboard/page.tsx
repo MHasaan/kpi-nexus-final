@@ -49,6 +49,7 @@ import { usePermissions } from '../../lib/use-permissions';
 import { useAccess } from '../../lib/use-access';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { activitySentence } from '../../lib/labels';
 import { holdersText } from '@kpi-nexus/contracts';
 
 type LoadState = 'loading' | 'error' | 'ready';
@@ -94,18 +95,6 @@ function personalStatus(raw: string | null | undefined): KpiStatus {
     default:
       return 'no-data';
   }
-}
-
-/** Humanise an audit `action` token (e.g. `kpi.created`) into a readable verb. */
-function activityVerb(action: string): string {
-  const tail = action.includes('.') ? action.slice(action.lastIndexOf('.') + 1) : action;
-  return tail.replace(/[._-]+/g, ' ').trim() || action;
-}
-
-/** Humanise an `entityType` token (e.g. `org_unit`) into a readable object label. */
-function activityObject(item: ActivityItem): string {
-  if (item.entityType) return item.entityType.replace(/[._-]+/g, ' ').trim();
-  return 'an item';
 }
 
 /** Compact relative time ("2h ago", "3d ago") from an ISO timestamp. */
@@ -866,13 +855,20 @@ export default function DashboardPage() {
                       <ul data-testid="dashboard-activity-list" className="py-1.5">
                         {activity.map((a) => {
                           const who = a.userName?.trim() || 'System';
+                          // The same words as the Activity page: what was done, to what, and the way there.
+                          const said = activitySentence(a, fmt.number);
                           return (
                             <li key={a.id} className="flex items-start gap-3 px-4 py-2.5">
                               <Avatar name={who} size="sm" />
                               <div className="min-w-0 text-[12.5px] leading-relaxed text-content">
                                 <span className="font-semibold text-content-strong">{who}</span>{' '}
-                                {activityVerb(a.action)}{' '}
-                                <span className="text-accent-primary">{activityObject(a)}</span>
+                                {said.href ? (
+                                  <Link href={said.href} className="hover:text-accent-primary hover:underline">
+                                    {said.text}
+                                  </Link>
+                                ) : (
+                                  said.text
+                                )}
                                 <div className="mt-0.5 text-[11px] tabular-nums text-content-muted">
                                   {relativeTime(a.createdAt)}
                                 </div>

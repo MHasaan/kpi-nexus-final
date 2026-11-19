@@ -30,6 +30,7 @@ import {
 } from '../../../../components/ui';
 import { LineChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
+import { ANOMALY_METHODS, anomalyMethodLabel } from '../../../../lib/anomaly-method';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 import { useFormat } from '../../../../lib/format-context';
 import { usePermissions } from '../../../../lib/use-permissions';
@@ -183,7 +184,7 @@ export default function AnomaliesPage() {
      <RequirePermission permission="ANALYTICS_VIEW">
       <PageHeader
         title={heading.title}
-        subtitle="Surface anomalous data points with shape + colour markers and persist confirmed anomalies."
+        subtitle="Find recorded values that stand out from the rest, and keep the ones that turn out to be real problems."
       />
 
       <AnalyticsNav kpiId={id} active="anomalies" />
@@ -209,21 +210,27 @@ export default function AnomaliesPage() {
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
               >
-                {['ensemble', 'zscore', 'ewma', 'isolation_forest'].map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {ANOMALY_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
                   </option>
                 ))}
               </Select>
+              <p className="text-xs text-content-muted" data-testid="anom-method-about">
+                {ANOMALY_METHODS.find((m) => m.value === method)?.about}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="anom-threshold">Threshold</Label>
+              <Label htmlFor="anom-threshold">Sensitivity</Label>
               <Input
                 id="anom-threshold"
                 data-testid="anom-threshold"
                 value={threshold}
                 onChange={(e) => setThreshold(e.target.value)}
               />
+              <p className="text-xs text-content-muted">
+                How far from normal a value must be to be flagged, counted in typical swings. 3 is the usual choice; a lower number flags more.
+              </p>
             </div>
             <div className="flex flex-col gap-2 pt-1">
               <Button
@@ -233,7 +240,7 @@ export default function AnomaliesPage() {
                 onClick={() => detect(false)}
                 isLoading={busy}
               >
-                Detect
+                Look for unusual values
               </Button>
               <Button
                 type="button"
@@ -242,11 +249,11 @@ export default function AnomaliesPage() {
                 onClick={() => detect(true)}
                 isLoading={busy}
               >
-                Detect &amp; save
+                Look, and save what is found
               </Button>
             </div>
             <p className="text-xs text-content-muted">
-              Markers are shape + colour (never colour-only). Tooltip shows the anomaly score.
+              A value that is found is marked on the chart. Saved ones are listed below, where each can be confirmed as a real problem.
             </p>
           </CardContent>
         </Card>
@@ -284,21 +291,21 @@ export default function AnomaliesPage() {
           {detected && (
             <Card>
               <CardHeader>
-                <CardTitle>Live detection</CardTitle>
+                <CardTitle>What was found</CardTitle>
               </CardHeader>
               <CardContent>
                 {detected.length === 0 ? (
-                  <p className="flex items-center gap-2 text-sm text-status-success">
+                  <p className="flex items-center gap-2 text-sm text-content-muted">
                     <ShieldCheck aria-hidden className="h-4 w-4" />
-                    No anomalies detected — the series looks healthy.
+                    No unusual values found with this method and sensitivity.
                   </p>
                 ) : (
                   <p className="text-sm text-content">
-                    Detected{' '}
+                    Found{' '}
                     <span className="font-semibold tabular-nums text-content-strong">
                       {detected.length}
                     </span>{' '}
-                    anomal{detected.length === 1 ? 'y' : 'ies'} in the current series.
+                    unusual value{detected.length === 1 ? '' : 's'}, marked on the chart.
                   </p>
                 )}
               </CardContent>
@@ -319,8 +326,8 @@ export default function AnomaliesPage() {
                 <div data-testid="anom-saved">
                   <EmptyState
                     icon={ShieldCheck}
-                    title="No anomalies detected"
-                    description="Saved detections will appear here once you persist a run."
+                    title="Nothing saved yet"
+                    description="Unusual values you look for and save are listed here."
                   />
                 </div>
               ) : (
@@ -345,9 +352,7 @@ export default function AnomaliesPage() {
                         <TableCell className="text-right tabular-nums text-content-muted" title="The higher the score, the further this value is from what the others led the method to expect.">
                           {a.score.toFixed(2)}
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-content-muted">
-                          {a.method}
-                        </TableCell>
+                        <TableCell className="text-content-muted">{anomalyMethodLabel(a.method)}</TableCell>
                         <TableCell className="text-right">
                           {a.isConfirmed ? (
                             <Badge tone="success" data-testid={`anom-confirmed-${a.id}`}>

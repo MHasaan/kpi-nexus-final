@@ -71,7 +71,15 @@ test('anomalies page: chart renders, detect & save flags the spike, confirm work
   await page.goto(`/kpis/${kpiId}/anomalies`);
   await expect(page.getByTestId('anom-chart')).toBeVisible({ timeout: 15_000 });
 
+  // Flow walk (anomalies): the methods were offered by their code names, with nothing on what each flags.
+  expect(await page.getByTestId('anom-method').locator('option').allTextContents()).toEqual([
+    'Several methods together',
+    'Far from the average',
+    'Far from the recent trend',
+    'Unlike the rest',
+  ]);
   await page.getByTestId('anom-method').selectOption('zscore');
+  await expect(page.getByTestId('anom-method-about')).toContainText('far from the average');
   await page.getByTestId('anom-detect-persist').click();
   await expect(page.getByTestId('anom-detected')).toBeVisible({ timeout: 15_000 });
 
@@ -81,6 +89,8 @@ test('anomalies page: chart renders, detect & save flags the spike, confirm work
   await expect(page.getByTestId('anom-saved').getByRole('columnheader')).toHaveText(['Period', 'Value', 'How unusual', 'Method', 'State']);
   await expect(row).toContainText('2026-10-01');
   await expect(row).toContainText('100');
+  await expect(row).toContainText('Far from the average');
+  await expect(row).not.toContainText('ZSCORE');
   await row.locator('[data-testid^="anom-confirm-"]').click();
   await expect(page.locator('[data-testid^="anom-confirmed-"]').first()).toBeVisible({ timeout: 10_000 });
 });

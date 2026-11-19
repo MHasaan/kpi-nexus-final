@@ -488,6 +488,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (dashboards): adding a widget to a dashboard that had one could crash the page and save the new widget at 1×1 | ✅ Fixed — the grid’s layout always has a place for every widget; changes are saved only in edit mode and never below 2×2; a widget saved too small is shown at 2×2. The crash was seen in the app’s browser pane and did not reproduce in the test browser | #355 | `e2e/adding-a-widget-does-not-crash.spec.ts` (2) |
 | Flow walk (dashboards): every new widget went to the left edge of a row of its own — one tall column | ✅ Fixed — the first free place, left to right, top to bottom | #356 | `widget-placement.spec.ts` (5), `e2e/adding-a-widget-does-not-crash.spec.ts` |
 | Flow walk (dashboards): preview widget kinds read “A…” and “S…”; the hint said “Pick a kpi card target before you can add it” | ✅ Fixed — names in full, badge beneath; “Choose the KPI this KPI card shows.” | #357 | `e2e/widget-type-names-readable.spec.ts` |
+| Flow walk (shared dashboard): a widget saved at 1×1 was drawn as a sliver on the public page | ✅ Fixed — it flows at the usual size | #358 | `share-view.spec.ts` (+1) |
 
 ### UI completion round — open findings (2026-11-16)
 

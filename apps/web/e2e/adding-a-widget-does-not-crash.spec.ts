@@ -65,6 +65,12 @@ test('a second and a third widget can be added: the page stays up and each keeps
 
   // Each widget is saved at the size its kind is given, not at one cell by one.
   const saved = await widgets();
+  // And beside the one before it while there is room, not each at the left edge of a row of its own.
+  expect(saved.map((w) => [w.position.x, w.position.y])).toEqual([
+    [0, 0],
+    [3, 0],
+    [expect.any(Number), expect.any(Number)],
+  ]);
   expect(saved.map((w) => [w.widgetType, w.position.w, w.position.h])).toEqual([
     ['kpi_card', 3, 2],
     ['line', 6, 4],

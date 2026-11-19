@@ -35,6 +35,9 @@ test('a sole administrator can decide their own approval request', async ({ page
   await page.goto('/approvals');
   const pending = page.locator('[data-testid^="request-"]').first();
   await expect(pending).toContainText('Waiting for your decision');
+  // It is still their own request, and still says so — not their name, as if someone else had asked.
+  await expect(pending).toContainText('Asked by you');
+  await expect(pending).not.toContainText('Asked by Sadia Admin');
   await expect(pending.getByTestId(/^own-request-note-/)).toContainText('nobody else can approve it');
   await pending.locator('[data-testid^="approve-"]').click();
   await expect.poll(async () => ((await (await api.get(`/kpis/${kpi.id}`)).json()) as { name: string }).name).toBe(`Revenue ${stamp} (net)`);

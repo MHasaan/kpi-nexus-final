@@ -469,6 +469,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (anomalies): methods offered as `zscore`, `ewma`, `isolation_forest`; “Threshold” unexplained; a run that flagged nothing said the KPI “looks healthy” | ✅ Fixed — named methods with a line each, a sensitivity with its effect, and “no unusual values found” | #336 | `anomaly-method.spec.ts` (2), `e2e/ai-analytics-ui.spec.ts` |
 | Flow walk (what-if): “driver”, “mechanic”, “delta”, “aggregate lift”, and two unlabelled bars | ✅ Fixed — says what it works out, labels the two totals with their figures | #337 | `e2e/ai-analytics-ui.spec.ts` |
 | Flow walk (sessions): every session read “Unknown device” — none was written with its browser; the top bar called the page “Inbox” | ✅ Fixed — sign-up, sign-in, invitation and renewal write the browser and address; the page shows “Firefox on Windows”; the top bar reads “You / Sessions” | #338 | `refresh-token.service.spec.ts` (4), `device-label.spec.ts` (3), `e2e/sessions-name-the-device.spec.ts` |
+| Flow walk (roles): the administrator role was listed with “0” permissions beside a fully ticked matrix | ✅ Fixed — reads “All” | #339 | `e2e/admin-role-count.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

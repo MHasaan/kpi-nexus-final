@@ -869,7 +869,7 @@ function DataPointRow({
     <>
       <TableRow>
                 <TableCell className="tabular-nums">
-                  <span data-testid="data-point-value">{p.value}</span>
+                  <span data-testid="data-point-value">{fmt.number(p.value)}</span>
                   {kpi.unit ? ` ${kpi.unit}` : ''}
                 </TableCell>
                 <TableCell className="text-content-muted">{fmt.day(p.periodStart)}</TableCell>
@@ -924,7 +924,7 @@ function DataPointRow({
                 {history.length === 0 && <li className="text-content-muted">Never corrected.</li>}
                 {history.map((h) => (
                   <li key={h.id}>
-                    <span className="tabular-nums">{h.previousValue} → {h.newValue}</span>
+                    <span className="tabular-nums">{fmt.number(h.previousValue)} → {fmt.number(h.newValue)}</span>
                     <span className="text-content-muted"> · {fmt.dateTime(h.changedAt)} · </span>
                     {h.reason}
                   </li>

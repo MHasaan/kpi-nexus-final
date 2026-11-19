@@ -139,3 +139,25 @@ test('tour: Back returns to the previous slide and Esc closes it', async ({ page
   await expect(page.getByTestId('dashboard-heading')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('onboarding-tour')).toHaveCount(0);
 });
+
+test('tour: the third slide names pages the menu has, not a "Strategy map" it does not', async ({ page }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  test.setTimeout(45_000);
+  await loginToDashboard(page, suffix());
+
+  await page.goto('/dashboard');
+  const tour = page.getByTestId('onboarding-tour');
+  await expect(tour).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('tour-next').click();
+  await page.getByTestId('tour-next').click();
+  await expect(page.getByTestId('tour-title')).toHaveText('Scorecard and tree');
+  await expect(tour).toContainText('Both are under KPIs');
+  await expect(tour).not.toContainText('Strategy map');
+  await page.getByTestId('tour-skip').click();
+
+  // And those two pages are there, under KPIs, by those names.
+  await page.goto('/kpis');
+  const subnav = page.getByRole('navigation', { name: 'KPI sections' });
+  await expect(subnav.getByRole('link', { name: 'Scorecard', exact: true })).toHaveAttribute('href', '/kpis/scorecard');
+  await expect(subnav.getByRole('link', { name: 'Tree', exact: true })).toHaveAttribute('href', '/kpis/tree');
+});

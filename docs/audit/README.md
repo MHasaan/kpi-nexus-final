@@ -500,6 +500,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (first use): the tables on a KPI’s Data and Assignments tabs had a sideways scroll bar at any width, even when empty — the hidden “Actions” heading cell sat past the table’s edge | ✅ Fixed — the cell stays in the table; only its text is hidden | #367 | `e2e/kpi-tables-do-not-scroll-sideways.spec.ts` |
 | Flow walk (first use): on a monthly KPI, moving “Period from” to 1 October left “to” on 30 November, so an earlier month was stored against two months unless both dates were fixed | ✅ Fixed — the end follows the start by the KPI’s frequency and the organisation’s calendar, until the person sets the end themself | #368 | `lib/period.spec.ts`, `e2e/record-period-end-follows-start.spec.ts` |
 | Flow walk (first use): the organisation’s currency, asked for at sign-up as “used for money everywhere”, was used nowhere — a Currency KPI with no unit showed bare numbers | ✅ Fixed — a money KPI created with no unit starts with the organisation’s currency as its unit (form, API, wizard), and the form says so. Set once at creation; existing KPIs untouched (owner to confirm) | #369 | `contracts/format.spec.ts`, `kpis/kpi-currency-unit.spec.ts`, `e2e/currency-kpi-takes-org-currency.spec.ts` |
+| Flow walk (first use): the welcome tour’s third slide was titled “Strategy map”, a page that does not exist | ✅ Fixed — it names the Scorecard and the Tree, under KPIs | #370 | `e2e/onboarding-tour.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

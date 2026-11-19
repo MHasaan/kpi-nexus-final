@@ -164,4 +164,14 @@ test('whatif page: simulate renders ~10% lift', async ({ page }) => {
   await page.getByTestId('wi-run').click();
   await expect(page.getByTestId('wi-result')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('wi-lift-pct')).toContainText('10.0%');
+
+  // Flow walk (what-if): "Mechanic", "Delta %", "Aggregate lift", and two bars with nothing written on them.
+  const result = page.getByTestId('wi-result');
+  await expect(page.getByLabel('Change each value by')).toBeVisible();
+  // The twelve values add up to 209; ten per cent more is 229.9.
+  await expect(page.getByTestId('wi-totals')).toHaveText('As recorded: 209 · With the change: 229.9');
+  await expect(result.getByRole('columnheader')).toHaveText(['Value', 'As recorded', 'With the change']);
+  for (const jargon of ['Mechanic', 'Delta', 'Aggregate lift', 'Baseline']) {
+    await expect(page.getByRole('main')).not.toContainText(jargon);
+  }
 });

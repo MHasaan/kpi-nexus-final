@@ -627,6 +627,7 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
                       type="checkbox"
                       checked={values.orgUnitIds.includes(u.id)}
                       onChange={(e) => toggleId('orgUnitIds', u.id, e.target.checked)}
+                      data-testid={`kpi-orgunit-${u.id}`}
                       className="h-4 w-4 rounded border-border-strong accent-accent-primary"
                     />
                     {u.name}

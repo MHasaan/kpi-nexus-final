@@ -454,6 +454,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (objectives, tasks): status and priority pickers, and the objectives list badge, printed stored keys (`AT_RISK`, `MEDIUM`) | ✅ Fixed — the same words as the cards | #321 | `e2e/pickers-read-as-words.spec.ts` |
 | Flow walk (reports): a scheduled report could be paused or deleted but not changed — one more recipient meant deleting it, with its run history, and making it again | ✅ Fixed — Edit on the report’s page (`REPORTS_MANAGE`) opens the same form, filled in; a custom schedule is kept; the API was already able | #322 | `e2e/scheduled-report-edit.spec.ts` |
 | Flow walk (people): at 1280 px the People page ran off the right-hand side — the invite form was cut and the page scrolled sideways | ✅ Fixed — the list’s column may shrink, and the email sits under the name | #323 | `e2e/people-page-fits.spec.ts` |
+| Flow walk (teams): a new team’s “Assign a KPI” said only “No per-unit KPI left to assign”; the subtitle spoke of “PER_UNIT KPI visibility” | ✅ Fixed — the panel says which KPIs can be assigned and links to the new-KPI form, which opens with the scope and the team chosen | #324 | `e2e/team-leads-to-a-team-kpi.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

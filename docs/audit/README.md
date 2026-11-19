@@ -486,6 +486,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (per-person and per-unit KPIs): a KPI’s target did not reach the people or units holding it — no target on My KPIs, no status, nobody ever counted on track | ✅ Fixed — a holder is measured against their own target, else the KPI’s, when recording and wherever it is read; the stored status is no longer relied on | #353 | `assignment-status.spec.ts` (+3), `kpi-data.service.spec.ts` (+1), `user-kpis.service.spec.ts` (+1), `kpi-assignments.service.spec.ts` (+1), `e2e/holder-measured-against-kpi-target.spec.ts` |
 | Flow walk (teams): a team’s KPI figures were printed as stored (“100000”) | ✅ Fixed — the organisation’s number format | #354 | `e2e/org-unit-kpi-panel.spec.ts` |
 | Flow walk (dashboards): adding a widget to a dashboard that had one could crash the page and save the new widget at 1×1 | ✅ Fixed — the grid’s layout always has a place for every widget; changes are saved only in edit mode and never below 2×2; a widget saved too small is shown at 2×2. The crash was seen in the app’s browser pane and did not reproduce in the test browser | #355 | `e2e/adding-a-widget-does-not-crash.spec.ts` (2) |
+| Flow walk (dashboards): every new widget went to the left edge of a row of its own — one tall column | ✅ Fixed — the first free place, left to right, top to bottom | #356 | `widget-placement.spec.ts` (5), `e2e/adding-a-widget-does-not-crash.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

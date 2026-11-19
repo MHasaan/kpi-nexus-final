@@ -28,4 +28,9 @@ test('AI settings: each feature is named in words, with what it does', async ({ 
   await expect(ask).not.toContainText('NLQ_PRIMARY');
   await expect(page.getByTestId('ai-config-ONBOARDING_ASSISTANT-name')).toHaveText('Setup wizard: assistant');
   await expect(ask.getByLabel('Provider for Ask', { exact: true })).toBeVisible();
+
+  // A feature nothing in the product calls is not offered: a model saved for it changed nothing.
+  await expect(page.getByTestId('ai-config-NLQ_TOOLS')).toHaveCount(0);
+  await expect(page.getByTestId('ai-config-ANOMALY_EXPLANATIONS')).toHaveCount(0);
+  await expect(page.getByTestId('ai-config-EMBEDDINGS')).toBeVisible();
 });

@@ -193,6 +193,24 @@ describe('AnomalyService.list — per-user point scope (BE-034)', () => {
   });
 });
 
+// Flow walk (anomalies): a saved anomaly was a score and a method — not which value, or when.
+describe('AnomalyService.list — which value each anomaly is about', () => {
+  it('each row carries the value and the period it was found on; a row whose point is gone carries none', async () => {
+    mockPrisma.anomalyDetection.findMany.mockResolvedValueOnce([
+      { id: 'a1', dataPointId: 'p1' },
+      { id: 'a2', dataPointId: 'gone' },
+      { id: 'a3', dataPointId: null },
+    ]);
+    const start = new Date('2026-10-01T00:00:00.000Z');
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValueOnce([{ id: 'p1', value: 100, periodStart: start }]);
+    const out = await makeSvc().list('kpi_1', {});
+    expect(out.map((r) => r.point)).toEqual([{ value: 100, periodStart: start }, null, null]);
+    // Asked of this organisation and this KPI only.
+    const query = mockPrisma.kPIDataPoint.findMany.mock.calls.at(-1)![0] as { where: Record<string, unknown> };
+    expect(query.where).toMatchObject({ organizationId: expect.any(String), kpiId: 'kpi_1', id: { in: ['p1', 'gone'] } });
+  });
+});
+
 describe('AnomalyService.confirm → KPI watchers', () => {
   it('confirming an anomaly (first time only) is announced as anomaly_confirmed', async () => {
     const prisma = mockPrisma as unknown as Record<string, unknown>;

@@ -323,6 +323,10 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
     });
 
   const isEdit = mode === 'edit';
+  // Why a per-unit or per-user KPI cannot be sent yet: nobody is chosen to record it.
+  const [assignProblem, setAssignProblem] = useState<string | null>(null);
+  // Choosing someone, or another scope, answers it.
+  useEffect(() => setAssignProblem(null), [values.scope, values.userIds, values.orgUnitIds]);
   const parsedTags = parseTags(values.tags);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -334,6 +338,22 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
     if (name.length < 2) {
       setError('Name is required (at least 2 characters).');
       return;
+    }
+    // A per-unit or per-user KPI is recorded by the units or people it is given to, and the API
+    // refuses one given to nobody. Say so beside the list, in words, before anything is sent —
+    // it used to come back as "PER_USER KPIs require at least one userId" at the foot of the form.
+    if (!isEdit) {
+      const nobody =
+        values.scope === 'PER_USER' && values.userIds.length === 0
+          ? 'Choose at least one person who will record this KPI.'
+          : values.scope === 'PER_UNIT' && values.orgUnitIds.length === 0
+            ? 'Choose at least one unit that will record this KPI.'
+            : null;
+      setAssignProblem(nobody);
+      if (nobody) {
+        document.querySelector('[data-testid="kpi-assign-problem"], [data-testid="kpi-scope"]')?.scrollIntoView({ block: 'center' });
+        return;
+      }
     }
 
     // A number box that holds something other than a number is a mistake, not a blank.
@@ -610,14 +630,14 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
         {/* Assignment pickers — create mode only. */}
         {!isEdit && values.scope === 'PER_UNIT' && (
           <div data-testid="kpi-orgunit-picker">
-            <p className="kn-eyebrow mb-2">Assign org units</p>
+            <p className="kn-eyebrow mb-2">Units that record it (at least one)</p>
             {orgUnits.length === 0 ? (
               <p className="text-xs text-content-muted">
                 No org units yet.{' '}
                 <Link href="/org-units" className="text-accent-primary hover:underline">
                   Create one
                 </Link>{' '}
-                first, or create the KPI and assign later.
+                first: a per-unit KPI needs at least one unit to record it.
               </p>
             ) : (
               <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -639,14 +659,14 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
         )}
         {!isEdit && values.scope === 'PER_USER' && (
           <div data-testid="kpi-user-picker">
-            <p className="kn-eyebrow mb-2">Assign users</p>
+            <p className="kn-eyebrow mb-2">People who record it (at least one)</p>
             {users.length === 0 ? (
               <p className="text-xs text-content-muted">
                 No users yet.{' '}
                 <Link href="/users" className="text-accent-primary hover:underline">
                   Invite someone
                 </Link>{' '}
-                first, or create the KPI and assign later.
+                first: a per-user KPI needs at least one person to record it.
               </p>
             ) : (
               <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -664,6 +684,11 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
               </div>
             )}
           </div>
+        )}
+        {assignProblem && (
+          <p role="alert" data-testid="kpi-assign-problem" className="text-sm text-status-critical">
+            {assignProblem}
+          </p>
         )}
       </Section>
 

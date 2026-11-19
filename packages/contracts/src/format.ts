@@ -61,7 +61,7 @@ export const isCurrency = (value: unknown): value is string =>
  * The unit a new KPI starts with. One the person typed is theirs. A money KPI
  * with none takes the organisation's currency — the setting is asked for at
  * sign-up as "used for money", and without this a Currency KPI read as bare
- * numbers. Any other kind of KPI stays without a unit.
+ * numbers. A percentage KPI with none takes "%". Any other kind stays without a unit.
  *
  * Only at creation: values already recorded were recorded in that currency, so
  * changing the organisation's currency later does not relabel them.
@@ -70,6 +70,8 @@ export function unitForNewKpi(type: string | null | undefined, unit: string | nu
   const typed = unit?.trim();
   if (typed) return typed;
   if (type === 'CURRENCY' && isCurrency(currency)) return currency.toUpperCase();
+  // A percentage is in per cent (owner's decision, 2026-11-19): a churn target of 5 read "5".
+  if (type === 'PERCENTAGE') return '%';
   return null;
 }
 

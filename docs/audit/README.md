@@ -460,6 +460,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (automations): the sentence read “goes above 100000” under an example saying “100,000” | ✅ Fixed — the organisation’s number format | #327 | `workflow-form.spec.ts` (+1), `e2e/automations.spec.ts` |
 | Flow walk: the Execute pages named their place differently in the top bar (“Automation / Workflows / Automations”, “OKRs / Objectives”, Tasks and Approvals with no group) | ✅ Fixed — each reads “Execute / <page>” | #328 | `e2e/execute-pages-trail.spec.ts` |
 | Flow walk (objectives): a key result showed “— → 35,000 → 50,000” with no word on which figure was which | ✅ Fixed — “Start — · Now 35,000 · Target 50,000” | #329 | `e2e/plain-words-okrs-tasks-team.spec.ts` |
+| Flow walk (keyboard): “Skip to content” landed before the menu — two elements carried its target id | ✅ Fixed — only the shell’s `<main>` carries it and takes the keyboard’s place | #330 | `e2e/skip-link.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

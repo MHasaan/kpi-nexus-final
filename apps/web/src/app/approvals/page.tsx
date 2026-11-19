@@ -19,6 +19,7 @@ import {
 import { AppShell } from '../../components/app-shell';
 import { Badge, Button, Card, CardContent, EmptyState, Input, PageHeader, Skeleton } from '../../components/ui';
 import { APPROVAL_KINDS, type WorkflowSetting, kindLabel, requestStanding, statusLabel, toggleApproverRole, workflowProblem, workflowSettings } from '../../lib/approvals-view';
+import { type ChangeRow, approvalChanges } from '../../lib/approval-changes';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useAsyncData } from '../../lib/use-async-data';
 import { useConfirm } from '../../lib/use-confirm';
@@ -48,81 +49,33 @@ const RESOLVED_TONE: Record<string, 'success' | 'error' | 'neutral'> = {
   CANCELLED: 'neutral',
 };
 
-/** Stringify a single payload value for display in a monospace diff cell. */
-function formatValue(val: unknown): string {
-  if (val === undefined) return '—';
-  if (val === null) return 'null';
-  return typeof val === 'object' ? JSON.stringify(val) : String(val);
-}
-
-/** True when before/after represent the same value (deep-ish, via stable stringify). */
-function valuesEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a === 'object' || typeof b === 'object') {
-    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-  }
-  return false;
-}
-
-/** Render the proposed payload as a key:value `+` add list (monospace diff) — used for creates. */
-function ProposedChangesDiff({ payload }: { payload: unknown }) {
-  if (!payload || typeof payload !== 'object') {
-    return (
-      <pre className="overflow-x-auto rounded-md border border-border-divider bg-surface-1 px-3 py-2 font-mono text-xs text-content-strong">
-        {formatValue(payload)}
-      </pre>
-    );
-  }
-  const entries = Object.entries(payload as Record<string, unknown>);
-  if (entries.length === 0) {
-    return <p className="text-xs text-content-muted">No changes in this request.</p>;
-  }
-  return (
-    <div className="rounded-md border border-border-divider bg-surface-1 px-3 py-2 font-mono text-xs">
-      {entries.map(([key, val]) => (
-        <div key={key} className="flex gap-2 text-status-positive">
-          <span aria-hidden>+</span>
-          <span className="text-content-muted">{key}:</span>
-          <span className="break-all text-content-strong">{formatValue(val)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
- * Render a true BEFORE→AFTER diff for an update request.
- * Iterates the union of current+proposed keys, showing only rows that actually changed:
- * the prior value (muted/critical) → the proposed value (positive).
+ * What the request asks for, in words: only the fields that change, each with
+ * what it is now and what it would become. The stored request (`dto`, `kind`,
+ * record ids) is never shown.
  */
-function BeforeAfterDiff({ current, proposed }: { current: unknown; proposed: unknown }) {
-  const currentObj =
-    current && typeof current === 'object' ? (current as Record<string, unknown>) : {};
-  const proposedObj =
-    proposed && typeof proposed === 'object' ? (proposed as Record<string, unknown>) : {};
-
-  const keys = Array.from(new Set([...Object.keys(currentObj), ...Object.keys(proposedObj)]));
-  const changed = keys.filter((key) => !valuesEqual(currentObj[key], proposedObj[key]));
-
-  if (changed.length === 0) {
-    return <p className="text-xs text-content-muted">No values changed in this request.</p>;
+function ChangeList({ rows }: { rows: ChangeRow[] }) {
+  if (rows.length === 0) {
+    return <p className="text-xs text-content-muted">Nothing would change.</p>;
   }
-
   return (
-    <div className="space-y-1.5 rounded-md border border-border-divider bg-surface-1 px-3 py-2 font-mono text-xs">
-      {changed.map((key) => (
-        <div key={key} className="flex flex-wrap items-center gap-2">
-          <span className="text-content-muted">{key}:</span>
-          <span className="break-all rounded bg-status-critical-bg px-1.5 py-0.5 text-status-critical line-through">
-            {formatValue(currentObj[key])}
-          </span>
-          <ArrowRight className="h-3 w-3 shrink-0 text-content-muted" aria-hidden />
-          <span className="break-all rounded bg-status-success-bg px-1.5 py-0.5 text-status-positive">
-            {formatValue(proposedObj[key])}
-          </span>
+    <dl className="space-y-1.5 rounded-md border border-border-divider bg-surface-1 px-3 py-2 text-sm">
+      {rows.map((row) => (
+        <div key={row.label} className="flex flex-wrap items-center gap-2">
+          <dt className="text-content-muted">{row.label}</dt>
+          {row.before !== undefined && (
+            <>
+              <dd className="break-words rounded bg-status-critical-bg px-1.5 py-0.5 text-status-critical line-through">
+                <span className="sr-only">was </span>
+                {row.before}
+              </dd>
+              <ArrowRight className="h-3 w-3 shrink-0 text-content-muted" aria-hidden />
+            </>
+          )}
+          <dd className="break-words font-medium text-content-strong">{row.after}</dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -134,6 +87,8 @@ function BeforeAfterDiff({ current, proposed }: { current: unknown; proposed: un
  */
 export default function ApprovalsPage() {
   const fmt = useFormat();
+  // A target's dates are calendar days: written as the organisation writes dates, never shifted by its timezone.
+  const changeFormat = { number: (value: number) => fmt.number(value), date: (iso: string) => fmt.day(iso) };
   const router = useRouter();
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
   const { ready, has } = usePermissions();
@@ -429,12 +384,8 @@ export default function ApprovalsPage() {
                   </div>
 
                   <div data-testid={`approval-diff-${req.id}`}>
-                    <div className="kn-eyebrow mb-1.5">{hasBefore ? 'Before → after' : 'Proposed changes'}</div>
-                    {hasBefore ? (
-                      <BeforeAfterDiff current={req.currentPayload} proposed={req.proposedPayload} />
-                    ) : (
-                      <ProposedChangesDiff payload={req.proposedPayload} />
-                    )}
+                    <div className="kn-eyebrow mb-1.5">{hasBefore ? 'What would change' : 'What is asked for'}</div>
+                    <ChangeList rows={approvalChanges(req.proposedPayload, req.currentPayload, changeFormat)} />
                   </div>
 
                   {standing === 'decide' && (

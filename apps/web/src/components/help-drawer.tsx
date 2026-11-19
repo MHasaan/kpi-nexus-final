@@ -1,16 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
+import { CircleHelp } from 'lucide-react';
 
 import { helpForPath } from '../lib/contextual-help';
 
 const SEEN_KEY = 'kpi-nexus.help-drawer-seen';
 
 /**
- * Floating contextual-help drawer.
+ * Contextual-help drawer.
  *
- * - A "?" button fixed to the bottom-right corner opens a slide-out panel.
+ * - A help button opens a slide-out panel. It is rendered where this component
+ *   is placed — the top bar, beside the other page tools. It used to float over
+ *   the bottom-right corner of every page, on top of the Save button of the
+ *   task drawer and the Send button of the comments drawer.
+ * - The panel and its backdrop are portalled to <body>: the top bar blurs what
+ *   is behind it, and a blurred ancestor would trap a fixed panel inside itself.
  * - The button pulses until the user opens the drawer for the first time.
  * - The "seen" state is persisted in localStorage so the pulse never returns.
  * - The panel displays tips relevant to the current route via helpForPath().
@@ -22,11 +29,13 @@ export function HelpDrawer() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(true); // start as seen to avoid SSR mismatch
+  const [mounted, setMounted] = useState(false); // the portal needs document.body
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   // After mount: read the real persisted value.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    setMounted(true);
     const value = window.localStorage.getItem(SEEN_KEY);
     setSeen(value === '1');
   }, []);
@@ -70,25 +79,26 @@ export function HelpDrawer() {
 
   return (
     <>
-      {/* Floating "?" button */}
       <button
         type="button"
         aria-label="Help"
         data-testid="help-drawer-trigger"
         onClick={openDrawer}
         className={[
-          'fixed bottom-6 right-6 z-50 flex h-10 w-10 items-center justify-center',
-          'rounded-full border border-border bg-surface-1 text-sm font-semibold',
-          'text-content-default shadow-md transition hover:bg-surface-2 hover:text-accent-primary',
-          // Pulse animation while unseen; removed once the user has opened once.
-          !seen ? 'animate-pulse ring-2 ring-accent-primary ring-offset-2' : '',
+          'flex h-9 w-9 items-center justify-center rounded-md text-content-muted outline-none transition-colors',
+          'hover:bg-surface-hover hover:text-content-strong focus-visible:ring-2 focus-visible:ring-ring',
+          // Ringed and pulsing until help has been opened once.
+          !seen ? 'animate-pulse text-accent-primary ring-2 ring-accent-primary' : '',
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        ?
+        <CircleHelp className="h-[18px] w-[18px]" aria-hidden />
       </button>
 
+      {mounted &&
+        createPortal(
+          <>
       {/* Backdrop — clicking outside closes the drawer */}
       {open && (
         <div
@@ -169,6 +179,9 @@ export function HelpDrawer() {
           </p>
         </div>
       </div>
+          </>,
+          document.body,
+        )}
     </>
   );
 }

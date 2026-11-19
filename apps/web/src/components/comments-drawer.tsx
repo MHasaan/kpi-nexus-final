@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 
 import { ApiError, meRequest } from '../lib/api-client';
+import { resolveMentions as findMentions, mentionQueryAt, pickMention, suggestMentions } from '../lib/mentions';
 import { useConfirm } from '../lib/use-confirm';
 import { usePeople } from '../lib/use-people';
 import {
@@ -112,19 +113,25 @@ export function CommentsDrawer({
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  // Resolve @handle → userId by matching email local-part or fullName slug.
-  const resolveMentions = (text: string): string[] => {
-    const handles = [...text.matchAll(/(?:^|\s)@([a-zA-Z0-9_.-]+)/g)].map((m) => m[1]?.toLowerCase());
-    const ids = new Set<string>();
-    for (const h of handles) {
-      if (!h) continue;
-      const match = users.find(
-        // The email handle is known only to readers who may list people; a name always works.
-        (u) => u.email?.split('@')[0]?.toLowerCase() === h || u.fullName.toLowerCase().replace(/\s+/g, '') === h,
-      );
-      if (match) ids.add(match.id);
-    }
-    return [...ids];
+  // Who a text will notify. A name that matches no one is said under the box, not swallowed.
+  const resolveMentions = (text: string): string[] => findMentions(text, users, myId).people.map((p) => p.id);
+
+  // The @word being typed, the people offered for it, and who the comment as written will notify.
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  const [caret, setCaret] = useState(0);
+  const typing = mentionQueryAt(body, caret);
+  const offered = typing ? suggestMentions(users, typing.query, myId) : [];
+  const notified = findMentions(body, users, myId);
+  const pick = (person: (typeof users)[number]) => {
+    if (!typing) return;
+    const next = pickMention(body, typing, person);
+    setBody(next.text);
+    setCaret(next.caret);
+    // After React has written the new text, put the caret after the name.
+    requestAnimationFrame(() => {
+      boxRef.current?.focus();
+      boxRef.current?.setSelectionRange(next.caret, next.caret);
+    });
   };
 
   const submit = async () => {
@@ -261,14 +268,54 @@ export function CommentsDrawer({
 
             <div className="border-t border-border px-5 py-4">
               <Textarea
+                ref={boxRef}
                 data-testid="comment-body"
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Add a comment… use @name to mention"
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  setCaret(e.target.selectionStart ?? e.target.value.length);
+                }}
+                onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
+                onKeyDown={(e) => {
+                  // With people offered, Enter or Tab takes the first one instead of a new line.
+                  if (offered.length > 0 && (e.key === 'Enter' || e.key === 'Tab')) {
+                    e.preventDefault();
+                    pick(offered[0]!);
+                  }
+                }}
+                placeholder="Add a comment… type @ to mention someone"
                 rows={3}
               />
+              {offered.length > 0 && (
+                <ul role="listbox" aria-label="People to mention" data-testid="mention-suggestions" className="mt-1 overflow-hidden rounded-md border border-border bg-surface-1 text-sm shadow-sm">
+                  {offered.map((p, i) => (
+                    <li key={p.id} role="option" aria-selected={i === 0}>
+                      <button
+                        type="button"
+                        // mousedown, not click: the box must not lose its place before the name is written.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pick(p)}
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-content-default hover:bg-surface-hover ${i === 0 ? 'bg-surface-hover' : ''}`}
+                      >
+                        <Avatar name={p.fullName} size="sm" />
+                        {p.fullName}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="mt-2 flex items-center justify-between gap-2">
-                <span className="text-xs text-content-muted">Type @ and a name to notify someone</span>
+                <span className="text-xs text-content-muted" data-testid="comment-mention-note" aria-live="polite">
+                  {notified.unknown.length > 0 ? (
+                    <span className="text-status-warning">
+                      No one here matches {notified.unknown.map((w) => `@${w}`).join(', ')}. Pick a name from the list to notify them.
+                    </span>
+                  ) : notified.people.length > 0 ? (
+                    `Will notify ${notified.people.map((p) => p.fullName).join(', ')}`
+                  ) : (
+                    'Type @ and pick a name to notify someone'
+                  )}
+                </span>
                 <Button data-testid="comment-submit" onClick={submit} isLoading={submitting} disabled={submitting}>
                   Post comment
                 </Button>

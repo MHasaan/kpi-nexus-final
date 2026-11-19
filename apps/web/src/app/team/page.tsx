@@ -97,7 +97,7 @@ export default function TeamPage() {
             />
           </Card>
         ) : team ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="team-list">
+          <div className="grid gap-4 sm:grid-cols-2" data-testid="team-list">
             {team.map((member) => (
               <Card key={member.userId} className="flex flex-col gap-3 p-4" data-testid={`team-member-${member.userId}`}>
                 <Link
@@ -119,7 +119,7 @@ export default function TeamPage() {
                       }
                     >
                       <ScopeBadge scope="PER_USER" className="text-[10px]" />
-                      <span className="flex-1 truncate text-content-strong">{k.name}</span>
+                      <span className="min-w-0 flex-1 break-words text-content-strong">{k.name}</span>
                       <span className="tabular-nums text-content-muted">
                         {k.currentValue ?? '—'}
                         {k.unit ? ` ${k.unit}` : ''}

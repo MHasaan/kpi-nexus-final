@@ -79,6 +79,8 @@ test('a per-person KPI reads as a count on track for a manager, and as their own
   await view.goto('/reports/board-pack');
   const line = view.locator('li').filter({ hasText: name });
   await expect(line).toContainText('1 of 2 people on track');
-  await expect(line).not.toContainText('22');
+  // Sana's own figure (22) is not on the line. The KPI's name is set aside first: it carries a
+  // timestamp and a random tail, and either may hold "22" — which failed this check now and then.
+  expect((await line.innerText()).replace(name, '')).not.toContain('22');
   await view.context().close();
 });

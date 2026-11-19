@@ -478,6 +478,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (alerts): the bell went on counting an alert for up to thirty seconds after it was resolved | ✅ Fixed — it counts again as soon as an alert is acknowledged or resolved | #345 | `e2e/bell-follows-alert-changes.spec.ts` |
 | Flow walk (KPI page): the Thresholds tab said “Current band: no_bands” | ✅ Fixed — words | #346 | `e2e/band-status-in-words.spec.ts` |
 | Flow walk (a member’s home page): an Employee was shown the organisation’s setup list, with tasks they may not do and links they may not open | ✅ Fixed — shown, and asked for, only for `ORG_SETTINGS` holders | #347 | `e2e/setup-checklist-card.spec.ts` (+1) |
+| Flow walk (home page): “Pending approvals 1” was shown to everyone, whoever the request waited for | ✅ Fixed — the tile counts what the reader can decide; otherwise the card says “Approvals in progress” | #348 | `e2e/home-approvals-waiting-for-you.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

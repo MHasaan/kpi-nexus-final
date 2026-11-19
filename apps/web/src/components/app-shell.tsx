@@ -827,7 +827,8 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
         </header>
 
         {/* Scroll container */}
-        <main id="main-content" className="flex-1 overflow-y-auto">
+        {/* tabIndex -1: following "Skip to content" moves the keyboard here, so the next Tab is in the page. */}
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto outline-none">
           <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7">{children}</div>
         </main>
       </div>

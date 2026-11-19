@@ -40,7 +40,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Skip to content
         </a>
         <Providers>
-          <div id="main-content">{children}</div>
+          {/* No id here: the skip link's target is the signed-in shell's own <main>.
+              This wrapper used to carry the same id, so the link landed before the menu. */}
+          <div>{children}</div>
         </Providers>
       </body>
     </html>

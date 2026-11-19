@@ -513,6 +513,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (Ask): an answer with one long unbroken run (a web address, an identifier) widened its bubble past the page, which then scrolled sideways | ✅ Fixed — the answer wraps inside its bubble | #380 | `e2e/ask-answer-stays-on-the-page.spec.ts` |
 | Flow walk (positions): the form that makes a position offered the track “IC”, the stored code | ✅ Fixed — “Individual contributor”, as the list on the same page says | #381 | `e2e/positions-flow.spec.ts` |
 | Flow walk (settings): the Settings page filed Notifications, AI, Data retention and Custom domain under “Integrations” | ✅ Fixed — each is under a heading that fits it; links and addresses unchanged | #382 | `e2e/settings-hub-groups.spec.ts` |
+| Flow walk (settings): Settings → Organization asked for the currency and the language as text typed from memory (“PKR”, “en-US”); the wizard offers lists | ✅ Fixed — the same lists as the wizard | #383 | `e2e/org-settings-offer-currency-and-language.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

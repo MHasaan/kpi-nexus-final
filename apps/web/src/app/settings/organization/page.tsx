@@ -19,8 +19,12 @@ import {
 } from '../../../lib/terminology-context';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useFormat } from '../../../lib/format-context';
+import { currencyOptions, localeOptions } from '../../../lib/org-options';
 
 /** Every timezone the browser knows, with UTC and the one in use always offered. */
+const SELECT_CLASS =
+  'mt-1 w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30';
+
 function timezoneChoices(current: string): string[] {
   const known = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
   return [...new Set(['UTC', ...known, current])].sort((a, b) => (a === 'UTC' ? -1 : b === 'UTC' ? 1 : a.localeCompare(b)));
@@ -186,14 +190,24 @@ function OrganizationSettingsInner() {
                   </select>
                   <span className="mt-1 block text-xs text-content-muted">Times are shown in this timezone for everyone.</span>
                 </label>
-                <Field
-                  label="Currency"
-                  value={currency}
-                  onChange={(v) => setCurrency(v.toUpperCase())}
-                  maxLength={3}
-                  testId="org-currency"
-                />
-                <Field label="Locale" value={locale} onChange={setLocale} testId="org-locale" />
+                {/* The same lists the setup wizard offers: these two used to be typed from memory ("PKR", "en-US"). */}
+                <label className="block">
+                  <span className="text-sm font-medium text-content-default">Currency</span>
+                  <select value={currency} onChange={(e) => setCurrency(e.target.value)} data-testid="org-currency" className={SELECT_CLASS}>
+                    {currencyOptions(currency).map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-content-muted">A new money KPI takes this as its unit.</span>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-content-default">Language and number format</span>
+                  <select value={locale} onChange={(e) => setLocale(e.target.value)} data-testid="org-locale" className={SELECT_CLASS}>
+                    {localeOptions(locale).map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </fieldset>
 

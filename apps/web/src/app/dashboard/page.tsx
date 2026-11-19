@@ -450,8 +450,10 @@ export default function DashboardPage() {
   ];
 
   const chip = access.profile ? scopeChip(access.scopeFor('KPIS')) : null;
+  // What waits for this reader to decide. Everyone was told "Pending approvals 1", whoever it waited for.
+  const approvalsForMe = pendingApprovals.filter((r) => r.canDecide);
   const hasExtraTiles =
-    (perms.has('ALERTS_VIEW') && unreadAlerts !== null) || pendingApprovals.length > 0;
+    (perms.has('ALERTS_VIEW') && unreadAlerts !== null) || approvalsForMe.length > 0;
 
   return (
     <AppShell>
@@ -566,8 +568,10 @@ export default function DashboardPage() {
                 {perms.has('ALERTS_VIEW') && unreadAlerts !== null ? (
                   <StatTile label="Open alerts" value={unreadAlerts} />
                 ) : null}
-                {pendingApprovals.length > 0 ? (
-                  <StatTile label="Pending approvals" value={pendingApprovals.length} />
+                {approvalsForMe.length > 0 ? (
+                  <div data-testid="stat-approvals-for-you">
+                    <StatTile label="Waiting for your approval" value={approvalsForMe.length} />
+                  </div>
                 ) : null}
               </div>
 
@@ -820,9 +824,13 @@ export default function DashboardPage() {
                       >
                         <span className="flex items-center gap-2 text-sm font-semibold text-content-strong">
                           <ClipboardCheck className="h-4 w-4 text-accent-primary" aria-hidden />
-                          Pending approvals
+                          {approvalsForMe.length > 0 ? 'Waiting for your approval' : 'Approvals in progress'}
                         </span>
-                        <Badge tone="warning">{pendingApprovals.length}</Badge>
+                        {approvalsForMe.length > 0 ? (
+                          <Badge tone="warning">{approvalsForMe.length}</Badge>
+                        ) : (
+                          <Badge tone="neutral">{pendingApprovals.length}</Badge>
+                        )}
                       </Link>
                     </Card>
                   ) : null}

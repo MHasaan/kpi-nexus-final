@@ -37,7 +37,8 @@ test("a Currency KPI with no unit of its own takes the organisation's currency",
   await page.getByTestId('kpi-target').fill('50000');
   await page.getByTestId('kpi-submit').click();
 
-  await expect(page).toHaveURL(/\/kpis\/[a-z0-9]+$/);
+  // The new KPI's own page: an id, not the form's "/kpis/new".
+  await expect(page).toHaveURL(/\/kpis\/c[a-z0-9]{15,}$/);
   const id = page.url().split('/').pop()!;
   expect(((await (await api.get(`/kpis/${id}`)).json()) as { unit: string | null }).unit).toBe('PKR');
   await expect(page.getByTestId('overview-target')).toContainText('50,000 PKR');

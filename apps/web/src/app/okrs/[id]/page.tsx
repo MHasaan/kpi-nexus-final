@@ -839,9 +839,10 @@ export default function ObjectiveDetailPage() {
                                 <p className="mt-0.5 text-xs text-content-muted">{kr.description}</p>
                               )}
                             </div>
-                            <span className="font-mono text-xs text-content-muted whitespace-nowrap">
+                            <span className="whitespace-nowrap text-xs tabular-nums text-content-muted">
+                              {/* "— → 35,000 → 50,000" left the reader to guess which figure was which. */}
                               <span data-testid="kr-values">
-                                {num(kr.baselineValue)} → <span className="text-content-strong">{num(kr.currentValue)}</span> →{' '}
+                                Start {num(kr.baselineValue)} · Now <span className="font-semibold text-content-strong">{num(kr.currentValue)}</span> · Target{' '}
                                 {num(kr.targetValue)}
                               </span>
                               {unit && <span className="ml-1">{unit}</span>}

@@ -103,6 +103,10 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
 
   const shownKpi = inDashboard && kpiId ? (shared.kpis.get(kpiId) ?? null) : kpi;
   const shownRows = inDashboard ? [...shared.rows.values()] : summaryRows;
+  // A widget on a KPI with no title of its own is headed by the KPI's name, as the add form says it
+  // will be. The charts fell back to their own kind instead — "LINE CHART" — and so did not say
+  // which KPI they showed.
+  const named: DashboardWidget = widget.title || !shownKpi?.name ? widget : { ...widget, title: shownKpi.name };
 
   if (loading && !loaded) {
     return (
@@ -131,17 +135,17 @@ export function WidgetRenderer({ widget, dateRange }: WidgetRendererProps) {
     case 'kpi_card':
       return <KpiCard widget={widget} kpi={shownKpi} dataPoints={dataPoints} status={kpiId ? (shared?.rows.get(kpiId)?.status ?? null) : null} />;
     case 'line':
-      return <LineChartWidget widget={widget} dataPoints={dataPoints} />;
+      return <LineChartWidget widget={named} dataPoints={dataPoints} />;
     case 'bar':
-      return <BarChartWidget widget={widget} dataPoints={dataPoints} />;
+      return <BarChartWidget widget={named} dataPoints={dataPoints} />;
     case 'pie':
-      return <PieChartWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
+      return <PieChartWidget widget={named} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'gauge':
       return <GaugeWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'number':
       return <NumberWidget widget={widget} kpi={shownKpi} dataPoints={dataPoints} />;
     case 'trend':
-      return <TrendWidget widget={widget} dataPoints={dataPoints} />;
+      return <TrendWidget widget={named} dataPoints={dataPoints} />;
     case 'list':
       return <ListWidget widget={widget} summaryRows={shownRows} />;
     case 'activity':

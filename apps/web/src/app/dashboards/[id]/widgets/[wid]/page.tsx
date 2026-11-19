@@ -47,6 +47,13 @@ const DrillDownChart = dynamic(() => import('./drill-down-chart').then((m) => m.
   ssr: false,
 });
 
+/** The qualities a recorded value can have, as the API names them and as a person reads them. */
+const QUALITIES = [
+  { value: 'HIGH', label: 'High' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'LOW', label: 'Low' },
+] as const;
+
 export default function WidgetDrillDownPage() {
   return (
     <DrillDownInner />
@@ -136,7 +143,9 @@ function DrillDownInner() {
   // Data-quality summary (read-only, derived from already-loaded data points).
   // Uses the unfiltered set so it reflects the underlying series, not the view.
   const totalPoints = dataPoints.length;
-  const goodPoints = dataPoints.filter((dp) => dp.qualityFlag === 'GOOD').length;
+  // A value's quality is HIGH, MEDIUM or LOW. This counted "GOOD", which no value has: it always
+  // read 0%, "needs attention", and the filter's "Good" hid every value.
+  const goodPoints = dataPoints.filter((dp) => dp.qualityFlag === 'HIGH').length;
   const completeness = totalPoints
     ? Math.round((goodPoints / totalPoints) * 100)
     : null;
@@ -252,9 +261,11 @@ function DrillDownInner() {
                 className="w-auto"
               >
                 <option value="">All</option>
-                <option value="GOOD">Good</option>
-                <option value="ESTIMATE">Estimate</option>
-                <option value="POOR">Poor</option>
+                {QUALITIES.map((q) => (
+                  <option key={q.value} value={q.value}>
+                    {q.label}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="space-y-1.5">
@@ -292,13 +303,13 @@ function DrillDownInner() {
           <CardContent className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-6">
               <div>
-                <span className="kn-eyebrow block">Completeness</span>
+                <span className="kn-eyebrow block">Quality</span>
                 <span className="text-lg font-semibold tabular-nums text-content-strong">
                   {completeness !== null ? `${completeness}%` : '—'}
                 </span>
                 <span className="ml-1 text-xs tabular-nums text-content-muted">
                   {totalPoints > 0
-                    ? `${goodPoints}/${totalPoints} good`
+                    ? `${goodPoints}/${totalPoints} high quality`
                     : 'no points'}
                 </span>
               </div>
@@ -368,27 +379,27 @@ function DrillDownInner() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Recorded</TableHead>
                     <TableHead>Value</TableHead>
                     <TableHead>Period</TableHead>
                     <TableHead>Quality</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody data-testid="drilldown-rows">
                   {filteredPoints.slice(0, 100).map((dp) => (
                     <TableRow key={dp.id}>
                       <TableCell className="tabular-nums text-content-muted">
                         {fmt.date(dp.recordedAt)}
                       </TableCell>
                       <TableCell className="font-semibold tabular-nums text-content-strong">
-                        {dp.value}
+                        {fmt.number(dp.value)}
                         {kpi?.unit ? ` ${kpi.unit}` : ''}
                       </TableCell>
                       <TableCell className="text-xs text-content-muted">
-                        {dp.periodStart.slice(0, 10)} → {dp.periodEnd.slice(0, 10)}
+                        {fmt.day(dp.periodStart)} – {fmt.day(dp.periodEnd)}
                       </TableCell>
                       <TableCell className="text-xs text-content-muted">
-                        {dp.qualityFlag}
+                        {QUALITIES.find((q) => q.value === dp.qualityFlag)?.label ?? dp.qualityFlag}
                       </TableCell>
                     </TableRow>
                   ))}

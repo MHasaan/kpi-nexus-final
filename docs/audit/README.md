@@ -491,6 +491,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (shared dashboard): a widget saved at 1×1 was drawn as a sliver on the public page | ✅ Fixed — it flows at the usual size | #358 | `share-view.spec.ts` (+1) |
 | Flow walk (dashboards): a line, bar, pie or trend widget was headed “LINE CHART” — nothing said which KPI it showed | ✅ Fixed — headed by the KPI’s name when it has no title of its own | #359 | `e2e/adding-a-widget-does-not-crash.spec.ts` |
 | Flow walk (dashboards): an opened snapshot read “kpi_card — Latest value: 35000”; it kept no KPI names | ✅ Fixed — a snapshot freezes each KPI’s name and unit with its value; the page reads “Revenue — KPI card · 35,000 USD” | #360 | `snapshots.service.spec.ts` (+1), `e2e/snapshot-names-what-it-froze.spec.ts` |
+| Flow walk (dashboards): a widget’s detail page counted quality `GOOD`, which no value has — always “0% · Needs attention”, and its “Good” filter hid everything | ✅ Fixed — counts and filters by HIGH / MEDIUM / LOW, in words | #361 | `e2e/widget-detail-quality.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

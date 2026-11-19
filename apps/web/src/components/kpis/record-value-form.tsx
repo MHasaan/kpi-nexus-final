@@ -3,7 +3,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { ApiError } from '../../lib/api-client';
-import { type Period, currentPeriod, toApiPeriod } from '../../lib/period';
+import { type Period, currentPeriod, periodFromStart, toApiPeriod } from '../../lib/period';
 import { useFiscalConfig } from '../../lib/use-fiscal-config';
 import { Button, Input, Label } from '../ui';
 
@@ -45,6 +45,8 @@ export function RecordValueForm({
   // period themselves, the default follows it (a fiscal quarter, a week starting on their day).
   const fiscal = useFiscalConfig();
   const [periodTouched, setPeriodTouched] = useState(false);
+  // Until the person sets the end themself, it follows the start: the frequency says how long a period is.
+  const [endChosen, setEndChosen] = useState(false);
   useEffect(() => {
     if (fiscal.ready && !periodTouched) setPeriod(currentPeriod(frequency, new Date(), fiscal.config));
   }, [fiscal.ready, fiscal.config, frequency, periodTouched]);
@@ -100,7 +102,7 @@ export function RecordValueForm({
           value={period.periodStart}
           onChange={(e) => {
             setPeriodTouched(true);
-            setPeriod((p) => ({ ...p, periodStart: e.target.value }));
+            setPeriod((p) => periodFromStart(frequency, e.target.value, p, endChosen, fiscal.config));
           }}
           data-testid={`${testIdPrefix}-period-start`}
         />
@@ -113,6 +115,7 @@ export function RecordValueForm({
           value={period.periodEnd}
           onChange={(e) => {
             setPeriodTouched(true);
+            setEndChosen(true);
             setPeriod((p) => ({ ...p, periodEnd: e.target.value }));
           }}
           data-testid={`${testIdPrefix}-period-end`}

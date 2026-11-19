@@ -221,7 +221,8 @@ function RoutingRow({
       {/* Provider and model share a column, one above the other, as the fallback's do: side by side, with
           seven columns, a 1280-pixel screen had room for "gemini-3.5" of "gemini-3.5-flash". */}
       <TableCell className="align-top">
-        <div className="flex min-w-[11.5rem] flex-col gap-1.5">
+        {/* Wide enough for the longest model on offer, "gemini-3.5-flash-lite". */}
+        <div className="flex min-w-[14rem] flex-col gap-1.5">
         <Select
           aria-label={`Provider for ${info.name}`}
           data-testid={`ai-config-${config.feature}-provider`}

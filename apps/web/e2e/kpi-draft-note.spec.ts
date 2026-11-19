@@ -44,6 +44,13 @@ test('KPI list: says what Draft means while there is a draft, and not otherwise'
   await expect(note).toContainText('takes values');
   await expect(note).toContainText('Edit');
 
+  // Flow walk (new KPI): the form said the opposite — "Draft KPIs are hidden from most views until Active."
+  await page.goto('/kpis/new');
+  const statusHelp = page.getByTestId('kpi-status-help');
+  await expect(statusHelp).toContainText('takes values and appears on dashboards like any other');
+  await expect(page.getByRole('main')).not.toContainText('hidden from most views');
+  await page.goto('/kpis');
+
   // "Show drafts" narrows the list to them.
   await note.getByRole('button', { name: 'Show drafts' }).click();
   await expect(page.getByTestId(`kpi-status-badge-${draft}`)).toBeVisible();

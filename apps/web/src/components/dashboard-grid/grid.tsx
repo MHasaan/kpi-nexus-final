@@ -24,16 +24,30 @@ interface DashboardGridProps {
   onLayoutSaved?: () => void;
 }
 
+/** The smallest a widget may be, in grid cells: smaller, nothing in it can be read. */
+const MIN_W = 2;
+const MIN_H = 2;
+
+/**
+ * The saved positions as a grid layout. A widget saved smaller than the
+ * minimum (an old fault saved new widgets at one cell by one) is shown at the
+ * minimum, never smaller.
+ */
 function widgetsToLayout(widgets: DashboardWidget[]): Layout {
   return widgets.map((w) => ({
     i: w.id,
     x: w.position.x,
     y: w.position.y,
-    w: w.position.w,
-    h: w.position.h,
-    minW: 2,
-    minH: 2,
+    w: Math.max(w.position.w, MIN_W),
+    h: Math.max(w.position.h, MIN_H),
+    minW: MIN_W,
+    minH: MIN_H,
   }));
+}
+
+/** Whether a layout has a place for exactly these widgets. */
+function coversWidgets(layout: Layout, widgets: DashboardWidget[]): boolean {
+  return layout.length === widgets.length && widgets.every((w) => layout.some((item) => item.i === w.id));
 }
 
 export function DashboardGrid({
@@ -71,9 +85,20 @@ export function DashboardGrid({
     return () => observer.disconnect();
   }, []);
 
+  // The layout handed to the grid always has a place for every widget. The state above follows the
+  // widgets one render late (an effect), and in that render the grid library was handed a new widget
+  // with no place: it invented one cell by one for it, which was then saved as the widget's size —
+  // and a chart squeezed into one cell could bring the whole page down.
+  const gridLayout = coversWidgets(layout, widgets) ? layout : widgetsToLayout(widgets);
+
   const handleLayoutChange = useCallback(
     (newLayout: Layout) => {
+      // A layout for other widgets than the ones on the board is stale: take nothing from it.
+      if (!coversWidgets(newLayout, widgets)) return;
       setLayout(newLayout);
+      // Only what a person arranges is saved. Outside edit mode a change comes from the grid settling
+      // itself, not from anyone moving a widget, and has nothing to do with what is stored.
+      if (!editMode) return;
 
       // Debounce position saves
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -83,6 +108,8 @@ export function DashboardGrid({
           .filter((item) => {
             const orig = widgets.find((w) => w.id === item.i);
             if (!orig) return false;
+            // Never store a size nothing can be read at.
+            if (item.w < MIN_W || item.h < MIN_H) return false;
             return (
               orig.position.x !== item.x ||
               orig.position.y !== item.y ||
@@ -110,7 +137,7 @@ export function DashboardGrid({
         }
       }, 350);
     },
-    [dashboardId, widgets, onLayoutSaved],
+    [dashboardId, widgets, onLayoutSaved, editMode],
   );
 
   async function handleDelete(widgetId: string) {
@@ -161,7 +188,7 @@ export function DashboardGrid({
       className="w-full"
     >
       <ReactGridLayout
-        layout={layout}
+        layout={gridLayout}
         width={containerWidth}
         gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN }}
         dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', cancel: '.widget-no-drag' }}

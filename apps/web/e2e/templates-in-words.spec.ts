@@ -23,8 +23,8 @@ test('KPI templates name perspectives and functions in words', async ({ page }) 
   }
 
   await page.goto('/kpis/templates');
-  const options = (await page.getByTestId('tmpl-function').locator('option').allTextContents()).map((t) => t.trim());
-  expect(options).toEqual(['All functions', 'Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'Support', 'Engineering']);
+  // An assertion that waits: reading the options at once caught the page before it had drawn them, now and then.
+  await expect(page.getByTestId('tmpl-function').locator('option')).toHaveText(['All functions', 'Finance', 'Sales', 'Marketing', 'Operations', 'HR', 'Support', 'Engineering']);
 
   const main = page.getByRole('main');
   await expect(main.getByText('Internal process').first()).toBeVisible();

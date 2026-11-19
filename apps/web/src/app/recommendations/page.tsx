@@ -187,7 +187,8 @@ export default function RecommendationsPage() {
                 data-testid="recs-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="h-8 w-44"
+                // Wide enough for "Priority, then confidence": it was cut to "Priority, then confi".
+                className="h-8 w-64"
               >
                 <option value="priority">Priority, then confidence</option>
                 <option value="recency">Most recent</option>

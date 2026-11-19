@@ -37,3 +37,23 @@ export function inviteFeedback(outcome: InviteOutcome, email: string): InviteFee
     url,
   };
 }
+
+/**
+ * When an invitation runs out, for the page that accepts it. Nobody is signed
+ * in there, so no organisation's date settings apply: the time is written on
+ * the reader's own clock, and says which clock that is ("Nov 26, 2026, 1:53 PM
+ * GMT+5"). It used to be written in UTC without saying so.
+ */
+export function inviteExpiryText(expiresAt: string, locale?: string, timeZone?: string): string {
+  const at = new Date(expiresAt);
+  if (Number.isNaN(at.getTime())) return '';
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+    timeZoneName: 'short',
+  }).format(at);
+}

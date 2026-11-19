@@ -11,8 +11,8 @@ import {
   previewInvitation,
   setTokens,
 } from '../../../lib/api-client';
+import { inviteExpiryText } from '../../../lib/invite-feedback';
 import { passwordRefusal } from '../../../lib/password-rules';
-import { useFormat } from '../../../lib/format-context';
 
 type InvitePreview = {
   email: string;
@@ -31,7 +31,6 @@ export default function AcceptInvitationPage() {
 }
 
 function AcceptInvitationInner() {
-  const fmt = useFormat();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
@@ -156,8 +155,9 @@ function AcceptInvitationInner() {
           {preview.expiresAt && (
             <p className="mt-1 text-xs text-content-muted">
               Invitation expires{' '}
-              <time dateTime={preview.expiresAt}>
-                {fmt.dateTime(preview.expiresAt)}
+              {/* On the reader's own clock, named: nobody is signed in here, so no organisation's settings apply. */}
+              <time dateTime={preview.expiresAt} data-testid="invite-preview-expires">
+                {inviteExpiryText(preview.expiresAt)}
               </time>
             </p>
           )}

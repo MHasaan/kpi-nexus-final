@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { inviteFeedback } from './invite-feedback';
+import { inviteExpiryText, inviteFeedback } from './invite-feedback';
 
 describe('inviteFeedback', () => {
   test('says "sent" when the mail server took it', () => {
@@ -31,5 +31,20 @@ describe('inviteFeedback', () => {
 
   test('an older server that does not report emailSent is taken as sent', () => {
     expect(inviteFeedback({}, 'a@b.c').tone).toBe('success');
+  });
+});
+
+describe('inviteExpiryText', () => {
+  test("writes the time on the reader's clock and names the clock", () => {
+    expect(inviteExpiryText('2026-11-26T08:53:40.000Z', 'en-US', 'Asia/Karachi')).toBe('Nov 26, 2026, 1:53 PM GMT+5');
+    expect(inviteExpiryText('2026-11-26T08:53:40.000Z', 'en-US', 'UTC')).toBe('Nov 26, 2026, 8:53 AM UTC');
+  });
+
+  test('a time that crosses midnight for the reader is on their day', () => {
+    expect(inviteExpiryText('2026-11-26T21:30:00.000Z', 'en-US', 'Asia/Karachi')).toBe('Nov 27, 2026, 2:30 AM GMT+5');
+  });
+
+  test('an unreadable time is left out', () => {
+    expect(inviteExpiryText('not a date')).toBe('');
   });
 });

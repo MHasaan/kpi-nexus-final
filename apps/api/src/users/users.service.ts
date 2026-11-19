@@ -10,6 +10,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 
+import { formatDateTime, formatSettingsOf } from '@kpi-nexus/contracts';
 import type { Prisma } from '@kpi-nexus/db';
 import type {
   AccessProfile,
@@ -693,11 +694,18 @@ export class UsersService {
   private async sendInviteEmail(userId: string, to: string, link: string, expiresAt: Date): Promise<boolean> {
     const ctx = RequestContextStore.require();
     const [org, inviter] = await Promise.all([
-      this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { name: true, logoUrl: true, primaryColor: true } }),
+      this.prisma.organization.findUnique({
+        where: { id: ctx.organizationId },
+        select: { name: true, logoUrl: true, primaryColor: true, timezone: true, locale: true, currency: true, dateFormat: true, numberFormat: true },
+      }),
       ctx.userId ? this.prisma.user.findUnique({ where: { id: ctx.userId }, select: { fullName: true } }) : null,
     ]);
     const orgName = org?.name ?? 'your organization';
     const who = inviter?.fullName ? `${inviter.fullName} has` : "You've been";
+    // When the link runs out, on the organisation's clock and in its date format, saying which clock:
+    // the reader's own is not known here. It was a raw "Thu, 26 Nov 2026 08:53:40 GMT".
+    const format = formatSettingsOf(org);
+    const expires = `${formatDateTime(expiresAt, format)} (${format.timezone})`;
     try {
       await this.email.send({
         to,
@@ -707,9 +715,9 @@ export class UsersService {
           emailBrandOf(org),
           `<p>${escapeHtml(who)} invited you to join <strong>${escapeHtml(orgName)}</strong> on KPI Nexus.</p>` +
             `<p><a href="${escapeHtml(link)}">Accept the invitation</a></p>` +
-            `<p>This link expires on ${expiresAt.toUTCString()}.</p>`,
+            `<p>This link expires on ${escapeHtml(expires)}.</p>`,
         ),
-        text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expiresAt.toUTCString()}`,
+        text: `${who} invited you to join ${orgName} on KPI Nexus.\nAccept: ${link}\nExpires: ${expires}`,
       });
       return true;
     } catch (err) {

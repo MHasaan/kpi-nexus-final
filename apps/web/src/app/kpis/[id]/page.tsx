@@ -621,7 +621,9 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
 
             {pastRecorder && (
               <PastValuesForm
-                key={selected}
+                // Its own key: the one-value form beside it is keyed by the same unit, and two siblings sharing a
+                // key made the tab draw another record form each time it reloaded.
+                key={`past-values-${selected}`}
                 frequency={kpi.frequency}
                 unit={kpi.unit}
                 existingStarts={recordedStarts}

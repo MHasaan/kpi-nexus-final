@@ -13,7 +13,26 @@ export interface ActivityItem {
   entityType: string | null;
   entityId: string | null;
   metadata: unknown;
+  /** What the row is about, so a reader is not left with "created a KPI value". */
+  subject: ActivitySubject;
   createdAt: Date;
+}
+
+export interface ActivitySubject {
+  /** The name the row itself recorded: a KPI's or dashboard's name, a task's title. */
+  name: string | null;
+  /** The KPI the row is about, when it is about one that still exists here. */
+  kpiId: string | null;
+  kpiName: string | null;
+}
+
+const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value : null);
+const fields = (metadata: unknown): Record<string, unknown> =>
+  metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? (metadata as Record<string, unknown>) : {};
+
+/** The KPI a row points at: itself when it is a KPI row, else the one its details name. */
+function kpiIdOf(row: { entityType: string | null; entityId: string | null; metadata: unknown }): string | null {
+  return row.entityType?.toLowerCase() === 'kpi' ? row.entityId : text(fields(row.metadata).kpiId);
 }
 
 export interface ActivityPage {
@@ -72,6 +91,22 @@ export class ActivityService {
       : [];
     const names = new Map(users.map((u) => [u.id, u.fullName]));
 
+    // Side-load the names of the KPIs the rows are about: this organisation's, and only those not deleted.
+    const kpiIds = [...new Set(page.map(kpiIdOf).filter((id): id is string => !!id))];
+    const kpis = kpiIds.length
+      ? await this.prisma.kPI.findMany({
+          where: { organizationId: ctx.organizationId, id: { in: kpiIds }, deletedAt: null },
+          select: { id: true, name: true },
+        })
+      : [];
+    const kpiNames = new Map(kpis.map((k) => [k.id, k.name]));
+    const subjectOf = (row: (typeof page)[number]): ActivitySubject => {
+      const meta = fields(row.metadata);
+      const kpiId = kpiIdOf(row);
+      const kpiName = kpiId ? (kpiNames.get(kpiId) ?? null) : null;
+      return { name: text(meta.name) ?? text(meta.title), kpiId: kpiName ? kpiId : null, kpiName };
+    };
+
     return {
       items: page.map((r) => ({
         id: r.id,
@@ -81,6 +116,7 @@ export class ActivityService {
         entityType: r.entityType,
         entityId: r.entityId,
         metadata: r.metadata,
+        subject: subjectOf(r),
         createdAt: r.createdAt,
       })),
       nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,

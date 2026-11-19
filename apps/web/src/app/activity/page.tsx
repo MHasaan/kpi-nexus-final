@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { History } from 'lucide-react';
@@ -9,7 +10,7 @@ import { type ActivityItem, listActivity } from '../../lib/polish-client';
 import { AppShell } from '../../components/app-shell';
 import { PageHeader, Card, CardContent, Select, Avatar, Button, EmptyState, Skeleton } from '../../components/ui';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
-import { activityLabel } from '../../lib/labels';
+import { activitySentence } from '../../lib/labels';
 import { useFormat } from '../../lib/format-context';
 
 export default function ActivityPage() {
@@ -97,18 +98,26 @@ export default function ActivityPage() {
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-border-divider" data-testid="activity-list">
-                {events.map((ev) => (
-                  <div key={ev.id} data-testid={`activity-${ev.id}`} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={ev.userName ?? 'Someone'} size="sm" />
-                    <div className="min-w-0 flex-1 text-sm text-content">
-                      <span className="font-semibold text-content-strong">{ev.userName ?? 'Someone'}</span>{' '}
-                      <span className="text-content-muted">{activityLabel(ev.action, ev.entityType)}</span>
+                {events.map((ev) => {
+                  // What was done and to what — and, where it has a page, the way there.
+                  const said = activitySentence(ev, fmt.number);
+                  return (
+                    <div key={ev.id} data-testid={`activity-${ev.id}`} className="flex items-center gap-3 px-4 py-3">
+                      <Avatar name={ev.userName ?? 'Someone'} size="sm" />
+                      <div className="min-w-0 flex-1 text-sm text-content">
+                        <span className="font-semibold text-content-strong">{ev.userName ?? 'Someone'}</span>{' '}
+                        {said.href ? (
+                          <Link href={said.href} className="text-content-muted hover:text-accent-primary hover:underline">
+                            {said.text}
+                          </Link>
+                        ) : (
+                          <span className="text-content-muted">{said.text}</span>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-xs tabular-nums text-content-muted">{fmt.dateTime(ev.createdAt)}</span>
                     </div>
-                    <span className="shrink-0 text-xs tabular-nums text-content-muted">
-                      {fmt.dateTime(ev.createdAt)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

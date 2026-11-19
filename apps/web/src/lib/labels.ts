@@ -216,3 +216,60 @@ export function activityLabel(action: string, entityType: string | null | undefi
   const noun = entityLabel(entityType);
   return `${verb} ${article(noun)} ${noun}`;
 }
+
+/** Where a thing of each kind is read. A kind that is missing has no page of its own. */
+const ENTITY_PAGES: Readonly<Record<string, (id: string) => string>> = {
+  kpi: (id) => `/kpis/${id}`,
+  objective: (id) => `/okrs/${id}`,
+  dashboard: (id) => `/dashboards/${id}`,
+  scheduledreport: (id) => `/reports/${id}`,
+  user: (id) => `/users/${id}`,
+  task: () => '/tasks',
+  workflow: () => '/workflows',
+  orgunit: () => '/org-units',
+  alertrule: () => '/alerts/rules',
+};
+
+export interface ActivityRow {
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  metadata?: unknown;
+  subject?: { name: string | null; kpiId: string | null; kpiName: string | null };
+}
+
+/**
+ * An audit row as its reader needs it: what was done, to what, and where to
+ * read it. "created a KPI value" told nobody which KPI or what value.
+ * Falls back to `activityLabel` when the row knows nothing more.
+ */
+export function activitySentence(row: ActivityRow, formatNumber: (n: number) => string): { text: string; href: string | null } {
+  const meta = row.metadata && typeof row.metadata === 'object' ? (row.metadata as Record<string, unknown>) : {};
+  const subject = row.subject ?? { name: null, kpiId: null, kpiName: null };
+  const kind = (row.entityType ?? '').toLowerCase();
+  const gone = row.action === 'DELETE';
+  const kpiHref = subject.kpiId ? `/kpis/${subject.kpiId}` : null;
+  const num = (v: unknown): string | null => (typeof v === 'number' && Number.isFinite(v) ? formatNumber(v) : null);
+
+  if (kind === 'kpidatapoint' && subject.kpiName) {
+    const value = num(meta.value);
+    const from = num(meta.previousValue);
+    const to = num(meta.newValue);
+    if (row.action === 'CREATE' && value !== null) return { text: `recorded ${value} on ${subject.kpiName}`, href: kpiHref };
+    if (row.action === 'UPDATE' && from !== null && to !== null) return { text: `changed a value on ${subject.kpiName} from ${from} to ${to}`, href: kpiHref };
+    return { text: `${activityLabel(row.action, row.entityType)} on ${subject.kpiName}`, href: kpiHref };
+  }
+
+  const verb = labelFor(AUDIT_ACTION_LABELS, row.action).toLowerCase();
+  // Only something made or changed has a page to go and read: not a deletion, not a sign-in.
+  const made = row.action === 'CREATE' || row.action === 'UPDATE';
+  const page = made && row.entityId ? (ENTITY_PAGES[kind]?.(row.entityId) ?? null) : null;
+  const name = subject.name ?? (kind === 'kpi' ? subject.kpiName : null);
+  if (name && row.entityType) {
+    // A KPI's page is offered only while the KPI is still there to open.
+    const href = kind === 'kpi' ? (gone ? null : kpiHref) : page;
+    return { text: `${verb} the ${entityLabel(row.entityType)} “${name}”`, href };
+  }
+  if (subject.kpiName && kind !== 'kpi') return { text: `${activityLabel(row.action, row.entityType)} on ${subject.kpiName}`, href: kpiHref };
+  return { text: activityLabel(row.action, row.entityType), href: page };
+}

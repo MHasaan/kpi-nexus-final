@@ -33,8 +33,9 @@ const KIND_LABELS: Record<string, string> = { EMAIL: 'Do not email me alerts' };
 
 const DIGEST_OPTIONS: ReadonlyArray<{ value: 'OFF' | 'DAILY' | 'WEEKLY'; label: string }> = [
   { value: 'OFF', label: 'Off (immediate)' },
-  { value: 'DAILY', label: 'Daily 8am' },
-  { value: 'WEEKLY', label: 'Weekly Mon 8am' },
+  // The digest run is at 07:00 UTC (the weekly one on the Monday run): say that, as the profile's Preferences do.
+  { value: 'DAILY', label: 'Daily, at 07:00 UTC' },
+  { value: 'WEEKLY', label: 'Weekly, on Mondays at 07:00 UTC' },
 ];
 
 export default function NotificationSettingsPage() {

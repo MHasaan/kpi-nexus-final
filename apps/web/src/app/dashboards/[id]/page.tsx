@@ -544,10 +544,7 @@ function DashboardDetailInner() {
                 </Badge>
                 {canManage ? (
                   <p className="text-sm text-content-muted">
-                    No widgets yet. Click{' '}
-                    <span className="font-medium text-content-strong">Edit</span> then{' '}
-                    <span className="font-medium text-content-strong">Add widget</span>{' '}
-                    to add your first one.
+                    No widgets yet. Use <span className="font-medium text-content-strong">Add widget</span>, above, to add the first one.
                   </p>
                 ) : (
                   <p className="text-sm text-content-muted">This dashboard has no widgets yet.</p>

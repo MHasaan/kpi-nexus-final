@@ -620,6 +620,17 @@ function KpiRow({
                 </Button>
               </PermissionGuard>
             )}
+            {/* A per-unit or per-person value needs to know whose it is: the KPI's Data tab asks, and
+                says so plainly when there is nothing this person can record. */}
+            {kpi.scope !== 'ORG_WIDE' && (
+              <PermissionGuard permission="KPI_DATA_ENTRY">
+                <Link href={`/kpis/${kpi.id}?tab=data`} data-testid={`record-kpi-${kpi.name}`}>
+                  <Button variant="secondary" size="sm">
+                    Record value
+                  </Button>
+                </Link>
+              </PermissionGuard>
+            )}
             <PermissionGuard permission="KPI_EDIT">
               <Link href={`/kpis/${kpi.id}/edit`} data-testid={`kpi-edit-${kpi.id}`}>
                 <Button variant="ghost" size="sm">

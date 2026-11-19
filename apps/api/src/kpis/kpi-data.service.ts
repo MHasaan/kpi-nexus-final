@@ -29,7 +29,7 @@ import { AlertEngineProducer } from '../alert-engine/alert-engine.producer.js';
 import { CalculationEngineProducer } from '../calculation-engine/calculation-engine.producer.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { detectOutlier } from './outlier-detector.js';
-import { type KpiDirection, computeAssignmentStatus } from '../user-kpis/assignment-status.js';
+import { holderStanding } from '../user-kpis/assignment-status.js';
 import type { CorrectDataPointDto } from './dto/correct-data-point.dto.js';
 import type { RecordDataPointDto } from './dto/record-data-point.dto.js';
 import { type KpiHealthStatus, attainmentPct, kpiHealthStatus } from './kpi-health.js';
@@ -197,7 +197,7 @@ export class KpiDataService {
         kpiId: true,
         orgUnitId: true,
         targetValue: true,
-        kpi: { select: { scope: true, direction: true } },
+        kpi: { select: { scope: true, direction: true, targetValue: true } },
       },
     });
     if (!assignment) {
@@ -239,11 +239,8 @@ export class KpiDataService {
       recordedById: ctx.userId,
       dto,
     });
-    const status = computeAssignmentStatus(
-      point.value,
-      assignment.targetValue,
-      assignment.kpi.direction as KpiDirection,
-    );
+    // Against the holder's own target, or the KPI's when they have none of their own.
+    const { status } = holderStanding({ targetValue: assignment.targetValue, currentValue: point.value }, assignment.kpi);
     await this.prisma.kPIAssignmentOrgUnit.update({
       where: { id: assignment.id },
       data: { currentValue: point.value, status },
@@ -264,7 +261,7 @@ export class KpiDataService {
         kpiId: true,
         userId: true,
         targetValue: true,
-        kpi: { select: { scope: true, direction: true } },
+        kpi: { select: { scope: true, direction: true, targetValue: true } },
       },
     });
     if (!assignment) {
@@ -307,11 +304,8 @@ export class KpiDataService {
     });
 
     // Refresh the assignment's denormalized current value + progress status.
-    const status = computeAssignmentStatus(
-      point.value,
-      assignment.targetValue,
-      assignment.kpi.direction as KpiDirection,
-    );
+    // Against the holder's own target, or the KPI's when they have none of their own.
+    const { status } = holderStanding({ targetValue: assignment.targetValue, currentValue: point.value }, assignment.kpi);
     await this.prisma.kPIAssignmentUser.update({
       where: { id: assignment.id },
       data: { currentValue: point.value, status },
@@ -394,17 +388,22 @@ export class KpiDataService {
     // Holders of the per-person and per-unit KPIs, within what the caller may see — two queries
     // for the whole list. They decide whether a KPI's row may carry a single value (UI-018).
     const holdersByKpi = new Map<string, KpiHolders>();
-    const countHolder = (row: { kpiId: string; currentValue: number | null; status: string | null }) => {
+    const kpiById = new Map(filtered.map((k) => [k.id, k]));
+    const countHolder = (row: { kpiId: string; currentValue: number | null; targetValue: number | null }) => {
       const h = holdersByKpi.get(row.kpiId) ?? { total: 0, withValue: 0, onTrack: 0 };
       h.total += 1;
       if (row.currentValue !== null) h.withValue += 1;
-      if (row.currentValue !== null && (row.status === 'on_track' || row.status === 'exceeded')) h.onTrack += 1;
+      // Measured against the holder's own target, or the KPI's: a target set only on the KPI used to
+      // leave every holder with no status, so nobody was ever counted on track.
+      const kpi = kpiById.get(row.kpiId);
+      const status = kpi ? holderStanding(row, kpi).status : null;
+      if (status === 'on_track' || status === 'exceeded') h.onTrack += 1;
       holdersByKpi.set(row.kpiId, h);
     };
     const idsOf = (scope: string) => filtered.filter((k) => k.scope === scope).map((k) => k.id);
     const perUserIds = idsOf('PER_USER');
     const perUnitIds = idsOf('PER_UNIT');
-    const holderSelect = { kpiId: true, currentValue: true, status: true } as const;
+    const holderSelect = { kpiId: true, currentValue: true, targetValue: true } as const;
     if (perUserIds.length > 0) {
       const rows = await this.prisma.kPIAssignmentUser.findMany({
         where: { organizationId: ctx.organizationId, kpiId: { in: perUserIds }, ...kpiDataPointScopeWhere('PER_USER', visibility) },

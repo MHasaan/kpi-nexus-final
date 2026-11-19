@@ -29,7 +29,7 @@ interface FakeAssignment {
   currentValue: number | null;
   status: string | null;
   createdAt: Date;
-  kpi: { name: string; unit: string | null; categoryId: string | null };
+  kpi: { name: string; unit: string | null; categoryId: string | null; targetValue?: number | null; direction?: string };
 }
 
 class FakePrisma {
@@ -59,6 +59,8 @@ class FakePrisma {
             kpi: {
               name: a.kpi.name,
               unit: a.kpi.unit,
+              targetValue: a.kpi.targetValue ?? null,
+              direction: a.kpi.direction ?? 'HIGHER_IS_BETTER',
               // Mirror Prisma: only return the column the service actually selects.
               ...(wantCategory ? { categoryId: a.kpi.categoryId } : {}),
             },
@@ -180,5 +182,43 @@ describe('UserKpisService.listForUser — PEOPLE scope (BE-004)', () => {
     (prisma as unknown as { user: unknown }).user = { findFirst: vi.fn(async () => ({ id: 'u_other' })) };
     accessContext.people = [ME];
     await expect(withCtx(() => service.listForUser('u_other'))).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+// Flow walk (per-person KPIs): "My KPIs" showed no target and no status for a KPI whose target
+// was set on the KPI and not on the person.
+describe('UserKpisService.listMyKpis — the target a person is measured against', () => {
+  test('with no target of their own, a person gets the KPI\'s target and a status worked out from it', async () => {
+    const { service, prisma } = makeService();
+    prisma.assignments.push(
+      {
+        id: 'asg_calls',
+        organizationId: ORG,
+        userId: ME,
+        kpiId: 'kpi_calls',
+        targetValue: null,
+        currentValue: 45,
+        status: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        kpi: { name: 'Calls made', unit: null, categoryId: null, targetValue: 40, direction: 'HIGHER_IS_BETTER' },
+      },
+      {
+        id: 'asg_demos',
+        organizationId: ORG,
+        userId: ME,
+        kpiId: 'kpi_demos',
+        targetValue: 10,
+        currentValue: 5,
+        status: 'exceeded', // stale: what is stored is not what is shown
+        createdAt: new Date('2026-01-02T00:00:00Z'),
+        kpi: { name: 'Demos', unit: null, categoryId: null, targetValue: 4, direction: 'HIGHER_IS_BETTER' },
+      },
+    );
+    const rows = await withCtx(() => service.listMyKpis());
+    expect(rows.map((r) => [r.name, r.targetValue, r.status])).toEqual([
+      ['Calls made', 40, 'exceeded'],
+      // Her own target of 10 wins over the KPI's 4: half way there is behind.
+      ['Demos', 10, 'behind'],
+    ]);
   });
 });

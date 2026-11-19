@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { holderStanding } from './assignment-status.js';
 import type { AssignUserKpiDto } from './dto/user-kpi.dto.js';
 
 export interface MyKpiRow {
@@ -136,7 +137,7 @@ export class UserKpisService {
         targetValue: true,
         currentValue: true,
         status: true,
-        kpi: { select: { name: true, unit: true, frequency: true, categoryId: true } },
+        kpi: { select: { name: true, unit: true, frequency: true, categoryId: true, targetValue: true, direction: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -148,9 +149,9 @@ export class UserKpisService {
         name: r.kpi.name,
         unit: r.kpi.unit,
         frequency: r.kpi.frequency,
-        targetValue: r.targetValue,
+        // Their own target, or the KPI's when they have none; their status against that.
+        ...holderStanding(r, r.kpi),
         currentValue: r.currentValue,
-        status: r.status,
       }));
   }
 }

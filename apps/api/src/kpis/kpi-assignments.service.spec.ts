@@ -38,7 +38,8 @@ beforeEach(() => {
 
 describe('KpiAssignmentsService.listForKpi (UI-004)', () => {
   it('a PER_UNIT KPI lists its units with their own value and target', async () => {
-    mockPrisma.kPI.findFirst.mockResolvedValue({ id: 'k1', scope: 'PER_UNIT', categoryId: null });
+    // The status is worked out from the value and the target, not read from what was stored.
+    mockPrisma.kPI.findFirst.mockResolvedValue({ id: 'k1', scope: 'PER_UNIT', categoryId: null, targetValue: null, direction: 'HIGHER_IS_BETTER' });
     mockPrisma.kPIAssignmentOrgUnit.findMany.mockResolvedValue([
       {
         id: 'a1',
@@ -68,7 +69,7 @@ describe('KpiAssignmentsService.listForKpi (UI-004)', () => {
   });
 
   it('a PER_USER KPI lists its people', async () => {
-    mockPrisma.kPI.findFirst.mockResolvedValue({ id: 'k2', scope: 'PER_USER', categoryId: null });
+    mockPrisma.kPI.findFirst.mockResolvedValue({ id: 'k2', scope: 'PER_USER', categoryId: null, targetValue: null, direction: 'HIGHER_IS_BETTER' });
     mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
       { id: 'a2', userId: 'u9', targetValue: 5, currentValue: 6, status: 'exceeded', user: { fullName: 'Aisha Khan' } },
     ]);
@@ -77,6 +78,16 @@ describe('KpiAssignmentsService.listForKpi (UI-004)', () => {
       { assignmentId: 'a2', userId: 'u9', name: 'Aisha Khan', targetValue: 5, currentValue: 6, status: 'exceeded' },
     ]);
     expect(result.units).toEqual([]);
+  });
+
+  // Flow walk (per-person KPIs): a target set on the KPI and not on the person gave them no target and no status.
+  it('a person with no target of their own is listed against the KPI\'s target', async () => {
+    mockPrisma.kPI.findFirst.mockResolvedValue({ id: 'k2', scope: 'PER_USER', categoryId: null, targetValue: 40, direction: 'HIGHER_IS_BETTER' });
+    mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
+      { id: 'a2', userId: 'u9', targetValue: null, currentValue: 45, status: null, user: { fullName: 'Aisha Khan' } },
+    ]);
+    const result = await makeSvc().listForKpi('k2');
+    expect(result.users).toEqual([{ assignmentId: 'a2', userId: 'u9', name: 'Aisha Khan', targetValue: 40, currentValue: 45, status: 'exceeded' }]);
   });
 
   it('an ORG_WIDE KPI has no assignments to list, and nothing is queried', async () => {

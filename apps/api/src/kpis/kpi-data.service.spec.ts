@@ -108,8 +108,8 @@ describe('KpiDataService.dashboardSummary — per-person and per-unit KPIs', () 
     mockPrisma.kPI.findMany.mockResolvedValue([perPerson]);
     mockPrisma.kPIDataPoint.findMany.mockResolvedValue(twoValues);
     mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
-      { kpiId: 'kpi_calls', currentValue: 44, status: 'on_track' },
-      { kpiId: 'kpi_calls', currentValue: 22, status: 'behind' },
+      { kpiId: 'kpi_calls', currentValue: 44, targetValue: 40, status: 'on_track' },
+      { kpiId: 'kpi_calls', currentValue: 22, targetValue: 40, status: 'behind' },
     ]);
     const [row] = await makeSvc().dashboardSummary();
     expect(row!.holders).toEqual({ total: 2, withValue: 2, onTrack: 1 });
@@ -120,6 +120,21 @@ describe('KpiDataService.dashboardSummary — per-person and per-unit KPIs', () 
     expect(row!.status).toBe('AT_RISK');
     // The holders are counted inside the organisation.
     expect((mockPrisma.kPIAssignmentUser.findMany.mock.calls[0]![0] as { where: { organizationId: string } }).where.organizationId).toBe(ORG);
+  });
+
+  // A target set on the KPI, none on the people: each is measured against the KPI's. They used to
+  // count as nobody on track, whatever they recorded, because no status was ever worked out for them.
+  it('holders with no target of their own are counted against the KPI\'s target', async () => {
+    mockPrisma.kPI.findMany.mockResolvedValue([{ ...perPerson, targetValue: 40 }]);
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue(twoValues);
+    mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
+      { kpiId: 'kpi_calls', currentValue: 44, targetValue: null, status: null },
+      { kpiId: 'kpi_calls', currentValue: 22, targetValue: null, status: null },
+      // Her own target is higher than the KPI's: 44 does not reach it.
+      { kpiId: 'kpi_calls', currentValue: 44, targetValue: 100, status: null },
+    ]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.holders).toEqual({ total: 3, withValue: 3, onTrack: 1 });
   });
 
   it('seen by its one holder: their own value, as before', async () => {

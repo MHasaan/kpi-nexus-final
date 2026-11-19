@@ -483,6 +483,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (phone): at 375 px the home page’s range switch broke each option onto three lines (“Last / 7 / days”) | ✅ Fixed — a segmented switch keeps an option on one line; the header row wraps | #350 | `e2e/home-range-on-a-phone.spec.ts` |
 | Flow walk (new KPI): a per-person KPI made with nobody ticked failed with “PER_USER KPIs require at least one userId”; the form said it could be “assigned later” | ✅ Fixed — checked before sending, said in words beside the list; the “assign later” text is gone | #351 | `e2e/scoped-kpi-needs-someone-chosen.spec.ts` |
 | Flow walk (new KPI): the form said “Draft KPIs are hidden from most views until Active”, which is not so | ✅ Fixed — says what the KPI list says | #352 | `e2e/kpi-draft-note.spec.ts` |
+| Flow walk (per-person and per-unit KPIs): a KPI’s target did not reach the people or units holding it — no target on My KPIs, no status, nobody ever counted on track | ✅ Fixed — a holder is measured against their own target, else the KPI’s, when recording and wherever it is read; the stored status is no longer relied on | #353 | `assignment-status.spec.ts` (+3), `kpi-data.service.spec.ts` (+1), `user-kpis.service.spec.ts` (+1), `kpi-assignments.service.spec.ts` (+1), `e2e/holder-measured-against-kpi-target.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

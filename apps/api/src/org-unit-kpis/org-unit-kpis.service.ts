@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { isCategoryAllowed } from '../rbac/visibility/kpi-visibility.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
+import { holderStanding } from '../user-kpis/assignment-status.js';
 import { type UnitNode, computeInheritedAssignments } from './inheritance.js';
 
 export interface UnitKpiRow {
@@ -110,7 +111,7 @@ export class OrgUnitKpisService {
         targetValue: true,
         currentValue: true,
         status: true,
-        kpi: { select: { name: true, unit: true, categoryId: true } },
+        kpi: { select: { name: true, unit: true, categoryId: true, targetValue: true, direction: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -123,9 +124,9 @@ export class OrgUnitKpisService {
         unit: r.kpi.unit,
         inherited: r.inherited,
         inheritedFromUnitId: r.inheritedFromUnitId,
-        targetValue: r.targetValue,
+        // The unit's own target, or the KPI's when it has none; its status against that.
+        ...holderStanding(r, r.kpi),
         currentValue: r.currentValue,
-        status: r.status,
       }));
   }
 

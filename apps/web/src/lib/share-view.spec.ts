@@ -38,6 +38,14 @@ describe('shareKpi', () => {
 });
 
 describe('shareCell', () => {
+  // Flow walk (dashboards): an old fault saved new widgets one cell by one. On the shared page such a
+  // widget was drawn in that one cell: a sliver with its title cut off.
+  test('a widget saved smaller than two cells by two is not pinned to that sliver: it flows at the usual size', () => {
+    expect(shareCell({ x: 0, y: 2, w: 1, h: 1 })).toBeNull();
+    expect(shareCell({ x: 0, y: 2, w: 3, h: 1 })).toBeNull();
+    expect(shareCell({ x: 0, y: 2, w: 2, h: 2 })).toEqual({ column: '1 / span 2', row: '3 / span 2' });
+  });
+
   test('grid lines from the stored position', () => {
     expect(shareCell({ x: 4, y: 2, w: 8, h: 3 })).toEqual({ column: '5 / span 8', row: '3 / span 3' });
   });

@@ -7,6 +7,7 @@ import {
   draftShapeProblems,
   normalizeSizeTier,
   validateOnboardingDraft,
+  unitForNewKpi,
 } from '@kpi-nexus/contracts';
 import * as bcrypt from 'bcrypt';
 
@@ -396,7 +397,8 @@ export class OnboardingService {
               type: k.type,
               direction: k.direction,
               frequency: k.frequency,
-              unit: k.unit ?? null,
+              // A money KPI with no unit of its own takes the organisation's currency.
+              unit: unitForNewKpi(k.type, k.unit, org.currency),
               scorecardQuadrant: k.scorecardQuadrant ?? null,
               targetValue: k.targetValue ?? null,
               // Someone answers for every KPI from day one (plan 3.2b).

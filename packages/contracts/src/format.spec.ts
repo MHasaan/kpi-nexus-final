@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DATE_FORMATS, DEFAULT_FORMAT_SETTINGS, NUMBER_FORMATS, formatCurrency, formatDate, formatDateTime, formatDay, formatNumber, formatSettingsOf } from './format.js';
+import { DATE_FORMATS, DEFAULT_FORMAT_SETTINGS, NUMBER_FORMATS, formatCurrency, formatDate, formatDateTime, formatDay, formatNumber, formatSettingsOf, unitForNewKpi } from './format.js';
 
 const base = DEFAULT_FORMAT_SETTINGS;
 
@@ -70,5 +70,25 @@ describe('numbers', () => {
   it("puts the organisation's currency in front of the number", () => {
     expect(formatCurrency(1234.5, base)).toBe('$1,234.50');
     expect(formatCurrency(1234.5, { ...base, currency: 'EUR', numberFormat: '1.234,56' })).toBe('€1.234,50');
+  });
+});
+
+describe('unitForNewKpi', () => {
+  it("gives a money KPI with no unit the organisation's currency", () => {
+    expect(unitForNewKpi('CURRENCY', undefined, 'PKR')).toBe('PKR');
+    expect(unitForNewKpi('CURRENCY', '   ', 'pkr')).toBe('PKR');
+    expect(unitForNewKpi('CURRENCY', null, 'USD')).toBe('USD');
+  });
+
+  it('keeps a unit the person typed', () => {
+    expect(unitForNewKpi('CURRENCY', ' USD ', 'PKR')).toBe('USD');
+    expect(unitForNewKpi('NUMBER', 'orders', 'PKR')).toBe('orders');
+  });
+
+  it('gives no unit to another kind of KPI, or when the currency is unusable', () => {
+    expect(unitForNewKpi('COUNT', undefined, 'PKR')).toBeNull();
+    expect(unitForNewKpi(undefined, undefined, 'PKR')).toBeNull();
+    expect(unitForNewKpi('CURRENCY', undefined, 'rupees')).toBeNull();
+    expect(unitForNewKpi('CURRENCY', undefined, null)).toBeNull();
   });
 });

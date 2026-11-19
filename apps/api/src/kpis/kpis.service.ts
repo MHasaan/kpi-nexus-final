@@ -7,6 +7,7 @@ import {
   Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { unitForNewKpi } from '@kpi-nexus/contracts';
 import type { Prisma } from '@kpi-nexus/db';
 
 import { ApprovalGateService } from '../approvals/approval-gate.service.js';
@@ -169,6 +170,13 @@ export class KpisService {
       }
     }
 
+    // A money KPI with no unit of its own takes the organisation's currency.
+    let unit: string | null | undefined = dto.unit;
+    if (dto.type === 'CURRENCY' && !dto.unit?.trim()) {
+      const org = await this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { currency: true } });
+      unit = unitForNewKpi(dto.type, dto.unit, org?.currency);
+    }
+
     try {
       // Set inside the transaction when PER_UNIT units were assigned, so the
       // inherited rows can be rebuilt once the KPI exists.
@@ -180,7 +188,7 @@ export class KpisService {
             categoryId: dto.categoryId,
             name: dto.name,
             description: dto.description,
-            unit: dto.unit,
+            unit,
             scope: dto.scope,
             type: dto.type,
             direction: dto.direction,

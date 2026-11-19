@@ -8,6 +8,7 @@ import {
   hasAny,
   hasPermission,
 } from './permissions';
+import { freshSession, samePermissions } from './session-refresh';
 
 export interface UsePermissionsResult {
   /** The resolved permission keys for the current user. */
@@ -69,6 +70,11 @@ export function usePermissions(): UsePermissionsResult {
       setPermissions(cached);
       setAuthenticated(true);
       setReady(true);
+      // The kept copy draws the page at once; the server is then asked whether it still holds. A role
+      // changed by an administrator used to show only after signing out and in again.
+      void freshSession().then((fresh) => {
+        if (!cancelled && fresh && !samePermissions(fresh.permissions, cached)) setPermissions(fresh.permissions);
+      });
       return () => {
         cancelled = true;
       };

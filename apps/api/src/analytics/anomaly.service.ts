@@ -22,6 +22,9 @@ export interface DetectedAnomaly extends MlAnomaly {
   id?: string;
 }
 
+/** A stored anomaly with the value it was found on (null once that value is gone). */
+export type AnomalyWithPoint = AnomalyDetection & { point: { value: number; periodStart: Date } | null };
+
 export interface AnomalyDetectResult {
   anomalies: DetectedAnomaly[];
 }
@@ -116,7 +119,7 @@ export class AnomalyService {
   async list(
     kpiId: string,
     filter: { from?: Date; to?: Date; isConfirmed?: boolean },
-  ): Promise<AnomalyDetection[]> {
+  ): Promise<AnomalyWithPoint[]> {
     const ctx = RequestContextStore.require();
     const kpi = await requireAnalyticsKpi(this.kpis, this.accessContext, kpiId); // KPI visibility + ANALYTICS scope (BE-004)
     const rows = await this.prisma.anomalyDetection.findMany({
@@ -133,14 +136,26 @@ export class AnomalyService {
     });
     // Keep only anomalies on points the caller may read (BE-034).
     const pointScope = await this.accessContext.analyticsPointScopeWhere(kpi.scope);
-    if (Object.keys(pointScope).length === 0) return rows;
-    const ids = rows.map((r) => r.dataPointId).filter((id): id is string => id !== null);
-    const readable = await this.prisma.kPIDataPoint.findMany({
-      where: { organizationId: ctx.organizationId, kpiId, id: { in: ids }, ...pointScope },
-      select: { id: true },
-    });
-    const allowed = new Set(readable.map((p) => p.id));
-    return rows.filter((r) => r.dataPointId !== null && allowed.has(r.dataPointId));
+    let shown = rows;
+    if (Object.keys(pointScope).length > 0) {
+      const ids = rows.map((r) => r.dataPointId).filter((id): id is string => id !== null);
+      const readable = await this.prisma.kPIDataPoint.findMany({
+        where: { organizationId: ctx.organizationId, kpiId, id: { in: ids }, ...pointScope },
+        select: { id: true },
+      });
+      const allowed = new Set(readable.map((p) => p.id));
+      shown = rows.filter((r) => r.dataPointId !== null && allowed.has(r.dataPointId));
+    }
+    // Which value each one is about, and when: a score and a method alone tell a reader nothing.
+    const pointIds = shown.map((r) => r.dataPointId).filter((id): id is string => id !== null);
+    const points = pointIds.length
+      ? await this.prisma.kPIDataPoint.findMany({
+          where: { organizationId: ctx.organizationId, kpiId, id: { in: pointIds } },
+          select: { id: true, value: true, periodStart: true },
+        })
+      : [];
+    const byId = new Map(points.map((p) => [p.id, { value: Number(p.value), periodStart: p.periodStart }]));
+    return shown.map((r) => ({ ...r, point: (r.dataPointId ? byId.get(r.dataPointId) : undefined) ?? null }));
   }
 
   /**

@@ -77,6 +77,10 @@ test('anomalies page: chart renders, detect & save flags the spike, confirm work
 
   const row = page.locator('[data-testid^="anom-row-"]').first();
   await expect(row).toBeVisible({ timeout: 10_000 });
+  // Flow walk (anomalies): a saved anomaly was a score and a method. It says which value, and when: the 100 recorded for October.
+  await expect(page.getByTestId('anom-saved').getByRole('columnheader')).toHaveText(['Period', 'Value', 'How unusual', 'Method', 'State']);
+  await expect(row).toContainText('2026-10-01');
+  await expect(row).toContainText('100');
   await row.locator('[data-testid^="anom-confirm-"]').click();
   await expect(page.locator('[data-testid^="anom-confirmed-"]').first()).toBeVisible({ timeout: 10_000 });
 });

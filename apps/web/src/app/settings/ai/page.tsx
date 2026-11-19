@@ -585,10 +585,11 @@ export default function AiSettingsPage() {
                   Daily usage resets at 00:00 UTC; the monthly cap resets on the 1st (UTC).
                 </p>
                 <p className="text-xs text-content-muted" data-testid="ai-circuit-breaker-legend">
+                  {/* In the words of the choice above: it used to explain "Fail closed" and "Fallback", which nothing on the page is called. */}
                   <span className="font-medium text-content-strong">Over budget?</span>{' '}
-                  <span className="font-medium">Fail closed</span> blocks further AI calls until
-                  the cap resets. <span className="font-medium">Fallback</span> keeps AI working by
-                  switching each feature to its cheaper fallback model.
+                  <span className="font-medium">“Stop AI until it resets”</span> refuses further AI calls until
+                  the cap resets. <span className="font-medium">“Use each feature’s fallback model”</span> keeps AI
+                  working by switching each feature to its cheaper fallback model.
                 </p>
               </CardContent>
             </Card>

@@ -515,6 +515,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (settings): the Settings page filed Notifications, AI, Data retention and Custom domain under “Integrations” | ✅ Fixed — each is under a heading that fits it; links and addresses unchanged | #382 | `e2e/settings-hub-groups.spec.ts` |
 | Flow walk (settings): Settings → Organization asked for the currency and the language as text typed from memory (“PKR”, “en-US”); the wizard offers lists | ✅ Fixed — the same lists as the wizard | #383 | `e2e/org-settings-offer-currency-and-language.spec.ts` |
 | Flow walk (settings): Settings → Notifications offered the digest as “Daily 8am” / “Weekly Mon 8am”; it is sent at 07:00 UTC | ✅ Fixed — the choices say 07:00 UTC, as Account settings already did | #384 | `e2e/digest-time-is-said-right.spec.ts` |
+| Flow walk (settings): AI settings explained a reached cap as “Fail closed” and “Fallback”, names nothing on the page has | ✅ Fixed — the note uses the names of the two choices | #385 | `e2e/ai-budget-help-in-the-choices-words.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

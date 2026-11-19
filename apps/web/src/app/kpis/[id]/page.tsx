@@ -95,7 +95,7 @@ import {
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
-import { ASSIGNMENT_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useAllowed } from '../../../lib/use-allowed';
 import { attainmentOf } from '../../../lib/attainment';
@@ -1176,9 +1176,10 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       <TabLoadError error={loadError} onRetry={reload} />
       <UICard>
         <CardContent>
-          <p className="text-sm text-content-muted">
+          <p className="text-sm text-content-muted" data-testid="band-status">
             Current band:{' '}
-            <span className="font-medium text-content-strong">{status?.band ?? status?.reason ?? '—'}</span>
+            {/* The band's own name, or in words why there is none ("no_bands" was the stored reason). */}
+            <span className="font-medium text-content-strong">{status?.band ?? labelFor(BAND_STATUS_LABELS, status?.reason)}</span>
           </p>
         </CardContent>
       </UICard>

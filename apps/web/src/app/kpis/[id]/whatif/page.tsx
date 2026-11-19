@@ -31,6 +31,7 @@ import {
 import { BarChart } from '../../../../components/charts';
 import { ApiError, api, getAccessToken } from '../../../../lib/api-client';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
+import { useFormat } from '../../../../lib/format-context';
 
 interface WhatIfResult {
   baseline: number[];
@@ -74,6 +75,9 @@ function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
   );
 }
 
+/** Worked-out figures: two decimals at most. */
+const figures = { maximumFractionDigits: 2 };
+
 export default function WhatIfPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -108,14 +112,15 @@ export default function WhatIfPage() {
   };
 
   const sc = result?.scenarios[0];
+  const fmt = useFormat();
 
   const beforeAfter = useMemo(() => {
     if (!result || !sc) return [];
     const baseSum = result.baseline.reduce((a, b) => a + b, 0);
     const scSum = sc.values.reduce((a, b) => a + b, 0);
     return [
-      { label: 'Before', value: baseSum, color: 'hsl(var(--chart-2))' },
-      { label: 'After', value: scSum, color: 'hsl(var(--accent-primary))' },
+      { label: 'As recorded', value: baseSum, color: 'hsl(var(--chart-2))' },
+      { label: 'With the change', value: scSum, color: 'hsl(var(--accent-primary))' },
     ];
   }, [result, sc]);
 
@@ -127,7 +132,7 @@ export default function WhatIfPage() {
      <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
         title={heading.title}
-        subtitle="Explore how changing a driver moves this KPI. Assumes a linear relationship between driver and outcome."
+        subtitle="See what this KPI's recent values would add up to if each one were higher or lower by an amount you choose."
       />
 
       <AnalyticsNav kpiId={id} active="whatif" />
@@ -142,24 +147,24 @@ export default function WhatIfPage() {
         {/* Controls */}
         <Card>
           <CardHeader>
-            <CardTitle>Scenario</CardTitle>
+            <CardTitle>The change</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="wi-mechanic">Mechanic</Label>
+              <Label htmlFor="wi-mechanic">Change each value by</Label>
               <Select
                 id="wi-mechanic"
                 data-testid="wi-mechanic"
                 value={mechanic}
                 onChange={(e) => setMechanic(e.target.value as 'additive' | 'multiplicative')}
               >
-                <option value="multiplicative">multiplicative (%)</option>
-                <option value="additive">additive (absolute)</option>
+                <option value="multiplicative">a percentage</option>
+                <option value="additive">a fixed amount</option>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="wi-delta">
-                {mechanic === 'multiplicative' ? 'Delta %' : 'Delta (absolute)'}
+                {mechanic === 'multiplicative' ? 'Percent' : 'Amount'}
               </Label>
               <Input
                 id="wi-delta"
@@ -176,9 +181,11 @@ export default function WhatIfPage() {
               onClick={run}
               isLoading={busy}
             >
-              Simulate
+              Work it out
             </Button>
-            <p className="text-xs text-content-muted">Assumes a linear relationship.</p>
+            <p className="text-xs text-content-muted">
+              Use a minus sign to lower the values. The change is applied to the last 12 recorded values. It is arithmetic on your own figures, not a prediction.
+            </p>
           </CardContent>
         </Card>
 
@@ -189,12 +196,12 @@ export default function WhatIfPage() {
               <div className="grid grid-cols-2 gap-4">
                 <Card>
                   <CardContent className="p-4">
-                    <Metric label="Aggregate lift" value={sc.aggregateLift.toFixed(2)} size="md" />
+                    <Metric label="Difference in the total" value={fmt.number(sc.aggregateLift, figures)} size="md" />
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="flex flex-col gap-1 p-4">
-                    <span className="kn-eyebrow">Lift %</span>
+                    <span className="kn-eyebrow">Difference, in %</span>
                     <span data-testid="wi-lift-pct">
                       <Delta value={sc.aggregateLiftPct} pct={sc.aggregateLiftPct} decimals={1} />
                     </span>
@@ -204,26 +211,30 @@ export default function WhatIfPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Before → after</CardTitle>
+                  <CardTitle>The total of those values</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div data-testid="wi-chart">
-                    <BarChart data={beforeAfter} aria-label="Aggregate before vs after the scenario" />
+                    <BarChart data={beforeAfter} aria-label="The total as recorded, and with the change" />
                   </div>
+                  {/* The two bars carried no words or figures: which was which was a guess. */}
+                  <p className="mt-2 text-sm tabular-nums text-content" data-testid="wi-totals">
+                    {beforeAfter.map((bar) => `${bar.label}: ${fmt.number(bar.value, figures)}`).join(' · ')}
+                  </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Per-period projection</CardTitle>
+                  <CardTitle>Value by value</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead className="text-right">Baseline</TableHead>
-                        <TableHead className="text-right">Scenario</TableHead>
+                        <TableHead>Value</TableHead>
+                        <TableHead className="text-right">As recorded</TableHead>
+                        <TableHead className="text-right">With the change</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -231,10 +242,10 @@ export default function WhatIfPage() {
                         <TableRow key={i}>
                           <TableCell className="tabular-nums text-content-muted">{i + 1}</TableCell>
                           <TableCell className="text-right tabular-nums text-content-strong">
-                            {b.toFixed(2)}
+                            {fmt.number(b, figures)}
                           </TableCell>
                           <TableCell className="text-right tabular-nums text-content-strong">
-                            {sc.values[i]?.toFixed(2) ?? '—'}
+                            {sc.values[i] === undefined ? '—' : fmt.number(sc.values[i], figures)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -248,8 +259,8 @@ export default function WhatIfPage() {
               <CardContent>
                 <EmptyState
                   icon={SlidersHorizontal}
-                  title="No simulation yet"
-                  description="Set a mechanic and delta, then run a simulation to see the projected impact."
+                  title="Nothing worked out yet"
+                  description="Choose a change on the left and press Work it out."
                 />
               </CardContent>
             </Card>

@@ -496,6 +496,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (first use): step 1 of the setup wizard offered “Sunday (default)” for the first day of the week; the default is Monday | ✅ Fixed — the untouched choice reads “Monday (default)” | #363 | `e2e/wizard-organization-step.spec.ts` |
 | Flow walk (first use): the home page’s “Recent activity” read “Nadia Founder CREATE KPIDataPoint” — stored codes, not which KPI or what value | ✅ Fixed — it uses the Activity page’s sentence (“recorded 12,500 on Orders delivered”) and links to what the row is about | #364 | `e2e/home-activity-says-what.spec.ts` |
 | Flow walk (first use): on a KPI’s Data tab a recorded 42000 read “42000”, and a correction “42000 → 43500”, beside an Overview reading “42,000” | ✅ Fixed — the values table and the correction history use the organisation’s number format | #365 | `e2e/kpi-values-table-formats-figures.spec.ts` |
+| Flow walk (first use): a note typed when recording a value was never seen again — the values table had no place for it, and a per-person KPI’s own page did not send it | ✅ Fixed — the table has a Note column and that form sends the note | #366 | `e2e/value-note-is-kept-and-shown.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

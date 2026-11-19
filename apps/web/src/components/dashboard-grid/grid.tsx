@@ -135,6 +135,9 @@ export function DashboardGrid({
   }
 
   if (widgets.length === 0) {
+    // Outside edit mode the page says the dashboard is empty, in words that fit the reader
+    // (someone who can add widgets, or someone who cannot). Saying it here too said it twice.
+    if (!editMode) return null;
     return (
       <div
         data-testid="dashboard-widgets-empty"

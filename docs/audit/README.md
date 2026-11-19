@@ -471,6 +471,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (sessions): every session read “Unknown device” — none was written with its browser; the top bar called the page “Inbox” | ✅ Fixed — sign-up, sign-in, invitation and renewal write the browser and address; the page shows “Firefox on Windows”; the top bar reads “You / Sessions” | #338 | `refresh-token.service.spec.ts` (4), `device-label.spec.ts` (3), `e2e/sessions-name-the-device.spec.ts` |
 | Flow walk (roles): the administrator role was listed with “0” permissions beside a fully ticked matrix | ✅ Fixed — reads “All” | #339 | `e2e/admin-role-count.spec.ts` |
 | Flow walk (new dashboard): ticking the first starter KPI put a “1 selected” line above the list, moving every row down under the pointer | ✅ Fixed — the count sits below the list | #340 | `e2e/starter-list-does-not-jump.spec.ts` |
+| Flow walk (dashboards): an empty dashboard said “no widgets yet” twice, and told its reader to click Edit before Add widget | ✅ Fixed — one message, pointing at Add widget | #341 | `e2e/dashboard-viewer-buttons.spec.ts`, `e2e/dashboard-builder.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

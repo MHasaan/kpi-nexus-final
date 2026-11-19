@@ -23,9 +23,17 @@
  */
 
 import { beforeAll, describe, expect, test } from 'vitest';
+import { Queue } from 'bullmq';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 const MAILHOG_URL = process.env.MAILHOG_URL ?? 'http://localhost:8025';
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
+
+/** BullMQ's connection to the Redis the API uses, to read the report schedules it really holds. */
+function redisConnection(): { host: string; port: number; password?: string } {
+  const url = new URL(REDIS_URL);
+  return { host: url.hostname, port: Number(url.port || 6379), ...(url.password ? { password: decodeURIComponent(url.password) } : {}) };
+}
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
@@ -285,5 +293,50 @@ describe('Scheduled Reports', () => {
       token: tokenB,
     });
     expect(crossOrgRes.status).toBe(404);
+  });
+
+  // 2026-11-20: a report's schedule could never be removed. BullMQ gives its old-style entries no id to
+  // find them by, so a changed time left the old schedule running beside the new one — the report went
+  // out at both — and pausing or deleting a report left its schedule behind. This reads what BullMQ holds.
+  test('a changed time replaces the report’s schedule; pausing and deleting remove it', async () => {
+    if (!apiAvailable) return;
+    const queue = new Queue('scheduled-report', { connection: redisConnection() });
+    try {
+      const { accessToken: token } = await registerOrg(suffix());
+      const before = await queue.getJobSchedulersCount();
+
+      const created = await http<{ id: string }>('/scheduled-reports', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ name: 'Weekly numbers', cron: '0 9 * * 1', format: 'CSV', recipients: ['team@sched.test.local'] }),
+      });
+      expect(created.status).toBe(201);
+      const id = created.body!.id;
+      const own = () => queue.getJobScheduler(`scheduled-report-${id}`);
+      const patch = (body: Record<string, unknown>) => http(`/scheduled-reports/${id}`, { method: 'PATCH', token, body: JSON.stringify(body) });
+
+      expect((await own())?.pattern).toBe('0 9 * * 1');
+      expect(await queue.getJobSchedulersCount()).toBe(before + 1);
+
+      // A new time: one schedule, at the new time only.
+      expect((await patch({ cron: '0 10 * * 2' })).status).toBe(200);
+      expect((await own())?.pattern).toBe('0 10 * * 2');
+      expect(await queue.getJobSchedulersCount()).toBe(before + 1);
+
+      // Paused: no schedule. Resumed: back, once.
+      expect((await patch({ isActive: false })).status).toBe(200);
+      expect(await own()).toBeUndefined();
+      expect(await queue.getJobSchedulersCount()).toBe(before);
+      expect((await patch({ isActive: true })).status).toBe(200);
+      expect((await own())?.pattern).toBe('0 10 * * 2');
+      expect(await queue.getJobSchedulersCount()).toBe(before + 1);
+
+      // Deleted: no schedule.
+      expect((await http(`/scheduled-reports/${id}`, { method: 'DELETE', token })).status).toBe(204);
+      expect(await own()).toBeUndefined();
+      expect(await queue.getJobSchedulersCount()).toBe(before);
+    } finally {
+      await queue.close();
+    }
   });
 });

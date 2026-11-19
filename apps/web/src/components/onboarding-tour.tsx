@@ -15,14 +15,41 @@ import { completeTour, meRequest } from '../lib/api-client';
  */
 const LEGACY_BROWSER_FLAG = 'kpi-nexus.tour-completed';
 
-const SLIDES = [
-  { title: 'Welcome to KPI Nexus', body: 'Your workspace for measuring what matters. Let’s take a quick tour.' },
-  { title: 'KPIs', body: 'Define metrics with formulas, targets, and thresholds. Record values and watch trends.' },
-  // Named as the menu names them: there is no page called "Strategy map" to go and find.
-  { title: 'Scorecard and tree', body: 'Place KPIs on a balanced scorecard, and link them in a tree so one feeds another. Both are under KPIs.' },
-  { title: 'Alerts & digests', body: 'Get notified when KPIs breach thresholds — with escalation and a daily digest.' },
-  { title: 'AI insights', body: 'Ask questions in plain English, get auto-generated insights, anomalies, and forecasts.' },
-];
+export interface TourSlide {
+  title: string;
+  body: string;
+}
+
+/**
+ * The slides for one person: only what they can open, in words that fit what
+ * they can do there. The tour used to be the same five for everyone — a Viewer
+ * was told to "define metrics with formulas" and shown alerts and AI pages
+ * their menu does not have.
+ */
+export function tourSlides(has: (permission: string) => boolean): TourSlide[] {
+  const slides: TourSlide[] = [
+    { title: 'Welcome to KPI Nexus', body: 'Your workspace for measuring what matters. Let’s take a quick tour.' },
+  ];
+  if (has('KPI_VIEW')) {
+    slides.push({
+      title: 'KPIs',
+      body: has('KPI_CREATE')
+        ? 'Define metrics with formulas, targets, and thresholds. Record values and watch trends.'
+        : has('KPI_DATA_ENTRY')
+          ? 'Open a KPI to see its target and its trend. The KPIs you hold are under My KPIs: record your values there.'
+          : 'Open a KPI to see its target, its values and its trend.',
+    });
+    // Named as the menu names them: there is no page called "Strategy map" to go and find.
+    slides.push({ title: 'Scorecard and tree', body: 'Place KPIs on a balanced scorecard, and link them in a tree so one feeds another. Both are under KPIs.' });
+  }
+  if (has('ALERTS_VIEW')) {
+    slides.push({ title: 'Alerts & digests', body: 'Get notified when KPIs breach thresholds — with escalation and a daily digest.' });
+  }
+  if (has('INSIGHTS_VIEW')) {
+    slides.push({ title: 'AI insights', body: 'Ask questions in plain English, get auto-generated insights, anomalies, and forecasts.' });
+  }
+  return slides;
+}
 
 /** Whether to show the tour, from what the browser and the account say. */
 export function shouldShowTour(legacyBrowserFlag: string | null, onboardingCompletedAt: string | null | undefined): boolean {
@@ -33,6 +60,8 @@ export function shouldShowTour(legacyBrowserFlag: string | null, onboardingCompl
 export function OnboardingTour() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  // What this person may open, from the same answer that says whether they have seen the tour.
+  const [permissions, setPermissions] = useState<string[]>([]);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -46,7 +75,9 @@ export function OnboardingTour() {
     if (legacy) return;
     meRequest()
       .then(({ user }) => {
-        if (active && shouldShowTour(legacy, user.onboardingCompletedAt)) setOpen(true);
+        if (!active) return;
+        setPermissions(user.permissions ?? []);
+        if (shouldShowTour(legacy, user.onboardingCompletedAt)) setOpen(true);
       })
       .catch(() => undefined); // cannot tell: do not interrupt with a tour
     return () => {
@@ -71,8 +102,9 @@ export function OnboardingTour() {
   }, [open, finish]);
 
   if (!open) return null;
-  const slide = SLIDES[step]!;
-  const last = step === SLIDES.length - 1;
+  const SLIDES = tourSlides((key) => permissions.includes(key));
+  const slide = SLIDES[Math.min(step, SLIDES.length - 1)]!;
+  const last = step >= SLIDES.length - 1;
 
   return (
     <div

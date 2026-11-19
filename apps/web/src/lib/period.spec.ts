@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { currentPeriod, periodFromStart, periodLabel } from './period';
+import { type RecordPeriodAction, currentPeriod, initialRecordPeriod, periodFromStart, periodLabel, recordPeriodReducer } from './period';
 
 const at = (iso: string) => new Date(iso);
 
@@ -98,5 +98,46 @@ describe('periodFromStart (flow walk: recording an earlier month)', () => {
 
   test('a start that is not a date yet changes nothing else', () => {
     expect(periodFromStart('MONTHLY', '', november, false)).toEqual({ periodStart: '', periodEnd: '2026-11-30' });
+  });
+});
+
+// Flow walk (recording a value): the organisation's calendar arrives a moment after the form. A date typed in
+// that same moment was overwritten by the default the calendar implies — the browser suite caught it, about one
+// run in six: "Period from" typed as 1 March read 1 November again, and "to" 30 November.
+describe('recordPeriodReducer: what the person typed is never lost to the calendar arriving', () => {
+  const NOW = at('2026-11-20T10:00:00.000Z');
+  const run = (actions: RecordPeriodAction[], frequency = 'MONTHLY') => actions.reduce(recordPeriodReducer, initialRecordPeriod(frequency, NOW));
+  const calendar: RecordPeriodAction = { type: 'calendar', frequency: 'MONTHLY', config: { startMonth: 1, weekStartsOn: 1 }, now: NOW };
+  const march: RecordPeriodAction = { type: 'start', frequency: 'MONTHLY', value: '2026-03-01' };
+
+  test('until the person changes it, the calendar sets the default period', () => {
+    expect(run([calendar]).period).toEqual({ periodStart: '2026-11-01', periodEnd: '2026-11-30' });
+  });
+
+  test('a start typed as the calendar arrives is kept, whichever of the two is applied first', () => {
+    expect(run([march, calendar]).period).toEqual({ periodStart: '2026-03-01', periodEnd: '2026-03-31' });
+    expect(run([calendar, march]).period).toEqual({ periodStart: '2026-03-01', periodEnd: '2026-03-31' });
+  });
+
+  test('an end set by hand stays where it was put, through a moved start and the calendar', () => {
+    expect(run([{ type: 'end', value: '2026-03-15' }, { type: 'start', frequency: 'MONTHLY', value: '2026-02-01' }, calendar]).period).toEqual({
+      periodStart: '2026-02-01',
+      periodEnd: '2026-03-15',
+    });
+  });
+
+  test("a moved start falls in the organisation's own periods", () => {
+    // A financial year starting in July: 1 October opens its second quarter, which ends on 31 December.
+    const july = { startMonth: 7, weekStartsOn: 1 } as const;
+    const quarterly: RecordPeriodAction[] = [
+      { type: 'calendar', frequency: 'QUARTERLY', config: july, now: NOW },
+      { type: 'start', frequency: 'QUARTERLY', value: '2026-10-01', config: july },
+    ];
+    expect(run(quarterly, 'QUARTERLY').period).toEqual({ periodStart: '2026-10-01', periodEnd: '2026-12-31' });
+  });
+
+  test('the calendar arriving again after the person changed the period changes nothing', () => {
+    const typed = run([march]);
+    expect(recordPeriodReducer(typed, calendar)).toBe(typed);
   });
 });

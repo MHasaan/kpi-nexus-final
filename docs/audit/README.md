@@ -457,6 +457,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (teams): a new team’s “Assign a KPI” said only “No per-unit KPI left to assign”; the subtitle spoke of “PER_UNIT KPI visibility” | ✅ Fixed — the panel says which KPIs can be assigned and links to the new-KPI form, which opens with the scope and the team chosen | #324 | `e2e/team-leads-to-a-team-kpi.spec.ts` |
 | Flow walk (activity): every row read “created a KPI value” or “created a task” — not which KPI, what value or which task, and nothing to click | ✅ Fixed — the API sends what each row is about (own name; the KPI’s name when it still exists here); the page says “recorded 1,234 on Revenue”, “created the task “Call the bank””, and links to the thing | #325 | `activity.service.spec.ts` (+3), `labels.spec.ts` (+5), `e2e/activity-says-what.spec.ts` |
 | Flow walk (reports): a report’s page printed its schedule as `0 9 * * 1`; the list worded only four schedules; nothing said whose clock the time is on | ✅ Fixed — one helper words daily, weekly, weekday-range and monthly schedules on the list, the page and the form, followed by the organisation’s time zone | #326 | `report-schedule.spec.ts` (3), `e2e/report-schedule-in-words.spec.ts` |
+| Flow walk (automations): the sentence read “goes above 100000” under an example saying “100,000” | ✅ Fixed — the organisation’s number format | #327 | `workflow-form.spec.ts` (+1), `e2e/automations.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

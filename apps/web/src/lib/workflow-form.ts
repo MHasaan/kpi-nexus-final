@@ -60,16 +60,24 @@ export function formFromWorkflow(workflow: Workflow): WorkflowForm | null {
   };
 }
 
-/** One automation as a sentence: "When Monthly Revenue goes above 100000, create the task “Celebrate”". */
-export function describeWorkflow(workflow: Workflow, kpiName: (id: string) => string | undefined): string {
+/**
+ * One automation as a sentence: "When Monthly Revenue goes above 100,000, create the task “Celebrate”".
+ * `formatNumber` writes the number the organisation's way; without it the number is printed as stored.
+ */
+export function describeWorkflow(
+  workflow: Workflow,
+  kpiName: (id: string) => string | undefined,
+  formatNumber: (n: number) => string = String,
+): string {
   const rule = workflow.rule as { kind?: string; kpiId?: string; operator?: string; value?: number; severity?: string } | null;
   const action = workflow.action as { kind?: string; title?: string; message?: string } | null;
   const op = (operator: string | undefined) => OPERATORS.find((o) => o.value === operator)?.words ?? operator ?? '?';
+  const num = (value: number | undefined) => (typeof value === 'number' && Number.isFinite(value) ? formatNumber(value) : String(value));
 
   let when: string;
   if (!rule) when = 'Every time it is triggered';
-  else if (rule.kind === 'kpi_value') when = `When ${kpiName(rule.kpiId ?? '') ?? 'a KPI that no longer exists'} ${op(rule.operator)} ${rule.value}`;
-  else if (rule.kind === 'kpi_change_pct') when = `When ${kpiName(rule.kpiId ?? '') ?? 'a KPI that no longer exists'} changes by a percentage that ${op(rule.operator)} ${rule.value}%`;
+  else if (rule.kind === 'kpi_value') when = `When ${kpiName(rule.kpiId ?? '') ?? 'a KPI that no longer exists'} ${op(rule.operator)} ${num(rule.value)}`;
+  else if (rule.kind === 'kpi_change_pct') when = `When ${kpiName(rule.kpiId ?? '') ?? 'a KPI that no longer exists'} changes by a percentage that ${op(rule.operator)} ${num(rule.value)}%`;
   else if (rule.kind === 'alert_severity') when = `When an alert’s severity ${op(rule.operator)} ${String(rule.severity).toLowerCase()}`;
   else when = 'When its condition is met';
 

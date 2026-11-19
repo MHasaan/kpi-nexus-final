@@ -64,6 +64,13 @@ describe('describeWorkflow', () => {
     expect(describeWorkflow(workflow(), names)).toBe('When Monthly Revenue goes above 100000, create the task “Celebrate!”');
   });
 
+  // Flow walk (automations): "goes above 100000" — the page's own example says "100,000".
+  test('numbers are written the way the organisation writes them', () => {
+    const grouped = (n: number) => n.toLocaleString('en-US');
+    expect(describeWorkflow(workflow(), names, grouped)).toBe('When Monthly Revenue goes above 100,000, create the task “Celebrate!”');
+    expect(describeWorkflow(workflow({ rule: { kind: 'kpi_change_pct', kpiId: 'kpi-1', operator: '>', value: 12.5 } }), names, grouped)).toContain('goes above 12.5%');
+  });
+
   test('a KPI that has since gone is said, not shown as an id', () => {
     expect(describeWorkflow(workflow({ rule: { kind: 'kpi_value', kpiId: 'gone', operator: '<', value: 5 } }), names)).toBe(
       'When a KPI that no longer exists drops below 5, create the task “Celebrate!”',

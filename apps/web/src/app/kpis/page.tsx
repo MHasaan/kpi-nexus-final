@@ -300,8 +300,10 @@ function KpisPageInner() {
                   ? `1 ${terminology.kpiLabel} is a draft.`
                   : `${draftCount} ${kpiLabelPlural} are drafts.`}
               </span>{' '}
-              A draft takes values and appears on dashboards like any other; Draft only marks one you have
-              not reviewed yet. To change it, open Edit and set its status.
+              A draft takes values and appears on dashboards like any other; Draft only marks one that has
+              not been reviewed yet.
+              {/* Only someone who can edit a KPI has an Edit to open. */}
+              <PermissionGuard permission="KPI_EDIT"> To change it, open Edit and set its status.</PermissionGuard>
             </p>
             {statusFilter !== 'DRAFT' && (
               <Button variant="secondary" size="sm" onClick={() => setStatusFilter('DRAFT')}>

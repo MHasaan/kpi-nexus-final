@@ -467,7 +467,7 @@ export default function TasksPage() {
             <option value="">All priorities</option>
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
-                {p}
+                {humanize(p)}
               </option>
             ))}
           </Select>
@@ -758,7 +758,7 @@ export default function TasksPage() {
                     >
                       {PRIORITIES.map((p) => (
                         <option key={p} value={p}>
-                          {p}
+                          {humanize(p)}
                         </option>
                       ))}
                     </Select>
@@ -896,7 +896,7 @@ export default function TasksPage() {
                     >
                       {PRIORITIES.map((p) => (
                         <option key={p} value={p}>
-                          {p}
+                          {humanize(p)}
                         </option>
                       ))}
                     </Select>

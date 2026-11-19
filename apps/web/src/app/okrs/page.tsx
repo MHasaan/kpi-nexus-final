@@ -38,6 +38,7 @@ import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { buildAlignmentTree } from '../../lib/okr-tree';
 import { useFiscalConfig } from '../../lib/use-fiscal-config';
 import { useFormat } from '../../lib/format-context';
+import { humanize } from '../../lib/labels';
 
 const STATUSES: ObjectiveStatus[] = ['DRAFT', 'ACTIVE', 'AT_RISK', 'ACHIEVED', 'MISSED', 'ARCHIVED'];
 
@@ -310,7 +311,7 @@ export default function OkrsPage() {
                 >
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {humanize(s)}
                     </option>
                   ))}
                 </Select>
@@ -397,7 +398,7 @@ export default function OkrsPage() {
                 <span>{`${fmt.day(o.periodStart)} – ${fmt.day(o.periodEnd)}`}</span>
               </div>
             </div>
-            <Badge tone={STATUS_TONE[o.status] ?? 'neutral'}>{o.status}</Badge>
+            <Badge tone={STATUS_TONE[o.status] ?? 'neutral'}>{humanize(o.status)}</Badge>
           </div>
 
           <div>
@@ -536,7 +537,7 @@ export default function OkrsPage() {
                 >
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {humanize(s)}
                     </option>
                   ))}
                 </Select>
@@ -620,7 +621,7 @@ export default function OkrsPage() {
               <option value="ALL">All statuses</option>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {humanize(s)}
                 </option>
               ))}
             </Select>

@@ -80,6 +80,8 @@ test.describe('/positions page — admin CRUD UI', () => {
     const positionName = `Senior Engineer ${stamp}`;
     await page.getByTestId('position-name-input').fill(positionName);
     await page.getByTestId('position-level-input').fill('5');
+    // The tracks are offered in words: "IC" was the stored code (flow walk).
+    await expect(page.getByTestId('position-track-select').locator('option')).toHaveText(['(none)', 'Individual contributor', 'Management', 'Executive']);
     await page.getByTestId('position-track-select').selectOption('IC');
     await page.getByTestId('position-paygrade-input').fill('P5');
     await page.getByTestId('position-submit-button').click();

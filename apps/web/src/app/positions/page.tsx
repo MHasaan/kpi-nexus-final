@@ -277,7 +277,7 @@ function PositionsPageInner() {
                     data-testid="position-track-select"
                   >
                     <option value="">(none)</option>
-                    <option value="IC">IC</option>
+                    <option value="IC">{TRACK_LABEL.IC}</option>
                     <option value="MANAGEMENT">Management</option>
                     <option value="EXECUTIVE">Executive</option>
                   </Select>
@@ -365,7 +365,7 @@ function PositionsPageInner() {
                           disabled={savingEdit}
                         >
                           <option value="">(none)</option>
-                          <option value="IC">IC</option>
+                          <option value="IC">{TRACK_LABEL.IC}</option>
                           <option value="MANAGEMENT">Management</option>
                           <option value="EXECUTIVE">Executive</option>
                         </Select>

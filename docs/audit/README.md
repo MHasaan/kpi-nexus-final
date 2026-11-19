@@ -511,6 +511,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (KPI pages): a category’s colour and icon were said to be “used as the KPI accent in lists and charts” and were used nowhere; the KPI list did not show a KPI’s category | ✅ Fixed for the colour — each KPI row names its category in that colour, and the page says only that. The icon is still shown nowhere (owner to decide: a picker, or remove the field) | #378 | `e2e/kpi-list-shows-category.spec.ts` |
 | Flow walk (the invited person): a per-unit KPI with no target, once one of two units had a value, read “0 of 2 units on track · Off track” for whoever sees both | ✅ Fixed — the holders count knows who has a target; with none the KPI is “no target” and reads “1 of 2 units recorded” (home page, board pack, reports, Slack, Ask) | #379 | `contracts/holders.spec.ts`, `kpis/kpi-data.service.spec.ts`, `e2e/holders-with-no-target.spec.ts` |
 | Flow walk (Ask): an answer with one long unbroken run (a web address, an identifier) widened its bubble past the page, which then scrolled sideways | ✅ Fixed — the answer wraps inside its bubble | #380 | `e2e/ask-answer-stays-on-the-page.spec.ts` |
+| Flow walk (positions): the form that makes a position offered the track “IC”, the stored code | ✅ Fixed — “Individual contributor”, as the list on the same page says | #381 | `e2e/positions-flow.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

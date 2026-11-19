@@ -472,6 +472,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (roles): the administrator role was listed with “0” permissions beside a fully ticked matrix | ✅ Fixed — reads “All” | #339 | `e2e/admin-role-count.spec.ts` |
 | Flow walk (new dashboard): ticking the first starter KPI put a “1 selected” line above the list, moving every row down under the pointer | ✅ Fixed — the count sits below the list | #340 | `e2e/starter-list-does-not-jump.spec.ts` |
 | Flow walk (dashboards): an empty dashboard said “no widgets yet” twice, and told its reader to click Edit before Add widget | ✅ Fixed — one message, pointing at Add widget | #341 | `e2e/dashboard-viewer-buttons.spec.ts`, `e2e/dashboard-builder.spec.ts` |
+| Flow walk (comments): someone without the people-list permission was offered only people who had already commented, so a first mention reached nobody | ✅ Fixed (owner decision 2026-11-19, “names only”) — `POST /comments/mentionable` (`KPI_VIEW`) gives the id and name of active colleagues whose name starts with what was typed: never an email, never the caller, at most eight, no wildcards; the comment box uses it for readers without `USERS_VIEW` | #342 | `comments-mentionable.spec.ts` (6), `mentions.spec.ts` (+2), `e2e/mention-lookup-for-members.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

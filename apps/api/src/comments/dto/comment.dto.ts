@@ -30,3 +30,20 @@ export const ListCommentsQuerySchema = z
   })
   .strict();
 export type ListCommentsQuery = z.infer<typeof ListCommentsQuerySchema>;
+
+/**
+ * What someone has typed after "@" to find a colleague to mention. A name:
+ * letters and digits of any alphabet, spaces, and . ' - — never `%` or `_`,
+ * which a name search would otherwise obey as wildcards.
+ */
+export const MentionableQuerySchema = z
+  .object({
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .regex(/^[\p{L}\p{N} .'-]+$/u, 'A name: letters, digits, spaces and . \' -'),
+  })
+  .strict();
+export type MentionableQuery = z.infer<typeof MentionableQuerySchema>;

@@ -19,6 +19,7 @@ import { CommentsService, type PublicComment } from './comments.service.js';
 import {
   CreateCommentDtoSchema,
   ListCommentsQuerySchema,
+  MentionableQuerySchema,
   UpdateCommentDtoSchema,
 } from './dto/comment.dto.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
@@ -51,6 +52,19 @@ export class CommentsController {
   @ApiBody(CreateCommentDtoSchema)
   create(@Body() body: unknown): Promise<PublicComment> {
     return this.comments.create(parse(CreateCommentDtoSchema, body));
+  }
+
+  /**
+   * Colleagues to mention, by what was typed after "@": names and ids only —
+   * see `CommentsService.mentionable`. The same permission as writing a
+   * comment. POST so the name travels in the body, not in a URL that is logged.
+   */
+  @Post('mentionable')
+  @RequirePermissions(PermissionKey.KPI_VIEW)
+  @HttpCode(HttpStatus.OK)
+  @ApiBody(MentionableQuerySchema)
+  mentionable(@Body() body: unknown): Promise<Array<{ id: string; fullName: string }>> {
+    return this.comments.mentionable(parse(MentionableQuerySchema, body).query);
   }
 
   @Patch(':id')

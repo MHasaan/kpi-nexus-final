@@ -3154,6 +3154,58 @@
         }
       }
     },
+    "/comments/mentionable": {
+      "post": {
+        "operationId": "CommentsController_mentionable",
+        "tags": [
+          "Comments"
+        ],
+        "summary": "POST /comments/mentionable",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[\\p{L}\\p{N} .'-]+$"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "KPI_VIEW"
+          ]
+        }
+      }
+    },
     "/connectors": {
       "get": {
         "operationId": "ConnectorsController_list",

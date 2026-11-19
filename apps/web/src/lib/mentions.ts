@@ -96,3 +96,18 @@ export function resolveMentions<P extends Mentionable>(text: string, people: rea
   }
   return { people: [...found.values()], unknown };
 }
+
+/**
+ * People already known to the page plus colleagues a names-only look-up
+ * found, each once. What was known first is kept (it may carry an email the
+ * look-up never gives).
+ */
+export function mergeMentionable<P extends Mentionable>(known: readonly P[], found: readonly P[]): P[] {
+  const ids = new Set(known.map((p) => p.id));
+  return [...known, ...found.filter((p) => !ids.has(p.id) && ids.add(p.id))];
+}
+
+/** Whether what was typed after "@" can be looked up: the API takes letters, digits, spaces and . ' - only. */
+export function isLookupQuery(query: string): boolean {
+  return /^[\p{L}\p{N} .'-]{1,64}$/u.test(query);
+}

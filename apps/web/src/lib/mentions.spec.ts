@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'vitest';
 
-import { mentionHandle, mentionQueryAt, pickMention, resolveMentions, suggestMentions } from './mentions';
+import { isLookupQuery, mentionHandle, mentionQueryAt, mergeMentionable, pickMention, resolveMentions, suggestMentions } from './mentions';
 
 const sara = { id: 'u1', fullName: 'Sara Admin', email: 'sara.a@acme.test' };
 const omar = { id: 'u2', fullName: 'Omar Sheikh' };
@@ -63,5 +63,23 @@ describe('resolveMentions', () => {
   });
   test('mentioning yourself notifies nobody and is not called unknown', () => {
     expect(resolveMentions('@SaraAdmin', people, 'u1')).toEqual({ people: [], unknown: [] });
+  });
+});
+
+// A member who may not list people gets colleagues from a names-only look-up as they type.
+describe('colleagues found by the look-up', () => {
+  test('are added to the people already known, once each; what was known is kept as it was', () => {
+    const known: Array<{ id: string; fullName: string; email?: string }> = [{ id: 'u1', fullName: 'Sara Admin', email: 'sara.a@acme.test' }];
+    expect(mergeMentionable(known, [{ id: 'u1', fullName: 'Sara Admin' }, { id: 'u2', fullName: 'Omar Sheikh' }])).toEqual([
+      { id: 'u1', fullName: 'Sara Admin', email: 'sara.a@acme.test' },
+      { id: 'u2', fullName: 'Omar Sheikh' },
+    ]);
+  });
+  test('only something that can be part of a name is looked up', () => {
+    expect(isLookupQuery('Om')).toBe(true);
+    expect(isLookupQuery("O'Ne")).toBe(true);
+    expect(isLookupQuery('Zoë')).toBe(true);
+    expect(isLookupQuery('')).toBe(false);
+    expect(isLookupQuery('a_b')).toBe(false);
   });
 });

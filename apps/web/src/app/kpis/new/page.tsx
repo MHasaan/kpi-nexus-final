@@ -48,8 +48,20 @@ function NewKpiInner() {
     };
   }, [templateId]);
 
+  // A page that sends someone here to make a KPI for a team says so in the address:
+  // the form opens measured per unit, with that team already chosen.
+  const scopeParam = searchParams.get('scope');
+  const unitParam = searchParams.get('unit');
+  const asked: KpiFormInitial =
+    scopeParam === 'PER_UNIT'
+      ? { scope: 'PER_UNIT', orgUnitAssignments: unitParam ? [{ orgUnitId: unitParam }] : [] }
+      : scopeParam === 'PER_USER' || scopeParam === 'ORG_WIDE'
+        ? { scope: scopeParam }
+        : {};
+
   const initial: KpiFormInitial | undefined = template
     ? {
+        ...asked,
         name: template.name,
         type: template.type,
         unit: template.unit,
@@ -57,7 +69,9 @@ function NewKpiInner() {
         tags: template.tags,
         description: template.description,
       }
-    : undefined;
+    : scopeParam
+      ? asked
+      : undefined;
 
   if (loadingTemplate) {
     return (

@@ -296,7 +296,7 @@ export function UnitKpiPanel({ unit, allUnits }: UnitKpiPanelProps) {
                   {k.name}
                 </option>
               ))}
-              {candidates.length === 0 && <option value="">No per-unit KPI left to assign</option>}
+              {candidates.length === 0 && <option value="">None left to assign</option>}
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -314,6 +314,15 @@ export function UnitKpiPanel({ unit, allUnits }: UnitKpiPanelProps) {
           <Button type="submit" isLoading={assigning} disabled={candidates.length === 0} data-testid="unit-kpi-assign-button">
             Assign
           </Button>
+          {/* Nothing to pick used to be a dead end: say which KPIs can be assigned, and where one is made. */}
+          {kpis.data && candidates.length === 0 && (
+            <p className="text-sm text-content-muted sm:col-span-3" data-testid="unit-kpi-none-to-assign">
+              Only a KPI whose scope is “Per unit” can be assigned here, and none is left.{' '}
+              <Link href={`/kpis/new?scope=PER_UNIT&unit=${unit.id}`} className="font-medium text-accent-primary hover:underline">
+                Create one for {unit.name}
+              </Link>
+            </p>
+          )}
           {assignError && (
             <p role="alert" data-testid="unit-kpi-assign-error" className="text-sm text-status-critical sm:col-span-3">
               {assignError}

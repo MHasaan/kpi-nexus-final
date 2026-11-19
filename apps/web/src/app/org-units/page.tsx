@@ -272,7 +272,7 @@ function OrgUnitsPageInner() {
           titleTestId="org-units-heading"
           subtitle={
             <>
-              Build the {groupLabelLower} hierarchy — members drive PER_UNIT KPI visibility.
+              Build the {groupLabelLower} hierarchy. The members of a {groupLabelLower} see and record the KPIs it holds.
             </>
           }
           actions={

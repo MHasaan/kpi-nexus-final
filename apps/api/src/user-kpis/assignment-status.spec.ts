@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeAssignmentStatus } from './assignment-status.js';
+import { computeAssignmentStatus, holderStanding } from './assignment-status.js';
 
 describe('computeAssignmentStatus (direction-aware vs target)', () => {
   it('returns null when there is no target or no value', () => {
@@ -47,5 +47,28 @@ describe('computeAssignmentStatus (direction-aware vs target)', () => {
   it('returns on_track for non-directional KPIs with a target', () => {
     expect(computeAssignmentStatus(5, 10, 'NEUTRAL')).toBe('on_track');
     expect(computeAssignmentStatus(5, 10, 'TARGET_IS_BEST')).toBe('on_track');
+  });
+});
+
+// Flow walk (per-person KPIs): a KPI given a target of 40 and handed to people showed each of them
+// no target, and never worked out their status — only a target set on the person's own
+// assignment counted. A holder with no target of their own is measured against the KPI's.
+describe('holderStanding (a holder\'s target and status)', () => {
+  const kpi = { targetValue: 40, direction: 'HIGHER_IS_BETTER' };
+
+  it('a holder with no target of their own takes the KPI\'s', () => {
+    expect(holderStanding({ targetValue: null, currentValue: 45 }, kpi)).toEqual({ targetValue: 40, status: 'exceeded' });
+    expect(holderStanding({ targetValue: null, currentValue: 20 }, kpi)).toEqual({ targetValue: 40, status: 'behind' });
+  });
+
+  it('a holder\'s own target wins over the KPI\'s', () => {
+    expect(holderStanding({ targetValue: 100, currentValue: 45 }, kpi)).toEqual({ targetValue: 100, status: 'behind' });
+    // Zero is a target, not "no target".
+    expect(holderStanding({ targetValue: 0, currentValue: 5 }, { targetValue: 40, direction: 'LOWER_IS_BETTER' })).toEqual({ targetValue: 0, status: 'behind' });
+  });
+
+  it('no value yet, or no target anywhere: a target if there is one, and no status', () => {
+    expect(holderStanding({ targetValue: null, currentValue: null }, kpi)).toEqual({ targetValue: 40, status: null });
+    expect(holderStanding({ targetValue: null, currentValue: 45 }, { targetValue: null, direction: 'HIGHER_IS_BETTER' })).toEqual({ targetValue: null, status: null });
   });
 });

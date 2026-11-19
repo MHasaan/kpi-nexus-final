@@ -4,18 +4,18 @@ import type { DraftProblem } from '@kpi-nexus/contracts';
 
 import { type DraftCounts, WIZARD_STEPS, type WizardMode, type WizardStepId, isOptionalStep } from '../../../lib/wizard-steps';
 
-/** What each step holds, shown under its name: `[label, count key]`. */
-const STEP_COUNTS: Partial<Record<WizardStepId, ReadonlyArray<readonly [string, keyof DraftCounts]>>> = {
-  structure: [['units', 'orgUnits']],
+/** What each step holds, shown under its name: `[one of it, several of it, count key]`. */
+const STEP_COUNTS: Partial<Record<WizardStepId, ReadonlyArray<readonly [string, string, keyof DraftCounts]>>> = {
+  structure: [['unit', 'units', 'orgUnits']],
   roles: [
-    ['roles', 'roles'],
-    ['positions', 'positions'],
+    ['role', 'roles', 'roles'],
+    ['position', 'positions', 'positions'],
   ],
   kpis: [
-    ['KPIs', 'kpis'],
-    ['categories', 'kpiCategories'],
+    ['KPI', 'KPIs', 'kpis'],
+    ['category', 'categories', 'kpiCategories'],
   ],
-  team: [['people', 'team']],
+  team: [['person', 'people', 'team']],
 };
 
 export interface StepRailProps {
@@ -82,13 +82,13 @@ export function StepRail({ current, counts, problems, mode = 'full', onGo }: Ste
                   <span className="block text-xs text-content-muted">
                     {held.length === 0
                       ? step.hint
-                      : held.map(([label, key], i) => (
+                      : held.map(([one, several, key], i) => (
                           <span key={key}>
                             {i > 0 && ' · '}
                             <span data-testid={`count-${key}`} className="tabular-nums">
                               {counts[key]}
                             </span>{' '}
-                            {label}
+                            {counts[key] === 1 ? one : several}
                           </span>
                         ))}
                   </span>

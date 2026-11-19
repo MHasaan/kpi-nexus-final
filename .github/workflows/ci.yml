@@ -112,7 +112,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
-      - run: pnpm turbo ${{ matrix.task }}
+      # Unit tests run one package at a time. All at once, the API, web, contracts and UI suites
+      # oversubscribed the runner: on #415's run (2026-11-20) a contracts test that takes 15 ms waited
+      # past vitest's 5-second limit and failed. Each suite still uses every core on its own.
+      - run: pnpm turbo ${{ matrix.task }}${{ matrix.task == 'test' && ' --concurrency=1' || '' }}
       - name: Storybook builds (packages/ui)
         if: matrix.task == 'build'
         run: pnpm --filter @kpi-nexus/ui storybook:build

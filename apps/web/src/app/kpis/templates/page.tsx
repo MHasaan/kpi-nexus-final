@@ -26,8 +26,19 @@ import {
   Skeleton,
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { QUADRANT_LABELS, labelFor } from '../../../lib/labels';
 
 const FUNCTIONS = ['', 'finance', 'sales', 'marketing', 'ops', 'hr', 'support', 'engineering'] as const;
+/** The stored function keys, as a person would say them. */
+const FUNCTION_LABELS: Record<string, string> = {
+  finance: 'Finance',
+  sales: 'Sales',
+  marketing: 'Marketing',
+  ops: 'Operations',
+  hr: 'HR',
+  support: 'Support',
+  engineering: 'Engineering',
+};
 
 export default function TemplatesPage() {
   const router = useRouter();
@@ -116,7 +127,7 @@ export default function TemplatesPage() {
             >
               {FUNCTIONS.map((f) => (
                 <option key={f} value={f}>
-                  {f || 'All functions'}
+                  {f ? labelFor(FUNCTION_LABELS, f) : 'All functions'}
                 </option>
               ))}
             </Select>
@@ -166,13 +177,13 @@ export default function TemplatesPage() {
                 <CardContent className="flex flex-1 flex-col">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-content-strong">{t.name}</h3>
-                    {t.scorecardQuadrant && <Badge tone="neutral">{t.scorecardQuadrant}</Badge>}
+                    {t.scorecardQuadrant && <Badge tone="neutral">{labelFor(QUADRANT_LABELS, t.scorecardQuadrant)}</Badge>}
                   </div>
                   <p className="mt-1 flex-1 text-sm text-content-muted">{t.description}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1">
                     {t.function && (
                       <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-content-muted">
-                        {t.function}
+                        {labelFor(FUNCTION_LABELS, t.function)}
                       </span>
                     )}
                     {t.tags.slice(0, 3).map((tag) => (

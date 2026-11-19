@@ -114,6 +114,11 @@ describe('recipients', () => {
     expect(levelSummary(level({ delayMinutes: 60 }), directory)).toBe('After 1 hour: nobody yet.');
   });
 
+  // The alert page names people for a reader who may not list them: it has names for ids, nothing more.
+  test('a person known only by name is still named', () => {
+    expect(levelSummary(level({ notifyUserIds: ['u9'] }), { ...directory, users: [], names: [{ id: 'u9', fullName: 'Nia Named' }] })).toBe('Straight away: Nia Named.');
+  });
+
   test('without the people list, a role is named without a count', () => {
     expect(levelSummary(level({ notifyRoleIds: ['r1'] }), { ...directory, users: [] })).toBe('Straight away: everyone with the Manager role.');
   });

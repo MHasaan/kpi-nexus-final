@@ -2157,6 +2157,10 @@ export interface NotificationDelivery {
   alertId: string;
   channelId: string | null;
   targetUserId: string | null;
+  /** How a notification addressed to a person went (EMAIL…); null for a channel's or the in-app one. */
+  kind?: string | null;
+  /** Why a waiting one has not gone: DIGEST or MUTE_HOURS. */
+  held?: string | null;
   status: NotificationDeliveryStatus;
   attempts: number;
   error: string | null;

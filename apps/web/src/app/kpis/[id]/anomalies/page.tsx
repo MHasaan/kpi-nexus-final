@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 import { AppShell } from '../../../../components/app-shell';
+import { useKpiHeading } from '../../../../lib/use-kpi-heading';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
   PageHeader,
@@ -170,13 +171,14 @@ export default function AnomaliesPage() {
     [detected, series],
   );
 
-  const crumbs = useMemo(() => ['KPIs', 'Anomalies'], []);
+  // Which KPI this is: in the top bar (a link back to it) and after the page's title.
+  const heading = useKpiHeading(id, 'Anomaly detection');
 
   return (
-    <AppShell title="Anomalies" crumbs={crumbs}>
+    <AppShell title="Anomalies" crumbs={heading.crumbs}>
      <RequirePermission permission="ANALYTICS_VIEW">
       <PageHeader
-        title="Anomaly detection"
+        title={heading.title}
         subtitle="Surface anomalous data points with shape + colour markers and persist confirmed anomalies."
       />
 

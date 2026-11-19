@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { AppShell } from '../../../../components/app-shell';
+import { useKpiHeading } from '../../../../lib/use-kpi-heading';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
   PageHeader,
@@ -118,13 +119,14 @@ export default function WhatIfPage() {
     ];
   }, [result, sc]);
 
-  const crumbs = useMemo(() => ['KPIs', 'What-if'], []);
+  // Which KPI this is: in the top bar (a link back to it) and after the page's title.
+  const heading = useKpiHeading(id, 'What-if simulator');
 
   return (
-    <AppShell title="What-if" crumbs={crumbs}>
+    <AppShell title="What-if" crumbs={heading.crumbs}>
      <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
-        title="What-if simulator"
+        title={heading.title}
         subtitle="Explore how changing a driver moves this KPI. Assumes a linear relationship between driver and outcome."
       />
 

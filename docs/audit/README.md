@@ -463,6 +463,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (keyboard): “Skip to content” landed before the menu — two elements carried its target id | ✅ Fixed — only the shell’s `<main>` carries it and takes the keyboard’s place | #330 | `e2e/skip-link.spec.ts` |
 | Flow walk (scorecard): a lower-is-better KPI over its ceiling was labelled “Below”; figures were printed as stored | ✅ Fixed — a miss reads “Off target” either way; figures in the organisation’s format | #331 | `e2e/direction-aware-status.spec.ts` |
 | Flow walk (KPI templates): cards carried `INTERNAL_PROCESS`, `LEARNING_GROWTH`; functions listed “ops”, “hr” | ✅ Fixed — words | #332 | `e2e/templates-in-words.spec.ts` |
+| Flow walk (KPI pages): Forecast, Anomalies, What-if and Embed did not say which KPI they were about or lead back to it | ✅ Fixed — the title ends “for <KPI>” and the top bar reads KPIs / <KPI> / page, both links | #333 | `e2e/kpi-subpages-name-the-kpi.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

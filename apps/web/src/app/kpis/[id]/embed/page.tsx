@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Code2, Copy, Check, ShieldCheck, ShieldOff, CircleCheck } from 'lucide-react';
 
 import { AppShell } from '../../../../components/app-shell';
+import { useKpiHeading } from '../../../../lib/use-kpi-heading';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../../components/auth/permission-guard';
 import {
@@ -148,14 +149,15 @@ export default function KpiEmbedPage() {
     }
   }
 
-  const crumbs = useMemo(() => ['KPIs', 'Embed'], []);
+  // Which KPI this is: in the top bar (a link back to it) and after the page's title.
+  const heading = useKpiHeading(params.id, 'KPI Embed Generator');
 
   return (
-    <AppShell title="Embed" crumbs={crumbs}>
+    <AppShell title="Embed" crumbs={heading.crumbs}>
      <RequirePermission permission="ANALYTICS_VIEW">
       <div data-testid="embed-generator-heading">
         <PageHeader
-          title="KPI Embed Generator"
+          title={heading.title}
           subtitle="Generate a signed, read-only embed token that respects scope. Use the iframe snippet to embed a live KPI card in any external page."
           actions={
             <div className="flex flex-wrap items-center gap-2">

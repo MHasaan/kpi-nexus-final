@@ -130,15 +130,12 @@ export function WidgetEditor({
                       )}
                       aria-hidden
                     />
-                    <span className="truncate text-sm font-medium text-content-strong">
+                    <span className="text-sm font-medium text-content-strong" data-testid="widget-type-name">
                       {m.label}
                     </span>
-                    {m.experimental && (
-                      <Badge tone="info" className="ml-auto shrink-0">
-                        Preview
-                      </Badge>
-                    )}
                   </div>
+                  {/* On a line of its own: beside the name it left room for one letter of it ("A…", "S…"). */}
+                  {m.experimental && <Badge tone="info">Preview</Badge>}
                   <span className="text-xs leading-snug text-content-muted">
                     {m.description}
                   </span>
@@ -158,8 +155,8 @@ export function WidgetEditor({
               testId="kpi-picker"
             />
             {!kpiId && (
-              <p className="text-xs text-content-muted">
-                Pick a {meta.label.toLowerCase()} target before you can add it.
+              <p className="text-xs text-content-muted" data-testid="widget-kpi-hint">
+                Choose the KPI this {meta.label.startsWith('KPI') ? meta.label : meta.label.toLowerCase()} shows.
               </p>
             )}
           </div>

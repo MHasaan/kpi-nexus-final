@@ -211,7 +211,8 @@ export function OrganizationStep({ value, problems, onChange }: OrganizationStep
               onChange={(e) => set('weekStartsOn', e.target.value === '' ? undefined : Number(e.target.value))}
               className={fieldClass}
             >
-              <option value="">Sunday (default)</option>
+              {/* What an organisation gets when this is left alone: Monday. It was labelled Sunday. */}
+              <option value="">Monday (default)</option>
               {WEEK_START_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}

@@ -492,6 +492,8 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (dashboards): a line, bar, pie or trend widget was headed “LINE CHART” — nothing said which KPI it showed | ✅ Fixed — headed by the KPI’s name when it has no title of its own | #359 | `e2e/adding-a-widget-does-not-crash.spec.ts` |
 | Flow walk (dashboards): an opened snapshot read “kpi_card — Latest value: 35000”; it kept no KPI names | ✅ Fixed — a snapshot freezes each KPI’s name and unit with its value; the page reads “Revenue — KPI card · 35,000 USD” | #360 | `snapshots.service.spec.ts` (+1), `e2e/snapshot-names-what-it-froze.spec.ts` |
 | Flow walk (dashboards): a widget’s detail page counted quality `GOOD`, which no value has — always “0% · Needs attention”, and its “Good” filter hid everything | ✅ Fixed — counts and filters by HIGH / MEDIUM / LOW, in words | #361 | `e2e/widget-detail-quality.spec.ts` |
+| Merge queue: `web-e2e` failed on #325 in a test, not in the product — the check that a board pack hides one person’s figure looked for “22” on a line that starts with a KPI name built from a timestamp, and the timestamp held “22” | ✅ Fixed — the test sets the name aside before looking for the figure (the row is here, not in #362, so the queued PRs’ rows did not conflict) | #362 | `e2e/summary-counts-holders.spec.ts` |
+| Flow walk (first use): step 1 of the setup wizard offered “Sunday (default)” for the first day of the week; the default is Monday | ✅ Fixed — the untouched choice reads “Monday (default)” | #363 | `e2e/wizard-organization-step.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

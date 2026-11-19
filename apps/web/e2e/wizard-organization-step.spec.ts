@@ -44,6 +44,9 @@ test('wizard organization step: its settings are chosen, saved, survive a reload
   await page.getByTestId('wizard-org-currency').selectOption('PKR');
   await page.getByTestId('wizard-org-locale').selectOption('en-GB');
   await page.getByTestId('wizard-org-fiscal-month').selectOption('7');
+  // Flow walk (sign-up): the choice left alone was labelled "Sunday (default)", but an organisation
+  // that leaves it gets Monday — the default since weeks began to follow this setting.
+  await expect(page.getByTestId('wizard-org-week-start').locator('option').first()).toHaveText('Monday (default)');
   await page.getByTestId('wizard-org-week-start').selectOption('1');
   await expect(page.getByTestId('sync-status')).toHaveAttribute('data-status', 'saved');
 

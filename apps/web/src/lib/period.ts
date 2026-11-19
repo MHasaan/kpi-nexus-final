@@ -22,6 +22,19 @@ export function currentPeriod(frequency: string, now: Date = new Date(), config?
   return sharedCurrentPeriod(frequency, now, config);
 }
 
+/**
+ * The period once its start date is changed. The KPI's frequency says how long
+ * a period is, so the end follows the start — a monthly KPI moved to 1 October
+ * ends on 31 October — until the person sets the end themself: an end they
+ * chose is kept. Entering earlier months otherwise meant fixing two dates for
+ * every value, or storing each one against a span of several months.
+ */
+export function periodFromStart(frequency: string, periodStart: string, previous: Period, endChosen: boolean, config?: FiscalConfig): Period {
+  const day = new Date(`${periodStart}T00:00:00.000Z`);
+  if (endChosen || Number.isNaN(day.getTime())) return { ...previous, periodStart };
+  return { periodStart, periodEnd: currentPeriod(frequency, day, config).periodEnd };
+}
+
 /** A period in words: one day, or both ends of a range. */
 export function periodLabel(period: Period, locale?: string): string {
   const start = new Date(period.periodStart);

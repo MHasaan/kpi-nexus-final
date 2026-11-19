@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { currentPeriod, periodLabel } from './period';
+import { currentPeriod, periodFromStart, periodLabel } from './period';
 
 const at = (iso: string) => new Date(iso);
 
@@ -65,5 +65,38 @@ describe('periodLabel', () => {
 
   test('an unset period says so rather than showing Invalid Date', () => {
     expect(periodLabel({ periodStart: '', periodEnd: '' })).toBe('—');
+  });
+});
+
+describe('periodFromStart (flow walk: recording an earlier month)', () => {
+  const november = { periodStart: '2026-11-01', periodEnd: '2026-11-30' };
+
+  test('a monthly KPI moved to October ends at the end of October', () => {
+    expect(periodFromStart('MONTHLY', '2026-10-01', november, false)).toEqual({ periodStart: '2026-10-01', periodEnd: '2026-10-31' });
+  });
+
+  test('a start in the middle of a month still ends with that month', () => {
+    expect(periodFromStart('MONTHLY', '2026-02-10', november, false)).toEqual({ periodStart: '2026-02-10', periodEnd: '2026-02-28' });
+  });
+
+  test('a quarterly KPI follows the organisation’s financial year', () => {
+    // A financial year starting in July: 1 October opens its second quarter, which ends on 31 December.
+    expect(periodFromStart('QUARTERLY', '2026-10-01', november, false, { startMonth: 7, weekStartsOn: 1 })).toEqual({
+      periodStart: '2026-10-01',
+      periodEnd: '2026-12-31',
+    });
+  });
+
+  test('a daily or ad hoc KPI covers the one day', () => {
+    expect(periodFromStart('DAILY', '2026-10-05', { periodStart: '2026-11-19', periodEnd: '2026-11-19' }, false)).toEqual({ periodStart: '2026-10-05', periodEnd: '2026-10-05' });
+    expect(periodFromStart('AD_HOC', '2026-10-05', { periodStart: '2026-11-19', periodEnd: '2026-11-19' }, false).periodEnd).toBe('2026-10-05');
+  });
+
+  test('an end the person chose themself is kept', () => {
+    expect(periodFromStart('MONTHLY', '2026-10-01', { periodStart: '2026-11-01', periodEnd: '2026-11-15' }, true)).toEqual({ periodStart: '2026-10-01', periodEnd: '2026-11-15' });
+  });
+
+  test('a start that is not a date yet changes nothing else', () => {
+    expect(periodFromStart('MONTHLY', '', november, false)).toEqual({ periodStart: '', periodEnd: '2026-11-30' });
   });
 });

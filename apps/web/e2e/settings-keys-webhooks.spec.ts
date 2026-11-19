@@ -69,6 +69,8 @@ test.describe('Settings — API keys + Webhooks', () => {
     await expect(page.getByTestId('apikeys-empty')).toBeVisible();
 
     await page.getByTestId('apikey-name-input').fill('CI key');
+    // Flow walk: the scopes were offered by their codes alone ("KPI_DATA_ENTRY").
+    await expect(page.getByTestId('apikey-scope-label-KPI_DATA_ENTRY')).toHaveText('Enter KPI data');
     await page.getByTestId('apikey-scope-KPI_VIEW').check();
     await page.getByTestId('apikey-create-submit').click();
 
@@ -80,6 +82,7 @@ test.describe('Settings — API keys + Webhooks', () => {
     // Row appears; revoke it.
     const row = page.locator('[data-testid^="apikey-row-"]').first();
     await expect(row).toBeVisible();
+    await expect(row).toContainText('View KPIs');
     await row.locator('[data-testid^="apikey-revoke-"]').click();
     await page.getByTestId('apikey-revoke-confirm-confirm').click(); // revoking asks first
     await expect(row).toContainText('Revoked', { timeout: 10_000 });
@@ -97,6 +100,9 @@ test.describe('Settings — API keys + Webhooks', () => {
 
     await page.getByTestId('webhook-name-input').fill('Ops hook');
     await page.getByTestId('webhook-url-input').fill('https://example.com/hook');
+    // Flow walk: the events were offered by their codes alone ("okr_progress_changed").
+    await expect(page.getByTestId('webhook-event-label-alert_triggered')).toHaveText('An alert fires');
+    await expect(page.getByTestId('webhook-event-label-okr_progress_changed')).toHaveText('An objective’s progress changes');
     await page.getByTestId('webhook-event-alert_triggered').check();
     await page.getByTestId('webhook-create-submit').click();
 
@@ -107,6 +113,7 @@ test.describe('Settings — API keys + Webhooks', () => {
 
     const row = page.locator('[data-testid^="webhook-row-"]').first();
     await expect(row).toBeVisible();
+    await expect(row).toContainText('An alert fires');
 
     // Test enqueues a delivery.
     await row.locator('[data-testid^="webhook-test-"]').click();

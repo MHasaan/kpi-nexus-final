@@ -7,12 +7,10 @@ import { expect, test } from '@playwright/test';
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 
 test('the wizard step list writes one of something as one', async ({ page }) => {
-  let up = false;
-  try {
-    up = (await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    up = false;
-  }
+  const up = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(2000) }).then(
+    (res) => res.ok,
+    () => false,
+  );
   test.skip(!up, 'api not reachable');
   test.setTimeout(60_000);
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

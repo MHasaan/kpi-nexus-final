@@ -2116,12 +2116,14 @@ model Task {
   status         TaskStatus   @default(TODO)
   priority       TaskPriority @default(MEDIUM)
   externalRef    String? // Jira link, etc.
+  workflowId     String? // the automation that made it, if one did
   createdById    String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId, status, dueAt])
   @@index([organizationId, kpiId])
+  @@index([organizationId, workflowId, status])
   @@index([organizationId, assigneeUserId, status])
 }
 

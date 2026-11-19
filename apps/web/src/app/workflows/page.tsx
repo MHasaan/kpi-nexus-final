@@ -181,6 +181,9 @@ export default function WorkflowsPage() {
                 <div>
                   <Label htmlFor="wf-task-title-input">Create a task titled</Label>
                   <Input id="wf-task-title-input" data-testid="wf-task-title" value={form.taskTitle} onChange={set('taskTitle')} placeholder="e.g. Review with the team" disabled={saving} />
+                  <p data-testid="wf-holds-back-note" className="mt-1 text-xs text-content-muted">
+                    While a task it made is still open, it does not make another.
+                  </p>
                 </div>
                 {formError && (
                   <p role="alert" data-testid="wf-form-error" className="text-sm text-status-critical">

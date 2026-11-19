@@ -18,7 +18,8 @@ const LEGACY_BROWSER_FLAG = 'kpi-nexus.tour-completed';
 const SLIDES = [
   { title: 'Welcome to KPI Nexus', body: 'Your workspace for measuring what matters. Let’s take a quick tour.' },
   { title: 'KPIs', body: 'Define metrics with formulas, targets, and thresholds. Record values and watch trends.' },
-  { title: 'Strategy map', body: 'Organize KPIs on a balanced scorecard and cascade them across your org.' },
+  // Named as the menu names them: there is no page called "Strategy map" to go and find.
+  { title: 'Scorecard and tree', body: 'Place KPIs on a balanced scorecard, and link them in a tree so one feeds another. Both are under KPIs.' },
   { title: 'Alerts & digests', body: 'Get notified when KPIs breach thresholds — with escalation and a daily digest.' },
   { title: 'AI insights', body: 'Ask questions in plain English, get auto-generated insights, anomalies, and forecasts.' },
 ];

@@ -58,6 +58,12 @@ test('a second and a third widget can be added: the page stays up and each keeps
   await add('gauge');
   await expect(page.locator('[data-testid^="widget-card-"]')).toHaveCount(3);
 
+  // Flow walk (dashboards): a chart was headed "LINE CHART" — nothing on it said which KPI it shows,
+  // though the form says the title "defaults to the KPI name if left blank".
+  const chart = page.locator('[data-testid^="widget-card-"]').nth(1);
+  await expect(chart.locator('[data-testid^="widget-render-"]')).toContainText(`Revenue ${stamp}`, { ignoreCase: true });
+  await expect(chart.locator('[data-testid^="widget-render-"]')).not.toContainText('Line Chart', { ignoreCase: true });
+
   // Still the dashboard, not the error page — also a moment later, once any layout save has gone.
   await page.waitForTimeout(1200);
   await expect(page.getByText('Something went wrong')).toHaveCount(0);

@@ -15,6 +15,7 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
+import type { KpiHolders } from '@kpi-nexus/contracts';
 import { validationMessage } from './validation-message';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
 
@@ -1095,6 +1096,11 @@ export interface DashboardSummaryRow {
   attainmentPct: number | null;
   /** The last periods oldest-first, for a sparkline. */
   spark: number[];
+  /**
+   * For a per-person or per-unit KPI when the reader sees several holders (UI-018): how many
+   * there are and how many are on track. The row then has no single value.
+   */
+  holders?: KpiHolders | null;
 }
 
 export async function getDashboardSummary(
@@ -1667,6 +1673,9 @@ export interface BoardPackQuadrantKpi {
   unit?: string | null;
   value: number | null;
   status: BoardPackStatus | null;
+  scope?: string;
+  /** Set instead of a value for a per-person or per-unit KPI with several holders in sight (UI-018). */
+  holders?: KpiHolders | null;
 }
 
 export interface BoardPackQuadrant {

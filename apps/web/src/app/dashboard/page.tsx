@@ -49,6 +49,7 @@ import { usePermissions } from '../../lib/use-permissions';
 import { useAccess } from '../../lib/use-access';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { holdersText } from '@kpi-nexus/contracts';
 
 type LoadState = 'loading' | 'error' | 'ready';
 type ActivityState = 'loading' | 'ready';
@@ -261,7 +262,12 @@ function KpiRow({
         data-testid={`${testidPrefix}-value-${row.name}`}
         className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-content-strong"
       >
-        {row.latestValue === null ? (
+        {row.holders ? (
+          // A per-person or per-unit KPI with several holders has no one value (UI-018).
+          <span data-testid={`${testidPrefix}-holders-${row.name}`} className="whitespace-nowrap font-medium text-content">
+            {holdersText(row.holders, row.scope)}
+          </span>
+        ) : row.latestValue === null ? (
           <span data-testid={`${testidPrefix}-empty-${row.name}`} className="text-content-muted">
             No data
           </span>

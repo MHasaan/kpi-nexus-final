@@ -8,6 +8,7 @@ import { AccessContextService } from '../../rbac/services/access-context.service
 import { RequestContextStore } from '../../tenancy/request-context.js';
 import { SlackCommandProducer } from './slack-command.producer.js';
 import { signSlackLinkToken, verifySlackLinkToken } from './slack-link-token.js';
+import { holdersText } from '@kpi-nexus/contracts';
 
 export const SLACK_COMMAND_CONFIG = Symbol('SLACK_COMMAND_CONFIG');
 export interface SlackCommandConfig {
@@ -122,13 +123,16 @@ export class SlackCommandService {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*<${this.config.webAppUrl(`/kpis/${r.kpiId}`)}|${r.name}>*\nLatest: *${fmt(r.latestValue)}${r.unit ? ` ${r.unit}` : ''}*` +
-            ` · Target: ${fmt(r.targetValue)}${r.latestRecordedAt ? ` · as of ${r.latestRecordedAt.toISOString().slice(0, 10)}` : ''}`,
+          text: `*<${this.config.webAppUrl(`/kpis/${r.kpiId}`)}|${r.name}>*\n` +
+            (r.holders
+              ? `*${holdersText(r.holders, r.scope)}*`
+              : `Latest: *${fmt(r.latestValue)}${r.unit ? ` ${r.unit}` : ''}* · Target: ${fmt(r.targetValue)}`) +
+            (r.latestRecordedAt ? ` · as of ${r.latestRecordedAt.toISOString().slice(0, 10)}` : ''),
         },
       },
     ]);
     blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: 'Only you can see this.' }] } as never);
-    return reply(rows.map((r) => `${r.name}: ${fmt(r.latestValue)}${r.unit ? ` ${r.unit}` : ''}`).join('\n'), blocks);
+    return reply(rows.map((r) => `${r.name}: ${r.holders ? holdersText(r.holders, r.scope) : `${fmt(r.latestValue)}${r.unit ? ` ${r.unit}` : ''}`}`).join('\n'), blocks);
   }
 
   /**

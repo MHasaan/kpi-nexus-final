@@ -442,6 +442,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk 2026-11-18 (dashboard): a widget said 'No data' for a KPI whose values were outside the board's date range; a target read '50000 USD' | ✅ Fixed — 'No values in this date range' on every widget; the target written the organisation's way. A card still does not show the latest value from outside the range | #309 | `e2e/dashboard-card-out-of-range.spec.ts` |
 | Flow walk 2026-11-19 (manager): a per-person KPI's page showed a manager 'Latest value 22' — whichever person recorded last — and a trend joining different people's values | ✅ Fixed — someone who sees several holders gets each one's value, target, attainment and status, and no single figure or trend | #310 | `e2e/kpi-page-by-holder.spec.ts` |
 | Flow walk 2026-11-19 (OKRs, tasks, team): key results read '30000 → 47200 → 50000'; statuses and priorities were codes; Tasks said 'moves are optimistic'; a KPI's name was cut short on the team page | ✅ Fixed — formatted numbers, words, a plain sentence, and names that wrap | #311 | `e2e/plain-words-okrs-tasks-team.spec.ts` |
+| UI-018: in organisation-level views a per-person or per-unit KPI was given one value — the newest of anyone the reader may see | ✅ Fixed (owner's decision 2026-11-19: count on track) — the summary carries `holders` and no single value when the caller sees several holders; the home page, board pack, report PDF, Slack reply and AI context read '1 of 2 people on track'; status comes from the holders. A lone holder still sees their own value | #312 | `holders.spec.ts` (6), `kpi-data.service.spec.ts` (+3), `e2e/summary-counts-holders.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -450,7 +451,6 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
 | UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⬜ open, waiting for ADR-002 and ADR-003 | 6.8, 6.9 |
-| UI-018 (found 2026-11-19) in organisation-level views — the home page, the board pack, the report files — a per-person or per-unit KPI is given one value: the newest of anyone the reader may see. A manager's board pack lists 'Sales calls made: 22', which is one team member's figure. Not a leak (the reader may see it), but not the KPI's figure either. Needs a decision: a total, an average, or a count of people on track | Medium | ⬜ open, waiting for the owner | — |
 | X-05 (remainder) for a reader without USERS_VIEW, people pickers offer only the people already named on the page and themselves; there is no search. A search would let every member see every member's name, which the API avoids on purpose (`POST /users/names` answers only for ids the caller holds) | Low | ⬜ open, waiting for the owner: may any member search the member list by name? | 5.3 |
 
 ### Second QA pass — 2026-11-17

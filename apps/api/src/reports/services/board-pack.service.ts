@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { KpiDataService } from '../../kpis/kpi-data.service.js';
 import type { KpiHealthStatus } from '../../kpis/kpi-health.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
+import type { KpiHolders } from '@kpi-nexus/contracts';
 
 /** Board-level health of one KPI — the shared server rule (kpis/kpi-health.ts). */
 export type BoardPackStatus = KpiHealthStatus;
@@ -26,6 +27,9 @@ export interface BoardPackQuadrantKpi {
   unit: string | null;
   value: number | null;
   status: BoardPackStatus;
+  /** The KPI's scope, and — for a per-person or per-unit KPI with several holders in sight — the count that stands in for a value (UI-018). */
+  scope: string;
+  holders: KpiHolders | null;
 }
 
 export interface BoardPackQuadrant {
@@ -122,7 +126,7 @@ export class BoardPackService {
       const group = categoryById.get(r.kpiId) ?? 'Uncategorized';
       groups.set(group, [
         ...(groups.get(group) ?? []),
-        { kpiId: r.kpiId, name: r.name, unit: r.unit, value: r.latestValue, status: r.status },
+        { kpiId: r.kpiId, name: r.name, unit: r.unit, value: r.latestValue, status: r.status, scope: r.scope, holders: r.holders },
       ]);
     }
     result.quadrants = Array.from(groups.entries()).map(([name, kpis]) => {

@@ -8,7 +8,7 @@ import {
   Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { PermissionKey } from '@kpi-nexus/contracts';
+import { type KpiHolders, PermissionKey, holdersHealth } from '@kpi-nexus/contracts';
 import type { KPIDataPointHistory, Prisma } from '@kpi-nexus/db';
 
 import { WorkflowsService } from '../workflows/workflows.service.js';
@@ -348,6 +348,14 @@ export class KpiDataService {
       attainmentPct: number | null;
       /** The last periods oldest-first, for a sparkline. */
       spark: number[];
+      /**
+       * Set for a per-person or per-unit KPI when the caller sees more than one holder
+       * (UI-018): how many there are and how many are on track. The row then carries no
+       * single value — `latestValue`, `aggregatedValue`, `attainmentPct` are null and
+       * `spark` is empty — because "the latest" would be whichever holder recorded last.
+       * Null for an organisation-wide KPI, and for a holder looking at their own.
+       */
+      holders: KpiHolders | null;
     }>
   > {
     const ctx = RequestContextStore.require();
@@ -383,6 +391,35 @@ export class KpiDataService {
     const bandsByKpi = new Map<string, typeof bandRows>();
     for (const b of bandRows) bandsByKpi.set(b.kpiId, [...(bandsByKpi.get(b.kpiId) ?? []), b]);
 
+    // Holders of the per-person and per-unit KPIs, within what the caller may see — two queries
+    // for the whole list. They decide whether a KPI's row may carry a single value (UI-018).
+    const holdersByKpi = new Map<string, KpiHolders>();
+    const countHolder = (row: { kpiId: string; currentValue: number | null; status: string | null }) => {
+      const h = holdersByKpi.get(row.kpiId) ?? { total: 0, withValue: 0, onTrack: 0 };
+      h.total += 1;
+      if (row.currentValue !== null) h.withValue += 1;
+      if (row.currentValue !== null && (row.status === 'on_track' || row.status === 'exceeded')) h.onTrack += 1;
+      holdersByKpi.set(row.kpiId, h);
+    };
+    const idsOf = (scope: string) => filtered.filter((k) => k.scope === scope).map((k) => k.id);
+    const perUserIds = idsOf('PER_USER');
+    const perUnitIds = idsOf('PER_UNIT');
+    const holderSelect = { kpiId: true, currentValue: true, status: true } as const;
+    if (perUserIds.length > 0) {
+      const rows = await this.prisma.kPIAssignmentUser.findMany({
+        where: { organizationId: ctx.organizationId, kpiId: { in: perUserIds }, ...kpiDataPointScopeWhere('PER_USER', visibility) },
+        select: holderSelect,
+      });
+      rows.forEach(countHolder);
+    }
+    if (perUnitIds.length > 0) {
+      const rows = await this.prisma.kPIAssignmentOrgUnit.findMany({
+        where: { organizationId: ctx.organizationId, kpiId: { in: perUnitIds }, ...kpiDataPointScopeWhere('PER_UNIT', visibility) },
+        select: holderSelect,
+      });
+      rows.forEach(countHolder);
+    }
+
     // For each visible KPI, pull data points in the window (or last 1000
     // if no window given) and compute latest + aggregated.
     const result = await Promise.all(
@@ -410,6 +447,27 @@ export class KpiDataService {
           orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
           take: 1000,
         });
+        // Several holders in sight: no single value stands for the KPI. Count them instead.
+        const counted = holdersByKpi.get(kpi.id);
+        if (counted && counted.total > 1) {
+          return {
+            kpiId: kpi.id,
+            name: kpi.name,
+            scope: kpi.scope,
+            unit: kpi.unit,
+            targetValue: null,
+            latestValue: null,
+            latestRecordedAt: points[0]?.recordedAt ?? null,
+            aggregatedValue: null,
+            pointCount: points.length,
+            scorecardQuadrant: kpi.scorecardQuadrant,
+            direction: kpi.direction,
+            status: holdersHealth(counted) as KpiHealthStatus,
+            attainmentPct: null,
+            spark: [] as number[],
+            holders: counted as KpiHolders | null,
+          };
+        }
         return {
           kpiId: kpi.id,
           name: kpi.name,
@@ -431,6 +489,7 @@ export class KpiDataService {
           // The last periods oldest-first, for a sparkline. `points` is newest
           // first, so take from the front and reverse.
           spark: points.slice(0, SPARK_POINTS).map((p) => p.value).reverse(),
+          holders: null as KpiHolders | null,
         };
       }),
     );

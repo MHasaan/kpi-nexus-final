@@ -9,6 +9,8 @@ const PERIOD_ORDER = [{ periodStart: 'desc' }, { recordedAt: 'desc' }];
 
 const mockPrisma = {
   kPI: { findMany: vi.fn() },
+  kPIAssignmentUser: { findMany: vi.fn() },
+  kPIAssignmentOrgUnit: { findMany: vi.fn() },
   kPIThresholdBand: { findMany: vi.fn() },
   kPIDataPoint: { findMany: vi.fn() },
 };
@@ -54,6 +56,8 @@ beforeEach(() => {
     },
   ]);
   mockPrisma.kPIThresholdBand.findMany.mockResolvedValue([]);
+  mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([]);
+  mockPrisma.kPIAssignmentOrgUnit.findMany.mockResolvedValue([]);
   mockPrisma.kPIDataPoint.findMany.mockResolvedValue([]);
   vi.spyOn(RequestContextStore, 'require').mockReturnValue({
     organizationId: ORG,
@@ -78,6 +82,60 @@ describe('KpiDataService.dashboardSummary', () => {
     const [row] = await makeSvc().dashboardSummary();
     expect(row!.latestValue).toBe(200);
     expect(row!.aggregatedValue).toBe(200);
+  });
+});
+
+// UI-018: a per-person KPI's row carried one value — the newest of anyone the caller may see.
+describe('KpiDataService.dashboardSummary — per-person and per-unit KPIs', () => {
+  const perPerson = {
+    id: 'kpi_calls',
+    name: 'Calls',
+    scope: 'PER_USER',
+    unit: null,
+    targetValue: null,
+    aggregationMethod: 'LAST',
+    scorecardQuadrant: null,
+    direction: 'HIGHER_IS_BETTER',
+    warningThreshold: null,
+    criticalThreshold: null,
+  };
+  const twoValues = [
+    { value: 22, periodStart: new Date('2026-11-01'), recordedAt: new Date('2026-11-03') },
+    { value: 44, periodStart: new Date('2026-11-01'), recordedAt: new Date('2026-11-02') },
+  ];
+
+  it('seen by someone who sees several holders: a count of them on track, and no single value', async () => {
+    mockPrisma.kPI.findMany.mockResolvedValue([perPerson]);
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue(twoValues);
+    mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([
+      { kpiId: 'kpi_calls', currentValue: 44, status: 'on_track' },
+      { kpiId: 'kpi_calls', currentValue: 22, status: 'behind' },
+    ]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.holders).toEqual({ total: 2, withValue: 2, onTrack: 1 });
+    expect(row!.latestValue).toBeNull();
+    expect(row!.aggregatedValue).toBeNull();
+    expect(row!.attainmentPct).toBeNull();
+    expect(row!.spark).toEqual([]);
+    expect(row!.status).toBe('AT_RISK');
+    // The holders are counted inside the organisation.
+    expect((mockPrisma.kPIAssignmentUser.findMany.mock.calls[0]![0] as { where: { organizationId: string } }).where.organizationId).toBe(ORG);
+  });
+
+  it('seen by its one holder: their own value, as before', async () => {
+    mockPrisma.kPI.findMany.mockResolvedValue([perPerson]);
+    mockPrisma.kPIDataPoint.findMany.mockResolvedValue([twoValues[1]]);
+    mockPrisma.kPIAssignmentUser.findMany.mockResolvedValue([{ kpiId: 'kpi_calls', currentValue: 44, status: 'on_track' }]);
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.holders).toBeNull();
+    expect(row!.latestValue).toBe(44);
+  });
+
+  it('an organisation-wide KPI is untouched and counts nobody', async () => {
+    const [row] = await makeSvc().dashboardSummary();
+    expect(row!.holders).toBeNull();
+    expect(mockPrisma.kPIAssignmentUser.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.kPIAssignmentOrgUnit.findMany).not.toHaveBeenCalled();
   });
 });
 

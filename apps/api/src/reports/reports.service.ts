@@ -124,6 +124,8 @@ export class ReportsService {
           targetValue: row.targetValue,
           status: row.status,
           attainmentPct: row.attainmentPct,
+          scope: row.scope,
+          holders: row.holders,
           points: points.map((p) => ({ recordedAt: p.recordedAt, value: p.value })),
         };
       }),

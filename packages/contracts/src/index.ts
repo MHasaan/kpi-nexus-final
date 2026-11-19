@@ -9,4 +9,5 @@ export * from './fiscal.js';
 export * from './locale.js';
 export * from './format.js';
 export * from './band-status.js';
+export * from './holders.js';
 export * from './branding.js';

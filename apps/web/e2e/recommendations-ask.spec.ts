@@ -41,6 +41,22 @@ test('recommendations: ask for one about a KPI and it appears, named for that KP
   await expect(page.locator('[data-testid^="rec-row-"]')).toHaveCount(2); // the probe's and the one just asked for
   await expect(page.locator('[data-testid^="rec-kpi-"]').first()).toContainText(`Latency ${stamp}`);
 
+  // Flow walk (recommendations): the Sort box was narrower than its own choice — "Priority, then confi".
+  const room = await page.getByTestId('recs-sort').evaluate((el) => {
+    const select = el as HTMLSelectElement;
+    const style = getComputedStyle(select);
+    const probe = document.createElement('span');
+    probe.style.font = style.font;
+    probe.style.whiteSpace = 'nowrap';
+    probe.style.visibility = 'hidden';
+    probe.textContent = select.options[select.selectedIndex]!.text;
+    document.body.appendChild(probe);
+    const text = probe.getBoundingClientRect().width;
+    probe.remove();
+    return select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - text;
+  });
+  expect(room, 'room left in the Sort box after its own text').toBeGreaterThanOrEqual(0);
+
   // A failure says no recommendation was made, and why.
   await page.route('**/recommendations/generate', (route) => route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ message: 'The AI budget for today is used up' }) }));
   await page.getByTestId('recs-ask-kpi').selectOption(kpi.id);

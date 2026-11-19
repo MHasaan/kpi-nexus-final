@@ -198,7 +198,7 @@ export default function ApprovalsPage() {
   const loading = inbox.loading && !inbox.data;
 
   return (
-    <AppShell title="Approvals" crumbs={[{ label: 'Approvals' }]}>
+    <AppShell title="Approvals" crumbs={[{ label: 'Execute' }]}>
       <PageHeader
         title="Approvals"
         subtitle="Changes waiting for sign-off, and what was decided"

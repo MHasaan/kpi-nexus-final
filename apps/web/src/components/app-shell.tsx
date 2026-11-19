@@ -765,7 +765,7 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
             <PanelLeft className="h-[18px] w-[18px]" aria-hidden />
           </button>
 
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5" data-testid="top-bar-trail">
             {crumbTrail.map((c) => (
               <Fragment key={c.label}>
                 {'href' in c && c.href ? (

@@ -374,7 +374,7 @@ export default function ObjectiveDetailPage() {
   return (
     <AppShell
       title={objective?.name ?? 'Objective'}
-      crumbs={[{ label: 'OKRs', href: '/okrs' }, { label: objective?.name ?? 'Objective' }]}
+      crumbs={[{ label: 'Execute' }, { label: 'Objectives', href: '/okrs' }]}
     >
       {error && (
         <p

@@ -31,7 +31,7 @@ test('every page sits in the app frame: sidebar, breadcrumb, and a way back', as
     await page.goto(path);
     await expect(page, `${path} stays put`).toHaveURL(new RegExp(`${path}$`));
     await expect(page.getByTestId('nav-dashboard'), `${path} has the sidebar`).toBeVisible();
-    await expect(page.getByRole('banner').getByRole('heading', { name: heading }), `${path} is named in the top bar`).toBeVisible();
+    await expect(page.getByRole('banner').getByTestId('top-bar-title'), `${path} is named in the top bar`).toHaveText(heading);
     // No sideways scroll at phone width either.
     await page.setViewportSize({ width: 375, height: 812 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${path} fits a phone`).toBeLessThanOrEqual(0);

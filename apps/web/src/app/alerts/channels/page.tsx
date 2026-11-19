@@ -167,6 +167,7 @@ export default function ChannelsPage() {
       <RequirePermission permission="ORG_SETTINGS">
       <PageHeader
         title="Notification channels"
+        titleTestId="channels-heading"
         subtitle="Where alerts are sent besides the app — email, Slack, Teams or your own webhook."
         actions={
           <Link
@@ -177,9 +178,6 @@ export default function ChannelsPage() {
           </Link>
         }
       />
-      <h1 data-testid="channels-heading" className="sr-only">
-        Notification channels
-      </h1>
 
       <Card className="mt-5">
         <CardHeader>

@@ -535,7 +535,7 @@ export default function ObjectiveDetailPage() {
                     >
                       {STATUSES.map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {humanize(s)}
                         </option>
                       ))}
                     </Select>

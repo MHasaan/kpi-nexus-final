@@ -72,6 +72,8 @@ interface FakeKpi {
   organizationId: string;
   id: string;
   categoryId: string | null;
+  name?: string;
+  unit?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +153,12 @@ class FakePrisma {
   };
 
   kPI = {
+    // The names and units of the KPIs a snapshot freezes: one query for all of them.
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
+      this.kpiStore
+        .filter((k) => k.organizationId === where.organizationId && where.id.in.includes(k.id))
+        .map((k) => ({ id: k.id, name: k.name ?? k.id, unit: k.unit ?? null })),
+    ),
     findFirst: vi.fn(
       async ({
         where,
@@ -344,6 +352,33 @@ describe('SnapshotService.capture', () => {
     expect(payload.kpiValues['undefined']).toBeUndefined();
     expect(payload.widgets).toHaveLength(3);
     expect(payload.dashboard.name).toBe('Test Dashboard');
+  });
+
+  // Flow walk (dashboards): a snapshot read "kpi_card — Latest value: 35000". It froze a value with
+  // nothing to say what the value was of: a KPI renamed or deleted since could not be told.
+  test('a snapshot freezes each KPI\'s name and unit beside its value, for this organisation only', async () => {
+    const prisma = new FakePrisma();
+    prisma.kpiStore.push(
+      { organizationId: ORG, id: 'kpi_1', categoryId: null, name: 'Monthly revenue', unit: 'USD' },
+      { organizationId: 'org_other', id: 'kpi_2', categoryId: null, name: 'Their KPI', unit: null },
+    );
+    prisma.dataPointStore.push({ organizationId: ORG, kpiId: 'kpi_1', value: 35000, recordedAt: new Date('2026-01-01') });
+    const dashboardStub = makeDashboardStub({
+      dashboard: {
+        id: 'dash_1',
+        widgets: [
+          { id: 'w1', widgetType: 'kpi_card', title: null, config: { kpiId: 'kpi_1' }, position: { x: 0, y: 0, w: 3, h: 2 }, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() },
+          { id: 'w2', widgetType: 'line', title: null, config: { kpiId: 'kpi_2' }, position: { x: 3, y: 0, w: 6, h: 4 }, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() },
+        ] as PublicDashboard['widgets'],
+      },
+    });
+    const { service } = makeService({ dashboardStub, prisma });
+    const snapshot = await withCtx({}, () => service.capture('dash_1', {}));
+    const payload = snapshot.payload as unknown as import('./snapshots.service.js').SnapshotPayload;
+    expect(payload.kpiValues['kpi_1']).toMatchObject({ latestValue: 35000, name: 'Monthly revenue', unit: 'USD' });
+    // A KPI that is not this organisation's is given no name.
+    expect(payload.kpiValues['kpi_2']).toMatchObject({ name: null, unit: null });
+    expect(prisma.kPI.findMany.mock.calls[0]![0].where).toMatchObject({ organizationId: ORG });
   });
 
   test("BE-048: a snapshot keeps the organisation's value, never one unit's or one person's", async () => {

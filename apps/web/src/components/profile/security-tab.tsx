@@ -10,12 +10,14 @@ import {
   type SessionSummary,
   changeMyPassword,
   confirmMfa,
+  currentSessionId,
   disableMfa,
   enrollMfa,
   listMySessions,
   revokeAllOtherSessions,
   revokeSession,
 } from '../../lib/api-client';
+import { deviceLabel } from '../../lib/device-label';
 import {
   Badge,
   Button,
@@ -464,12 +466,14 @@ function SessionsCard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
+  const [currentId, setCurrentId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
       setSessions(await listMySessions());
+      setCurrentId(await currentSessionId().catch(() => null));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load sessions');
     } finally {
@@ -565,16 +569,26 @@ function SessionsCard() {
             <EmptyState title="No active sessions found." />
           </div>
         ) : (
-          <ul className="grid gap-2" data-testid="sessions-list">
+          <ul className="grid min-w-0 gap-2" data-testid="sessions-list">
             {sessions.map((s) => (
               <li
                 key={s.id}
                 data-testid={`session-row-${s.id}`}
-                className="flex items-start justify-between gap-4 rounded-lg border border-border bg-surface-1 p-3"
+                className="flex min-w-0 items-start justify-between gap-4 rounded-lg border border-border bg-surface-1 p-3"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-content-strong">
-                    {s.deviceInfo ?? s.userAgent ?? 'Unknown device'}
+                  {/* The device in words, as on the Sessions page — not the browser's own long string,
+                      which also pushed this whole tab off the side of the page. */}
+                  <p className="flex items-center gap-2 text-sm font-medium text-content-strong">
+                    <span className="truncate">{s.deviceInfo ?? deviceLabel(s.userAgent)}</span>
+                    {s.id === currentId && (
+                      <span
+                        data-testid="session-current"
+                        className="shrink-0 rounded-full bg-accent-bg px-2 py-0.5 text-xs font-medium text-accent-primary"
+                      >
+                        This device
+                      </span>
+                    )}
                   </p>
                   {s.ipAddress && (
                     <p className="mt-0.5 text-xs text-content-muted">IP: {s.ipAddress}</p>

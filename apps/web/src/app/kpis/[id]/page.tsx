@@ -612,7 +612,8 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
               <TableHead>Recorded</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Flags</TableHead>
-              <TableHead className="sr-only">Actions</TableHead>
+              {/* Hidden from sight, not from the table: a heading cell taken out of the layout sat past the edge. */}
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -768,7 +769,8 @@ function AssignmentsTab({ kpi }: { kpi: KpiSummary }) {
               <TableHead>Latest value</TableHead>
               <TableHead>Target</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="sr-only">Actions</TableHead>
+              {/* Hidden from sight, not from the table: a heading cell taken out of the layout sat past the edge. */}
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

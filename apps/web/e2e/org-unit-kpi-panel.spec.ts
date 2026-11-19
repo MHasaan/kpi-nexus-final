@@ -76,18 +76,20 @@ test('a unit shows its KPIs and can be given one, its own target, a value, and l
 
   // Assign a KPI the unit does not hold yet.
   await panel.getByTestId('unit-kpi-assign-select').selectOption({ label: `Tickets Closed ${stamp}` });
-  await panel.getByTestId('unit-kpi-assign-target').fill('40');
+  await panel.getByTestId('unit-kpi-assign-target').fill('40000');
   await panel.getByTestId('unit-kpi-assign-button').click();
   const addedRow = panel.getByTestId(`unit-kpi-row-${otherKpi.id}`);
   await expect(addedRow).toContainText(`Tickets Closed ${stamp}`);
-  expect((await childKpis()).find((k) => k.kpiId === otherKpi.id)?.targetValue).toBe(40);
+  expect((await childKpis()).find((k) => k.kpiId === otherKpi.id)?.targetValue).toBe(40000);
+  // Flow walk (teams): figures were printed as stored — "40000" — not as the organisation writes numbers.
+  await expect(addedRow.getByTestId('unit-kpi-target')).toHaveText('40,000');
 
   // Record a value for it, for this unit.
   await addedRow.getByTestId(`unit-kpi-record-toggle-${otherKpi.id}`).click();
-  await panel.getByTestId('unit-kpi-value').fill('37');
+  await panel.getByTestId('unit-kpi-value').fill('37500');
   await panel.getByTestId('unit-kpi-record').click();
-  await expect(addedRow.getByTestId('unit-kpi-current')).toHaveText('37');
-  expect((await childKpis()).find((k) => k.kpiId === otherKpi.id)?.currentValue).toBe(37);
+  await expect(addedRow.getByTestId('unit-kpi-current')).toHaveText('37,500');
+  expect((await childKpis()).find((k) => k.kpiId === otherKpi.id)?.currentValue).toBe(37500);
 
   // Take it away again, through the confirm dialog.
   await addedRow.getByTestId(`unit-kpi-remove-${otherKpi.id}`).click();

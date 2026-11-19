@@ -39,8 +39,8 @@ export default function CascadeTreePage() {
       <div className="space-y-5">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight text-content-strong">KPI Cascade Tree</h1>
-          <p className="text-sm text-content-muted">
-            Parent KPIs and the children that roll up into them, by BFS level.
+          <p className="text-sm text-content-muted" data-testid="kpi-tree-intro">
+            Parent KPIs and the KPIs that feed them, one level under another.
           </p>
         </div>
 

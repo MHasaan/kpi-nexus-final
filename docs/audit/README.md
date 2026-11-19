@@ -465,6 +465,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (KPI templates): cards carried `INTERNAL_PROCESS`, `LEARNING_GROWTH`; functions listed “ops”, “hr” | ✅ Fixed — words | #332 | `e2e/templates-in-words.spec.ts` |
 | Flow walk (KPI pages): Forecast, Anomalies, What-if and Embed did not say which KPI they were about or lead back to it | ✅ Fixed — the title ends “for <KPI>” and the top bar reads KPIs / <KPI> / page, both links | #333 | `e2e/kpi-subpages-name-the-kpi.spec.ts` |
 | Flow walk (forecast): the forecast was drawn beneath the history across the same span; the table was headed “Date / yhat” with rows “t+1” | ✅ Fixed — the forecast starts at the last actual value and runs on; rows are real periods by the KPI’s frequency, under plain headings | #334 | `line-chart.spec.tsx` (4), `forecast-periods.spec.ts` (3), `e2e/ai-analytics-ui.spec.ts` |
+| Flow walk (anomalies): a saved anomaly was a score and a method — not which recorded value, or when | ✅ Fixed — the API returns each anomaly with its value and period; the table shows Period, Value, How unusual, Method, State | #335 | `anomaly.service.spec.ts` (+1), `e2e/ai-analytics-ui.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

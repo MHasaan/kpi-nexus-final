@@ -13,6 +13,7 @@ import {
   updateAiFeatureConfig,
 } from '../../../lib/api-client';
 import type { AiFeatureConfig, AiProviderKey } from '../../../lib/api-client';
+import { aiFeatureInfo } from '../../../lib/ai-features';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import {
@@ -206,12 +207,17 @@ function RoutingRow({
     }
   };
 
+  const info = aiFeatureInfo(config.feature);
+
   return (
     <TableRow data-testid={`ai-config-${config.feature}`}>
-      <TableCell className="font-medium align-top">{config.feature}</TableCell>
+      <TableCell className="align-top">
+        <span className="block font-medium" data-testid={`ai-config-${config.feature}-name`}>{info.name}</span>
+        {info.does && <span className="block text-xs text-content-muted">{info.does}</span>}
+      </TableCell>
       <TableCell>
         <Select
-          aria-label={`Provider for ${config.feature}`}
+          aria-label={`Provider for ${info.name}`}
           data-testid={`ai-config-${config.feature}-provider`}
           value={provider}
           disabled={busy}
@@ -226,7 +232,7 @@ function RoutingRow({
       </TableCell>
       <TableCell>
         <Input
-          aria-label={`Model for ${config.feature}`}
+          aria-label={`Model for ${info.name}`}
           data-testid={`ai-config-${config.feature}-model`}
           className="font-mono"
           list={listId}
@@ -243,7 +249,7 @@ function RoutingRow({
       <TableCell>
         <div className="flex flex-col gap-1.5">
           <Select
-            aria-label={`Fallback provider for ${config.feature}`}
+            aria-label={`Fallback provider for ${info.name}`}
             data-testid={`ai-config-${config.feature}-fallback-provider`}
             value={fallbackProvider}
             disabled={busy}
@@ -259,7 +265,7 @@ function RoutingRow({
           {fallbackProvider !== '' && (
             <>
               <Input
-                aria-label={`Fallback model for ${config.feature}`}
+                aria-label={`Fallback model for ${info.name}`}
                 aria-invalid={fallbackIncomplete || undefined}
                 data-testid={`ai-config-${config.feature}-fallback-model`}
                 className="font-mono"
@@ -280,7 +286,7 @@ function RoutingRow({
       </TableCell>
       <TableCell>
         <Input
-          aria-label={`Daily cap in dollars for ${config.feature}`}
+          aria-label={`Daily cap in dollars for ${info.name}`}
           aria-invalid={capInvalid || undefined}
           data-testid={`ai-config-${config.feature}-cap`}
           inputMode="decimal"
@@ -420,7 +426,7 @@ export default function AiSettingsPage() {
         ...(fallback && { fallbackProviderId: fallback.provider, fallbackModel: fallback.model }),
         ...(capUsd !== undefined && { perFeatureCapUsd: capUsd }),
       });
-      flash(`${config.feature} now routes to ${provider} / ${model}${capUsd !== undefined ? `, up to $${capUsd} a day` : ''}.`);
+      flash(`${aiFeatureInfo(config.feature).name} now uses ${provider} / ${model}${capUsd !== undefined ? `, up to $${capUsd} a day` : ''}.`);
       load();
     } catch (e) {
       setSuccess(null);
@@ -432,7 +438,7 @@ export default function AiSettingsPage() {
     setError(null);
     try {
       await resetAiFeatureConfig(feature);
-      flash(`${feature} reverted to its default route.`);
+      flash(`${aiFeatureInfo(feature).name} is back on its default model.`);
       load();
     } catch (e) {
       setSuccess(null);

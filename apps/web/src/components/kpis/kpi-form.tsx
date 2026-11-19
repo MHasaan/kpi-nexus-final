@@ -213,10 +213,12 @@ function parseTags(raw: string): string[] {
 function Section({
   eyebrow,
   help,
+  helpTestId,
   children,
 }: {
   eyebrow: string;
   help: string;
+  helpTestId?: string;
   children: ReactNode;
 }) {
   return (
@@ -224,7 +226,9 @@ function Section({
       <CardContent className="space-y-4">
         <div>
           <p className="kn-eyebrow">{eyebrow}</p>
-          <p className="mt-0.5 text-xs text-content-muted">{help}</p>
+          <p className="mt-0.5 text-xs text-content-muted" data-testid={helpTestId}>
+            {help}
+          </p>
         </div>
         {children}
       </CardContent>
@@ -770,7 +774,12 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
       </Section>
 
       {/* Status */}
-      <Section eyebrow="Status" help="Draft KPIs are hidden from most views until Active.">
+      {/* What the KPI list says, because it is what happens: a draft is not hidden anywhere. */}
+      <Section
+        eyebrow="Status"
+        help="A draft takes values and appears on dashboards like any other KPI. Draft only marks one that has not been reviewed yet."
+        helpTestId="kpi-status-help"
+      >
         <Field label="Status" htmlFor="kpi-status">
           <Select
             id="kpi-status"

@@ -28,6 +28,9 @@ export function shareKpi(widget: PublicWidget, payload: Pick<PublicDashboardPayl
 
 const COLS = 12;
 
+/** The smallest a widget is shown, in grid cells each way — the dashboard's own minimum. */
+const MIN_CELLS = 2;
+
 /**
  * Where a widget sits on the 12-column grid, as CSS grid lines — the same
  * place its author put it. Null when the stored position is not usable, and
@@ -37,7 +40,9 @@ export function shareCell(position: unknown): { column: string; row: string } | 
   const p = position as { x?: unknown; y?: unknown; w?: unknown; h?: unknown } | null;
   const whole = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n);
   if (!p || !whole(p.x) || !whole(p.y) || !whole(p.w) || !whole(p.h)) return null;
-  if (p.x < 0 || p.x >= COLS || p.y < 0 || p.w < 1 || p.h < 1) return null;
+  // Smaller than two cells by two is not a size anyone chose (an old fault saved new widgets at one
+  // by one): such a widget is not pinned there, where it would be a sliver, but flows after the others.
+  if (p.x < 0 || p.x >= COLS || p.y < 0 || p.w < MIN_CELLS || p.h < MIN_CELLS) return null;
   const width = Math.min(p.w, COLS - p.x);
   return { column: `${p.x + 1} / span ${width}`, row: `${p.y + 1} / span ${p.h}` };
 }

@@ -28,6 +28,9 @@ const SCOPE_CHOICES: Record<(typeof KPI_SCOPES)[number], string> = {
   PER_USER: 'Each person',
 };
 
+/** A target in the row's summary. The organisation's own number format does not exist yet: this is the default one. */
+const TARGET_FIGURE = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 });
+
 export interface KpisStepProps {
   draft: OnboardingDraftInput;
   problems: readonly DraftProblem[];
@@ -199,7 +202,8 @@ export function KpisStep({ draft, problems, onChange, onGo }: KpisStepProps) {
                   <summary data-testid={`kpi-details-${index}`} className="cursor-pointer text-xs font-medium text-accent-primary">
                     {SCOPE_CHOICES[scope]} · {labelFor(FREQUENCY_LABELS, kpi.frequency ?? 'MONTHLY')} ·{' '}
                     {labelFor(DIRECTION_LABELS, kpi.direction ?? 'HIGHER_IS_BETTER')}
-                    {kpi.targetValue !== undefined && ` · target ${kpi.targetValue}${kpi.unit ? ` ${kpi.unit}` : ''}`}
+                    {/* Grouped, as the product writes numbers once the organisation exists: it read "target 500000". */}
+                    {kpi.targetValue !== undefined && ` · target ${TARGET_FIGURE.format(kpi.targetValue)}${kpi.unit ? ` ${kpi.unit}` : ''}`}
                   </summary>
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     <div>

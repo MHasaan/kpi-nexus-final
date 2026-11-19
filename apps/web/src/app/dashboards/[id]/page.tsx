@@ -40,6 +40,7 @@ import {
   Segmented,
   Skeleton,
 } from '../../../components/ui';
+import { nextWidgetPosition } from '../../../lib/widget-placement';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
 import { type RangePreset, presetToRange } from '../../../lib/date-presets';
@@ -155,12 +156,12 @@ function DashboardDetailInner() {
     setAdding(true);
     setAddError(null);
     try {
-      const rows = dashboard?.widgets.length ?? 0;
-      const size = WIDGET_META[body.widgetType].defaultSize;
-      await addWidget(dashboardId, {
-        ...body,
-        position: { x: 0, y: rows * 2, w: size.w, h: size.h },
-      });
+      // The first free place, beside the others while there is room — not the left edge of a new row each time.
+      const position = nextWidgetPosition(
+        (dashboard?.widgets ?? []).map((w) => w.position),
+        WIDGET_META[body.widgetType].defaultSize,
+      );
+      await addWidget(dashboardId, { ...body, position });
       setShowAddForm(false);
       await refresh();
     } catch (err) {

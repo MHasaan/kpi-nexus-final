@@ -71,6 +71,7 @@ import {
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useAllowed } from '../../lib/use-allowed';
 import { inSentence } from '../../lib/sentence-case';
+import { navLabelFor } from '../../lib/nav-terminology';
 
 export default function UsersPage() {
   return (
@@ -201,6 +202,9 @@ function UsersPageInner() {
   }
 
   const memberLabelPlural = pluralize(terminology.memberLabel);
+  // The page is "People", as the menu calls it — or the organisation's own word once it has one.
+  // (It was titled "Members" under a menu entry called "People".)
+  const pageTitle = navLabelFor('/users', 'People', terminology);
   const memberLabelLower = inSentence(terminology.memberLabel);
 
   // Suspended people stay under Active; purged people and withdrawn invitations are in neither list.
@@ -321,11 +325,11 @@ function UsersPageInner() {
   const editingUser = users?.find((u) => u.id === editingId) ?? null;
 
   return (
-    <AppShell title={memberLabelPlural} crumbs={['People', memberLabelPlural]}>
+    <AppShell title={pageTitle} crumbs={[{ label: 'Organize' }]}>
       <RequirePermission permission="USERS_VIEW">
         <div className="flex flex-col gap-6">
           <PageHeader
-            title={memberLabelPlural}
+            title={pageTitle}
             titleTestId="users-heading"
             subtitle={
               <>

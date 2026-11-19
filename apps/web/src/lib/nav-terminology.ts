@@ -8,6 +8,7 @@ const TERM_FOR_HREF: Record<string, { label: keyof Terminology; plural: keyof Te
   '/roles': { label: 'roleLabel', plural: 'roleLabelPlural' },
   '/tasks': { label: 'taskLabel', plural: 'taskLabelPlural' },
   '/org-units': { label: 'groupLabel', plural: 'groupLabelPlural' },
+  '/users': { label: 'memberLabel', plural: 'memberLabelPlural' },
 };
 
 /**

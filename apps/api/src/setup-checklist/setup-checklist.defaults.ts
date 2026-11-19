@@ -36,7 +36,9 @@ export interface ChecklistItem extends ChecklistTaskDef {
 export const DEFAULT_TASKS: ChecklistTaskDef[] = [
   { key: 'first_kpi', category: 'KPIs', label: 'Create your first KPI', href: '/kpis/new' },
   { key: 'historical_import', category: 'Data', label: 'Record a value on a KPI', href: '/kpis' },
-  { key: 'default_dashboard', category: 'Dashboards', label: 'Add widgets to a dashboard', href: '/dashboards' },
+  // Done once any dashboard shows a KPI. Worded for an organisation that has no dashboard yet either:
+  // it read "Add widgets to a dashboard" and led to an empty list.
+  { key: 'default_dashboard', category: 'Dashboards', label: 'Put a KPI on a dashboard', href: '/dashboards' },
   { key: 'alert_rule', category: 'Alerts', label: 'Have a KPI watched by an alert rule', href: '/alerts/new' },
   { key: 'remaining_invites', category: 'Team', label: 'Invite your team', href: '/users' },
   { key: 'channels', category: 'Alerts', label: 'Add a notification channel', href: '/alerts/channels' },

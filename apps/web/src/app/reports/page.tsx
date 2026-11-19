@@ -40,19 +40,9 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { scheduleInWords } from '../../lib/report-schedule';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports' }];
-
-/** Best-effort humanization of common cron strings (falls back to the raw cron). */
-function humanizeCron(cron: string): string {
-  const presets: Record<string, string> = {
-    '0 8 * * *': 'Every day at 8:00',
-    '0 9 * * 1': 'Every Mon at 9:00',
-    '0 9 1 * *': 'Monthly on the 1st at 9:00',
-    '0 9 * * 1-5': 'Weekdays at 9:00',
-  };
-  return presets[cron.trim()] ?? cron;
-}
 
 function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
   if (status === 'SUCCEEDED') {
@@ -265,10 +255,7 @@ export default function ReportsPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-content-muted">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-                        <span>{humanizeCron(report.cron)}</span>
-                        <span className="font-mono tabular-nums text-content-disabled">
-                          ({report.cron})
-                        </span>
+                        <span>{scheduleInWords(report.cron)}</span>
                       </span>
                       {report.recipients.length > 0 && (
                         <span className="tabular-nums">

@@ -15,6 +15,8 @@ interface SettingLink {
   description: string;
 }
 
+// Each setting under the heading a person would look for it under. Notifications, AI, data retention
+// and the custom domain used to sit under "Integrations", among Slack and webhooks.
 const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
   {
     heading: 'General',
@@ -22,6 +24,8 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
       { href: '/settings/organization', title: 'Organization', description: 'Name, locale, currency, and terminology.' },
       { href: '/settings/branding', title: 'Branding', description: 'Logo, favicon, and brand colors.' },
       { href: '/settings/fiscal', title: 'Fiscal calendar', description: 'Fiscal year start and date/number formats.' },
+      { href: '/settings/notifications', title: 'Notifications', description: 'Digest mode, mute windows, channel prefs.' },
+      { href: '/settings/custom-domain', title: 'Custom domain', description: 'Serve KPI Nexus from your own domain.' },
     ],
   },
   {
@@ -31,7 +35,12 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
       { href: '/settings/sso', title: 'Single sign-on', description: 'SAML / OIDC identity provider config.' },
       { href: '/settings/scim', title: 'SCIM provisioning', description: 'Bearer tokens for IdP user provisioning.' },
       { href: '/settings/audit', title: 'Audit log', description: 'Review security-relevant activity.' },
+      { href: '/settings/retention', title: 'Data retention', description: 'How long each kind of record is kept.' },
     ],
+  },
+  {
+    heading: 'AI',
+    links: [{ href: '/settings/ai', title: 'AI', description: 'Provider, budget caps, and feature models.' }],
   },
   {
     heading: 'Integrations',
@@ -41,12 +50,8 @@ const GROUPS: Array<{ heading: string; links: SettingLink[] }> = [
       { href: '/alerts/channels', title: 'Alert channels', description: 'Where alerts are sent: email, Slack, Teams, webhooks.' },
       { href: '/workflows', title: 'Automations', description: 'Create a task when a KPI crosses a line.' },
       { href: '/plugins', title: 'Plugins', description: 'Installed extensions.' },
-      { href: '/settings/custom-domain', title: 'Custom domain', description: 'Serve KPI Nexus from your own domain.' },
-      { href: '/settings/notifications', title: 'Notifications', description: 'Digest mode, mute windows, channel prefs.' },
-      { href: '/settings/ai', title: 'AI', description: 'Provider, budget caps, and feature models.' },
       { href: '/settings/api-keys', title: 'API keys', description: 'Programmatic access tokens.' },
       { href: '/settings/webhooks', title: 'Webhooks', description: 'Outbound event subscriptions.' },
-      { href: '/settings/retention', title: 'Data retention', description: 'Per-entity retention policies.' },
     ],
   },
   {

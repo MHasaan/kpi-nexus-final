@@ -512,6 +512,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (the invited person): a per-unit KPI with no target, once one of two units had a value, read “0 of 2 units on track · Off track” for whoever sees both | ✅ Fixed — the holders count knows who has a target; with none the KPI is “no target” and reads “1 of 2 units recorded” (home page, board pack, reports, Slack, Ask) | #379 | `contracts/holders.spec.ts`, `kpis/kpi-data.service.spec.ts`, `e2e/holders-with-no-target.spec.ts` |
 | Flow walk (Ask): an answer with one long unbroken run (a web address, an identifier) widened its bubble past the page, which then scrolled sideways | ✅ Fixed — the answer wraps inside its bubble | #380 | `e2e/ask-answer-stays-on-the-page.spec.ts` |
 | Flow walk (positions): the form that makes a position offered the track “IC”, the stored code | ✅ Fixed — “Individual contributor”, as the list on the same page says | #381 | `e2e/positions-flow.spec.ts` |
+| Flow walk (settings): the Settings page filed Notifications, AI, Data retention and Custom domain under “Integrations” | ✅ Fixed — each is under a heading that fits it; links and addresses unchanged | #382 | `e2e/settings-hub-groups.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

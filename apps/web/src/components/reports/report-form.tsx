@@ -32,6 +32,8 @@ import {
 } from '../ui';
 import { cronProblem, recipientsProblem } from '../../lib/form-checks';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { useFormat } from '../../lib/format-context';
+import { scheduleInWords } from '../../lib/report-schedule';
 
 
 const CRON_PRESETS = [
@@ -48,6 +50,7 @@ const CRON_PRESETS = [
  */
 export function ReportForm({ report }: { report?: ScheduledReport }) {
   const router = useRouter();
+  const fmt = useFormat();
   // A saved schedule that is not one of the three offered is kept as it is, under Custom.
   const savedIsPreset = report ? CRON_PRESETS.some((p) => p.value === report.cron) : true;
   const [name, setName] = useState(report?.name ?? '');
@@ -337,11 +340,6 @@ export function ReportForm({ report }: { report?: ScheduledReport }) {
                         className="text-accent-primary focus:ring-ring"
                       />
                       <span className="text-content-strong">{preset.label}</span>
-                      {preset.value !== 'custom' && (
-                        <span className="ml-auto font-mono text-xs tabular-nums text-content-muted">
-                          {preset.value}
-                        </span>
-                      )}
                     </label>
                   );
                 })}
@@ -357,10 +355,16 @@ export function ReportForm({ report }: { report?: ScheduledReport }) {
                   className="font-mono"
                 />
               )}
+              {cronPreset === 'custom' && (
+                <p className="text-xs text-content-muted">
+                  Five parts: minute, hour, day of the month, month, weekday. For example <span className="font-mono">0 9 * * 1-5</span> is Monday to Friday at 09:00.
+                </p>
+              )}
 
-              {effectiveCron && (
-                <p className="font-mono text-xs tabular-nums text-content-muted">
-                  Cron: <span className="text-content-strong">{effectiveCron}</span>
+              {/* What the choice means, on whose clock: the API runs a report in the organisation's time zone. */}
+              {effectiveCron.trim() && (
+                <p className="text-xs text-content-muted" data-testid="report-schedule-words">
+                  Runs: <span className="text-content-strong">{scheduleInWords(effectiveCron)}, {fmt.organizationTimezone} time</span>
                 </p>
               )}
             </CardContent>

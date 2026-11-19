@@ -45,6 +45,7 @@ import {
 } from '../../../components/ui';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useFormat } from '../../../lib/format-context';
+import { scheduleInWords } from '../../../lib/report-schedule';
 
 function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
   if (status === 'SUCCEEDED') {
@@ -218,9 +219,12 @@ export default function ReportDetailPage() {
               {report.isActive ? 'active' : 'paused'}
             </Badge>
             <Badge tone="info">{report.format}</Badge>
-            <span className="inline-flex items-center gap-1.5 text-xs text-content-muted">
+            {/* In words, and on whose clock: the API runs a report in the organisation's time zone. */}
+            <span className="inline-flex items-center gap-1.5 text-xs text-content-muted" data-testid="report-schedule">
               <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-              <span className="font-mono tabular-nums">{report.cron}</span>
+              <span>
+                {scheduleInWords(report.cron)}, {fmt.organizationTimezone} time
+              </span>
             </span>
             {report.lastRunAt && (
               <span className="text-xs tabular-nums text-content-muted">

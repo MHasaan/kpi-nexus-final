@@ -105,22 +105,27 @@ test('anomalies page: looking and saving again does not save the same anomaly tw
   const saved = async () => ((await (await api.get(`/kpis/${kpiId}/anomalies`)).json()) as Array<{ dataPointId: string | null; method: string }>);
 
   await page.goto(`/kpis/${kpiId}/anomalies`);
+  // Press the button and wait for the save to come back: counting before it lands proves nothing.
+  const lookAndSave = async () => {
+    const done = page.waitForResponse((r) => r.url().includes('/anomalies/detect') && r.request().method() === 'POST');
+    await page.getByTestId('anom-detect-persist').click();
+    expect((await done).ok()).toBe(true);
+  };
   await page.getByTestId('anom-method').selectOption('zscore');
-  await page.getByTestId('anom-detect-persist').click();
+  await lookAndSave();
   const rows = page.locator('[data-testid^="anom-row-"]');
   await expect(rows.first()).toBeVisible({ timeout: 15_000 });
   const first = await saved();
   expect(first.length).toBeGreaterThan(0);
 
-  await page.getByTestId('anom-detect-persist').click();
-  await expect(page.getByTestId('anom-detected')).toBeVisible({ timeout: 15_000 });
-  await expect.poll(async () => (await saved()).length, { timeout: 10_000 }).toBe(first.length);
+  await lookAndSave();
+  expect(await saved()).toHaveLength(first.length);
   await expect(rows).toHaveCount(first.length);
 
-  // Another method is another finding about the same value: that one is saved.
+  // Another method is another finding about the same value: that one is saved, once.
   await page.getByTestId('anom-method').selectOption('ensemble');
-  await page.getByTestId('anom-detect-persist').click();
-  await expect.poll(async () => new Set((await saved()).map((a) => `${a.dataPointId}:${a.method}`)).size, { timeout: 15_000 }).toBeGreaterThanOrEqual(first.length);
+  await lookAndSave();
+  await lookAndSave();
   const all = await saved();
   expect(new Set(all.map((a) => `${a.dataPointId}:${a.method}`)).size).toBe(all.length);
 });

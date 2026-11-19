@@ -157,6 +157,53 @@ export function conditionSentence(form: AlertRuleForm, kpiName: string | undefin
   }
 }
 
+/** A number of minutes as the largest whole unit it makes: "2 days", "3 hours", "90 minutes". */
+function minutesInWords(minutes: number): string {
+  if (minutes % 1440 === 0) return span(String(minutes / 1440), 'days');
+  if (minutes % 60 === 0) return span(String(minutes / 60), 'hours');
+  return span(String(minutes), 'minutes');
+}
+
+/**
+ * A saved rule as what it watches for: "When the value is below 50,000".
+ * The list of rules gave only each rule's type. A rule whose settings cannot
+ * be read is named by its kind — never shown as stored.
+ */
+export function savedRuleSentence(rule: { ruleType: string; config: unknown }, formatNumber: (n: number) => string = String): string {
+  const config = rule.config && typeof rule.config === 'object' ? (rule.config as Record<string, unknown>) : {};
+  const num = (key: string): number | null => (typeof config[key] === 'number' && Number.isFinite(config[key]) ? (config[key] as number) : null);
+  const kind = RULE_TYPES.find((t) => t.value === rule.ruleType)?.label ?? 'A rule';
+  switch (rule.ruleType) {
+    case 'STATIC_THRESHOLD': {
+      const words = OPERATOR_WORDS[config.operator as Operator];
+      const value = num('value');
+      return words && value !== null ? `When the value ${words} ${formatNumber(value)}` : kind;
+    }
+    case 'DYNAMIC_STDDEV': {
+      const sigmas = num('sigmas');
+      const windowSize = num('windowSize');
+      return sigmas !== null && windowSize !== null
+        ? `When a new value is ${formatNumber(sigmas)} or more standard deviations from the average of the ${formatNumber(windowSize)} before it`
+        : kind;
+    }
+    case 'RATE_OF_CHANGE': {
+      const pct = num('pctChange');
+      const minutes = num('windowMinutes');
+      return pct !== null && minutes !== null
+        ? `When it ${pct < 0 ? 'falls' : 'rises'} by ${formatNumber(Math.abs(pct))}% or more within ${minutesInWords(minutes)}`
+        : kind;
+    }
+    case 'NO_DATA': {
+      const minutes = num('maxStaleMinutes');
+      return minutes !== null ? `When no value has been recorded in ${minutesInWords(minutes)}` : kind;
+    }
+    case 'COMPOSITE':
+      return 'When several conditions are met together';
+    default:
+      return kind;
+  }
+}
+
 /** The type-specific `config` the API expects. Call only when `alertRuleProblem` is null. */
 export function alertRuleConfig(form: AlertRuleForm): Record<string, unknown> {
   const cooldown = form.cooldownValue.trim() === '' ? null : toMinutes(form.cooldownValue, form.cooldownUnit);

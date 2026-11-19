@@ -10,6 +10,7 @@ import {
   levelSummary,
   toMinutes,
   toggleId,
+  savedRuleSentence,
 } from './alert-rule-form';
 
 const form = (patch: Partial<AlertRuleForm> = {}): AlertRuleForm => ({ ...EMPTY_ALERT_RULE_FORM, name: 'Churn watch', kpiId: 'k1', threshold: '5', ...patch });
@@ -130,5 +131,23 @@ describe('recipients', () => {
     expect(toMinutes('1.5', 'minutes')).toBeNull();
     expect(toggleId(['a'], 'b')).toEqual(['a', 'b']);
     expect(toggleId(['a', 'b'], 'a')).toEqual(['b']);
+  });
+});
+
+// Flow walk (alert rules): the list said a rule's type — "Threshold", "Anomaly (σ)" — and not what it watches for.
+describe('savedRuleSentence', () => {
+  const grouped = (n: number) => n.toLocaleString('en-US');
+  test('a saved rule reads as what it watches for, with numbers written the organisation\'s way', () => {
+    expect(savedRuleSentence({ ruleType: 'STATIC_THRESHOLD', config: { operator: '<', value: 50000 } }, grouped)).toBe('When the value is below 50,000');
+    expect(savedRuleSentence({ ruleType: 'DYNAMIC_STDDEV', config: { sigmas: 3, windowSize: 12 } }, grouped)).toBe(
+      'When a new value is 3 or more standard deviations from the average of the 12 before it',
+    );
+    expect(savedRuleSentence({ ruleType: 'RATE_OF_CHANGE', config: { pctChange: -20, windowMinutes: 1440 } }, grouped)).toBe('When it falls by 20% or more within 1 day');
+    expect(savedRuleSentence({ ruleType: 'RATE_OF_CHANGE', config: { pctChange: 15, windowMinutes: 90 } }, grouped)).toBe('When it rises by 15% or more within 90 minutes');
+    expect(savedRuleSentence({ ruleType: 'NO_DATA', config: { maxStaleMinutes: 2880 } }, grouped)).toBe('When no value has been recorded in 2 days');
+  });
+  test('a rule it cannot read is named by its kind, never shown as stored', () => {
+    expect(savedRuleSentence({ ruleType: 'COMPOSITE', config: {} }, grouped)).toBe('When several conditions are met together');
+    expect(savedRuleSentence({ ruleType: 'STATIC_THRESHOLD', config: null }, grouped)).toBe('Crosses a fixed value');
   });
 });

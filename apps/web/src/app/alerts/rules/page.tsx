@@ -44,7 +44,9 @@ import {
   type AlertRuleType,
   type AlertSeverity,
 } from '../../../lib/api-client';
+import { savedRuleSentence } from '../../../lib/alert-rule-form';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { useFormat } from '../../../lib/format-context';
 
 const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof AlertTriangle; label: string }> = {
   HIGH: { tone: 'error', Icon: OctagonAlert, label: 'High' },
@@ -52,12 +54,13 @@ const SEVERITY_META: Record<AlertSeverity, { tone: BadgeTone; Icon: typeof Alert
   LOW: { tone: 'info', Icon: Info, label: 'Low' },
 };
 
+/** The kinds of rule, named as the rule's own form names them. */
 const TYPE_LABEL: Record<AlertRuleType, string> = {
-  STATIC_THRESHOLD: 'Threshold',
-  DYNAMIC_STDDEV: 'Anomaly (σ)',
-  RATE_OF_CHANGE: 'Rate of change',
-  NO_DATA: 'No data',
-  COMPOSITE: 'Composite',
+  STATIC_THRESHOLD: 'Crosses a fixed value',
+  DYNAMIC_STDDEV: 'Unusual for this KPI',
+  RATE_OF_CHANGE: 'Rises or falls quickly',
+  NO_DATA: 'No value recorded',
+  COMPOSITE: 'Several conditions',
 };
 
 const linkSecondary =
@@ -72,6 +75,7 @@ interface EditDraft {
 }
 
 export default function AlertRulesPage() {
+  const fmt = useFormat();
   const router = useRouter();
   const [rules, setRules] = useState<AlertRule[] | null>(null);
   const [kpiNames, setKpiNames] = useState<Record<string, string>>({});
@@ -295,6 +299,10 @@ export default function AlertRulesPage() {
                     <TableRow key={rule.id} data-testid={`alert-rule-row-${rule.id}`}>
                       <TableCell>
                         <div className="font-medium text-content-strong">{rule.name}</div>
+                        {/* What it watches for: the type alone did not tell two rules on one KPI apart. */}
+                        <div className="mt-0.5 text-xs text-content" data-testid={`alert-rule-sentence-${rule.id}`}>
+                          {savedRuleSentence(rule, fmt.number)}
+                        </div>
                         {rule.description && (
                           <div className="mt-0.5 line-clamp-1 text-xs text-content-muted">{rule.description}</div>
                         )}

@@ -74,6 +74,16 @@ test('an automation made on the page creates a task when its KPI crosses the lin
   await expect(page.getByTestId('toast').filter({ hasText: 'Automation ran' })).toBeVisible();
   await expect.poll(async () => (await taskTitles()).filter((t) => t === `Celebrate ${stamp}`).length).toBe(2);
 
+  // Each task says where it came from: which automation, and the value that set it off (or that it was run by hand).
+  const notes = ((await (await api.get('/tasks')).json()) as Array<{ title: string; description: string | null }>)
+    .filter((t) => t.title === `Celebrate ${stamp}`)
+    .map((t) => t.description)
+    .sort();
+  expect(notes).toEqual([
+    'Made by the automation "Celebrate big revenue" when a value of 150000 was recorded.',
+    'Made by the automation "Celebrate big revenue", run by hand.',
+  ]);
+
   // Edit: the form is filled with what is saved; saving changes it.
   await row.getByTestId('wf-edit').click();
   await expect(page.getByTestId('wf-name')).toHaveValue('Celebrate big revenue');

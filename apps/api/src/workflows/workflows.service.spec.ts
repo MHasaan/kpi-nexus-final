@@ -134,6 +134,8 @@ describe('WorkflowsService.runEvent', () => {
     await withCtx({}, () => service.runEvent('kpi_changed', { kind: 'kpi_changed', kpiId: 'mrr', value: 150000 }));
     expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
     expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
+    // The automation's name goes with the action, so what it makes can say where it came from.
+    expect((dispatcher.dispatch.mock.calls[0] as unknown[])[3]).toEqual({ name: 'celebrate' });
   });
 
   test('does NOT dispatch when the rule does not match', async () => {
@@ -234,7 +236,13 @@ describe('WorkflowsService.trigger — "Run now"', () => {
     prisma.latest = { value: 42 }; // far below the rule's 100000: a manual run does not care
     const wf = await withCtx({}, () => service.create(celebrate));
     await withCtx({}, () => service.trigger(wf.id));
-    expect(dispatcher.run).toHaveBeenCalledWith(celebrate.action, { kind: 'kpi_changed', kpiId: 'mrr', value: 42 });
+    expect(dispatcher.run).toHaveBeenCalledWith(
+      celebrate.action,
+      { kind: 'kpi_changed', kpiId: 'mrr', value: 42 },
+      expect.any(Date),
+      // What it makes says it was run by hand, not that a value was recorded.
+      { name: celebrate.name, byHand: true },
+    );
     expect(prisma.workflows[0]!.lastRunAt).not.toBeNull();
   });
 

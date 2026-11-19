@@ -32,7 +32,16 @@ export interface SnapshotPayload {
   }>;
   kpiValues: Record<
     string,
-    { latestValue: number | null; latestRecordedAt: Date | null }
+    {
+      latestValue: number | null;
+      latestRecordedAt: Date | null;
+      /**
+       * What the value is of, frozen with it: the KPI's name and unit when the
+       * snapshot was taken. Absent on snapshots taken before these were kept.
+       */
+      name?: string | null;
+      unit?: string | null;
+    }
   >;
   capturedAt: string; // ISO-8601
 }
@@ -167,6 +176,22 @@ export class SnapshotService {
         };
       }),
     );
+
+    // Freeze what each value is of, beside it: a snapshot read "kpi_card — Latest value: 35000", and a
+    // KPI renamed or deleted since could not be told. One query, for the KPIs whose values were kept
+    // (a restricted KPI is not in `kpiValues`, so it is not named either), in this organisation only.
+    const frozenIds = Object.keys(kpiValues);
+    const frozenKpis = frozenIds.length
+      ? await this.prisma.kPI.findMany({
+          where: { organizationId: ctx.organizationId, id: { in: frozenIds } },
+          select: { id: true, name: true, unit: true },
+        })
+      : [];
+    const kpiById = new Map(frozenKpis.map((k) => [k.id, k]));
+    for (const id of frozenIds) {
+      const kpi = kpiById.get(id);
+      kpiValues[id] = { ...kpiValues[id]!, name: kpi?.name ?? null, unit: kpi?.unit ?? null };
+    }
 
     const payload: SnapshotPayload = {
       dashboard: {

@@ -33,6 +33,8 @@ import {
 import { useConfirm } from '../../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 import { useFormat } from '../../../../lib/format-context';
+import { WIDGET_TYPE_LABELS, labelFor } from '../../../../lib/labels';
+import { useKpiNames } from '../../../../lib/use-kpi-names';
 
 export default function SnapshotsPage() {
   return (
@@ -322,7 +324,7 @@ function SnapshotsInner() {
                     data-testid={`snapshot-payload-${snap.id}`}
                   >
                     <p className="mb-2 text-xs font-medium text-content-muted">
-                      Frozen payload (read-only)
+                      What it held when it was taken
                     </p>
                     {payloadLoadingId === snap.id && (
                       <div className="space-y-2" data-testid={`snapshot-payload-loading-${snap.id}`}>
@@ -380,6 +382,9 @@ function asRecord(v: unknown): Record<string, unknown> | null {
  */
 function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
   const fmt = useFormat();
+  // Today's KPI names, for a snapshot taken before it kept them itself.
+  const { kpis } = useKpiNames();
+  const currentName = (kpiId: string): string | null => kpis.find((k) => k.id === kpiId)?.name ?? null;
   const widgets = Array.isArray(payload['widgets'])
     ? (payload['widgets'] as unknown[])
     : null;
@@ -416,23 +421,33 @@ function SnapshotPayloadView({ payload }: SnapshotPayloadViewProps) {
               // Look the captured value up from the kpiValues OBJECT MAP.
               const kv = kpiId ? asRecord(kpiValuesMap?.[kpiId]) : null;
               const latestValue = kv?.['latestValue'];
+              const kind = typeof widget['widgetType'] === 'string' ? labelFor(WIDGET_TYPE_LABELS, widget['widgetType']) : `Widget ${i + 1}`;
               return (
                 <div
                   key={String(widget['id'] ?? i)}
+                  data-testid="snapshot-widget"
                   className="rounded border border-border bg-surface-bg px-3 py-2 text-sm"
                 >
+                  {/* What the value is of: the widget's own title, else the KPI's name as it was frozen
+                      (or as it is now, for a snapshot taken before names were kept) — never the stored kind. */}
                   <p className="font-semibold text-content-strong">
-                    {String(
-                      widget['title'] ?? widget['widgetType'] ?? `Widget ${i + 1}`,
-                    )}
+                    {typeof widget['title'] === 'string' && widget['title']
+                      ? widget['title']
+                      : typeof kv?.['name'] === 'string' && kv['name']
+                        ? kv['name']
+                        : kpiId && currentName(kpiId)
+                          ? currentName(kpiId)
+                          : kind}
                   </p>
-                  {latestValue !== undefined && latestValue !== null ? (
-                    <p className="text-xs tabular-nums text-content-muted">
-                      Latest value: {String(latestValue)}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-content-muted">No data</p>
-                  )}
+                  <p className="text-xs tabular-nums text-content-muted">
+                    {kind}
+                    {' · '}
+                    {typeof latestValue === 'number'
+                      ? `${fmt.number(latestValue)}${typeof kv?.['unit'] === 'string' && kv['unit'] ? ` ${kv['unit']}` : ''}`
+                      : kpiId
+                        ? 'No value at the time'
+                        : 'Holds no single value'}
+                  </p>
                 </div>
               );
             })}

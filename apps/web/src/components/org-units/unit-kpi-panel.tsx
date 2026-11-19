@@ -13,6 +13,7 @@ import {
   type OrgUnitSummary,
   type UnitKpiRow,
 } from '../../lib/api-client';
+import { useFormat } from '../../lib/format-context';
 import { ASSIGNMENT_STATUS_LABELS, labelFor } from '../../lib/labels';
 import { useAsyncData } from '../../lib/use-async-data';
 import { useConfirm } from '../../lib/use-confirm';
@@ -38,6 +39,7 @@ export function UnitKpiPanel({ unit, allUnits }: UnitKpiPanelProps) {
   const kpis = useAsyncData(() => listKpis(), []);
   const confirm = useConfirm();
   const toast = useToast();
+  const fmt = useFormat();
 
   const [assignKpiId, setAssignKpiId] = useState('');
   const [assignTarget, setAssignTarget] = useState('');
@@ -173,13 +175,15 @@ export function UnitKpiPanel({ unit, allUnits }: UnitKpiPanelProps) {
                   <div className="flex gap-1">
                     <dt>Latest</dt>
                     <dd className="tabular-nums text-content-strong" data-testid="unit-kpi-current">
-                      {row.currentValue ?? '—'}
+                      {row.currentValue === null ? '—' : fmt.number(row.currentValue)}
                     </dd>
                     {row.unit && row.currentValue !== null && <dd>{row.unit}</dd>}
                   </div>
                   <div className="flex gap-1">
                     <dt>Target</dt>
-                    <dd className="tabular-nums text-content-strong">{row.targetValue ?? '—'}</dd>
+                    <dd className="tabular-nums text-content-strong" data-testid="unit-kpi-target">
+                      {row.targetValue === null ? '—' : fmt.number(row.targetValue)}
+                    </dd>
                   </div>
                   {row.status && (
                     <div className="flex gap-1">

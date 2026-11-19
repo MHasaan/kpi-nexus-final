@@ -55,9 +55,24 @@ class FakePrisma {
     vi.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] } } }) =>
       rows.filter((r) => r.organizationId === where.organizationId && where.id.in.includes(r.id)),
     );
-  user = { findMany: this.named(this.names.user) };
+  // Who holds which role, and which roles are administrators: whether anyone but the requester could decide.
+  people: Array<{ id: string; organizationId: string; status: string; roleId: string | null }> = [];
+  adminRoles = new Set<string>();
+  user = {
+    findMany: this.named(this.names.user),
+    count: vi.fn(async ({ where }: { where: { organizationId: string; status: string; id: { not: string }; roleId: { in: string[] } } }) =>
+      this.people.filter(
+        (p) => p.organizationId === where.organizationId && p.status === where.status && p.id !== where.id.not && p.roleId !== null && where.roleId.in.includes(p.roleId),
+      ).length,
+    ),
+  };
   kPI = { findMany: this.named(this.names.kPI) };
-  roleDefinition = { findMany: this.named(this.names.roleDefinition) };
+  roleDefinition = {
+    findMany: this.named(this.names.roleDefinition),
+    findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+      where.organizationId === 'org_alpha' && this.adminRoles.has(where.id) ? { isAdmin: true } : where.organizationId === 'org_alpha' ? { isAdmin: false } : null,
+    ),
+  };
 
   approvalRequest = {
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
@@ -157,6 +172,50 @@ describe('ApprovalRequestService.decide', () => {
     await expect(
       withCtx({ userId: 'self', roleId: 'role_appr' }, () => service.decide('req_1', { decision: 'approve' })),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  // Flow walk: an organisation with one administrator who turned approvals on could never get a change
+  // through — they could not decide their own request, and there was nobody else who could.
+  describe('a sole administrator', () => {
+    const soleAdmin = (prisma: FakePrisma, others: Array<{ id: string; status: string; roleId: string }> = []) => {
+      prisma.adminRoles.add('role_admin');
+      prisma.people.push({ id: 'self', organizationId: ORG, status: 'ACTIVE', roleId: 'role_admin' });
+      for (const o of others) prisma.people.push({ ...o, organizationId: ORG });
+      seedPending(prisma, { roleIds: ['role_admin'], requester: 'self' });
+    };
+
+    test('may decide their own request when nobody else could; the decision says so', async () => {
+      const { service, prisma, apply } = makeService();
+      soleAdmin(prisma, [{ id: 'gone', status: 'ARCHIVED', roleId: 'role_admin' }, { id: 'emp', status: 'ACTIVE', roleId: 'role_emp' }]);
+      const res = await withCtx({ userId: 'self', roleId: 'role_admin' }, () => service.decide('req_1', { decision: 'approve' }));
+      expect(res.status).toBe('APPROVED');
+      expect(apply.apply).toHaveBeenCalledOnce();
+      expect((res.decisions as unknown as Array<{ userId: string; ownRequest?: boolean }>)[0]).toMatchObject({ userId: 'self', ownRequest: true });
+    });
+
+    test('may not while another active person holds an approving role', async () => {
+      const { service, prisma } = makeService();
+      soleAdmin(prisma, [{ id: 'other_admin', status: 'ACTIVE', roleId: 'role_admin' }]);
+      await expect(
+        withCtx({ userId: 'self', roleId: 'role_admin' }, () => service.decide('req_1', { decision: 'approve' })),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    test('someone who is not an administrator may not decide their own request, even as the only approver', async () => {
+      const { service, prisma } = makeService();
+      prisma.people.push({ id: 'self', organizationId: ORG, status: 'ACTIVE', roleId: 'role_appr' });
+      seedPending(prisma, { roleIds: ['role_appr'], requester: 'self' });
+      await expect(
+        withCtx({ userId: 'self', roleId: 'role_appr' }, () => service.decide('req_1', { decision: 'approve' })),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    test('sees in the list that they can decide it', async () => {
+      const { service, prisma } = makeService();
+      soleAdmin(prisma);
+      const [row] = await withCtx({ userId: 'self', roleId: 'role_admin' }, () => service.list({}));
+      expect(row).toMatchObject({ canDecide: true, ownRequest: true });
+    });
   });
 
   test('a user cannot decide twice', async () => {

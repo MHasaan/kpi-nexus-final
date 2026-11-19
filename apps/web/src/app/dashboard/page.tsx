@@ -196,8 +196,9 @@ function scopeChip(scope: Scope): { label: string; tone: BadgeTone } {
 function NewKpiAction() {
   return (
     <PermissionGuard permission="KPI_CREATE">
+      {/* The form itself: this opened the KPI list, where the button had to be found and pressed again. */}
       <Link
-        href="/kpis"
+        href="/kpis/new"
         data-testid="dashboard-new-kpi"
         className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-fast hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface-bg"
       >

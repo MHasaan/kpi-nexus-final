@@ -119,7 +119,7 @@ export default function WorkflowsPage() {
   const rows = workflows.data ?? [];
 
   return (
-    <AppShell title="Automations" crumbs={[{ label: 'Automation' }, { label: 'Workflows' }]}>
+    <AppShell title="Automations" crumbs={[{ label: 'Execute' }]}>
       {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
       <RequirePermission permission="ORG_SETTINGS">
         <PageHeader title="Automations" subtitle="When a KPI crosses a line you set, do something about it — without anyone having to notice first." />

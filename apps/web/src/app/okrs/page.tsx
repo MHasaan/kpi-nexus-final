@@ -475,7 +475,7 @@ export default function OkrsPage() {
   }
 
   return (
-    <AppShell title="Objectives" crumbs={[{ label: 'OKRs' }]}>
+    <AppShell title="Objectives" crumbs={[{ label: 'Execute' }]}>
       <PageHeader
         title="Objectives"
         subtitle="Goals that frame your KPIs — progress rolls up from key results"

@@ -3,10 +3,11 @@
  * never checked again. When an administrator changed their role, their menu
  * and buttons stayed as they were until they signed out and in.
  *
- * The API itself takes a person's role from their session token, which is
- * renewed every 15 minutes: that is when a changed role takes effect on the
- * server. The screen now follows it — the kept copy is checked against the
- * server when a page loads — instead of waiting for a sign-out.
+ * The kept copy is now checked against the server when a page loads. (When
+ * this test was written the API took the role from the session token, renewed
+ * every 15 minutes, so it renews the token below; since the role is read from
+ * the database on every request, the renewal is no longer what makes it pass.
+ * `role-change-takes-effect-at-once.spec.ts` covers the API without one.)
  */
 import { type Browser, type Page, expect, request, test } from '@playwright/test';
 

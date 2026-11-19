@@ -77,7 +77,7 @@ describe('the summary on the first page', () => {
 
 // UI-018: in a report a per-person or per-unit KPI reads as a count of holders on track.
 describe('a KPI with several holders', () => {
-  const calls = { name: 'Calls', unit: null, latestValue: null, scope: 'PER_USER', holders: { total: 2, withValue: 2, onTrack: 1 }, status: 'AT_RISK' as const };
+  const calls = { name: 'Calls', unit: null, latestValue: null, scope: 'PER_USER', holders: { total: 2, withValue: 2, withTarget: 2, onTrack: 1 }, status: 'AT_RISK' as const };
 
   test('its line and its summary row say how many are on track, not "No data"', () => {
     expect(latestValueLine(calls, undefined)).toBe('1 of 2 people on track');

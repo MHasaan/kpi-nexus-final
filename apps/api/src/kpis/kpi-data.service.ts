@@ -390,13 +390,17 @@ export class KpiDataService {
     const holdersByKpi = new Map<string, KpiHolders>();
     const kpiById = new Map(filtered.map((k) => [k.id, k]));
     const countHolder = (row: { kpiId: string; currentValue: number | null; targetValue: number | null }) => {
-      const h = holdersByKpi.get(row.kpiId) ?? { total: 0, withValue: 0, onTrack: 0 };
+      const h = holdersByKpi.get(row.kpiId) ?? { total: 0, withValue: 0, withTarget: 0, onTrack: 0 };
       h.total += 1;
       if (row.currentValue !== null) h.withValue += 1;
       // Measured against the holder's own target, or the KPI's: a target set only on the KPI used to
       // leave every holder with no status, so nobody was ever counted on track.
       const kpi = kpiById.get(row.kpiId);
-      const status = kpi ? holderStanding(row, kpi).status : null;
+      const standing = kpi ? holderStanding(row, kpi) : null;
+      // With no target anywhere, a holder is neither on nor off track: counted apart, so the KPI is
+      // not called "off track" for lacking one.
+      if (standing && standing.targetValue !== null) h.withTarget += 1;
+      const status = standing?.status ?? null;
       if (status === 'on_track' || status === 'exceeded') h.onTrack += 1;
       holdersByKpi.set(row.kpiId, h);
     };

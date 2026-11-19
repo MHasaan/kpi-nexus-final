@@ -162,7 +162,7 @@ export default function AlertRulesPage() {
   const activeCount = (rules ?? []).filter((r) => r.isActive).length;
 
   return (
-    <AppShell title="Alert rules" crumbs={[{ label: 'Workspace' }, { label: 'Alerts', href: '/alerts' }]}>
+    <AppShell title="Alert rules" crumbs={[{ label: 'Measure' }, { label: 'Alerts', href: '/alerts' }]}>
       <RequirePermission permission="ALERTS_VIEW">
         <PageHeader
           title="Alert rules"

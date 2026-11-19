@@ -295,7 +295,10 @@ describe('headingForPath', () => {
   });
   test('every other page keeps its section crumb', () => {
     expect(headingForPath('/settings')).toEqual({ title: 'Settings', crumbs: [{ label: 'Organize' }] });
-    expect(headingForPath('/kpis/abc')).toEqual({ title: 'KPIs', crumbs: [{ label: 'Workspace' }] });
+    // KPIs, Dashboards and Alerts sit under Measure in the sidebar; their trail said Workspace.
+    expect(headingForPath('/kpis/abc')).toEqual({ title: 'KPIs', crumbs: [{ label: 'Measure' }] });
+    expect(headingForPath('/dashboards')).toEqual({ title: 'Dashboards', crumbs: [{ label: 'Measure' }] });
+    expect(headingForPath('/alerts')).toEqual({ title: 'Alerts', crumbs: [{ label: 'Measure' }] });
     // Billing sits under Organize in the sidebar; its trail said Workspace.
     expect(headingForPath('/billing')).toEqual({ title: 'Billing', crumbs: [{ label: 'Organize' }] });
   });

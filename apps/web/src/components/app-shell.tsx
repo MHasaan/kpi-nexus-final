@@ -270,9 +270,10 @@ export function matchNavHref(pathname: string): string | null {
 
 const TITLES: Record<string, { title: string; crumb: string }> = {
   dashboard: { title: 'Dashboard', crumb: 'Home' },
-  kpis: { title: 'KPIs', crumb: 'Workspace' },
-  dashboards: { title: 'Dashboards', crumb: 'Workspace' },
-  alerts: { title: 'Alerts', crumb: 'Workspace' },
+  // The group the menu files them under: these three said "Workspace", another group of the same menu.
+  kpis: { title: 'KPIs', crumb: 'Measure' },
+  dashboards: { title: 'Dashboards', crumb: 'Measure' },
+  alerts: { title: 'Alerts', crumb: 'Measure' },
   insights: { title: 'Insights', crumb: 'Intelligence' },
   recommendations: { title: 'Recommendations', crumb: 'Intelligence' },
   ask: { title: 'Ask', crumb: 'Intelligence' },

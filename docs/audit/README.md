@@ -458,6 +458,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (activity): every row read “created a KPI value” or “created a task” — not which KPI, what value or which task, and nothing to click | ✅ Fixed — the API sends what each row is about (own name; the KPI’s name when it still exists here); the page says “recorded 1,234 on Revenue”, “created the task “Call the bank””, and links to the thing | #325 | `activity.service.spec.ts` (+3), `labels.spec.ts` (+5), `e2e/activity-says-what.spec.ts` |
 | Flow walk (reports): a report’s page printed its schedule as `0 9 * * 1`; the list worded only four schedules; nothing said whose clock the time is on | ✅ Fixed — one helper words daily, weekly, weekday-range and monthly schedules on the list, the page and the form, followed by the organisation’s time zone | #326 | `report-schedule.spec.ts` (3), `e2e/report-schedule-in-words.spec.ts` |
 | Flow walk (automations): the sentence read “goes above 100000” under an example saying “100,000” | ✅ Fixed — the organisation’s number format | #327 | `workflow-form.spec.ts` (+1), `e2e/automations.spec.ts` |
+| Flow walk: the Execute pages named their place differently in the top bar (“Automation / Workflows / Automations”, “OKRs / Objectives”, Tasks and Approvals with no group) | ✅ Fixed — each reads “Execute / <page>” | #328 | `e2e/execute-pages-trail.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

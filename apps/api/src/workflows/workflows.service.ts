@@ -147,7 +147,7 @@ export class WorkflowsService {
         ? { kind: 'kpi_changed', kpiId: rule.kpiId, value: await this.latestValue(rule.kpiId) }
         : { kind: 'alert', severity: 'LOW' };
     try {
-      await this.dispatcher.run(wf.action as unknown as WorkflowAction, event, new Date(), { name: wf.name, byHand: true });
+      await this.dispatcher.run(wf.action as unknown as WorkflowAction, event, new Date(), { id: wf.id, name: wf.name, byHand: true });
     } catch (err) {
       throw new UnprocessableEntityException({
         code: 'WORKFLOW_ACTION_FAILED',
@@ -188,7 +188,9 @@ export class WorkflowsService {
   private async runWorkflow(wf: PublicWorkflow, event: WorkflowEvent): Promise<void> {
     try {
       if (!evaluateRule(wf.rule, event)) return;
-      await this.dispatcher.dispatch(wf.action as unknown as WorkflowAction, event, new Date(), { name: wf.name });
+      const outcome = await this.dispatcher.dispatch(wf.action as unknown as WorkflowAction, event, new Date(), { id: wf.id, name: wf.name });
+      // Held back (its last task is still open): nothing was done, so it did not run.
+      if (outcome === 'held') return;
       await this.prisma.workflow.update({ where: { id: wf.id }, data: { lastRunAt: new Date() } });
     } catch (err) {
       this.logger.warn(`Workflow ${wf.id} run failed: ${String(err)}`);

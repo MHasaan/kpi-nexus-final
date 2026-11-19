@@ -115,7 +115,11 @@ export class TasksService {
     return task;
   }
 
-  async create(dto: CreateTaskDto): Promise<PublicTask> {
+  /**
+   * `origin` is set only by the automations engine, never from a request body:
+   * it marks the task as made by that automation.
+   */
+  async create(dto: CreateTaskDto, origin?: { workflowId: string }): Promise<PublicTask> {
     const ctx = RequestContextStore.require();
     await this.assertRefsInTenant(dto, ctx.organizationId);
     const created = await this.prisma.task.create({
@@ -130,6 +134,7 @@ export class TasksService {
         status: dto.status,
         priority: dto.priority,
         externalRef: dto.externalRef,
+        workflowId: origin?.workflowId,
         createdById: ctx.userId,
       },
       select: taskSelect,

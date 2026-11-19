@@ -24,7 +24,7 @@ function withCtx<T>(fn: () => Promise<T> | T): Promise<T> | T {
 }
 
 function makeService(openTask: { id: string } | null = null) {
-  const tasks = { create: vi.fn(async (_input: Record<string, unknown>) => ({ id: 'task_1' })) };
+  const tasks = { create: vi.fn(async (_input: Record<string, unknown>, _origin?: { workflowId: string }) => ({ id: 'task_1' })) };
   const webhooks = { dispatchEvent: vi.fn(async (_org: string, _event: string, _payload: unknown) => {}) };
   const email = { send: vi.fn(async () => {}) };
   const prisma = {

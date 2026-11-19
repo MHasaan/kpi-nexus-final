@@ -29,6 +29,8 @@ export type WorkflowAction = CreateTaskAction | PostWebhookAction | SendNotifica
 
 /** The automation an action belongs to, so what it makes can say where it came from. */
 export interface ActionSource {
+  /** Its id: a task it makes is marked with it, so it can tell its last one is still open. */
+  id?: string;
   name: string;
   /** "Run now": nobody recorded a value, a person pressed the button. */
   byHand?: boolean;
@@ -42,6 +44,15 @@ export function madeBy(source: ActionSource, event: WorkflowEvent): string {
     ? `${who} when a value of ${event.value} was recorded.`
     : `${who} when an alert was raised.`;
 }
+
+/**
+ * What became of an action: done, failed, or held back because the task this
+ * automation made last time is still open.
+ */
+export type ActionOutcome = 'done' | 'held' | 'failed';
+
+/** A task in one of these states is still waiting on someone. */
+const OPEN_TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'BLOCKED'] as const;
 
 /**
  * Fires the side effect for a matched workflow action. Each branch is
@@ -64,11 +75,12 @@ export class ActionDispatcherService {
    * workflow. A failure is logged and swallowed, because it must never break
    * the operation that triggered it.
    */
-  async dispatch(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<void> {
+  async dispatch(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<ActionOutcome> {
     try {
-      await this.run(action, event, now, source);
+      return await this.run(action, event, now, source);
     } catch (err) {
       this.logger.warn(`Workflow action ${(action as { kind?: string }).kind} failed: ${String(err)}`);
+      return 'failed';
     }
   }
 
@@ -76,23 +88,33 @@ export class ActionDispatcherService {
    * Do the action and let a failure be seen. Used by "Run now", where the
    * person pressing the button is waiting to hear whether it worked.
    */
-  async run(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<void> {
+  async run(action: WorkflowAction, event: WorkflowEvent, now: Date = new Date(), source?: ActionSource): Promise<ActionOutcome> {
     switch (action.kind) {
       case 'create_task':
-        await this.createTask(action, event, now, source);
-        return;
+        return this.createTask(action, event, now, source);
       case 'post_webhook':
         await this.postWebhook(action, event);
-        return;
+        return 'done';
       case 'send_notification':
         await this.sendNotification(action, event);
-        return;
+        return 'done';
       default:
         throw new Error(`Unknown workflow action kind: ${String((action as { kind?: string }).kind)}`);
     }
   }
 
-  private async createTask(action: CreateTaskAction, event: WorkflowEvent, now: Date, source?: ActionSource): Promise<void> {
+  private async createTask(action: CreateTaskAction, event: WorkflowEvent, now: Date, source?: ActionSource): Promise<ActionOutcome> {
+    // Three low months used to give three identical tasks. While the task this
+    // automation made is still open it makes no other; "Run now" still does,
+    // because a person asked for it.
+    if (source?.id && !source.byHand) {
+      const { organizationId } = RequestContextStore.require();
+      const open = await this.prisma.task.findFirst({
+        where: { organizationId, workflowId: source.id, status: { in: [...OPEN_TASK_STATUSES] } },
+        select: { id: true },
+      });
+      if (open) return 'held';
+    }
     const dueAt = action.dueAtRelativeHours
       ? new Date(now.getTime() + action.dueAtRelativeHours * 3_600_000)
       : undefined;
@@ -104,7 +126,8 @@ export class ActionDispatcherService {
       priority: action.priority,
       dueAt,
       kpiId: event.kind === 'kpi_changed' ? event.kpiId : undefined,
-    });
+    }, source?.id ? { workflowId: source.id } : undefined);
+    return 'done';
   }
 
   private async postWebhook(action: PostWebhookAction, event: WorkflowEvent): Promise<void> {

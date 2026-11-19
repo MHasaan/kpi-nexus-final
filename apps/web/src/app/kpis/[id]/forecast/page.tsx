@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart as LineChartIcon } from 'lucide-react';
 
 import { AppShell } from '../../../../components/app-shell';
+import { forecastPeriodStart } from '../../../../lib/forecast-periods';
+import { useFormat } from '../../../../lib/format-context';
 import { useKpiHeading } from '../../../../lib/use-kpi-heading';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import {
@@ -50,6 +52,7 @@ interface Forecast {
 }
 interface DataPoint {
   value: number;
+  periodStart: string;
   recordedAt: string;
 }
 
@@ -90,6 +93,9 @@ function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
   );
 }
 
+/** A forecast is an estimate: two decimals at most, not the six a model returns. */
+const figures = { maximumFractionDigits: 2 };
+
 export default function ForecastPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -99,6 +105,9 @@ export default function ForecastPage() {
   const [asked, setAsked] = useState<string | null>(null);
   const [fc, setFc] = useState<Forecast | null>(null);
   const [history, setHistory] = useState<number[]>([]);
+  // The start of the newest recorded period: the forecast's periods are counted on from it.
+  const [lastPeriodStart, setLastPeriodStart] = useState<string | null>(null);
+  const fmt = useFormat();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -106,7 +115,10 @@ export default function ForecastPage() {
   const loadHistory = useCallback(() => {
     setLoading(true);
     api<DataPoint[]>(`/kpis/${id}/data?limit=365`)
-      .then((rows) => setHistory([...rows].reverse().map((r) => r.value)))
+      .then((rows) => {
+        setHistory([...rows].reverse().map((r) => r.value));
+        setLastPeriodStart(rows.reduce<string | null>((latest, r) => (latest === null || r.periodStart > latest ? r.periodStart : latest), null));
+      })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load history'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -158,7 +170,7 @@ export default function ForecastPage() {
      <RequirePermission permission="ANALYTICS_FORECAST">
       <PageHeader
         title={heading.title}
-        subtitle="Project this KPI forward with 80/95% confidence bands. The forecast segment is dashed; bands render as translucent fills."
+        subtitle="Where this KPI is heading if it keeps moving as it has. The dashed line is the forecast; the shaded band is the range it will very probably stay within (95%)."
       />
 
       <AnalyticsNav kpiId={id} active="forecast" />
@@ -190,7 +202,7 @@ export default function ForecastPage() {
               <p className="text-xs text-content-muted">{FORECAST_MODELS.find((m) => m.value === model)?.about}</p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fc-horizon">Horizon (periods)</Label>
+              <Label htmlFor="fc-horizon">How many periods ahead</Label>
               <Input
                 id="fc-horizon"
                 data-testid="fc-horizon"
@@ -257,8 +269,8 @@ export default function ForecastPage() {
                 <Card>
                   <CardContent className="p-4">
                     <Metric
-                      label="RMSE"
-                      value={fc.fitMetrics?.rmse !== undefined ? fc.fitMetrics.rmse.toFixed(2) : '—'}
+                      label="Typical miss (RMSE)"
+                      value={fc.fitMetrics?.rmse !== undefined ? fmt.number(fc.fitMetrics.rmse, { maximumFractionDigits: 2 }) : '—'}
                       size="sm"
                     />
                   </CardContent>
@@ -266,7 +278,7 @@ export default function ForecastPage() {
                 <Card>
                   <CardContent className="p-4">
                     <Metric
-                      label="MAPE"
+                      label="Typical miss, in % (MAPE)"
                       value={
                         fc.fitMetrics?.mape !== undefined ? fc.fitMetrics.mape.toFixed(1) : '—'
                       }
@@ -279,33 +291,34 @@ export default function ForecastPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Predictions</CardTitle>
+                  <CardTitle>Period by period</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Table>
+                  <Table data-testid="fc-predictions">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">yhat</TableHead>
-                        <TableHead className="text-right">80% band</TableHead>
-                        <TableHead className="text-right">95% band</TableHead>
+                        <TableHead>Period</TableHead>
+                        <TableHead className="text-right">Forecast</TableHead>
+                        <TableHead className="text-right">Likely range (80%)</TableHead>
+                        <TableHead className="text-right">Wider range (95%)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {fc.predictions.map((p) => (
-                        <TableRow key={p.ds}>
-                          <TableCell className="font-mono text-xs text-content">{p.ds}</TableCell>
-                          <TableCell className="text-right tabular-nums text-content-strong">
-                            {p.yhat.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-content-muted">
-                            {p.yhat_lower_80.toFixed(1)} – {p.yhat_upper_80.toFixed(1)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-content-muted">
-                            {p.yhat_lower_95.toFixed(1)} – {p.yhat_upper_95.toFixed(1)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {fc.predictions.map((p, i) => {
+                        // The service numbers its rows "t+1", "t+2": the period that many after the last one recorded.
+                        const start = forecastPeriodStart(lastPeriodStart, heading.kpi?.frequency, i + 1);
+                        const range = (low: number, high: number) => `${fmt.number(low, figures)} – ${fmt.number(high, figures)}`;
+                        return (
+                          <TableRow key={p.ds}>
+                            <TableCell className="tabular-nums text-content">
+                              {start ? fmt.day(start) : `${i + 1} ${i === 0 ? 'period' : 'periods'} ahead`}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-content-strong">{fmt.number(p.yhat, figures)}</TableCell>
+                            <TableCell className="text-right tabular-nums text-content-muted">{range(p.yhat_lower_80, p.yhat_upper_80)}</TableCell>
+                            <TableCell className="text-right tabular-nums text-content-muted">{range(p.yhat_lower_95, p.yhat_upper_95)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </CardContent>

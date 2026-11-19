@@ -72,19 +72,34 @@ export function LineChart({
   const W = width - PAD * 2;
   const H = height - PAD * 2;
 
-  const maxLen = Math.max(series[0]?.data.length ?? 0, forecast?.yhat.length ?? 0, 1);
+  // A forecast is what comes next: the history takes the first slots along the
+  // width and the forecast the ones after it. It used to be drawn across the
+  // same span as the history, underneath it, as if it were a second past.
+  const historyLen = series[0]?.data.length ?? 0;
+  const forecastLen = forecast?.yhat.length ?? 0;
+  const slots = Math.max(historyLen + forecastLen, 1);
+  const maxLen = slots;
   const xAt = (i: number, n: number) => PAD + (n > 1 ? (i / (n - 1)) * W : W / 2);
   const yAt = (v: number) => PAD + H - ((v - min) / range) * H;
+  const point = (slot: number, v: number) => `${xAt(slot, slots).toFixed(2)},${yAt(v).toFixed(2)}`;
 
+  // Without a forecast a series spans the whole width, however long it is.
   const toPoints = (values: number[]) =>
-    values.map((v, i) => `${xAt(i, values.length).toFixed(2)},${yAt(v).toFixed(2)}`).join(' ');
+    values.map((v, i) => (forecast ? point(i, v) : `${xAt(i, values.length).toFixed(2)},${yAt(v).toFixed(2)}`)).join(' ');
+
+  // The dashed line starts at the last actual value, so the two lines meet.
+  const lastActual = series[0]?.data[historyLen - 1];
+  const forecastPoints = forecast
+    ? [
+        ...(lastActual !== undefined ? [point(historyLen - 1, lastActual)] : []),
+        ...forecast.yhat.map((v, i) => point(historyLen + i, v)),
+      ].join(' ')
+    : '';
 
   let bandPath: string | undefined;
   if (forecast && forecast.upper.length > 0 && forecast.lower.length > 0) {
-    const upper = forecast.upper.map((v, i) => `${xAt(i, forecast.upper.length).toFixed(2)},${yAt(v).toFixed(2)}`);
-    const lower = forecast.lower
-      .map((v, i) => `${xAt(i, forecast.lower.length).toFixed(2)},${yAt(v).toFixed(2)}`)
-      .reverse();
+    const upper = forecast.upper.map((v, i) => point(historyLen + i, v));
+    const lower = forecast.lower.map((v, i) => point(historyLen + i, v)).reverse();
     bandPath = [...upper, ...lower].join(' ');
   }
 
@@ -120,7 +135,7 @@ export function LineChart({
 
       {forecast && (
         <polyline
-          points={toPoints(forecast.yhat)}
+          points={forecastPoints}
           fill="none"
           stroke={forecast.color ?? 'hsl(var(--accent-primary))'}
           strokeWidth="2"

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { getKpi } from './api-client';
+import { type KpiSummary, getKpi } from './api-client';
 import { useAsyncData } from './use-async-data';
 
 /**
@@ -15,10 +15,15 @@ import { useAsyncData } from './use-async-data';
  * that ends with the KPI's name. Until the name arrives, or if it cannot be
  * read, the trail says "KPI" and the title stands alone.
  */
-export function useKpiHeading(kpiId: string, title: string): { crumbs: Array<{ label: string; href: string }>; title: ReactNode } {
+export function useKpiHeading(
+  kpiId: string,
+  title: string,
+): { crumbs: Array<{ label: string; href: string }>; title: ReactNode; kpi: KpiSummary | null } {
   const kpi = useAsyncData(() => getKpi(kpiId), [kpiId]);
   const name = kpi.data?.name ?? null;
   return {
+    // The KPI itself, for a page that needs more of it than its name (its frequency, its unit).
+    kpi: kpi.data ?? null,
     crumbs: [
       { label: 'KPIs', href: '/kpis' },
       { label: name ?? 'KPI', href: `/kpis/${kpiId}` },

@@ -565,6 +565,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | AI test with real Gemini (2026-11-20): the co-pilot's Generate came to nothing. The model wrote empty fields as null (the top unit's parent), and the draft refused the whole proposal | ✅ Fixed — fields the model set to null are left out when its answer is parsed | #432 | `onboarding-ai.pure.spec.ts`; live Generate → Apply → Validate |
 | AI test (real Gemini): "Which KPIs are off target?" listed every KPI below its target value, contradicting the dashboard's statuses | ✅ Fixed — each KPI line carries the app's own status, including KPIs held by several people; status questions, and "off target", "behind", "struggling", are answered by it | #433 | `nlq.service.spec.ts`; live questions |
 | AI test (real Gemini): Ask's comparisons named periods from the range asked for (CAC's first value as November 2025's; the data starts in December 2025) | ✅ Fixed — `compare_kpis` returns each value's period | #434 | `nlq.tools.spec.ts`; live |
+| AI test (real Gemini): Ask's forecasts said "t+1" instead of a month | ✅ Fixed — periods counted on from the last recorded one; `forecastPeriodStart` moved to contracts and shared with the web | #435 | `nlq.tools.spec.ts`, web forecast-period tests; live |
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -53,7 +53,8 @@
       "brace-expansion@^2": "^2.1.2",
       "brace-expansion@^1": "^1.1.20",
       "protobufjs": "^7.6.5",
-      "brace-expansion@^5": "^5.0.12"
+      "brace-expansion@^5": "^5.0.12",
+      "source-map-js": "^1.2.2"
     },
     "neverBuiltDependencies": [
       "@scarf/scarf"

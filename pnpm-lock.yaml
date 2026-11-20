@@ -18,6 +18,7 @@ overrides:
   protobufjs: ^7.6.5
   brace-expansion@^5: ^5.0.12
   source-map-js: ^1.2.2
+  fast-copy: ^4.1.0
 
 importers:
 
@@ -4097,8 +4098,8 @@ packages:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
 
-  fast-copy@4.0.3:
-    resolution: {integrity: sha512-58apWr0GUiDFM8+3afrO6eYwJBn9ZAhDOzG3L+/9llab/haCARS2UIfffmOurYLwbgDRs8n0rfr6qAAPEAuAQw==}
+  fast-copy@4.3.2:
+    resolution: {integrity: sha512-Ctcuv1tplX+8bX/VBu6DD8gZyDEtbP+jo+jnNCR9LVNSWR6DWauNol44WGQC2+uMCnFG7oRw/67ldmTIADdtgA==}
 
   fast-csv@4.3.6:
     resolution: {integrity: sha512-2RNSpuwwsJGP0frGsOmTb9oUF+VkFSM4SyLTDgwf2ciHWTarN0lQTC+F2f/t5J9QjW+c65VFIAAu85GsvMIusw==}
@@ -10586,7 +10587,7 @@ snapshots:
     dependencies:
       pure-rand: 6.1.0
 
-  fast-copy@4.0.3: {}
+  fast-copy@4.3.2: {}
 
   fast-csv@4.3.6:
     dependencies:
@@ -11952,7 +11953,7 @@ snapshots:
     dependencies:
       colorette: 2.0.20
       dateformat: 4.6.3
-      fast-copy: 4.0.3
+      fast-copy: 4.3.2
       fast-safe-stringify: 2.1.1
       help-me: 5.0.0
       joycon: 3.1.1

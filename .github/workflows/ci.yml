@@ -266,8 +266,17 @@ jobs:
           pnpm openapi:lint
           pnpm sdk:regenerate
           git diff --exit-code packages/sdk/src/schema.d.ts
+      # The browser's system packages come from Ubuntu's mirrors, which can fail for a while: on
+      # 2026-11-19 sixteen runs failed at this step at once (apt exit 100) before any test ran, and
+      # stopped the merge queue. Try three times, waiting longer each time, before failing the job.
       - name: Install Playwright browsers
-        run: pnpm --filter @kpi-nexus/web exec playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            pnpm --filter @kpi-nexus/web exec playwright install --with-deps chromium && exit 0
+            echo "Browser install failed (attempt $attempt of 3)"
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
+          done
+          exit 1
       # playwright.config.ts serves the production build (`next start`) under CI.
       - run: pnpm --filter @kpi-nexus/web test:e2e
       # OT-003: rerun the queue-dependent specs with the processors moved out of

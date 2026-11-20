@@ -521,6 +521,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (phone width): at 375 px the People page ran 160 px off the side — the list and the invite form were as wide as the table | ✅ Fixed — the column is no wider than the screen; the table scrolls inside its card | #388 | `e2e/people-page-fits.spec.ts` |
 | Owner’s decision 2026-11-19 (on #369): a money KPI keeps the currency it was created with. One KPI’s currency could already be changed on its own (the Unit box under Edit), and nothing said so | ✅ Said — the Edit form of a money KPI calls the box “This KPI’s currency” and says changing it relabels recorded values without converting them; Settings → Organization says an existing KPI keeps its own and where to change it. No behaviour changed | #389 | `e2e/kpi-currency-is-changed-on-the-kpi.spec.ts` |
 | Flow walk (anomalies): “Look, and save” pressed twice saved the same value’s anomaly twice | ✅ Fixed — one already saved for that value and method is kept, with the newer score; no schema change | #390 | `analytics/anomaly.service.spec.ts`, `e2e/ai-analytics-ui.spec.ts` |
+| Flow walk: the top bar of Dashboards and Alerts said “Workspace”, another group of the same menu; the menu files them under “Measure” | ✅ Fixed — the top bar names the menu’s own group | #391 | `components/app-shell.spec.tsx`, `e2e/measure-pages-trail.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

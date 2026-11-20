@@ -13,7 +13,7 @@ import { OnboardingAiService } from './onboarding-ai.service.js';
  * per-session limits it must charge a GLOBAL daily cap — but only for real
  * LLM calls, never for requests with a bad draft token.
  */
-function setup(opts: { tokenValid?: boolean; denyKey?: (key: string) => boolean } = {}) {
+function setup(opts: { tokenValid?: boolean; denyKey?: (key: string) => boolean; payload?: Record<string, unknown> } = {}) {
   const complete = vi.fn(async (_req: AiCompletionRequest) => ({
     content: 'An explanation.',
     usage: { inputTokens: 10, outputTokens: 20 },
@@ -28,7 +28,7 @@ function setup(opts: { tokenValid?: boolean; denyKey?: (key: string) => boolean 
   const onboarding = {
     getDraft: vi.fn(async () => {
       if (opts.tokenValid === false) throw new NotFoundException('Draft not found');
-      return { id: 's1', payload: {} };
+      return { id: 's1', payload: opts.payload ?? {} };
     }),
   } as unknown as OnboardingService;
   const prisma = {
@@ -160,5 +160,25 @@ describe("OnboardingAiService — the assistant's field rules", () => {
     expect(system).toContain('type ∈ NUMBER|PERCENTAGE|CURRENCY|DURATION|COUNT|RATING|BOOLEAN');
     expect(system).toContain('every kpi.category must match a kpiCategories.name');
     expect(system).toContain('/-"');
+  });
+});
+
+// Real Gemini (2026-11-20), asked to suggest KPI categories for a food-delivery company, offered "Financial,
+// Operational, Customer, Employee, Strategic": the request held only the field's name — nothing about the
+// organisation, or what the section already had.
+describe('OnboardingAiService — suggestions fit this organisation', () => {
+  it("sends the organisation and what the section already holds, and asks for values that fit it", async () => {
+    const { service, complete } = setup({
+      payload: { organization: { name: 'Lahore Bites', industry: 'Food Delivery', type: 'Startup' }, kpiCategories: [{ name: 'Delivery Operations' }] },
+    });
+    complete.mockResolvedValue({ content: '["Kitchen Operations"]', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    const out = await service.suggest('s1', 'tok', 'kpiCategories');
+    const req = complete.mock.calls[0]![0];
+    const sent = req.messages.map((m) => m.content).join('\n');
+    expect(sent).toContain('Lahore Bites');
+    expect(sent).toContain('Food Delivery');
+    expect(sent).toContain('Delivery Operations');
+    expect((req.systemPrompt ?? '').toLowerCase()).toContain('fit this organisation');
+    expect(out.suggestions).toEqual(['Kitchen Operations']);
   });
 });

@@ -44,7 +44,7 @@ export const NLQ_TOOLS: NormalizedTool[] = [
   },
   {
     name: 'compare_kpis',
-    description: `First value, latest value and change % for up to ${MAX_COMPARE} KPIs over an optional date range.`,
+    description: `First value and its period, latest value and its period, and change % for up to ${MAX_COMPARE} KPIs over an optional date range. Name periods from the result, not from the range asked for.`,
     parameters: {
       type: 'object',
       properties: {
@@ -225,10 +225,24 @@ export class NlqToolbox {
       }
       try {
         const rows = (await this.kpiData.listForKpi(k.id, { from, to, limit: MAX_SERIES })) as ScopedPoint[];
-        const latest = rows[0]?.value ?? null;
-        const first = rows[rows.length - 1]?.value ?? null;
+        const newest = rows[0];
+        const oldest = rows[rows.length - 1];
+        const latest = newest?.value ?? null;
+        const first = oldest?.value ?? null;
         const changePct = first !== null && latest !== null && first !== 0 ? round(((latest - first) / Math.abs(first)) * 100) : null;
-        kpis.push({ kpiId: k.id, name: k.name, unit: k.unit, direction: k.direction, first, latest, changePct, points: rows.length });
+        // The periods of the two values: a series can start after the range asked for begins.
+        kpis.push({
+          kpiId: k.id,
+          name: k.name,
+          unit: k.unit,
+          direction: k.direction,
+          first,
+          firstPeriod: oldest ? day(oldest.periodStart) : null,
+          latest,
+          latestPeriod: newest ? day(newest.periodStart) : null,
+          changePct,
+          points: rows.length,
+        });
         read.push(k.id);
       } catch (err) {
         kpis.push({ kpiId: k.id, error: err instanceof Error ? err.message : String(err) });

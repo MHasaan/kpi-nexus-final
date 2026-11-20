@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { KPIDirection, KPIInsight } from '@kpi-nexus/db';
+import type { z } from 'zod';
 
 import { AiConfigsService } from '../ai/ai-configs.service.js';
 import { AiRouterService } from '../ai/ai-router.service.js';
@@ -7,6 +8,9 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { type WindowStats, computeWindowStats, rankByAbsChange } from './insight-stats.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
+import type { KpiFrequencyEnum } from '../kpis/dto/create-kpi.dto.js';
+
+type KPIFrequency = z.infer<typeof KpiFrequencyEnum>;
 
 const POINTS_WINDOW = 90;
 
@@ -25,7 +29,8 @@ function deriveConfidence(stats: WindowStats): number {
 }
 
 const SYSTEM_PROMPT = [
-  'You are a data analyst. In 2-3 sentences, explain what a KPI metric did over the window and why it matters.',
+  'You are a data analyst. In 2-3 sentences, explain what a KPI did over the period given and why it matters.',
+  'Say when by naming the months or dates from the Period line (e.g. "between September and November 2026"), not by counting periods.',
   'Be specific with numbers. When a target is given, say how the latest value compares to it (e.g. "12% below its target of Y"). No preamble, no markdown headers — just the narrative.',
 ].join('\n');
 
@@ -35,9 +40,41 @@ interface KpiGrounding {
   name: string;
   unit: string | null;
   direction: KPIDirection;
+  frequency: KPIFrequency;
   targetValue: number | null;
   warningThreshold: number | null;
   criticalThreshold: number | null;
+}
+
+/** One recorded value and the period it is for. */
+interface WindowPoint {
+  value: number;
+  periodStart: Date;
+}
+
+/** How often a KPI is recorded, as the prompt's Period line says it. */
+const RECORDED: Record<KPIFrequency, string> = {
+  DAILY: 'recorded daily',
+  WEEKLY: 'recorded weekly',
+  BIWEEKLY: 'recorded every two weeks',
+  MONTHLY: 'recorded monthly',
+  QUARTERLY: 'recorded quarterly',
+  YEARLY: 'recorded yearly',
+  CUSTOM: 'recorded on a custom schedule',
+  REAL_TIME: 'recorded in real time',
+  AD_HOC: 'recorded as needed',
+};
+
+const day = (d: Date): string => d.toISOString().slice(0, 10);
+
+/**
+ * The dates the values cover, so the narrative can say when: "over the 12-period window" was all
+ * Gemini could write from a count of points (2026-11-20).
+ */
+function periodLine(points: WindowPoint[], frequency: KPIFrequency): string {
+  const first = day(points[0]!.periodStart);
+  const last = day(points[points.length - 1]!.periodStart);
+  return `Period: ${first === last ? first : `from ${first} to ${last}`}, ${RECORDED[frequency]}.`;
 }
 
 /**
@@ -79,7 +116,8 @@ export class InsightsService {
   ) {}
 
   /** Most-recent values for a KPI, oldest→newest. */
-  private async recentValues(organizationId: string, kpiId: string): Promise<number[]> {
+  /** The KPI's latest organisation-level values with their periods, oldest first. */
+  private async recentPoints(organizationId: string, kpiId: string): Promise<WindowPoint[]> {
     const points = await this.prisma.kPIDataPoint.findMany({
       // Organisation-level rows only (BE-054). What is written here is stored and read by everyone who
       // may see the KPI's insights, so it must not be built from one person's or one unit's values.
@@ -87,15 +125,16 @@ export class InsightsService {
       // Newest periods first ("latest" = newest period; entry time breaks ties).
       orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
       take: POINTS_WINDOW,
-      select: { value: true },
+      select: { value: true, periodStart: true },
     });
-    return points.map((p) => p.value).reverse();
+    return points.reverse();
   }
 
-  private buildPrompt(kpi: KpiGrounding, stats: WindowStats): string {
+  private buildPrompt(kpi: KpiGrounding, stats: WindowStats, points: WindowPoint[]): string {
     const header = `KPI: ${kpi.name}${kpi.unit ? ` (${kpi.unit})` : ''} (direction: ${kpi.direction})`;
     const lines: string[] = [
       header,
+      periodLine(points, kpi.frequency),
       `Points: ${stats.count}, first ${stats.first}, last ${stats.last}, avg ${stats.avg.toFixed(2)}, min ${stats.min}, max ${stats.max}.`,
       `Change first→last: ${stats.changePct.toFixed(1)}%.`,
     ];
@@ -126,6 +165,7 @@ export class InsightsService {
         name: true,
         unit: true,
         direction: true,
+        frequency: true,
         targetValue: true,
         warningThreshold: true,
         criticalThreshold: true,
@@ -133,13 +173,14 @@ export class InsightsService {
     });
     if (!kpi) return null;
 
-    const stats = computeWindowStats(await this.recentValues(ctx.organizationId, kpiId));
+    const points = await this.recentPoints(ctx.organizationId, kpiId);
+    const stats = computeWindowStats(points.map((p) => p.value));
     if (!stats) return null; // too few points to describe a trend
 
     const route = await this.configs.resolve('INSIGHTS');
     const result = await this.aiRouter.complete('INSIGHTS', {
       systemPrompt: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: this.buildPrompt(kpi, stats) }],
+      messages: [{ role: 'user', content: this.buildPrompt(kpi, stats, points) }],
       maxTokens: 400,
     });
 
@@ -180,7 +221,7 @@ export class InsightsService {
 
     const candidates: Array<{ kpiId: string; changePct: number }> = [];
     for (const { id } of kpis) {
-      const stats = computeWindowStats(await this.recentValues(ctx.organizationId, id));
+      const stats = computeWindowStats((await this.recentPoints(ctx.organizationId, id)).map((p) => p.value));
       if (stats && Math.abs(stats.changePct) >= threshold) {
         candidates.push({ kpiId: id, changePct: stats.changePct });
       }

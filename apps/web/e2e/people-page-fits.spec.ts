@@ -41,3 +41,37 @@ test('the People page fits a 1280-pixel screen: nothing runs off the side', asyn
   await expect(row).toContainText(email);
   await expect(row).toContainText('Paloma Administrator');
 });
+
+/**
+ * Flow walk (phone width): on a 375-pixel-wide screen the same page ran 160 px
+ * off the side — the list, and the invite form under it, were as wide as the
+ * table's columns. The table now scrolls inside its own card and the rest fits.
+ */
+test('the People page fits a phone: the page does not scroll sideways', async ({ page }) => {
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const email = `admin-${stamp}@people-page-fits.test.local`;
+  await page.setViewportSize({ width: 375, height: 812 });
+  try {
+    await registerOrgViaApi(page, {
+      orgName: `ppp-${stamp}`,
+      slug: `ppp-${stamp}`,
+      adminFullName: 'Paloma Administrator',
+      adminEmail: email,
+      adminPassword: 'correct-horse-battery-staple',
+    });
+  } catch {
+    test.skip(true, 'api not reachable');
+    return;
+  }
+
+  await page.goto('/users');
+  await expect(page.getByTestId(`user-row-${email}`)).toBeVisible();
+  const overflow = await page.locator('main#main-content').evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  // The invite form is as wide as the screen allows, not as wide as the table.
+  const button = page.getByTestId('invite-submit-button');
+  await button.scrollIntoViewIfNeeded();
+  const box = (await button.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(375);
+});

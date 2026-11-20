@@ -64,7 +64,8 @@ test.describe('F2: settings pages render with backing content', () => {
     await expect(page.getByTestId('settings-link-settings-branding')).toBeVisible();
     await expect(page.getByTestId('settings-link-settings-fiscal')).toBeVisible();
     await expect(page.getByTestId('settings-link-settings-password-policy')).toBeVisible();
-    await expect(page.getByTestId('settings-link-settings-custom-domain')).toBeVisible();
+    // Custom domain is on hold (UI-014, owner decision 2026-11-20): not listed until it is built.
+    await expect(page.getByTestId('settings-link-settings-custom-domain')).toHaveCount(0);
     await expect(page.getByTestId('settings-link-billing')).toBeVisible();
 
     // The repointed Settings nav entry lands here.
@@ -109,17 +110,14 @@ test.describe('F2: settings pages render with backing content', () => {
     await expect(page.getByTestId('password-policy-error')).toHaveCount(0);
   });
 
-  test('custom-domain page renders the add form + empty state', async ({ page }) => {
+  test('the custom-domain page is on hold and leads back to Settings', async ({ page }) => {
     test.skip(!apiAvailable, 'api not reachable');
     await registerAndLand(page);
 
+    // UI-014: hidden until ADR-003 is written and the feature built (owner decision 2026-11-20).
     await page.goto('/settings/custom-domain');
-    await expect(page.getByTestId('custom-domain-heading')).toHaveText('Custom domain');
-    await expect(page.getByTestId('custom-domain-input')).toBeVisible();
-    await expect(page.getByTestId('custom-domain-add')).toBeVisible();
-    // Fresh org has no domains.
-    await expect(page.getByTestId('custom-domain-empty')).toBeVisible();
-    await expect(page.getByTestId('custom-domain-error')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByTestId('custom-domain-heading')).toHaveCount(0);
   });
 
   test('billing page shows current plan + usage', async ({ page }) => {

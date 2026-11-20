@@ -29,7 +29,8 @@ test('the Settings page files each setting under a heading that fits it', async 
     /^Connected apps/, /^Data connectors/, /^Alert channels/, /^Automations/, /^Plugins/, /^API keys/, /^Webhooks/,
   ]);
   await expect(group('general').getByTestId('settings-link-settings-notifications')).toBeVisible();
-  await expect(group('general').getByTestId('settings-link-settings-custom-domain')).toBeVisible();
+  // Custom domain is on hold (UI-014): not listed until it is built.
+  await expect(page.getByTestId('settings-link-settings-custom-domain')).toHaveCount(0);
   await expect(group('security').getByTestId('settings-link-settings-retention')).toBeVisible();
   await expect(group('ai').getByTestId('settings-link-settings-ai')).toBeVisible();
 });

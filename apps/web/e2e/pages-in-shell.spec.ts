@@ -26,7 +26,7 @@ test('every page sits in the app frame: sidebar, breadcrumb, and a way back', as
     ['/status', 'System status'],
     ['/settings/retention', 'Data retention'],
     ['/settings/scim', 'SCIM provisioning'],
-    ['/settings/sso', 'Single sign-on'],
+    ['/settings/password-policy', 'Password policy'],
   ] as const) {
     await page.goto(path);
     await expect(page, `${path} stays put`).toHaveURL(new RegExp(`${path}$`));
@@ -41,7 +41,7 @@ test('every page sits in the app frame: sidebar, breadcrumb, and a way back', as
   // The sidebar marks Plugins as the page you are on, and Settings for its sub-pages.
   await page.goto('/plugins');
   await expect(page.getByTestId('nav-plugins')).toHaveAttribute('aria-current', 'page');
-  await page.goto('/settings/sso');
+  await page.goto('/settings/scim');
   await page.getByRole('banner').getByRole('link', { name: 'Settings' }).click();
   await expect(page).toHaveURL(/\/settings$/);
 });

@@ -130,3 +130,19 @@ describe('OnboardingAiService — permission keys in prompts', () => {
     }
   });
 });
+
+// Real Gemini (2026-11-20), told "a food delivery startup in Lahore, Pakistan … We report in Pakistani rupees",
+// generated an organisation with no timezone, currency or language (the prompt never asked for them; the draft
+// has the fields), and a size of "51-200", which is not a size the app stores, so none was recorded.
+describe("OnboardingAiService — the generated organisation's settings", () => {
+  it("asks for the settings the description gives, and the sizes the app stores", async () => {
+    const { service, complete } = setup();
+    complete.mockResolvedValue({ content: '{}', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.generate('s1', 'tok', 'A food delivery startup in Lahore, Pakistan; we report in Pakistani rupees.');
+    const system = complete.mock.calls[0]![0].systemPrompt ?? '';
+    for (const field of ['"timezone"', '"currency"', '"locale"', '"fiscalYearStartMonth"', '"weekStartsOn"']) expect(system).toContain(field);
+    expect(system).toContain('sizeTier ∈ SMALL|MEDIUM|LARGE|ENTERPRISE');
+    expect(system).toMatch(/Asia\/Karachi/);
+    expect(system).toMatch(/only when the description/i);
+  });
+});

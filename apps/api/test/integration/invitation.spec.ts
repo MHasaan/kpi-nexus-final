@@ -5,6 +5,8 @@
  * → invitee POSTs /auth/accept-invitation with a password → invitee can
  * log in normally → /auth/me reflects the assigned role.
  */
+import { randomUUID } from 'node:crypto';
+
 import { beforeAll, describe, expect, test } from 'vitest';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
@@ -38,7 +40,7 @@ async function http<T = unknown>(
 }
 
 async function registerAdminOrg(): Promise<{ token: string; userId: string; orgId: string }> {
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
   const reg = await http<{
     accessToken: string;
     user: { id: string };
@@ -76,7 +78,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
     if (!apiAvailable) return;
 
     const admin = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
     const inviteeEmail = `invitee-${stamp}@invite.test.local`;
 
     // Find the seeded "Employee" role to assign to the invitee
@@ -158,7 +160,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
   test('non-admin cannot invite (USERS_MANAGE required)', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
 
     // Invite an Employee
     const roles = await http<Array<{ id: string; name: string }>>('/roles', {
@@ -198,7 +200,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
   test('a user manager who is not an administrator cannot invite an administrator (BE-044)', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
 
     const roles = await http<Array<{ id: string; isAdmin: boolean }>>('/roles', { token: admin.token });
     const adminRole = (roles.body ?? []).find((r) => r.isAdmin)!;
@@ -246,7 +248,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
   test('an invitee archived or suspended before accepting cannot use the link (BE-046)', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
 
     for (const action of ['offboard', 'suspend']) {
       const invite = await http<{ user: { id: string }; inviteToken: string }>('/users', {
@@ -272,7 +274,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
   test('refuse duplicate invite email within org', async () => {
     if (!apiAvailable) return;
     const admin = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
     const email = `dup-${stamp}@invite.test.local`;
 
     const first = await http('/users', {
@@ -295,7 +297,7 @@ describe('Invitation flow (spec §3.2 + §5.7) — full happy-path', () => {
     if (!apiAvailable) return;
     const orgA = await registerAdminOrg();
     const orgB = await registerAdminOrg();
-    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
 
     // Get orgB's Employee role id
     const orgBRoles = await http<Array<{ id: string; name: string }>>('/roles', {

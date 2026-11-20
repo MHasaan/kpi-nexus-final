@@ -18,6 +18,8 @@
  *  9. PER_USER user B cannot record into A's assignment → 403
  * 10. periodEnd before periodStart → 400
  */
+import { randomUUID } from 'node:crypto';
+
 import { beforeAll, describe, expect, test } from 'vitest';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
@@ -51,7 +53,7 @@ async function http<T = unknown>(
 }
 
 function suffix(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now()}-${randomUUID().slice(0, 6)}`;
 }
 
 interface RegisterResult {

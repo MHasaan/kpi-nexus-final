@@ -40,11 +40,14 @@ class FakePrisma {
     deletedAt: Date | null;
     unit: string | null;
     direction: string;
+    frequency: string;
     targetValue: number | null;
     warningThreshold: number | null;
     criticalThreshold: number | null;
   }> = [];
   dataPoints: Record<string, number[]> = {};
+  // Each value's period start (YYYY-MM-DD), oldest→newest; monthly from January 2026 unless given.
+  periods: Record<string, string[]> = {};
   private insightSeq = 0;
 
   /** Both writes or neither, as Prisma's array form does. */
@@ -64,6 +67,7 @@ class FakePrisma {
             name: row.name,
             unit: row.unit,
             direction: row.direction,
+            frequency: row.frequency,
             targetValue: row.targetValue,
             warningThreshold: row.warningThreshold,
             criticalThreshold: row.criticalThreshold,
@@ -76,7 +80,10 @@ class FakePrisma {
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       // Service stores oldest→newest, queries desc then reverses; emulate desc here.
       const values = this.dataPoints[where.kpiId as string] ?? [];
-      return [...values].reverse().map((value) => ({ value }));
+      const periods = this.periods[where.kpiId as string];
+      return values
+        .map((value, i) => ({ value, periodStart: periods?.[i] ? new Date(`${periods[i]}T00:00:00Z`) : new Date(Date.UTC(2026, i, 1)) }))
+        .reverse();
     }),
   };
 
@@ -136,6 +143,8 @@ class FakePrisma {
     extra: Partial<{
       unit: string | null;
       direction: string;
+      frequency: string;
+      periods: string[];
       targetValue: number | null;
       warningThreshold: number | null;
       criticalThreshold: number | null;
@@ -148,11 +157,13 @@ class FakePrisma {
       deletedAt: null,
       unit: extra.unit ?? null,
       direction: extra.direction ?? 'HIGHER_IS_BETTER',
+      frequency: extra.frequency ?? 'MONTHLY',
       targetValue: extra.targetValue ?? null,
       warningThreshold: extra.warningThreshold ?? null,
       criticalThreshold: extra.criticalThreshold ?? null,
     });
     this.dataPoints[id] = values;
+    if (extra.periods) this.periods[id] = extra.periods;
   }
 
   seed(partial: Partial<FakeInsight> & { id: string; organizationId: string }): FakeInsight {
@@ -195,6 +206,12 @@ function lastUserMessage(aiRouter: AiRouterService): string {
   const lastCall = mock.calls[mock.calls.length - 1]!;
   const opts = lastCall[1] as { messages: Array<{ role: string; content: string }> };
   return opts.messages.find((m) => m.role === 'user')!.content;
+}
+
+/** The system prompt of the last aiRouter.complete(...) call. */
+function lastSystemPrompt(aiRouter: AiRouterService): string {
+  const mock = (aiRouter.complete as unknown as { mock: { calls: unknown[][] } }).mock;
+  return (mock.calls[mock.calls.length - 1]![1] as { systemPrompt: string }).systemPrompt;
 }
 
 /** visibleKpiIds: null = sees every KPI (admin / parity); an array = the caller's visible KPIs. */
@@ -433,6 +450,35 @@ describe('InsightsService.generate enriched grounding', () => {
     const msg = lastUserMessage(aiRouter);
     expect(msg).not.toContain('Target:');
     expect(msg).not.toContain('Thresholds:');
+  });
+
+  // Tried with Gemini on 2026-11-20: a monthly KPI's insight said "over the 12-period window". The
+  // prompt counted the values but gave no dates, so the narrative could not say when anything happened.
+  test('says which dates the values cover and how often the KPI is recorded', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_span', ORG, [1180, 1300, 1420], 'CAC', {
+      frequency: 'MONTHLY',
+      periods: ['2026-09-01', '2026-10-01', '2026-11-01'],
+    });
+
+    await withCtx({}, () => service.generate('kpi_span'));
+
+    expect(lastUserMessage(aiRouter)).toContain('Period: from 2026-09-01 to 2026-11-01, recorded monthly.');
+    // …and the narrative is asked to say when from it, not to count periods.
+    expect(lastSystemPrompt(aiRouter)).toContain('Period line');
+    expect(lastSystemPrompt(aiRouter)).not.toContain('window');
+  });
+
+  test('values that all belong to one period name that one date', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_one_day', ORG, [40, 44], 'Tickets', {
+      frequency: 'DAILY',
+      periods: ['2026-11-19', '2026-11-19'],
+    });
+
+    await withCtx({}, () => service.generate('kpi_one_day'));
+
+    expect(lastUserMessage(aiRouter)).toContain('Period: 2026-11-19, recorded daily.');
   });
 });
 

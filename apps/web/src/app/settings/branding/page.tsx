@@ -16,6 +16,7 @@ import {
   type OrganizationSettings,
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { APP_PRIMARY_HEX, APP_SECONDARY_HEX } from '../../../lib/app-colours';
 import { useBranding } from '../../../lib/branding-context';
 
 export default function BrandingSettingsPage() {
@@ -141,12 +142,14 @@ export default function BrandingSettingsPage() {
                     label="Primary color"
                     value={primaryColor}
                     onChange={setPrimaryColor}
+                    unset={APP_PRIMARY_HEX}
                     testId="branding-primary-color"
                   />
                   <ColorField
                     label="Secondary color"
                     value={secondaryColor}
                     onChange={setSecondaryColor}
+                    unset={APP_SECONDARY_HEX}
                     testId="branding-secondary-color"
                   />
                 </div>
@@ -207,11 +210,14 @@ function ColorField({
   label,
   value,
   onChange,
+  unset,
   testId,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  /** The colour in use while none is chosen: the app's own. */
+  unset: string;
   testId?: string;
 }) {
   return (
@@ -220,7 +226,8 @@ function ColorField({
       <div className="mt-1 flex items-center gap-2">
         <input
           type="color"
-          value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'}
+          // Blank means the app's own colour, so that is what the swatch shows: it used to show black.
+          value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : unset}
           onChange={(e) => onChange(e.target.value)}
           className="h-9 w-12 cursor-pointer rounded border border-border bg-surface-bg"
           aria-label={`${label} picker`}
@@ -229,7 +236,7 @@ function ColorField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           data-testid={testId}
-          placeholder="#2563eb"
+          placeholder="The app’s own colour"
           className="w-full rounded-md border border-border bg-surface-bg px-3 py-2 text-sm text-content-strong shadow-sm focus:border-accent-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/30"
         />
       </div>

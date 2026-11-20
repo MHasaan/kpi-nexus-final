@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - run: shellcheck --version && shellcheck infra/prod/*.sh infra/prod/postgres/*.sh infra/prod/postgres/initdb/*.sh
+      - run: shellcheck --version && shellcheck infra/prod/*.sh infra/prod/postgres/*.sh infra/prod/postgres/initdb/*.sh infra/azure/*.sh
 
   node:
     name: ${{ matrix.task }}

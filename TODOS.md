@@ -68,7 +68,8 @@ Boxes ticked in this pass were checked against the source: every model, module, 
 
 ### Owner to-dos (need the project owner)
 - [ ] **Windows launcher cold run (OT-017):** run `setupScripts/start.cmd` once on a Windows machine; watch whether `db:setup`'s 10 s Postgres probe is long enough on a first start.
-- [ ] **Go live:** follow `docs/deploy.md` (Oracle Free Tier VM, DuckDNS, Brevo, Object Storage, GitHub secrets, first deploy, Vercel, then its *Check it* list incl. a backup-restore drill).
+- [x] **Go live (interim, 2026-11-21):** the app runs on an Azure for Students VM with real mail and AI — `infra/azure/README.md`, ADR-004. Updates are `infra/azure/update.sh` on the VM; nothing deploys there from GitHub.
+- [ ] **Move to the free-forever host:** when an Oracle Always Free A1 VM can be created, follow `docs/deploy.md` (DuckDNS, Brevo, Object Storage, GitHub secrets, first deploy, Vercel, then its *Check it* list incl. a backup-restore drill), move the data, and delete the Azure resource group (ADR-004).
 
 ### Not built (remaining work)
 - [x] **Web access-token refresh:** the web app now calls `POST /auth/refresh` on a 401 (one shared refresh, then the request is retried), so a signed-in user stays signed in past the 15-minute access-token expiry (FE-019).

@@ -259,7 +259,8 @@ describe('NlqService.ask — catalog grounding', () => {
     await run(() => service.ask('Which KPIs are off target right now?'));
     const call = completeCalls[0]!;
     const content = call.messages.map((m) => m.content).join('\n');
-    const line = (name: string) => content.split('\n').find((l) => l.includes(name))!;
+    // The KPI's own line ("- name …"), not the status summary that names it too.
+    const line = (name: string) => content.split('\n').find((l) => l.startsWith('- ') && l.includes(name))!;
     // Both revenue KPIs are below their targets; only the app's status tells them apart.
     expect(line('Monthly Recurring Revenue')).toContain('status: at risk');
     expect(line('Annual Recurring Revenue')).toContain('status: on track');
@@ -272,6 +273,46 @@ describe('NlqService.ask — catalog grounding', () => {
     // 23 KPIs below their targets were listed. The everyday words for it are status questions too.
     expect(call.systemPrompt).toContain('"off target"');
     expect(call.systemPrompt).toContain('only the number of others');
+  });
+
+  // Retried with Gemini once statuses were in: "Which KPIs are off target?" named the right off track and at risk
+  // KPIs, then "17 other KPIs" on track but missing their target — there were 19, and it named 18. "Which are below
+  // target?" said 14 and listed 15. The model was counting a list of 37 lines itself. The app now counts, over every
+  // KPI the dashboard counts, including those held by several people.
+  it('says how many KPIs are in each status and how many miss their target, counted by the app', async () => {
+    const at = new Date('2026-11-01');
+    const kpis = [
+      kpi({ id: 'a', name: 'Alpha', direction: 'HIGHER_IS_BETTER', targetValue: 100 }),
+      kpi({ id: 'b', name: 'Beta', direction: 'LOWER_IS_BETTER', targetValue: 10 }),
+      kpi({ id: 'c', name: 'Gamma', direction: 'HIGHER_IS_BETTER', targetValue: 50 }),
+      kpi({ id: 'd', name: 'Delta', direction: 'LOWER_IS_BETTER', targetValue: 5 }),
+      kpi({ id: 'e', name: 'Epsilon', direction: 'HIGHER_IS_BETTER', targetValue: 10 }),
+      kpi({ id: 'f', name: 'Zeta' }),
+      kpi({ id: 'g', name: 'Theta', scope: 'PER_USER', targetValue: 100 }),
+    ];
+    const value = (latestValue: number) => ({ latestValue, latestRecordedAt: at });
+    const latest = { a: value(90), b: value(12), c: value(45), d: value(6), e: value(20), f: value(7) };
+    const status = { a: 'OFF_TRACK', b: 'AT_RISK', c: 'ON_TRACK', d: 'ON_TRACK', e: 'ON_TRACK', f: 'NO_TARGET', g: 'AT_RISK' };
+    const holders = { g: { total: 4, withValue: 4, withTarget: 4, onTrack: 3 } };
+    const { service, completeCalls } = buildService({ kpis, latest, status, holders });
+
+    await run(() => service.ask('Which KPIs are off target right now?'));
+    const call = completeCalls[0]!;
+    const content = call.messages.map((m) => m.content).join('\n');
+    const summary = content.split('\n').find((l) => l.startsWith('Status summary'));
+    expect(summary).toBeDefined();
+    expect(summary).toContain('over 7 KPIs');
+    expect(summary).toContain('off track 1 (Alpha)');
+    // Theta is held by several people, and the dashboard counts it as at risk.
+    expect(summary).toContain('at risk 2 (Beta, Theta)');
+    expect(summary).toContain('on track 3;');
+    expect(summary).toContain('no target 1;');
+    // Of the six with one value, Gamma is below its target and Delta above theirs; both are on track.
+    expect(summary).toContain(
+      'Of the 6 KPIs with one value each, 2 on track ones miss their target; 2 are below their target (higher is better) and 2 above it (lower is better).',
+    );
+    expect(summary).toContain('The other one is recorded by several teams or people');
+    expect(call.systemPrompt).toContain('Status summary');
   });
 
   it('only describes KPIs returned by kpis.list() — never one outside it', async () => {

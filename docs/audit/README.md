@@ -525,6 +525,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (settings): on the Branding page an unchosen colour showed a black swatch beside an example reading “#2563eb” | ✅ Fixed — the swatch shows the app’s own colour, which is what is in use; the box says so | #392 | `lib/app-colours.spec.ts`, `e2e/branding-unset-colour.spec.ts` |
 | Flow walk (settings): the page of undelivered notifications was titled “Failed deliveries (DLQ)” and spoke of re-queueing | ✅ Fixed — plain words | #393 | `e2e/alerts-extras.spec.ts` |
 | Flow walk (approvals): a screen reader was told “Who can approve kpi changes” | ✅ Fixed — “KPI” is kept as written | #394 | `e2e/approvals-group-name.spec.ts` |
+| Flow walk (recommendations): the Sort box cut its own choice to “Priority, then confi” | ✅ Fixed — wide enough for it | #395 | `e2e/recommendations-ask.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

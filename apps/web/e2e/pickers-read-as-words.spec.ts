@@ -28,11 +28,13 @@ test('objective statuses and task priorities are offered in words, not stored ke
   const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${session.accessToken}` } });
   const task = (await (await api.post('/tasks', { data: { title: `Chase invoices ${stamp}` } })).json()) as { id: string };
 
-  const words = (testId: string) => page.getByTestId(testId).locator('option').allTextContents();
+  // A picker's options are drawn once its page has loaded. Read them with an assertion that waits for them: a
+  // one-off read straight after opening the page found none in about half the runs (2026-11-20).
+  const offers = (testId: string, expected: string[]) => expect(page.getByTestId(testId).locator('option')).toHaveText(expected);
 
   await page.goto('/okrs');
   const statuses = ['Draft', 'Active', 'At risk', 'Achieved', 'Missed', 'Archived'];
-  expect((await words('okr-create-status')).map((t) => t.trim())).toEqual(statuses);
+  await offers('okr-create-status', statuses);
 
   await page.getByTestId('okr-create-name').fill(`Grow ${stamp}`);
   await page.getByTestId('okr-create-status').selectOption({ label: 'At risk' });
@@ -40,11 +42,11 @@ test('objective statuses and task priorities are offered in words, not stored ke
   const card = page.locator('[data-testid^="okr-row-"]').filter({ hasText: `Grow ${stamp}` }).first();
   await expect(card).toContainText('At risk');
   await expect(card).not.toContainText('AT_RISK');
-  expect((await words('okr-filter-status')).map((t) => t.trim())).toEqual(['All statuses', ...statuses]);
+  await offers('okr-filter-status', ['All statuses', ...statuses]);
 
   await page.goto('/tasks');
   const priorities = ['Low', 'Medium', 'High', 'Urgent'];
-  expect((await words('filter-priority')).map((t) => t.trim())).toEqual(['All priorities', ...priorities]);
+  await offers('filter-priority', ['All priorities', ...priorities]);
   await page.getByTestId(`task-${task.id}`).getByTestId('task-title').click();
-  expect((await words('task-detail-priority')).map((t) => t.trim())).toEqual(priorities);
+  await offers('task-detail-priority', priorities);
 });

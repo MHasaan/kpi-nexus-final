@@ -172,6 +172,7 @@ export default function AlertsPage() {
       <RequirePermission permission="ALERTS_VIEW">
       <PageHeader
         title="Alerts"
+        titleTestId="alerts-heading"
         subtitle="Triage triggered alerts and keep your team ahead of incidents."
         actions={
           <div className="flex items-center gap-2">
@@ -200,10 +201,6 @@ export default function AlertsPage() {
           </div>
         }
       />
-
-      <h1 data-testid="alerts-heading" className="sr-only">
-        Alerts
-      </h1>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <Segmented

@@ -106,6 +106,7 @@ export default function NotificationSettingsPage() {
       <div className="mx-auto max-w-3xl">
         <PageHeader
           title="Notification preferences"
+          titleTestId="notif-settings-heading"
           subtitle="How alert emails addressed to you are sent: at once, as a digest, outside your quiet hours, or not at all."
           actions={
             // The delivery log is the organisation's, and opens only for those who manage it.
@@ -120,9 +121,6 @@ export default function NotificationSettingsPage() {
             </PermissionGuard>
           }
         />
-        <h1 data-testid="notif-settings-heading" className="sr-only">
-          Notification preferences
-        </h1>
 
         {loadError && (
           <div

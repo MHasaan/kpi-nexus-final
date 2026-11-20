@@ -359,7 +359,7 @@ export type Crumb = string | { label: string; href?: string };
 interface AppShellProps {
   children: ReactNode;
   /**
-   * Override the route-derived page title shown in the topbar `<h1>`. Use for
+   * Override the route-derived page title shown in the topbar. Use for
    * dynamic routes (e.g. a KPI's name on `/kpis/[id]`) the static title map
    * can't know. Defaults to the {@link titleForPath} title.
    */
@@ -785,7 +785,11 @@ export function AppShell({ children, title, crumbs }: AppShellProps) {
                 </span>
               </Fragment>
             ))}
-            <h1 className="truncate text-sm font-semibold text-content-strong">{pageTitle}</h1>
+            {/* Where you are, not a heading: the page has its own, and two top-level headings named every
+                page twice to a screen reader. */}
+            <span data-testid="top-bar-title" aria-current="page" className="truncate text-sm font-semibold text-content-strong">
+              {pageTitle}
+            </span>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">

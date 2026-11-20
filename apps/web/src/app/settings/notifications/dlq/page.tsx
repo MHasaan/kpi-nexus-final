@@ -93,6 +93,7 @@ export default function DlqPage() {
       <RequirePermission permission="ORG_SETTINGS">
       <PageHeader
         title="Failed deliveries"
+        titleTestId="dlq-heading"
         subtitle="Notifications that could not be delivered after every retry. See why, and send them again."
         actions={
           <div className="flex items-center gap-2">
@@ -114,9 +115,6 @@ export default function DlqPage() {
           </div>
         }
       />
-      <h1 data-testid="dlq-heading" className="sr-only">
-        Failed deliveries
-      </h1>
 
       {loadError && (
         <div

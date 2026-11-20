@@ -53,6 +53,30 @@ const ASSISTANT_SYSTEM = [
   'A new KPI\'s category must be one of the draft\'s kpiCategories; if none fits, add the category first. Say a KPI is recorded per unit or per person with its scope.',
 ].join('\n');
 
+/** The organisation as far as the draft says, so a suggestion can fit it. */
+function describeOrganisation(org: unknown): string[] {
+  if (!org || typeof org !== 'object') return [];
+  const o = org as Record<string, unknown>;
+  const said = ['name', 'industry', 'type', 'sizeTier']
+    .map((key) => (typeof o[key] === 'string' && (o[key] as string).trim() ? `${key}: ${o[key] as string}` : null))
+    .filter((s): s is string => s !== null);
+  return said.length > 0 ? [`Organisation: ${said.join(', ')}`] : [];
+}
+
+/** Sections whose names a suggestion may see, to leave them out — never the team, whose rows are people. */
+const NAMED_SECTIONS: ReadonlySet<string> = new Set(['roles', 'positions', 'orgUnitTypes', 'orgUnits', 'kpiCategories', 'kpis']);
+
+/** What a list section already holds, by name, so a suggestion does not repeat it. */
+function alreadyIn(payload: Record<string, unknown>, fieldPath: string): string[] {
+  const section = fieldPath.split('.')[0] ?? '';
+  const rows = NAMED_SECTIONS.has(section) ? payload[section] : undefined;
+  if (!Array.isArray(rows)) return [];
+  const names = rows
+    .map((row) => (row && typeof row === 'object' && typeof (row as { name?: unknown }).name === 'string' ? (row as { name: string }).name : null))
+    .filter((n): n is string => n !== null && n.trim() !== '');
+  return names.length > 0 ? [`Already in ${section}: ${names.slice(0, 40).join(', ')}`] : [];
+}
+
 /**
  * Onboarding AI co-pilot. Runs PRE-ORG (no tenant context), so it calls the
  * provider registry directly with manual primary→fallback rather than through
@@ -196,14 +220,14 @@ export class OnboardingAiService {
   }
 
   async suggest(sessionId: string, token: string, fieldPath: string, context?: string) {
-    const sys = 'You are an onboarding assistant. Suggest 3-6 concise values for the given field. Respond with ONLY a JSON array of strings.';
-    const { interactionId, content } = await this.run(
-      sessionId,
-      token,
-      'suggest',
-      `Field: ${fieldPath}${context ? `\nContext: ${context}` : ''}`,
-      sys,
-    );
+    // The organisation and what the section already holds: with the field's name alone, suggestions were the
+    // same for every organisation ("Financial, Operational, Customer…").
+    const draft = await this.onboarding.getDraft(sessionId, token);
+    const payload = (draft.payload ?? {}) as Record<string, unknown>;
+    const sys =
+      'You are an onboarding assistant. Suggest 3-6 concise values for the given field that fit this organisation, leaving out any it already has. Respond with ONLY a JSON array of strings.';
+    const prompt = [...describeOrganisation(payload.organization), ...alreadyIn(payload, fieldPath), `Field: ${fieldPath}`, ...(context ? [`Context: ${context}`] : [])].join('\n');
+    const { interactionId, content } = await this.run(sessionId, token, 'suggest', prompt, sys);
     let suggestions: string[] = [];
     try {
       const parsed: unknown = JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, '').trim());

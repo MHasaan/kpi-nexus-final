@@ -20,6 +20,7 @@ import { usePermissions } from '../../../lib/use-permissions';
 const AUDIT_KEYS = ['AUDIT_VIEW', 'ORG_SETTINGS'];
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useFormat } from '../../../lib/format-context';
+import { auditSubjectName } from '../../../lib/labels';
 
 /** Rows are fetched this many at a time; "Load older entries" fetches the next lot. */
 const PAGE_SIZE = 100;
@@ -274,6 +275,12 @@ function AuditPageInner() {
                         {entry.entityId && (
                           <span className="text-content-muted">:{entry.entityId.slice(0, 8)}</span>
                         )}
+                      </span>
+                    )}
+                    {/* Which one: the name the record holds for it. The kind and the start of an id told nobody. */}
+                    {auditSubjectName(entry.metadata) && (
+                      <span data-testid="audit-subject" className="text-content-strong">
+                        “{auditSubjectName(entry.metadata)}”
                       </span>
                     )}
                     <span className="text-content-muted">by</span>

@@ -516,6 +516,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (settings): Settings → Organization asked for the currency and the language as text typed from memory (“PKR”, “en-US”); the wizard offers lists | ✅ Fixed — the same lists as the wizard | #383 | `e2e/org-settings-offer-currency-and-language.spec.ts` |
 | Flow walk (settings): Settings → Notifications offered the digest as “Daily 8am” / “Weekly Mon 8am”; it is sent at 07:00 UTC | ✅ Fixed — the choices say 07:00 UTC, as Account settings already did | #384 | `e2e/digest-time-is-said-right.spec.ts` |
 | Flow walk (settings): AI settings explained a reached cap as “Fail closed” and “Fallback”, names nothing on the page has | ✅ Fixed — the note uses the names of the two choices | #385 | `e2e/ai-budget-help-in-the-choices-words.spec.ts` |
+| Flow walk (settings): an audit log row read “CREATE KPI:cmwnc9zl by …” — the kind of thing and the start of its id | ✅ Fixed — the row also shows the name its record holds (a KPI’s name, a task’s title, an invited person’s email); the stored action and kind are unchanged | #386 | `lib/labels.spec.ts`, `e2e/audit-log-names-what-a-row-is-about.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

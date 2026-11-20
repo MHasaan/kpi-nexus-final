@@ -28,7 +28,20 @@ function stripFences(raw: string): string {
     .trim();
 }
 
-const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+/**
+ * The same value with every field the model set to null left out, at any depth. A model writes "no value" as
+ * null ("parent": null for the top unit); the draft takes a missing field and refuses null, so a whole
+ * proposal used to be refused over one empty field.
+ */
+function withoutNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.filter((v) => v !== null).map(withoutNulls);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== null).map(([k, v]) => [k, withoutNulls(v)]));
+  }
+  return value;
+}
+
+const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (withoutNulls(v) as T[]) : []);
 
 const PERMISSION_KEYS: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
 
@@ -48,7 +61,7 @@ export function parseGeneratedOrg(raw: string): PartialTemplatePayload {
   } catch {
     parsed = {};
   }
-  const org = parsed.organization as TemplatePayload['organization'] | undefined;
+  const org = withoutNulls(parsed.organization) as TemplatePayload['organization'] | undefined;
   return {
     ...(org && typeof org === 'object' && org.name ? { organization: org } : {}),
     roles: withCanonicalPermissions(arr(parsed.roles)),

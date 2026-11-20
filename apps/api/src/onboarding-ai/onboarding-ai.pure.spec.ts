@@ -96,6 +96,33 @@ describe('parseGeneratedOrg — fields the model left empty (null)', () => {
   });
 });
 
+// The model is now asked for a KPI's target and units. A target written as text ("3%") or units written as one
+// name would make the draft refuse the whole proposal, as null fields did: they are read where they can be, and
+// left out where they cannot.
+describe('parseGeneratedOrg — KPI targets and units', () => {
+  const kpi = (extra: Record<string, unknown>) => ({ name: 'Fabric Wastage', category: 'Production', scope: 'PER_UNIT', ...extra });
+
+  it('keeps a numeric target, reads one written as text, and leaves out one that is not a number', () => {
+    const out = parseGeneratedOrg(
+      JSON.stringify({ kpis: [kpi({ targetValue: 3 }), kpi({ targetValue: '3%' }), kpi({ targetValue: '1,200' }), kpi({ targetValue: 'high' }), kpi({ targetValue: '' })] }),
+    );
+    expect(out.kpis.map((k) => (k as { targetValue?: number }).targetValue)).toEqual([3, 3, 1200, undefined, undefined]);
+    expect(out.kpis[3]).not.toHaveProperty('targetValue');
+  });
+
+  it('keeps a list of unit names, reads one name as a list, and leaves out anything else', () => {
+    const out = parseGeneratedOrg(
+      JSON.stringify({ kpis: [kpi({ units: ['Cutting', 'Stitching'] }), kpi({ units: 'Cutting' }), kpi({ units: [7, 'Finishing'] }), kpi({ units: 5 })] }),
+    );
+    expect(out.kpis.map((k) => (k as { units?: string[] }).units)).toEqual([['Cutting', 'Stitching'], ['Cutting'], ['Finishing'], undefined]);
+  });
+
+  it('gives a proposal the draft accepts', () => {
+    const out = parseGeneratedOrg(JSON.stringify({ kpis: [kpi({ targetValue: '3%', units: 'Cutting' }), kpi({ targetValue: 'high', units: 5 })] }));
+    expect(OnboardingDraftPatchSchema.safeParse({ kpis: out.kpis }).success).toBe(true);
+  });
+});
+
 // Real Gemini invented role permissions ("all", "view_clinical", "kpi:read"),
 // which were stored as-is, so non-admin roles in an AI-built org got no real
 // access. Only the canonical keys survive parsing.

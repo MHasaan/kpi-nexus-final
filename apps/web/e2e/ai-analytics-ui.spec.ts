@@ -95,6 +95,41 @@ test('anomalies page: chart renders, detect & save flags the spike, confirm work
   await expect(page.locator('[data-testid^="anom-confirmed-"]').first()).toBeVisible({ timeout: 10_000 });
 });
 
+// Flow walk (anomalies): "Look, and save" pressed a second time saved the same value's anomaly a second
+// time — two rows for one value, each waiting to be confirmed.
+test('anomalies page: looking and saving again does not save the same anomaly twice', async ({ page }) => {
+  test.skip(!ready, 'api/ML not reachable');
+  test.setTimeout(60_000);
+  const { kpiId, reg } = await setup(page);
+  const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${reg.accessToken}` } });
+  const saved = async () => ((await (await api.get(`/kpis/${kpiId}/anomalies`)).json()) as Array<{ dataPointId: string | null; method: string }>);
+
+  await page.goto(`/kpis/${kpiId}/anomalies`);
+  // Press the button and wait for the save to come back: counting before it lands proves nothing.
+  const lookAndSave = async () => {
+    const done = page.waitForResponse((r) => r.url().includes('/anomalies/detect') && r.request().method() === 'POST');
+    await page.getByTestId('anom-detect-persist').click();
+    expect((await done).ok()).toBe(true);
+  };
+  await page.getByTestId('anom-method').selectOption('zscore');
+  await lookAndSave();
+  const rows = page.locator('[data-testid^="anom-row-"]');
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+  const first = await saved();
+  expect(first.length).toBeGreaterThan(0);
+
+  await lookAndSave();
+  expect(await saved()).toHaveLength(first.length);
+  await expect(rows).toHaveCount(first.length);
+
+  // Another method is another finding about the same value: that one is saved, once.
+  await page.getByTestId('anom-method').selectOption('ensemble');
+  await lookAndSave();
+  await lookAndSave();
+  const all = await saved();
+  expect(new Set(all.map((a) => `${a.dataPointId}:${a.method}`)).size).toBe(all.length);
+});
+
 test('forecast page: generate renders chart + fit metrics', async ({ page }) => {
   test.skip(!ready, 'api/ML not reachable');
   test.setTimeout(60_000);

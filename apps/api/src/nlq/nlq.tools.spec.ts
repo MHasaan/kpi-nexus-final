@@ -24,7 +24,8 @@ function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}, we
     kpiId,
     horizon: opts.horizon,
     model: 'NAIVE',
-    predictions: Array.from({ length: opts.horizon }, (_, i) => ({ ds: `2027-0${i + 1}-01`, yhat: 10 + i, yhat_lower_80: 8, yhat_upper_80: 12, extra: 'x' })),
+    // The ML sidecar numbers its predictions "t+1", "t+2"…: so many periods after the last value it was given.
+    predictions: Array.from({ length: opts.horizon }, (_, i) => ({ ds: `t+${i + 1}`, yhat: 10 + i, yhat_lower_80: 8, yhat_upper_80: 12, extra: 'x' })),
   }));
   const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService, weekStartsOn);
   return { toolbox, listForKpi, forecast };
@@ -157,13 +158,30 @@ describe('NlqToolbox', () => {
 
 describe('NlqToolbox forecast_kpi', () => {
   it('forecasts a visible KPI through ForecastsService without saving it (horizon capped at 12)', async () => {
-    const { toolbox, forecast } = makeToolbox();
+    const { toolbox, forecast } = makeToolbox({ rev: [point('2026-10-01', 9), point('2026-11-01', 10)] });
     const out = await toolbox.run(call('forecast_kpi', { kpiId: 'rev', horizon: 40 }));
     expect(forecast).toHaveBeenCalledWith('rev', { horizon: 12, persist: false });
     const result = out.result as { model: string; predictions: Array<Record<string, unknown>> };
     expect(result.model).toBe('NAIVE');
-    expect(result.predictions[0]).toEqual({ period: '2027-01-01', value: 10, low: 8, high: 12 });
+    expect(result.predictions[0]).toEqual({ period: '2026-12-01', value: 10, low: 8, high: 12 });
     expect(out.kpiIds).toEqual(['rev']);
+  });
+
+  // Real Gemini (2026-11-20), asked "Will we hit the MRR target next month?", answered with "Next Month Forecast
+  // (t+1)": the tool passed on the sidecar's step numbers. Each prediction now names its period, counted on from
+  // the last recorded one by the KPI's frequency — as the forecast page does.
+  it("names each prediction's period, counted on from the last recorded period", async () => {
+    const { toolbox } = makeToolbox({ rev: [point('2026-11-01', 498000)] });
+    const out = await toolbox.run(call('forecast_kpi', { kpiId: 'rev', horizon: 3 }));
+    const periods = (out.result as { predictions: Array<{ period: string }> }).predictions.map((p) => p.period);
+    expect(periods).toEqual(['2026-12-01', '2027-01-01', '2027-02-01']);
+    expect(JSON.stringify(out.result)).not.toContain('t+');
+  });
+
+  it('with no recorded period to count from, says how many periods ahead', async () => {
+    const { toolbox } = makeToolbox();
+    const out = await toolbox.run(call('forecast_kpi', { kpiId: 'rev', horizon: 2 }));
+    expect((out.result as { predictions: Array<{ period: string }> }).predictions.map((p) => p.period)).toEqual(['1 period ahead', '2 periods ahead']);
   });
 
   it('a hidden KPI is not forecast; a forecast error comes back as text', async () => {

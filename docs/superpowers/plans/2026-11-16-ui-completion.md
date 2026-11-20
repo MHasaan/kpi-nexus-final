@@ -201,13 +201,13 @@ The 2026-11-16 walkthrough ran the app on a throwaway stack, crawled all 84 page
 - API: `PUT /retention-policies/:entityType {days, isActive}`, `POST /retention-policies/run {dryRun}` (counts first).
 - Web `/settings/retention`: per-type days, last run and rows removed, "Preview" then confirm.
 
-**6.8 SSO — needs ADR-002.**
+**6.8 SSO — needs ADR-002.** *On hold (owner's decision 2026-11-20): `/settings/sso` is hidden until this is built; see TODOS.md.*
 - OIDC first (`openid-client`): `SsoConfig` gains issuer, client id, encrypted client secret (migration; reuse `integrations/integration-crypto.ts`). Public routes `GET /sso/discover?org=`, `GET /sso/login?org=` (PKCE, state and nonce in Redis), `GET /sso/oidc/callback` → `SsoService.handleVerifiedLogin` (`sso.service.ts:27-73`, exists, no caller today) → one-time code → web `/sso/callback` exchanges it (`POST /sso/exchange`) and calls `setTokens`. Issuer fetches go through the existing SSRF guard.
 - Login page: "Sign in with SSO" (asks the org, or uses the custom host). `/settings/sso`: all fields, default role, the redirect address to paste at the IdP, "Test connection".
 - SAML second (`@node-saml/node-saml`): `POST /sso/saml/callback`, certificate field, metadata address.
 - Tests: integration against a Keycloak container added to the throwaway compose.
 
-**6.9 Custom domains — needs ADR-003.**
+**6.9 Custom domains — needs ADR-003.** *On hold (owner's decision 2026-11-20): `/settings/custom-domain` is hidden until this is built; see TODOS.md.*
 - API: `GET /public/org-by-host?host=`; CORS origin callback in `main.ts:56-67` allows verified domains (cached); email links use the org's primary domain; `CustomDomain` gains `status` and `isPrimary`.
 - Hosting step behind a `DomainProvisioner`: `manual` (default — shows the CNAME and the one step the owner does in Vercel) and `vercel` (when a token is configured; adding a domain is free on Hobby).
 - Web: host-aware login and branding; Verify busy state; delete with confirm. Verified in the local rehearsal with `*.localhost` names; real DNS only after go-live.

@@ -551,6 +551,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | CI: the unit test job ran every package’s suite at once and oversubscribed the runner — on #415 a contracts test that takes 15 ms locally passed vitest’s 5-second limit and failed (a re-run passed) | ✅ Fixed — the test job runs the packages one at a time; each suite still uses every core, and the 5-second limit stays | #418 | this PR’s own CI run |
 | Audit crawl (85 pages × admin, contributor, signed out, 375 px): signed out, a KPI’s Forecast, Anomalies, What-if and Embed pages asked the API for the KPI before sending the visitor to sign in — refused (401) and logged as a console error. Nothing else was found | ✅ Fixed — their shared heading asks only once there is a session | #419 | `e2e/kpi-analysis-pages-signed-out.spec.ts` |
 | API log during the browser suite: “No repeatable job found for scheduled-report … skipping removal” — a report’s schedule was never removed (BullMQ 5 gives the old-style entries no id to find them by), so a changed time left the old one running and the report went out at both times, and paused or deleted reports left theirs (629 on the test stack) | ✅ Fixed — one job scheduler per active report, named for it, replaced on a new time and removed on pause or delete; start-up makes the schedules match the reports | #420 | `scheduled-report.service.spec.ts`, `test/integration/scheduled-report.spec.ts` (live, real Redis) |
+| UI-014 (last part): the Single sign-on and Custom domain settings saved what an administrator typed, then said they were not in use yet — ADR-002 (SSO: WorkOS charges per connected company, against free-forever hosting) and ADR-003 (custom domains: an HTTPS certificate per address) are not written | ⏸ Hidden (owner's decision 2026-11-20) — Settings no longer lists them and their pages lead back to Settings; code, API and data kept; one list (`lib/settings-on-hold.ts`) brings each back; to do later in TODOS.md | #421 | `e2e/settings-on-hold-are-hidden.spec.ts`, `lib/settings-on-hold.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
@@ -558,7 +559,7 @@ Found by the walkthrough in [ui-verification-plan-2026-11-16.md](./ui-verificati
 
 | Finding | Severity | Status | Plan |
 |---|---|---|---|
-| UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⬜ open, waiting for ADR-002 and ADR-003 | 6.8, 6.9 |
+| UI-014 settings that save but change nothing — two left: SSO and custom domain. (Branding, fiscal calendar, formats, notification preferences, password maximum age and retention take effect now; see the fix log above.) | High | ⏸ on hold — both pages hidden from Settings (owner's decision 2026-11-20, #421); to do later, after ADR-002 and ADR-003 (TODOS.md) | 6.8, 6.9 |
 
 ### Second QA pass — 2026-11-17
 

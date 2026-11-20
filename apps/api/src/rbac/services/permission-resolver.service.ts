@@ -8,6 +8,8 @@ import { RequestContextStore } from '../../tenancy/request-context.js';
 interface ResolvedPermissions {
   isAdmin: boolean;
   permissions: ReadonlySet<PermissionKey>;
+  /** The role this was worked out for. */
+  roleId: string | null;
   resolvedAt: number;
   /** Set when delegations contributed to the permission union — used by audit. */
   fromDelegations: ReadonlyArray<{ delegationId: string; grantorUserId: string }>;
@@ -50,7 +52,9 @@ export class PermissionResolverService {
   ): Promise<ResolvedPermissions> {
     const cacheKey = `${organizationId}:${userId}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.resolvedAt < this.ttlMs) {
+    // An answer worked out for another role is not an answer for this one: a session renewed after a
+    // role change must not be given the old role's permissions.
+    if (cached && cached.roleId === roleId && Date.now() - cached.resolvedAt < this.ttlMs) {
       return cached;
     }
 
@@ -162,6 +166,7 @@ export class PermissionResolverService {
     const resolved: ResolvedPermissions = {
       isAdmin,
       permissions,
+      roleId,
       resolvedAt: Date.now(),
       fromDelegations,
     };

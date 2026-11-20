@@ -189,6 +189,22 @@ describe('PermissionResolverService.resolveForUser', () => {
     expect(result.permissions.size).toBe(2);
   });
 
+  // Flow walk: a person given a new role went on being answered with the old role's permissions
+  // for up to five minutes, because the kept answer was looked up by person alone.
+  test('an answer kept for one role is not given for another', async () => {
+    const { resolver, prisma } = makeResolver();
+    prisma.roleDefinitionStore.push(
+      { id: 'viewer', organizationId: ORG, isAdmin: false, permissions: [PermissionKey.KPI_VIEW] },
+      { id: 'admin', organizationId: ORG, isAdmin: true, permissions: [] },
+    );
+    expect((await resolver.resolveForUser(ORG, 'u1', 'viewer')).isAdmin).toBe(false);
+    expect((await resolver.resolveForUser(ORG, 'u1', 'admin')).isAdmin).toBe(true);
+    // And back: each role gets its own answer.
+    const viewer = await resolver.resolveForUser(ORG, 'u1', 'viewer');
+    expect(viewer.isAdmin).toBe(false);
+    expect(viewer.permissions.has(PermissionKey.KPI_VIEW)).toBe(true);
+  });
+
   test('step 3 — role.isAdmin flips isAdmin and skips delegation lookup', async () => {
     const { resolver, prisma } = makeResolver();
     prisma.roleDefinitionStore.push({

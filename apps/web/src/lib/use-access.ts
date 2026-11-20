@@ -6,6 +6,7 @@ import type { AccessProfile, Domain, Scope } from '@kpi-nexus/contracts';
 
 import { getAccessToken, meRequest } from './api-client';
 import { getCachedAccessProfile, scopeAtLeast, scopeForDomain } from './access';
+import { freshSession } from './session-refresh';
 
 export interface UseAccessResult {
   /** The resolved access profile for the current user (null until ready). */
@@ -47,6 +48,12 @@ export function useAccess(): UseAccessResult {
     if (cached) {
       setProfile(cached);
       setReady(true);
+      // Shown at once from the kept copy, then checked against the server (see session-refresh).
+      void freshSession().then((fresh) => {
+        if (!cancelled && fresh?.accessProfile && JSON.stringify(fresh.accessProfile) !== JSON.stringify(cached)) {
+          setProfile(fresh.accessProfile);
+        }
+      });
       return () => {
         cancelled = true;
       };

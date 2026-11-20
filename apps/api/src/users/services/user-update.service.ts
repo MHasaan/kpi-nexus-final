@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { AuditService } from '../../audit/audit.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AccessContextService } from '../../rbac/services/access-context.service.js';
+import { PermissionResolverService } from '../../rbac/services/permission-resolver.service.js';
 import { RequestContextStore } from '../../tenancy/request-context.js';
 import type { UpdateUserDto } from '../dto/update-user.dto.js';
 import { type PublicUser, userSelect } from '../users.service.js';
@@ -27,7 +28,9 @@ const CANNOT_MANAGE = new Set(['ARCHIVED', 'DELETED', 'PURGED']);
  *  - a reporting line never loops back on itself.
  *
  * A role change reaches the person's session within the access-token lifetime:
- * a refresh re-reads the role from the database.
+ * a refresh re-reads the role from the database. The permissions kept in memory
+ * for them are dropped at once, so the renewed session is answered with the new
+ * role's.
  */
 @Injectable()
 export class UserUpdateService {
@@ -35,6 +38,7 @@ export class UserUpdateService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessContext: AccessContextService,
+    private readonly resolver: PermissionResolverService,
   ) {}
 
   async update(userId: string, dto: UpdateUserDto): Promise<PublicUser> {
@@ -85,7 +89,21 @@ export class UserUpdateService {
       data.positionId = dto.positionId;
     }
 
+    const previousManagerId = target.managerId;
     const updated = await this.prisma.user.update({ where: { id: userId }, data, select: userSelect });
+
+    // What each person may do and see is kept in memory for five minutes. A changed role or manager
+    // must not wait that out: the answers kept for the people it touches are dropped now. (They were
+    // not, so a new role went on being answered with the old one's permissions.)
+    if (data.roleId !== undefined) {
+      this.resolver.invalidate(ctx.organizationId, userId);
+      this.accessContext.invalidate(ctx.organizationId, userId);
+    }
+    if (data.managerId !== undefined) {
+      for (const id of [userId, previousManagerId, data.managerId]) {
+        if (id) this.accessContext.invalidate(ctx.organizationId, id);
+      }
+    }
 
     const changed = Object.keys(data);
     if (changed.length > 0) {

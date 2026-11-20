@@ -1,4 +1,4 @@
-import { DEFAULT_FISCAL_CONFIG, weekRange } from '@kpi-nexus/contracts';
+import { DEFAULT_FISCAL_CONFIG, forecastPeriodStart, weekRange } from '@kpi-nexus/contracts';
 import type { NormalizedTool, NormalizedToolCall } from '@kpi-nexus/ai';
 
 import type { ForecastsService } from '../analytics/forecasts.service.js';
@@ -57,7 +57,7 @@ export const NLQ_TOOLS: NormalizedTool[] = [
   },
   {
     name: 'forecast_kpi',
-    description: `Forecast a KPI's next periods (up to ${MAX_HORIZON}) from its history, with an 80% range.`,
+    description: `Forecast a KPI's next periods (up to ${MAX_HORIZON}) from its history, with an 80% range. Each prediction names the period it is for.`,
     parameters: {
       type: 'object',
       properties: { ...kpiIdParam, horizon: { type: 'integer', description: `How many periods ahead (max ${MAX_HORIZON}).` } },
@@ -256,8 +256,13 @@ export class NlqToolbox {
     const k = this.kpi(input.kpiId);
     const horizon = Math.min(Math.max(Number(input.horizon) || 3, 1), MAX_HORIZON);
     const f = await this.forecasts.forecast(k.id, { horizon, persist: false });
-    const predictions = (f.predictions as unknown as Array<Record<string, unknown>>).map((p) => ({
-      period: String(p.ds ?? ''),
+    // The sidecar numbers its predictions "t+1", "t+2"…: so many periods after the last recorded one. Name the
+    // real period, counted on by the KPI's frequency, as the forecast page does.
+    const last = ((await this.kpiData.listForKpi(k.id, { limit: 1 })) as ScopedPoint[])[0];
+    const lastPeriod = last ? day(last.periodStart) : null;
+    const periodOf = (i: number): string => forecastPeriodStart(lastPeriod, k.frequency, i + 1) ?? `${i + 1} ${i === 0 ? 'period' : 'periods'} ahead`;
+    const predictions = (f.predictions as unknown as Array<Record<string, unknown>>).map((p, i) => ({
+      period: periodOf(i),
       value: typeof p.yhat === 'number' ? round(p.yhat) : null,
       ...(typeof p.yhat_lower_80 === 'number' ? { low: round(p.yhat_lower_80) } : {}),
       ...(typeof p.yhat_upper_80 === 'number' ? { high: round(p.yhat_upper_80) } : {}),

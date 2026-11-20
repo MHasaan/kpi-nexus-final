@@ -74,6 +74,12 @@ describe('numbers', () => {
 });
 
 describe('unitForNewKpi', () => {
+  it('gives a percentage KPI with no unit "%"', () => {
+    expect(unitForNewKpi('PERCENTAGE', undefined, 'PKR')).toBe('%');
+    expect(unitForNewKpi('PERCENTAGE', '  ', null)).toBe('%');
+    expect(unitForNewKpi('PERCENTAGE', 'pts', 'PKR')).toBe('pts');
+  });
+
   it("gives a money KPI with no unit the organisation's currency", () => {
     expect(unitForNewKpi('CURRENCY', undefined, 'PKR')).toBe('PKR');
     expect(unitForNewKpi('CURRENCY', '   ', 'pkr')).toBe('PKR');

@@ -43,6 +43,19 @@ describe('KpisService.create → the unit of a money KPI', () => {
     expect(prisma.organization.findUnique).not.toHaveBeenCalled();
   });
 
+  it('gives a percentage KPI "%" when none is typed, without looking anything up', async () => {
+    const { create, storedUnit, prisma } = make('PKR');
+    await create({ type: 'PERCENTAGE' });
+    expect(storedUnit()).toBe('%');
+    expect(prisma.organization.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('keeps a unit typed for a percentage KPI', async () => {
+    const { create, storedUnit } = make('PKR');
+    await create({ type: 'PERCENTAGE', unit: 'pts' });
+    expect(storedUnit()).toBe('pts');
+  });
+
   it('gives another kind of KPI no unit', async () => {
     const { create, storedUnit, prisma } = make('PKR');
     await create({ type: 'COUNT' });

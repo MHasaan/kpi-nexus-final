@@ -170,11 +170,15 @@ export class KpisService {
       }
     }
 
-    // A money KPI with no unit of its own takes the organisation's currency.
+    // A money KPI with no unit of its own takes the organisation's currency; a percentage takes "%".
     let unit: string | null | undefined = dto.unit;
-    if (dto.type === 'CURRENCY' && !dto.unit?.trim()) {
-      const org = await this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { currency: true } });
-      unit = unitForNewKpi(dto.type, dto.unit, org?.currency);
+    if (!dto.unit?.trim()) {
+      if (dto.type === 'CURRENCY') {
+        const org = await this.prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { currency: true } });
+        unit = unitForNewKpi(dto.type, dto.unit, org?.currency);
+      } else if (dto.type === 'PERCENTAGE') {
+        unit = unitForNewKpi(dto.type, dto.unit, null);
+      }
     }
 
     try {

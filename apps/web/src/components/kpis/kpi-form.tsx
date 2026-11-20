@@ -561,7 +561,9 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
             help={
               moneyUnit
                 ? `Leave empty to use your organisation's currency (${moneyUnit}).`
-                : isEdit && values.type === 'CURRENCY'
+                : !isEdit && values.type === 'PERCENTAGE'
+                  ? 'Leave empty to use %.'
+                  : isEdit && values.type === 'CURRENCY'
                   ? 'This KPI’s currency. Changing it changes the label on values already recorded: they are not converted.'
                   : 'e.g. "$", "%", "ms"'
             }

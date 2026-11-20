@@ -1,6 +1,6 @@
 # Deploying KPI Nexus for free
 
-> **Where it runs today (2026-11-21):** one Azure for Students VM, while Oracle has no A1 capacity: [infra/azure/README.md](../infra/azure/README.md), [ADR-004](adrs/ADR-004-azure-interim-hosting.md). The rest of this page is the free-forever plan it moves to once the Oracle VM exists.
+> **Where it runs today (2026-11-21):** one Azure for Students VM, while Oracle has no A1 capacity: [infra/azure/README.md](../infra/azure/README.md), [ADR-004](adrs/ADR-004-azure-interim-hosting.md). Every merge to `main` deploys there through the same Deploy workflow (its `azure` job). The rest of this page is the free-forever plan it moves to once the Oracle VM exists.
 
 Production runs at $0 with nothing that expires ([ADR-001](adrs/ADR-001-free-tier-hosting.md)):
 

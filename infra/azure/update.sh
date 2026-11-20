@@ -2,7 +2,10 @@
 # Bring the Azure VM to a commit of the repository: fetch it, rebuild the images
 # on the VM, run the database release, start the new containers and check that
 # the site answers with the new commit. About 15 minutes; the site is down for
-# the last minute or so. Run on the VM:
+# the last minute or so. The data (Postgres, Redis, the S3 store, certificates)
+# lives in named Docker volumes that this never removes; the database release
+# only adds to the schema. Every merge to main runs this through ci-deploy.sh
+# (.github/workflows/deploy.yml); by hand, on the VM:
 #
 #   bash /srv/kpi-nexus/src/infra/azure/update.sh [ref]
 #
@@ -29,6 +32,11 @@ log "at $SHA (running: ${OLD:-unknown})"
 cp src/infra/prod/docker-compose.yml docker-compose.yml
 if [ -d src/infra/azure ]; then
   cp src/infra/azure/docker-compose.override.yml src/infra/azure/Caddyfile src/infra/azure/web.Dockerfile .
+fi
+# The deploy key's forced command (see its header). It may be the script that is
+# running this update, so it is replaced with a new file, never written in place.
+if [ -f src/infra/azure/ci-deploy.sh ]; then
+  install -m 755 src/infra/azure/ci-deploy.sh ci-deploy.sh.new && mv -f ci-deploy.sh.new ci-deploy.sh
 fi
 
 # True when the paths changed since the running commit, or when that is unknown.

@@ -265,7 +265,7 @@ function OrgUnitsPageInner() {
   const groupLabelLower = inSentence(terminology.groupLabel);
 
   return (
-    <AppShell title={groupLabelPlural} crumbs={['People', groupLabelPlural]}>
+    <AppShell title={groupLabelPlural} crumbs={[{ label: 'Organize' }]}>
       <div className="flex flex-col gap-6">
         <PageHeader
           title={groupLabelPlural}

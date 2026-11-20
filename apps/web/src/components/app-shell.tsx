@@ -166,7 +166,8 @@ export const NAV_GROUPS: NavGroup[] = [
         testId: 'nav-access',
       },
       { href: '/positions', label: 'Positions', icon: UserCog, permission: 'POSITIONS_MANAGE' },
-      { href: '/org-units', label: 'Org units', icon: Building2, permission: 'GROUPS_VIEW' },
+      // "Teams", as the page it opens is titled (it said "Org units").
+      { href: '/org-units', label: 'Teams', icon: Building2, permission: 'GROUPS_VIEW' },
       { href: '/integrations', label: 'Integrations', icon: Plug, permission: 'INTEGRATIONS_MANAGE' },
       { href: '/connectors', label: 'Connectors', icon: Cable, anyOf: ['INTEGRATIONS_MANAGE', 'ORG_SETTINGS'] },
       { href: '/plugins', label: 'Plugins', icon: Puzzle, permission: 'ORG_SETTINGS' },
@@ -284,7 +285,7 @@ const TITLES: Record<string, { title: string; crumb: string }> = {
   users: { title: 'People', crumb: 'Organize' },
   roles: { title: 'Roles', crumb: 'Organize' },
   positions: { title: 'Positions', crumb: 'Organize' },
-  'org-units': { title: 'Org units', crumb: 'Organize' },
+  'org-units': { title: 'Teams', crumb: 'Organize' },
   integrations: { title: 'Integrations', crumb: 'Organize' },
   activity: { title: 'Activity', crumb: 'Organize' },
   audit: { title: 'Audit', crumb: 'Organize' },

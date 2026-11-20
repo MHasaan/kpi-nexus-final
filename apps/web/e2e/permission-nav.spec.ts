@@ -126,7 +126,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(nav.getByRole('link', { name: 'Roles' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Settings' })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'People' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Org units' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Teams' })).toBeVisible();
     // Profile moved from the sidebar into the account menu (shell redesign).
     await page.getByTestId('appshell-user-menu').click();
     await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
@@ -206,7 +206,7 @@ test.describe('A4: AppShell permission-filtered nav + route guards', () => {
     await expect(nav.getByRole('link', { name: 'Roles' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Settings' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'People' })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Org units' })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Teams' })).toHaveCount(0);
     // Profile is in the account menu for everyone.
     await page.getByTestId('appshell-user-menu').click();
     await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();

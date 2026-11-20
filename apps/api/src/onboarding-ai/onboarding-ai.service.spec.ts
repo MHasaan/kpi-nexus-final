@@ -183,6 +183,46 @@ describe("OnboardingAiService — a KPI's units and target", () => {
   });
 });
 
+// Real Gemini (2026-11-20), asked to explain "Size tier", said it places you in "the correct pricing or support
+// tier"; "Positions" were job titles "or employment history"; "KPIs" were for "your success in this role", with
+// nothing of the scope, direction or target the menu promises. The request held only the internal path
+// ("organization.sizeTier"), so the model explained some other app's field — and called it by that path.
+describe('OnboardingAiService — explaining a setup field', () => {
+  const explained = async (fieldPath: string, payload?: Record<string, unknown>) => {
+    const { service, complete } = setup({ payload });
+    complete.mockResolvedValue({ content: 'An explanation.', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.explain('s1', 'tok', fieldPath);
+    const req = complete.mock.calls[0]![0];
+    return { sent: req.messages.map((m) => m.content).join('\n'), system: req.systemPrompt ?? '' };
+  };
+
+  it("sends the field by its name, with what it means in this app and the organisation it is for", async () => {
+    const { sent, system } = await explained('organization.sizeTier', { organization: { name: 'Indus Threads', industry: 'Textile & Apparel Manufacturing' } });
+    expect(sent).toContain('Field: Size');
+    expect(sent).not.toContain('organization.sizeTier');
+    expect(sent).toContain('does not change the plan or the price');
+    expect(sent).toContain('Indus Threads');
+    expect(system).toContain('in this app');
+  });
+
+  it('explains KPIs by their scope, direction and target, and positions apart from roles', async () => {
+    expect((await explained('kpis')).sent).toMatch(/scope[\s\S]*direction[\s\S]*target/);
+    expect((await explained('positions')).sent).toContain('comes from their role');
+  });
+
+  it('every field the wizard offers has a meaning', async () => {
+    for (const path of ['organization.sizeTier', 'roles', 'positions', 'orgUnitTypes', 'orgUnits', 'kpiCategories', 'kpis']) {
+      expect((await explained(path)).sent).toContain('In this app:');
+    }
+  });
+
+  it('a field it has no meaning for is still sent, by its path', async () => {
+    const { sent } = await explained('organization.industry');
+    expect(sent).toContain('Field: organization.industry');
+    expect(sent).not.toContain('In this app:');
+  });
+});
+
 // Real Gemini (2026-11-20), asked to suggest KPI categories for a food-delivery company, offered "Financial,
 // Operational, Customer, Employee, Strategic": the request held only the field's name — nothing about the
 // organisation, or what the section already had.

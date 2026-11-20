@@ -92,8 +92,8 @@ export default function DlqPage() {
       {/* FE-014: same permission the page's API enforces — no broken 403 screens. */}
       <RequirePermission permission="ORG_SETTINGS">
       <PageHeader
-        title="Failed deliveries (DLQ)"
-        subtitle="Notifications that exhausted their retries. Inspect the error and re-queue them."
+        title="Failed deliveries"
+        subtitle="Notifications that could not be delivered after every retry. See why, and send them again."
         actions={
           <div className="flex items-center gap-2">
             <Link
@@ -115,7 +115,7 @@ export default function DlqPage() {
         }
       />
       <h1 data-testid="dlq-heading" className="sr-only">
-        Failed deliveries (DLQ)
+        Failed deliveries
       </h1>
 
       {loadError && (

@@ -82,6 +82,10 @@ test.describe('P4 FE extras', () => {
 
     await page.goto('/settings/notifications/dlq');
     await expect(page.getByTestId('dlq-heading')).toBeVisible();
+    // Flow walk (settings): the page was titled "Failed deliveries (DLQ)" and spoke of "re-queueing".
+    await expect(page.getByTestId('dlq-heading')).toHaveText('Failed deliveries');
+    await expect(page.getByRole('main')).not.toContainText('DLQ');
+    await expect(page.getByRole('main')).toContainText('could not be delivered');
     await expect(page.getByTestId('dlq-empty')).toBeVisible({ timeout: 10_000 });
   });
 

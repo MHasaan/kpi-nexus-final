@@ -523,6 +523,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (anomalies): “Look, and save” pressed twice saved the same value’s anomaly twice | ✅ Fixed — one already saved for that value and method is kept, with the newer score; no schema change | #390 | `analytics/anomaly.service.spec.ts`, `e2e/ai-analytics-ui.spec.ts` |
 | Flow walk: the top bar of Dashboards and Alerts said “Workspace”, another group of the same menu; the menu files them under “Measure” | ✅ Fixed — the top bar names the menu’s own group | #391 | `components/app-shell.spec.tsx`, `e2e/measure-pages-trail.spec.ts` |
 | Flow walk (settings): on the Branding page an unchosen colour showed a black swatch beside an example reading “#2563eb” | ✅ Fixed — the swatch shows the app’s own colour, which is what is in use; the box says so | #392 | `lib/app-colours.spec.ts`, `e2e/branding-unset-colour.spec.ts` |
+| Flow walk (settings): the page of undelivered notifications was titled “Failed deliveries (DLQ)” and spoke of re-queueing | ✅ Fixed — plain words | #393 | `e2e/alerts-extras.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

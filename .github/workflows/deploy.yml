@@ -1,16 +1,25 @@
 name: Deploy
 
-# Production deploy (ADR-001): arm64 images to GHCR, then infra/prod/deploy.sh
-# on the Oracle Always Free VM over SSH. Vercel deploys the web app itself
-# through its Git integration.
+# Every merge to main deploys itself, to whichever hosts have their secrets set:
+#
+#   - Oracle (ADR-001, the free-forever plan): arm64 images to GHCR, then
+#     infra/prod/deploy.sh on the Always Free VM over SSH. Vercel deploys the
+#     web app itself through its Git integration.
+#     Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
+#     (docs/deploy.md).
+#   - Azure (ADR-004, where the app runs today): one SSH command to the VM,
+#     whose deploy key can only run infra/azure/ci-deploy.sh, which fetches the
+#     commit and runs its update.sh (the images are built on the VM; the data
+#     volumes are never touched). Then /api/health must answer with the commit.
+#     Secrets: AZURE_DEPLOY_HOST, AZURE_DEPLOY_USER, AZURE_DEPLOY_SSH_KEY,
+#     AZURE_DEPLOY_KNOWN_HOSTS (infra/azure/README.md).
 #
 #   - after CI passes on main (and Security passed on the same commit): deploy it
 #   - Run workflow with a commit SHA from main: deploy that one (rollback)
 #   - on pull requests that touch the images: build only, nothing is pushed
 #
-# Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
-# (docs/deploy.md). Until they are set, nothing is pushed or deployed: the
-# images are only built, and the run ends with a notice.
+# Until a host's secrets are set, nothing goes to it: the Oracle images are
+# only built, and the run ends with a notice.
 
 on:
   workflow_run:
@@ -57,6 +66,7 @@ jobs:
     outputs:
       sha: ${{ steps.pick.outputs.sha }}
       deploy: ${{ steps.pick.outputs.deploy }}
+      azure: ${{ steps.pick.outputs.azure }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -65,12 +75,13 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           HAS_SECRETS: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' && secrets.DEPLOY_KNOWN_HOSTS != '' }}
+          HAS_AZURE_SECRETS: ${{ secrets.AZURE_DEPLOY_HOST != '' && secrets.AZURE_DEPLOY_USER != '' && secrets.AZURE_DEPLOY_SSH_KEY != '' && secrets.AZURE_DEPLOY_KNOWN_HOSTS != '' }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_SHA: ${{ inputs.sha }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           case "$EVENT" in
-            pull_request) echo "sha=$PR_SHA" >> "$GITHUB_OUTPUT"; echo "deploy=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            pull_request) echo "sha=$PR_SHA" >> "$GITHUB_OUTPUT"; echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "azure=false" >> "$GITHUB_OUTPUT"; exit 0 ;;
             workflow_run) sha="$RUN_SHA" ;;
             workflow_dispatch) sha="$INPUT_SHA" ;;
           esac
@@ -81,8 +92,14 @@ jobs:
             echo "::error::$sha is not on main"; exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_AZURE_SECRETS" = true ]; then
+            echo "azure=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::The Azure deploy secrets are not set; nothing goes to the Azure VM (infra/azure/README.md)"
+            echo "azure=false" >> "$GITHUB_OUTPUT"
+          fi
           if [ "$HAS_SECRETS" != true ]; then
-            echo "::notice::Deploy secrets are not set; building only, nothing pushed or deployed (docs/deploy.md)"
+            echo "::notice::The Oracle deploy secrets are not set; its images are only built, nothing pushed or deployed (docs/deploy.md)"
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -90,7 +107,7 @@ jobs:
       # CI is what triggered this run; Security runs beside it on the same
       # commit and must have passed too.
       - name: Security passed on this commit
-        if: steps.pick.outputs.deploy == 'true'
+        if: steps.pick.outputs.deploy == 'true' || steps.pick.outputs.azure == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.pick.outputs.sha }}
@@ -105,6 +122,67 @@ jobs:
             sleep 30
           done
           echo "::error::Security never finished on $SHA"; exit 1
+
+  # ADR-004. The VM builds its own x64 images, so no CI image is needed. The
+  # key is pinned to ci-deploy.sh on the VM, so the one command is the commit.
+  azure:
+    needs: gate
+    if: needs.gate.outputs.azure == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}
+      AZURE_HOST: ${{ secrets.AZURE_DEPLOY_HOST }}
+      AZURE_USER: ${{ secrets.AZURE_DEPLOY_USER }}
+    steps:
+      - name: SSH key and pinned host key
+        env:
+          KEY: ${{ secrets.AZURE_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.AZURE_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/azure_key && chmod 600 ~/.ssh/azure_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/azure_known_hosts && chmod 600 ~/.ssh/azure_known_hosts
+      # update.sh takes about 15 minutes and streams its log here. It carries
+      # on in its own session if the connection drops (ssh exits 255), so that
+      # alone is not a failed deploy: the health check below decides. Any other
+      # non-zero exit is ci-deploy.sh's or update.sh's own, and that is one.
+      - name: update.sh on the VM
+        id: update
+        run: |
+          code=0
+          # SHA expands here on purpose; the gate validated it as 40 hex characters.
+          # shellcheck disable=SC2029
+          ssh -i ~/.ssh/azure_key -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/azure_known_hosts" \
+            -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
+            "$AZURE_USER@$AZURE_HOST" "$SHA" || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          case "$code" in
+            0) ;;
+            255) echo "::warning::The SSH connection to the VM ended before update.sh did; it carries on there" ;;
+            *) echo "::error::update.sh did not finish on the VM (exit $code); its log is above and in /srv/kpi-nexus/update.log"; exit "$code" ;;
+          esac
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/azure_key
+      - name: /api/health answers with the commit
+        env:
+          SSH_CODE: ${{ steps.update.outputs.code }}
+        run: |
+          url="https://$AZURE_HOST/api/health"
+          attempts=12; [ "$SSH_CODE" = 0 ] || attempts=180 # about 15 minutes more when the connection dropped
+          for _ in $(seq 1 "$attempts"); do
+            body="$(curl -fsS --max-time 10 "$url" 2>/dev/null || true)"
+            version="$(printf '%s' "$body" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
+            # update.sh reports git's short form of the commit.
+            if [ "${#version}" -ge 7 ] && [[ "$SHA" == "$version"* ]] && [[ "$body" == *'"db":"ok"'* && "$body" == *'"redis":"ok"'* ]]; then
+              echo "$url answers with $version: $body"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url did not answer with $SHA (last: ${body:-no answer}); on the VM: cat /srv/kpi-nexus/update.log"
+          exit 1
 
   images:
     needs: gate

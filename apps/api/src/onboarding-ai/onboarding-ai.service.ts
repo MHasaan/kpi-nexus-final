@@ -66,6 +66,47 @@ function describeOrganisation(org: unknown): string[] {
   return said.length > 0 ? [`Organisation: ${said.join(', ')}`] : [];
 }
 
+/**
+ * What each setup field the wizard offers to explain means in this app, by the path it sends. Asked with the path
+ * alone, the model explained some other app's field, and some wrongly ("Size tier" placed you in a pricing tier).
+ */
+const FIELD_MEANINGS: Readonly<Record<string, { name: string; meaning: string }>> = {
+  'organization.sizeTier': {
+    name: 'Size',
+    meaning:
+      'How many people the organisation has: Small (about 1-50), Medium (51-250), Large (251-1000) or Enterprise (more). It describes the organisation and helps the AI suggest KPIs that fit; it does not change the plan or the price.',
+  },
+  roles: {
+    name: 'Roles & permissions',
+    meaning:
+      'What people may do in the app. Each person has one role, and a role is a set of permissions from a fixed list, such as viewing KPIs, recording values or managing users. One role is the administrator role, which may do everything. A role is not a job title; job titles are positions.',
+  },
+  positions: {
+    name: 'Positions',
+    meaning:
+      'The job titles people hold, such as Sales Manager or Machine Operator, each on a track: individual contributor, management or executive. A position says what someone does; what they may do in the app comes from their role.',
+  },
+  orgUnitTypes: {
+    name: 'Org unit types',
+    meaning:
+      'The kinds of unit the organisation is divided into, such as Division, Department or Team, each with the way it divides the organisation (its dimension, such as Departments or Regions). Every unit is of one of these types.',
+  },
+  orgUnits: {
+    name: 'Org units',
+    meaning:
+      "The organisation's actual units, such as a Sales Department, each of a unit type and placed under a parent unit, so they form a tree. People belong to units, and a KPI recorded per unit is held by the units chosen and passed down to the units below them.",
+  },
+  kpiCategories: {
+    name: 'KPI categories',
+    meaning: 'The groups KPIs are filed under, such as Financial or Customer, which organise the KPI lists and dashboards. Every KPI belongs to one category.',
+  },
+  kpis: {
+    name: 'KPIs',
+    meaning:
+      'What the organisation measures. Each KPI has a scope (recorded once for the whole organisation, separately by each unit that holds it, or by each person), a direction (whether higher, lower or closest to the target is better), how often it is recorded, and optionally a target to measure it against.',
+  },
+};
+
 /** Sections whose names a suggestion may see, to leave them out — never the team, whose rows are people. */
 const NAMED_SECTIONS: ReadonlySet<string> = new Set(['roles', 'positions', 'orgUnitTypes', 'orgUnits', 'kpiCategories', 'kpis']);
 
@@ -242,8 +283,16 @@ export class OnboardingAiService {
   }
 
   async explain(sessionId: string, token: string, fieldPath: string) {
-    const sys = 'You are an onboarding assistant. Explain what this field means and one best practice, in 2-3 sentences. Plain prose.';
-    const { interactionId, content } = await this.run(sessionId, token, 'explain', `Field: ${fieldPath}`, sys);
+    const draft = await this.onboarding.getDraft(sessionId, token);
+    const field = FIELD_MEANINGS[fieldPath];
+    const sys =
+      'You are an onboarding assistant. Explain to someone setting up their organisation what this part of the setup means in this app, then give one best practice for an organisation like theirs, in 2-3 sentences of plain prose. Go by the meaning given and mention no feature it does not, and call the field by the name given.';
+    const prompt = [
+      ...describeOrganisation((draft.payload as Record<string, unknown> | null)?.organization),
+      `Field: ${field?.name ?? fieldPath}`,
+      ...(field ? [`In this app: ${field.meaning}`] : []),
+    ].join('\n');
+    const { interactionId, content } = await this.run(sessionId, token, 'explain', prompt, sys);
     return { interactionId, mode: 'explain' as const, explanation: content };
   }
 

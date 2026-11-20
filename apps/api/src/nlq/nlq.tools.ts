@@ -4,6 +4,7 @@ import type { NormalizedTool, NormalizedToolCall } from '@kpi-nexus/ai';
 import type { ForecastsService } from '../analytics/forecasts.service.js';
 import type { KpiDataService } from '../kpis/kpi-data.service.js';
 import type { PublicKpi } from '../kpis/kpis.service.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
 
 const MAX_HISTORY = 50;
 const MAX_SERIES = 500;
@@ -82,6 +83,28 @@ interface ScopedPoint {
 
 class ToolError extends Error {}
 
+/** Names for the series a per-unit or per-person KPI's points come in: the teams and people they belong to. */
+export type SeriesNames = (ids: string[]) => Promise<Map<string, string>>;
+
+/**
+ * Team and person names for series ids, from this organisation only. The points are already the ones the
+ * asker may see (KpiDataService.listForKpi), so naming their holders shows nothing new.
+ */
+export function seriesNamesFrom(
+  prisma: Pick<PrismaService, 'orgUnit' | 'user'>,
+  organizationId: string,
+): SeriesNames {
+  return async (ids) => {
+    if (ids.length === 0) return new Map();
+    const where = { organizationId, id: { in: ids } };
+    const [units, people] = await Promise.all([
+      prisma.orgUnit.findMany({ where, select: { id: true, name: true } }),
+      prisma.user.findMany({ where, select: { id: true, fullName: true } }),
+    ]);
+    return new Map([...units.map((u) => [u.id, u.name] as const), ...people.map((p) => [p.id, p.fullName] as const)]);
+  };
+}
+
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
 function parseDate(raw: unknown): Date | undefined {
@@ -115,6 +138,8 @@ export class NlqToolbox {
     private readonly forecasts: Pick<ForecastsService, 'forecast'>,
     /** The organisation's first day of the week, 0 (Sunday) to 6. */
     private readonly weekStartsOn: number = DEFAULT_FISCAL_CONFIG.weekStartsOn,
+    /** Names a per-unit or per-person KPI's series for its teams and people. */
+    private readonly seriesNames: SeriesNames = async () => new Map(),
   ) {}
 
   async run(call: NormalizedToolCall): Promise<ToolRun> {
@@ -154,12 +179,16 @@ export class NlqToolbox {
     return kpi;
   }
 
-  private points(rows: ScopedPoint[]) {
-    const several = new Set(rows.map((p) => p.userId ?? p.orgUnitId ?? '')).size > 1;
+  /** The points, each labelled with its team's or person's name when they come in several series. */
+  private async points(rows: ScopedPoint[]) {
+    const holder = (p: ScopedPoint) => p.userId ?? p.orgUnitId ?? '';
+    const ids = [...new Set(rows.map(holder))];
+    const several = ids.length > 1;
+    const names = several ? await this.seriesNames(ids.filter((id) => id !== '')) : new Map<string, string>();
     return rows.map((p) => ({
       period: day(p.periodStart),
       value: p.value,
-      ...(several ? { series: p.userId ?? p.orgUnitId ?? 'org' } : {}),
+      ...(several ? { series: holder(p) ? (names.get(holder(p)) ?? holder(p)) : 'org' } : {}),
     }));
   }
 
@@ -186,7 +215,7 @@ export class NlqToolbox {
     const k = this.kpi(input.kpiId);
     const limit = Math.min(Math.max(Number(input.limit) || 20, 1), MAX_HISTORY);
     const rows = (await this.kpiData.listForKpi(k.id, { limit })) as ScopedPoint[];
-    return { result: { kpiId: k.id, name: k.name, unit: k.unit, points: this.points(rows) }, kpiIds: [k.id] };
+    return { result: { kpiId: k.id, name: k.name, unit: k.unit, points: await this.points(rows) }, kpiIds: [k.id] };
   }
 
   private async timeseries(input: Record<string, unknown>): Promise<ToolRun> {
@@ -196,7 +225,7 @@ export class NlqToolbox {
     const agg = typeof input.agg === 'string' ? input.agg : 'none';
     const rows = ((await this.kpiData.listForKpi(k.id, { from, to, limit: MAX_SERIES })) as ScopedPoint[]).slice().reverse();
     if (agg === 'none' || !['day', 'week', 'month'].includes(agg)) {
-      return { result: { kpiId: k.id, name: k.name, unit: k.unit, points: this.points(rows) }, kpiIds: [k.id] };
+      return { result: { kpiId: k.id, name: k.name, unit: k.unit, points: await this.points(rows) }, kpiIds: [k.id] };
     }
     const buckets = new Map<string, number[]>();
     for (const p of rows) {

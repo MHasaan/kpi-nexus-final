@@ -88,6 +88,11 @@ export default function CustomDomainSettingsPage() {
         <p className="mt-1 text-sm text-content-muted">
           Serve KPI Nexus from your own domain. Add a domain, then create the DNS TXT record we generate and click Verify.
         </p>
+        {/* A domain can be added and checked, but nothing serves the app from it yet (UI-014, waiting for ADR-003). */}
+        <div role="note" data-testid="custom-domain-not-on-yet" className="mt-3 rounded-lg border border-status-warning-bg bg-status-warning-bg px-4 py-3 text-sm text-status-warning">
+          <span className="font-medium">Not switched on yet.</span> A domain can be added and verified here, but KPI Nexus is not
+          served from it in this version.
+        </div>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="custom-domain-error">{error}</p>}
 
         <PermissionGuard permission="ORG_SETTINGS">

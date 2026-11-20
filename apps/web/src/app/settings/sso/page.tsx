@@ -75,6 +75,12 @@ export default function SsoSettingsPage() {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-content-strong">Single sign-on</h1>
         <p className="mt-1 text-sm text-content-muted">Configure SAML/OIDC. Users authenticate at your IdP; JIT provisioning auto-creates accounts on first login.</p>
+        {/* Nothing signs anyone in through an identity provider yet (UI-014, waiting for ADR-002). Say so:
+            an administrator could tick "Active" below and believe it was on. */}
+        <div role="note" data-testid="sso-not-on-yet" className="mt-3 rounded-lg border border-status-warning-bg bg-status-warning-bg px-4 py-3 text-sm text-status-warning">
+          <span className="font-medium">Not switched on yet.</span> What you save here is kept, but nobody can sign in through an
+          identity provider in this version: the sign-in page takes an email and password only.
+        </div>
         {error && <p className="mt-2 text-sm text-status-critical" data-testid="sso-error">{error}</p>}
         {saved && <p className="mt-2 text-sm text-status-positive" data-testid="sso-saved">Saved{config?.isActive ? ' · active' : ''}.</p>}
 

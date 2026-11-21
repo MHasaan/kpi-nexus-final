@@ -613,6 +613,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-20, F-060): on a phone the KPI catalog hid Status, Target and the actions off-screen, and selects' chevrons sat detached | ✅ Fixed — actions under the name and fewer columns on a phone; the chevron stays in the select's box | #482 | `kpi-catalog-on-a-phone.spec.ts` |
 | Manual QA (2026-11-19, F-025): the templates library showed "Used 980×" on a brand-new organisation — counts that came with the catalogue | ✅ Fixed — built-in templates show no usage count; an organisation's own keep theirs | #483 | `templates-do-not-claim-a-usage-count.spec.ts` |
 | Manual QA (2026-11-19, F-047): Slack's setup never said the server had no signing secret, so a connection could never complete and nothing said why | ✅ Fixed — the page asks the server and warns before anyone pastes addresses into Slack; cards go three across from 1280 px | #484 | `slack-readiness.controller.spec.ts`, `integrations-connect.spec.ts` |
+| Manual QA (2026-11-20, F-067): SCIM ignored `count`, reported invited people as active, said "Mint token" and kept the copy-now banner after revoking | ✅ Fixed — pages by count/startIndex; active means able to sign in; "Create token"; the banner goes with its token | #485 | `scim-users.service.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

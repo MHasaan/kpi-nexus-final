@@ -1,4 +1,4 @@
-import type { AlertRuleType, AlertSeverity, EscalationLevelInput } from './api-client';
+import type { AlertRule, AlertRuleType, AlertSeverity, EscalationLevelInput } from './api-client';
 
 /**
  * The "new alert rule" form as plain data and pure functions: what is typed,
@@ -222,6 +222,57 @@ export function alertRuleConfig(form: AlertRuleForm): Record<string, unknown> {
       };
     case 'NO_DATA':
       return { maxStaleMinutes: toMinutes(form.staleValue, form.staleUnit), ...common };
+  }
+}
+
+/** Minutes in the largest unit that divides them whole: 2880 → 2 days, 90 → 90 minutes. */
+export function fromMinutes(minutes: number): { value: string; unit: TimeUnit } {
+  if (minutes > 0 && minutes % 1440 === 0) return { value: String(minutes / 1440), unit: 'days' };
+  if (minutes > 0 && minutes % 60 === 0) return { value: String(minutes / 60), unit: 'hours' };
+  return { value: String(minutes), unit: 'minutes' };
+}
+
+/**
+ * A saved rule as the form that made it, so it can be edited whole (F-069: Edit used to offer only the name,
+ * severity and description). A composite rule has no place in this form: null.
+ */
+export function formFromRule(rule: AlertRule): AlertRuleForm | null {
+  if (rule.ruleType === 'COMPOSITE') return null;
+  const config = (rule.config ?? {}) as Record<string, unknown>;
+  const num = (key: string): string => (typeof config[key] === 'number' ? String(config[key]) : '');
+  const cooldown = typeof config.cooldownMinutes === 'number' ? fromMinutes(config.cooldownMinutes) : null;
+  const levels = Array.isArray(rule.escalationRule?.levels) ? (rule.escalationRule!.levels as EscalationLevelInput[]) : [];
+  const form: AlertRuleForm = {
+    ...EMPTY_ALERT_RULE_FORM,
+    name: rule.name,
+    description: rule.description ?? '',
+    kpiId: rule.kpiId,
+    ruleType: rule.ruleType,
+    severity: rule.severity,
+    cooldownValue: cooldown?.value ?? '',
+    cooldownUnit: cooldown?.unit ?? EMPTY_ALERT_RULE_FORM.cooldownUnit,
+    levels: levels.map((l) => ({ ...l })),
+  };
+  switch (rule.ruleType) {
+    case 'STATIC_THRESHOLD':
+      return { ...form, operator: (config.operator as Operator) ?? '>', threshold: num('value') };
+    case 'DYNAMIC_STDDEV':
+      return { ...form, sigmas: num('sigmas'), windowSize: num('windowSize') };
+    case 'RATE_OF_CHANGE': {
+      const pct = typeof config.pctChange === 'number' ? config.pctChange : 0;
+      const window = typeof config.windowMinutes === 'number' ? fromMinutes(config.windowMinutes) : null;
+      return {
+        ...form,
+        direction: pct < 0 ? 'fall' : 'rise',
+        percent: String(Math.abs(pct)),
+        windowValue: window?.value ?? '',
+        windowUnit: window?.unit ?? EMPTY_ALERT_RULE_FORM.windowUnit,
+      };
+    }
+    case 'NO_DATA': {
+      const stale = typeof config.maxStaleMinutes === 'number' ? fromMinutes(config.maxStaleMinutes) : null;
+      return { ...form, staleValue: stale?.value ?? '', staleUnit: stale?.unit ?? EMPTY_ALERT_RULE_FORM.staleUnit };
+    }
   }
 }
 

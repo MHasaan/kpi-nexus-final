@@ -5,6 +5,7 @@
  * envelope when present.
  */
 
+import type { AuditAction as ContractsAuditAction } from '@kpi-nexus/contracts';
 import type {
   AccessProfile,
   DataLimitsConfig,
@@ -15,6 +16,7 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
+import { SESSION_CHANGED_EVENT, announce } from './session-events';
 import type { KpiHolders } from '@kpi-nexus/contracts';
 import { validationMessage } from './validation-message';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
@@ -49,10 +51,24 @@ export function getRefreshToken(): string | null {
   return window.localStorage.getItem(REFRESH_KEY);
 }
 
-export function setTokens(accessToken: string, refreshToken: string): void {
+/** Keep a rotated pair for the session already running; nothing else about the session changes. */
+function keepTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(TOKEN_KEY, accessToken);
   window.localStorage.setItem(REFRESH_KEY, refreshToken);
+}
+
+/**
+ * Store the tokens of a new session: signing in, registering, accepting an invitation. What the browser kept
+ * of the session before (its permissions and page access) is not this person's and is dropped, so the menu is
+ * theirs from the first paint; the hooks ask the server afresh (F-011).
+ */
+export function setTokens(accessToken: string, refreshToken: string): void {
+  if (typeof window === 'undefined') return;
+  keepTokens(accessToken, refreshToken);
+  clearCachedPermissions();
+  clearCachedAccessProfile();
+  announce(SESSION_CHANGED_EVENT);
 }
 
 export function clearTokens(): void {
@@ -79,7 +95,7 @@ function refreshSession(): Promise<boolean> {
       });
       if (!res.ok) return false;
       const pair = (await res.json()) as { accessToken: string; refreshToken: string };
-      setTokens(pair.accessToken, pair.refreshToken);
+      keepTokens(pair.accessToken, pair.refreshToken);
       return true;
     } catch {
       return false;
@@ -722,6 +738,11 @@ export async function addOrgUnitMember(
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/** Change a member's role in the unit in place (F-005). */
+export async function updateOrgUnitMemberRole(unitId: string, userId: string, memberRole: OrgUnitMemberRole): Promise<OrgUnitMember> {
+  return api(`/org-units/${unitId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ memberRole }) });
 }
 
 export async function removeOrgUnitMember(unitId: string, userId: string): Promise<void> {
@@ -1445,19 +1466,8 @@ export function subscribeRealtime(
 // Audit log
 // =============================================================================
 
-export type AuditAction =
-  | 'CREATE'
-  | 'UPDATE'
-  | 'DELETE'
-  | 'LOGIN'
-  | 'LOGOUT'
-  | 'IMPERSONATE'
-  | 'EXPORT'
-  | 'INVITE'
-  | 'PERMISSION_CHANGE'
-  | 'CONFIG_CHANGE'
-  | 'BILLING_EVENT'
-  | 'SYSTEM_EVENT';
+/** What the log records an action as: the one list in contracts (F-057). */
+export type AuditAction = ContractsAuditAction;
 
 export interface AuditEntry {
   id: string;
@@ -1720,6 +1730,43 @@ export async function getReportRunDownloadUrl(reportId: string, runId: string): 
   return res.url;
 }
 
+/** The name a Content-Disposition header gives the file, or the fallback. */
+export function filenameFromDisposition(header: string | null, fallback: string): string {
+  const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header ?? '');
+  return m?.[1] ? decodeURIComponent(m[1]) : fallback;
+}
+
+/**
+ * Fetch a finished run's file through the API, signed in, and hand it to the browser to save (F-044: the
+ * storage server's own address could not be reached from outside the machine).
+ */
+export async function downloadReportRunFile(reportId: string, runId: string): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`${apiBaseUrl}/scheduled-reports/${reportId}/runs/${runId}/file`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let message = 'Could not download the report';
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // The reply was not JSON: keep the plain message.
+    }
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  const name = filenameFromDisposition(res.headers.get('content-disposition'), `report-${runId}`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function updateScheduledReport(
   id: string,
   patch: Partial<{
@@ -1960,7 +2007,16 @@ export async function createAlertRule(body: {
 /** PATCH /alert-rules/:id — name, description, severity, pause/resume (isActive). */
 export async function updateAlertRule(
   id: string,
-  body: { name?: string; description?: string; severity?: AlertSeverity; isActive?: boolean },
+  body: {
+    name?: string;
+    description?: string;
+    severity?: AlertSeverity;
+    isActive?: boolean;
+    kpiId?: string;
+    ruleType?: AlertRuleType;
+    config?: Record<string, unknown>;
+    escalationLevels?: EscalationLevelInput[];
+  },
 ): Promise<AlertRule> {
   return api(`/alert-rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
@@ -2358,14 +2414,18 @@ export async function listInsights(): Promise<Insight[]> {
   return api('/insights');
 }
 
-export async function generateInsightsBatch(
-  body: { thresholdChangePct?: number; topN?: number } = {},
-): Promise<Insight[]> {
-  const res = await api<{ insights: Insight[] }>('/insights/generate-batch', {
+/** What a batch run made, and what it passed over and why (F-042). */
+export interface InsightBatch {
+  insights: Insight[];
+  skipped: { tooFewValues: number; littleChange: number };
+  thresholdChangePct: number;
+}
+
+export async function generateInsightsBatch(body: { thresholdChangePct?: number; topN?: number } = {}): Promise<InsightBatch> {
+  return api<InsightBatch>('/insights/generate-batch', {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  return res.insights;
 }
 
 // =============================================================================

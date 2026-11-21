@@ -4,7 +4,7 @@
  * org-scoped list/get, escalation upsert/clear on update, delete.
  */
 import { describe, expect, test, vi } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Scope } from '@kpi-nexus/contracts';
 
 import type { AuditService } from '../audit/audit.service.js';
@@ -390,5 +390,52 @@ describe('AlertRulesService visibility (Phase 2.5)', () => {
       createdAt: new Date(), updatedAt: new Date(), createdById: 'me',
     });
     await expect(withCtx({ userId: 'me' }, () => service.getById('r1'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+// Manual QA (2026-11-20, F-069): Edit on a rule offered only its name, severity and description. To change the
+// threshold, the quiet period, the people or the channels, the rule had to be deleted and made again, losing
+// its history. The whole rule can be changed now; a condition must fit its kind.
+describe('AlertRulesService.update — the whole rule', () => {
+  test('the condition can change: a config that fits the rule\'s kind is stored', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpis.push({ id: 'kpi_1', organizationId: ORG });
+    const created = await withCtx({}, () => service.create(staticDto()));
+
+    const updated = await withCtx({}, () => service.update(created.id, { config: { operator: '<', value: 250_000, cooldownMinutes: 60 } }));
+
+    expect(updated.config).toEqual({ operator: '<', value: 250_000, cooldownMinutes: 60 });
+    expect(updated.ruleType).toBe('STATIC_THRESHOLD');
+  });
+
+  test('a config that does not fit the kind is refused, and nothing changes', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpis.push({ id: 'kpi_1', organizationId: ORG });
+    const created = await withCtx({}, () => service.create(staticDto()));
+
+    const err = await Promise.resolve(withCtx({}, () => service.update(created.id, { config: { maxStaleMinutes: 60 } }))).then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect((await withCtx({}, () => service.getById(created.id))).config).toEqual({ operator: '>', value: 100 });
+  });
+
+  test('the kind can change together with a config of the new kind', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpis.push({ id: 'kpi_1', organizationId: ORG });
+    const created = await withCtx({}, () => service.create(staticDto()));
+
+    const updated = await withCtx({}, () => service.update(created.id, { ruleType: 'NO_DATA', config: { maxStaleMinutes: 1440 } }));
+
+    expect(updated).toMatchObject({ ruleType: 'NO_DATA', config: { maxStaleMinutes: 1440 } });
+  });
+
+  test('the KPI can change to another in the organisation, not to one outside it', async () => {
+    const { service, prisma } = makeService();
+    prisma.kpis.push({ id: 'kpi_1', organizationId: ORG }, { id: 'kpi_2', organizationId: ORG }, { id: 'kpi_other', organizationId: 'org_beta' });
+    const created = await withCtx({}, () => service.create(staticDto()));
+
+    expect((await withCtx({}, () => service.update(created.id, { kpiId: 'kpi_2' }))).kpiId).toBe('kpi_2');
+    await expect(withCtx({}, () => service.update(created.id, { kpiId: 'kpi_other' }))).rejects.toBeInstanceOf(NotFoundException);
   });
 });

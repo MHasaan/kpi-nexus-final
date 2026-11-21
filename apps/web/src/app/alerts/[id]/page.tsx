@@ -64,11 +64,11 @@ const DELIVERY_STATUS_TONE: Record<string, BadgeTone> = {
   SUPPRESSED: 'neutral',
 };
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
     <div>
       <dt className="kn-eyebrow">{label}</dt>
-      <dd className="mt-1 break-all font-medium tabular-nums text-content-strong">{value}</dd>
+      <dd className="mt-1 break-all font-medium tabular-nums text-content-strong" data-testid={testId}>{value}</dd>
     </div>
   );
 }
@@ -91,6 +91,7 @@ export default function AlertDetailPage() {
   const router = useRouter();
   const { nameOf } = useKpiNames();
   const [ruleName, setRuleName] = useState<string | null>(null);
+  const [runbook, setRunbook] = useState<string | null>(null);
   const params = useParams<{ id: string }>();
   const alertId = params.id;
   const [alert, setAlert] = useState<Alert | null>(null);
@@ -146,6 +147,7 @@ export default function AlertDetailPage() {
         const rule = await getAlertRule(rId);
         if (!cancelled) {
           setRuleName(rule.name);
+          setRunbook(rule.description?.trim() || null);
           setEscalationLevels(narrowLevels(rule.escalationRule?.levels));
         }
       } catch {
@@ -281,6 +283,8 @@ export default function AlertDetailPage() {
                 <dl className="grid gap-4 text-sm sm:grid-cols-2">
                   <LinkField label="KPI" value={nameOf(alert.kpiId)} href={`/kpis/${alert.kpiId}`} />
                   <Field label="Rule" value={alert.alertRuleId ? (ruleName ?? 'A rule that has since been deleted') : 'No rule (raised directly)'} />
+                  {/* The rule's "What to do when it fires", where the person handling the alert reads it (F-035). */}
+                  {runbook && <Field label="What to do" value={runbook} testId="alert-what-to-do" />}
                   <Field
                     label="Acknowledged"
                     value={alert.acknowledgedAt ? fmt.dateTime(alert.acknowledgedAt) : '—'}

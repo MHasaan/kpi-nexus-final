@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { OnboardingDraftPatchSchema, normalizeSizeTier, validateOnboardingDraft } from './onboarding.js';
+import { DraftTeamMemberSchema, OnboardingDraftPatchSchema, normalizeSizeTier, validateOnboardingDraft } from './onboarding.js';
 
 const ready = () => ({
   organization: { name: 'Acme Inc.' },
@@ -272,5 +272,16 @@ describe('the team in the draft (plan 3.2c)', () => {
   test('setup invites a team, not a mailing list', () => {
     const many = Array.from({ length: 51 }, (_, i) => ({ email: `p${i}@acme.test`, fullName: `Person ${i}` }));
     expect(OnboardingDraftPatchSchema.safeParse(withTeam(many)).success).toBe(false);
+  });
+});
+
+// Manual QA (2026-11-19, F-005): the wizard's people step had no unit role, so everyone joined their unit as a
+// plain member, unit heads included, and a new organisation had no unit managers until the administrator
+// removed and re-added each one.
+describe('a team member\'s unit role', () => {
+  test('is one of member, lead, manager or deputy, and optional', () => {
+    expect(DraftTeamMemberSchema.safeParse({ email: 'cfo@acme.test', fullName: 'Priya Shah', unit: 'Finance', unitRole: 'MANAGER' }).success).toBe(true);
+    expect(DraftTeamMemberSchema.safeParse({ email: 'dev@acme.test', fullName: 'Dev Person', unit: 'Engineering' }).success).toBe(true);
+    expect(DraftTeamMemberSchema.safeParse({ email: 'x@acme.test', fullName: 'Ex Ample', unit: 'Finance', unitRole: 'BOSS' }).success).toBe(false);
   });
 });

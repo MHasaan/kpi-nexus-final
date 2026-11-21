@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DATE_FORMATS, DEFAULT_FORMAT_SETTINGS, NUMBER_FORMATS, formatCurrency, formatDate, formatDateTime, formatDay, formatNumber, formatSettingsOf, unitForNewKpi } from './format.js';
+import { DATE_FORMATS, DEFAULT_FORMAT_SETTINGS, NUMBER_FORMATS, formatCompact, formatCurrency, formatDate, formatDateTime, formatDay, formatNumber, formatSettingsOf, unitForNewKpi } from './format.js';
 
 const base = DEFAULT_FORMAT_SETTINGS;
 
@@ -65,6 +65,21 @@ describe('numbers', () => {
   it('shows a dash for nothing or for something that is not a number', () => {
     expect(formatNumber(null, base)).toBe('—');
     expect(formatNumber(Number.NaN, base)).toBe('—');
+  });
+
+  // Manual QA (2026-11-19, F-031): a chart's y-axis wrote 240000 in a space for five digits, so it read "40000",
+  // and MRR looked six times smaller than it was. Axes now write short numbers.
+  it('shortens large numbers for an axis, in the organisation\'s style', () => {
+    expect(formatCompact(240000, base)).toBe('240k');
+    expect(formatCompact(1_250_000, base)).toBe('1.25M');
+    expect(formatCompact(12_345, base)).toBe('12.3k');
+    expect(formatCompact(2_000_000_000, base)).toBe('2B');
+    expect(formatCompact(-3500, base)).toBe('-3.5k');
+    expect(formatCompact(950, base)).toBe('950');
+    expect(formatCompact(0.5, base)).toBe('0.5');
+    expect(formatCompact(0, base)).toBe('0');
+    expect(formatCompact(null, base)).toBe('—');
+    expect(formatCompact(1_250_000, { ...base, numberFormat: '1.234,56' })).toBe('1,25M');
   });
 
   it("puts the organisation's currency in front of the number", () => {

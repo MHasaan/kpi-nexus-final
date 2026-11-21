@@ -30,6 +30,9 @@ export function LineChartWidget({ widget, dataPoints = [] }: LineChartWidgetProp
     date: fmt.day(dp.periodStart),
     value: dp.value,
   }));
+  // Room for the longest short label ("236.5k"): six digits were drawn in a space for five (F-031).
+  const widest = fmt.compact(Math.max(0, ...chartData.map((d) => Math.abs(d.value))));
+  const axisWidth = Math.max(32, widest.length * 7 + 10);
 
   return (
     <div
@@ -46,19 +49,24 @@ export function LineChartWidget({ widget, dataPoints = [] }: LineChartWidgetProp
       ) : (
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border, #e5e7eb)" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10, fill: 'var(--color-content-muted, #6b7280)' }}
                 tickLine={false}
+                interval="preserveStartEnd"
+                minTickGap={24}
               />
               <YAxis
+                width={axisWidth}
+                tickFormatter={(v: number) => fmt.compact(v)}
                 tick={{ fontSize: 10, fill: 'var(--color-content-muted, #6b7280)' }}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip
+                formatter={(value) => fmt.number(Number(value))}
                 contentStyle={{
                   fontSize: 12,
                   backgroundColor: 'var(--color-surface-1, #fff)',

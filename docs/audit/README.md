@@ -577,6 +577,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Full browser run (2026-11-20): "objective statuses and task priorities are offered in words" failed in 3 of 6 runs. It read a picker's options straight after opening the page, before they were drawn | ✅ Fixed — the test waits for the options it reads (merged ahead of #432–#443) | #431 | `pickers-read-as-words.spec.ts`, 10 runs |
 | Manual QA (2026-11-19, F-054): the VP of Sales could not open a KPI held by the teams under Sales ("KPI not found"); only the unit itself counted as managed, and deputies not at all | ✅ Fixed — the units someone manages are theirs and every unit below them; manager, lead and deputy all count | #446 | `access-context.service.spec.ts` |
 | Manual QA (2026-11-19, F-028): a per-unit child (92,000 + 41,000) summed into its parent as 92,000, twice; every recompute added a row, and detaching left them behind | ✅ Fixed — each holder counts once and the holders combine the parent's way; one calculated row per period; detach recomputes or removes | #447 | `cascade.service.spec.ts`, `calculation-engine.service.spec.ts`, `kpi-cascades.service.spec.ts` |
+| Manual QA (2026-11-19, F-031): a line chart of MRR (92,000–236,500) had a y-axis reading "40000 / 20000 / 60000 / 0" (first digit cut off), and a date under every point | ✅ Fixed — axes write 240k / 1.25M, take the width they need, thin the dates; the tooltip has the full number | #448 | `format.spec.ts`, `chart-axes-read-their-numbers.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

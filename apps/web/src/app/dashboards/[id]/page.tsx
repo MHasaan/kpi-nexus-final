@@ -316,94 +316,103 @@ function DashboardDetailInner() {
                 </span>
               </>
             }
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Changing a dashboard is DASHBOARD_MANAGE on the API, and the owner's or an administrator's:
-                    a viewer is not shown buttons that would be refused (UI-013, F-068). */}
-                {canChange && (
-                  <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={editMode ? 'primary' : 'secondary'}
-                      onClick={() => setEditMode((e) => !e)}
-                      data-testid="dashboard-edit-toggle"
-                      leftIcon={<Pencil className="h-4 w-4" />}
-                    >
-                      {editMode ? 'Done editing' : 'Edit'}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={showSettings ? 'primary' : 'secondary'}
-                      onClick={() => setShowSettings((s) => !s)}
-                      data-testid="dashboard-settings-toggle"
-                      leftIcon={<SettingsIcon className="h-4 w-4" />}
-                    >
-                      Settings
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setShowAddForm((s) => !s)}
-                      data-testid="dashboard-add-widget-toggle"
-                      leftIcon={<Plus className="h-4 w-4" />}
-                    >
-                      Add widget
-                    </Button>
-                  </>
-                )}
-                <PermissionGuard permission="DASHBOARD_MANAGE">
+          />
+          {/* The toolbar has its own row: beside the title it squeezed it to a narrow column at laptop width (F-029). */}
+            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="dashboard-toolbar">
+              {/* Changing a dashboard is DASHBOARD_MANAGE on the API, and the owner's or an administrator's:
+                  a viewer is not shown buttons that would be refused (UI-013, F-068). */}
+              {canChange && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editMode ? 'primary' : 'secondary'}
+                    onClick={() => setEditMode((e) => !e)}
+                    data-testid="dashboard-edit-toggle"
+                    leftIcon={<Pencil className="h-4 w-4" />}
+                  >
+                    {editMode ? 'Done editing' : 'Edit'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={showSettings ? 'primary' : 'secondary'}
+                    onClick={() => setShowSettings((s) => !s)}
+                    data-testid="dashboard-settings-toggle"
+                    leftIcon={<SettingsIcon className="h-4 w-4" />}
+                  >
+                    Settings
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
-                    onClick={() => void handleSnapshot()}
-                    disabled={snapping}
-                    isLoading={snapping}
-                    data-testid="dashboard-snapshot-btn"
-                    leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
+                    onClick={() => setShowAddForm((s) => !s)}
+                    data-testid="dashboard-add-widget-toggle"
+                    leftIcon={<Plus className="h-4 w-4" />}
                   >
-                    {snapping ? 'Saving…' : 'Snapshot'}
+                    Add widget
                   </Button>
-                </PermissionGuard>
-                <Link
-                  href={`/dashboards/${dashboardId}/snapshots`}
-                  data-testid="dashboard-snapshots-link"
-                >
-                  <Button type="button" size="sm" variant="ghost">
-                    History
-                  </Button>
-                </Link>
-{canChange && (
-                  <Link
-                    href={`/dashboards/${dashboardId}/share`}
-                    data-testid="dashboard-share-link"
-                  >
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      leftIcon={<Share2 className="h-4 w-4" />}
-                    >
-                      Share
-                    </Button>
-                  </Link>
+                </>
+              )}
+              <PermissionGuard permission="DASHBOARD_MANAGE">
+                {!snapping && !snapDone && (
+                  <Input
+                    value={snapshotLabel}
+                    onChange={(e) => setSnapshotLabel(e.target.value)}
+                    placeholder="Snapshot label (optional)"
+                    aria-label="Snapshot label"
+                    data-testid="snapshot-label-input"
+                    className="h-8 w-44 text-xs"
+                  />
                 )}
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
-                  onClick={() => window.print()}
-                  data-testid="dashboard-print-btn"
-                  leftIcon={<Printer className="h-4 w-4" />}
+                  variant="secondary"
+                  onClick={() => void handleSnapshot()}
+                  disabled={snapping}
+                  isLoading={snapping}
+                  data-testid="dashboard-snapshot-btn"
+                  leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
                 >
-                  Print
+                  {snapping ? 'Saving…' : 'Snapshot'}
                 </Button>
-              </div>
-            }
-          />
+              </PermissionGuard>
+              <Link
+                href={`/dashboards/${dashboardId}/snapshots`}
+                data-testid="dashboard-snapshots-link"
+              >
+                <Button type="button" size="sm" variant="ghost">
+                  History
+                </Button>
+              </Link>
+{canChange && (
+                <Link
+                  href={`/dashboards/${dashboardId}/share`}
+                  data-testid="dashboard-share-link"
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Share2 className="h-4 w-4" />}
+                  >
+                    Share
+                  </Button>
+                </Link>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => window.print()}
+                data-testid="dashboard-print-btn"
+                leftIcon={<Printer className="h-4 w-4" />}
+              >
+                Print
+              </Button>
+            </div>
 
           {editMode && (
             <div className="mt-4 flex items-center gap-2 rounded-md border border-border bg-accent-bg px-4 py-2 text-sm text-accent-primary">
@@ -443,19 +452,6 @@ function DashboardDetailInner() {
                 className="rounded-md border border-border bg-status-critical-bg px-4 py-2 text-sm text-status-critical"
               >
                 {snapError}
-              </div>
-            )}
-
-            {/* Snapshot label (inline under the button) */}
-            {!snapping && !snapDone && (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={snapshotLabel}
-                  onChange={(e) => setSnapshotLabel(e.target.value)}
-                  placeholder="Snapshot label (optional)"
-                  data-testid="snapshot-label-input"
-                  className="w-64"
-                />
               </div>
             )}
 

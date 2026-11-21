@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { OnboardingDraftPatchSchema } from '@kpi-nexus/contracts';
+
 import { ONBOARDING_AI_LIMITS, limitFor } from './onboarding-ai-limits.js';
 import { parseGeneratedOrg } from './parse-generated-org.js';
 
@@ -56,6 +58,41 @@ describe('parseGeneratedOrg', () => {
     expect(out.organization?.name).toBe('X');
     expect(out.roles).toEqual([]);
     expect(out.positions).toEqual([]);
+  });
+});
+
+// Real Gemini (2026-11-20) wrote the top org unit's parent as null — "no parent". The draft takes a missing
+// field, not null, so applying the proposal was refused as "not a valid onboarding draft" and Generate came to
+// nothing. A field the model left empty is now left out.
+describe('parseGeneratedOrg — fields the model left empty (null)', () => {
+  const generated = {
+    organization: { name: 'Lahore Bites', industry: 'Food Delivery', type: null },
+    roles: [{ name: 'Administrator', isAdmin: true, level: 1, permissions: [] }],
+    positions: [{ name: 'Delivery Rider', track: 'INDIVIDUAL_CONTRIBUTOR' }],
+    orgUnitTypes: [{ name: 'Company', dimension: null }, { name: 'Department', dimension: 'functional' }],
+    orgUnits: [
+      { name: 'Lahore Bites HQ', type: 'Company', parent: null },
+      { name: 'Central Kitchen', type: 'Department', parent: 'Lahore Bites HQ' },
+    ],
+    kpiCategories: [{ name: 'Delivery Operations' }],
+    kpis: [{ name: 'Daily Order Volume', category: 'Delivery Operations', scope: 'ORG_WIDE', type: 'COUNT', direction: 'HIGHER_IS_BETTER', frequency: 'DAILY', unit: null, scorecardQuadrant: null }],
+  };
+
+  it('leaves out every field the model set to null, and keeps the ones it filled in', () => {
+    const out = parseGeneratedOrg(JSON.stringify(generated));
+    expect(out.orgUnits).toEqual([
+      { name: 'Lahore Bites HQ', type: 'Company' },
+      { name: 'Central Kitchen', type: 'Department', parent: 'Lahore Bites HQ' },
+    ]);
+    expect(out.organization).toEqual({ name: 'Lahore Bites', industry: 'Food Delivery' });
+    expect(out.orgUnitTypes[0]).toEqual({ name: 'Company' });
+    expect(out.kpis[0]).not.toHaveProperty('unit');
+    expect(out.kpis[0]).not.toHaveProperty('scorecardQuadrant');
+  });
+
+  it('gives a proposal the draft accepts, so applying it works', () => {
+    const out = parseGeneratedOrg(JSON.stringify(generated));
+    expect(OnboardingDraftPatchSchema.safeParse(out).success).toBe(true);
   });
 });
 

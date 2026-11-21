@@ -95,6 +95,7 @@ import {
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { PastValuesForm } from '../../../components/kpis/past-values-form';
+import { KpiPicker } from '../../../components/dashboard-grid/kpi-picker';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
@@ -1531,7 +1532,15 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
   const [formula, reload] = useAsync(() => getFormula(kpiId).catch(() => null), [kpiId]);
   // Saving or clearing a formula is KPI_EDIT on the API; a reader is shown it, not a form that would be refused (UI-013).
   const canEdit = usePermissions().has('KPI_EDIT');
+  // The organisation's KPIs, to insert one's name in quotes: almost every name has spaces, and typed bare
+  // such a name was refused (F-016).
+  const [kpis] = useAsync(() => (canEdit ? listKpis() : Promise.resolve([])), [canEdit]);
   const [raw, setRaw] = useState('');
+  const insertKpi = (id: string | undefined) => {
+    const name = kpis?.find((k) => k.id === id)?.name;
+    if (!name) return;
+    setRaw((current) => (current.trim() ? `${current.trimEnd()} "${name}"` : `"${name}"`));
+  };
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {
@@ -1567,16 +1576,18 @@ function FormulaTab({ kpiId }: { kpiId: string }) {
     <UICard>
       <CardContent>
         <p className="text-sm text-content-muted">
-          A formula derives this KPI from other KPIs (referenced by name). Example:{' '}
-          <code className="rounded bg-surface-2 px-1 font-mono">revenue - cost</code>
+          A formula works this KPI out from other KPIs, named in double quotes. Example:{' '}
+          <code className="rounded bg-surface-2 px-1 font-mono">&quot;Monthly Recurring Revenue&quot; * 12</code>. A one-word
+          name needs no quotes. Pick a KPI below to insert its name.
         </p>
         <PermissionGuard permission="KPI_EDIT"><BusyForm onSubmit={save} className="mt-3 space-y-3">
+          <KpiPicker value={undefined} onChange={insertKpi} kpis={kpis ?? undefined} label="Insert a KPI" testId="formula-kpi-picker" />
           <Textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
             rows={3}
             className="font-mono"
-            placeholder="revenue - cost"
+            placeholder='"Monthly Recurring Revenue" * 12'
             data-testid="formula-raw"
           />
           <div className="flex gap-2">

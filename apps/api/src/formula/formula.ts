@@ -22,8 +22,10 @@
  *   primary     := number | identifier | call | '(' expression ')'
  *   call        := identifier '(' (expression (',' expression)*)? ')'
  *   number      := digits ('.' digits)? ([eE][+-]? digits)?
- *   identifier  := /[a-zA-Z_][a-zA-Z0-9_]* / (lookup in context map only;
- *                  never resolved against any global or process scope)
+ *   identifier  := /[a-zA-Z_][a-zA-Z0-9_]* /
+ *                | '"' name '"' | '[' name ']'   (a KPI name with spaces, as written)
+ *                  (lookup in context map only; never resolved against any
+ *                  global or process scope)
  *
  * Built-in functions: SUM, AVG, MIN, MAX, ABS, ROUND, IF.
  * Anything else throws `UnknownFunctionError`. The set is locked — adding
@@ -135,6 +137,20 @@ function tokenize(input: string): Token[] {
       }
       tokens.push({ type: 'number', value: input.slice(i, j), pos: i });
       i = j;
+      continue;
+    }
+
+    // A KPI name with spaces or punctuation, in double quotes or square brackets: one identifier, as
+    // written. Almost every real KPI name has spaces ("Monthly Recurring Revenue"), and until 2026-11-21 no
+    // syntax could name one (F-016).
+    if (ch === '"' || ch === '[') {
+      const close = ch === '"' ? '"' : ']';
+      const j = input.indexOf(close, i + 1);
+      if (j === -1) throw new ParseError(`A KPI name opened with ${ch} needs a closing ${close}`, i);
+      const name = input.slice(i + 1, j).trim();
+      if (!name) throw new ParseError('A KPI name in quotes is empty', i);
+      tokens.push({ type: 'ident', value: name, pos: i });
+      i = j + 1;
       continue;
     }
 

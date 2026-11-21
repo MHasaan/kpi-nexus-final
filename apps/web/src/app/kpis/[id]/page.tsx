@@ -94,6 +94,7 @@ import {
 } from '../../../components/ui';
 import { LineChart } from '../../../components/charts';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { PastValuesForm } from '../../../components/kpis/past-values-form';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
@@ -529,6 +530,25 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
     reloadAssignments();
   };
 
+  // Where several past values at once are recorded, and which periods already have one — for the same
+  // unit or person as the one-value form above (pasting a year used to mean entering it month by month).
+  const selectedUnit = units.find((u) => u.assignmentId === selected) ?? null;
+  const pastRecorder: { onRecord: (body: { value: number; periodStart: string; periodEnd: string }) => Promise<unknown> } | null =
+    kpi.scope === 'ORG_WIDE'
+      ? { onRecord: (body) => recordOrgWideDataPoint(kpi.id, body) }
+      : kpi.scope === 'PER_UNIT' && selectedUnit
+        ? { onRecord: (body) => recordUnitKpiData(selectedUnit.assignmentId, body) }
+        : kpi.scope === 'PER_USER' && mine[0]
+          ? { onRecord: (body) => recordMyKpiData(mine[0]!.assignmentId, body.value, body.periodStart, body.periodEnd) }
+          : null;
+  const recordedStarts = new Set(
+    (points ?? [])
+      .filter((p: DataPoint) =>
+        kpi.scope === 'PER_UNIT' ? p.orgUnitId === selectedUnit?.orgUnitId : kpi.scope === 'PER_USER' ? p.userId === mine[0]?.userId : true,
+      )
+      .map((p: DataPoint) => p.periodStart.slice(0, 10)),
+  );
+
   return (
     <div className="space-y-4">
       <TabLoadError error={loadError ?? assignmentsError} onRetry={reload} />
@@ -598,6 +618,19 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
                   </p>
                 </RecordValueForm>
               ))}
+
+            {pastRecorder && (
+              <PastValuesForm
+                // Its own key: the one-value form beside it is keyed by the same unit, and two siblings sharing a
+                // key made the tab draw another record form each time it reloaded.
+                key={`past-values-${selected}`}
+                frequency={kpi.frequency}
+                unit={kpi.unit}
+                existingStarts={recordedStarts}
+                onRecord={pastRecorder.onRecord}
+                onRecorded={afterRecord}
+              />
+            )}
           </CardContent>
         </UICard>
       </PermissionGuard>

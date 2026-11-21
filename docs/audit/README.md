@@ -597,6 +597,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-055): any employee with KPI_DATA_ENTRY could write values on every organisation-wide KPI | ✅ Fixed — a hand-typed organisation-wide value is the KPI owner's or an administrator's to record; connectors and imports keep their paths (decision 2026-11-21) | #465 | `kpi-data-org-wide-owner.spec.ts`, `org-wide-values-are-the-owners-to-record.spec.ts` |
 | Manual QA (2026-11-19, F-045): AI spend was never recorded, so the $1/day and $30/month caps could never trigger; a busy day could use the free tier's whole quota | ✅ Fixed — every call counts, and an organisation has a daily call limit (300) beside its spend caps, set on the AI settings page and enforced the same way (decision 2026-11-21) | #466 | `ai-budget-policy.spec.ts`, `ai-daily-call-cap.spec.ts` |
 | Manual QA (2026-11-19, F-014): creating a role left the matrix on Admin, so an administrator could set permissions on the wrong role | ✅ Fixed — the role just created is the one open for editing | #467 | `a-new-role-opens-for-editing.spec.ts` |
+| Manual QA (2026-11-19, F-006): removing a person from a unit happened at once, with no confirmation | ✅ Fixed — it asks first, naming the person and the unit and saying what it means | #468 | `removing-a-member-asks-first.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

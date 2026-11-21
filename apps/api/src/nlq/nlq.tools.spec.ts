@@ -124,12 +124,21 @@ describe('NlqToolbox', () => {
     const out = await toolbox.run(call('compare_kpis', { kpiIds: ['rev', 'churn', 'secret'] }));
     expect(out.result).toEqual({
       kpis: [
-        { kpiId: 'rev', name: 'KPI rev', unit: 'USD', direction: 'HIGHER_IS_BETTER', first: 100, latest: 150, changePct: 50, points: 2 },
-        { kpiId: 'churn', name: 'KPI churn', unit: '%', direction: 'LOWER_IS_BETTER', first: 4, latest: 3, changePct: -25, points: 2 },
+        { kpiId: 'rev', name: 'KPI rev', unit: 'USD', direction: 'HIGHER_IS_BETTER', first: 100, firstPeriod: '2026-01-01', latest: 150, latestPeriod: '2026-02-01', changePct: 50, points: 2 },
+        { kpiId: 'churn', name: 'KPI churn', unit: '%', direction: 'LOWER_IS_BETTER', first: 4, firstPeriod: '2026-01-01', latest: 3, latestPeriod: '2026-02-01', changePct: -25, points: 2 },
         { kpiId: 'secret', error: 'KPI not found: secret' },
       ],
     });
     expect(out.kpiIds).toEqual(['rev', 'churn']);
+  });
+
+  // Real Gemini (2026-11-20), asked to compare CAC and LTV "over the last year", put their first values under
+  // "Nov 2025": both series start in December 2025, and the tool gave the values without their periods.
+  it('compare_kpis says which period its first and latest values are for', async () => {
+    const { toolbox } = makeToolbox({ rev: [point('2025-12-01', 1180), point('2026-06-01', 1300), point('2026-11-01', 1420)] });
+    const out = await toolbox.run(call('compare_kpis', { kpiIds: ['rev'], from: '2025-11-20', to: '2026-11-20' }));
+    expect(out.result).toMatchObject({ kpis: [{ first: 1180, firstPeriod: '2025-12-01', latest: 1420, latestPeriod: '2026-11-01' }] });
+    expect(NLQ_TOOLS.find((t) => t.name === 'compare_kpis')!.description).toMatch(/period/);
   });
 
   it('compare_kpis takes at most 5 KPIs', async () => {

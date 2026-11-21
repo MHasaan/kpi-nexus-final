@@ -23,6 +23,7 @@ import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useAllowed } from '../../../lib/use-allowed';
+import { webhookEventLabel } from '../../../lib/webhook-events';
 
 // Fallback catalog used only if the live /webhooks/events fetch fails.
 const FALLBACK_EVENT_CHOICES = [
@@ -154,10 +155,12 @@ export default function WebhooksPage() {
             <div>
               <span className="text-sm font-medium text-content-default">Events</span>
               <div className="mt-1 flex flex-wrap gap-3">
+                {/* In words, with the code the receiving system sees in small type beside it. */}
                 {eventChoices.map((e) => (
-                  <label key={e} className="flex items-center gap-1 text-xs">
+                  <label key={e} className="flex items-center gap-1.5 text-xs">
                     <input type="checkbox" checked={events.includes(e)} onChange={() => toggleEvent(e)} data-testid={`webhook-event-${e}`} />
-                    {e}
+                    <span data-testid={`webhook-event-label-${e}`}>{webhookEventLabel(e)}</span>
+                    <code className="font-mono text-[10px] text-content-muted">{e}</code>
                   </label>
                 ))}
               </div>
@@ -186,7 +189,7 @@ export default function WebhooksPage() {
                 {hooks.map((h) => (
                   <tr key={h.id} data-testid={`webhook-row-${h.id}`} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 text-content-strong">{h.name}<div className="text-xs text-content-muted">{h.url}</div></td>
-                    <td className="px-4 py-3 text-xs text-content-muted">{h.events.join(', ')}</td>
+                    <td className="px-4 py-3 text-xs text-content-muted">{h.events.map(webhookEventLabel).join(', ')}</td>
                     <td className="px-4 py-3">{h.isActive ? 'Yes' : 'No'}</td>
                     <td className="px-4 py-3 text-content-muted">{h.lastStatus ?? '—'}</td>
                     <td className="px-4 py-3 text-right">

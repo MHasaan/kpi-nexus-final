@@ -18,6 +18,7 @@ import { RequirePermission } from '../../../components/auth/require-permission';
 import { PermissionGuard } from '../../../components/auth/permission-guard';
 import { useConfirm } from '../../../lib/use-confirm';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
+import { permissionLabel } from '../../../lib/permissions';
 import { useAllowed } from '../../../lib/use-allowed';
 import { useFormat } from '../../../lib/format-context';
 
@@ -145,10 +146,12 @@ export default function ApiKeysPage() {
             <div>
               <span className="text-sm font-medium text-content-default">Scopes</span>
               <div className="mt-1 flex flex-wrap gap-3">
+                {/* In words, with the permission code a program is checked against in small type beside it. */}
                 {SCOPE_CHOICES.map((s) => (
-                  <label key={s} className="flex items-center gap-1 text-xs">
+                  <label key={s} className="flex items-center gap-1.5 text-xs">
                     <input type="checkbox" checked={scopes.includes(s)} onChange={() => toggleScope(s)} data-testid={`apikey-scope-${s}`} />
-                    {s}
+                    <span data-testid={`apikey-scope-label-${s}`}>{permissionLabel(s)}</span>
+                    <code className="font-mono text-[10px] text-content-muted">{s}</code>
                   </label>
                 ))}
               </div>
@@ -177,7 +180,7 @@ export default function ApiKeysPage() {
                   <tr key={k.id} data-testid={`apikey-row-${k.id}`} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 text-content-strong">{k.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-content-muted">{k.keyPrefix}…</td>
-                    <td className="px-4 py-3 text-xs text-content-muted">{k.scopes.join(', ')}</td>
+                    <td className="px-4 py-3 text-xs text-content-muted">{k.scopes.map(permissionLabel).join(', ')}</td>
                     <td className="px-4 py-3">{k.revokedAt ? 'Revoked' : 'Active'}</td>
                     <td className="px-4 py-3 text-xs text-content-muted">{k.lastUsedAt ? fmt.dateTime(k.lastUsedAt) : 'Never'}</td>
                     <td className="px-4 py-3 text-right">

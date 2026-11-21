@@ -538,6 +538,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Owner’s decision 2026-11-19: a changed role took up to 15 minutes to take effect on the API — it travelled in the session token and was never checked in between | ✅ Fixed — the API reads the person’s current role when it checks a token, so the very next request runs under the new role; tokens are issued as before and nobody is signed out | #405 | `auth/jwt.strategy.spec.ts`, `e2e/role-change-takes-effect-at-once.spec.ts` |
 | Flow walk (home): the home page’s “New KPI” opened the KPI list, where the same button had to be found and pressed again | ✅ Fixed — it opens the new-KPI form | #406 | `e2e/home-new-kpi-opens-the-form.spec.ts` |
 | Flow walk (home): a Viewer with no KPIs to show was told “Create your first KPI”, which they cannot do | ✅ Fixed — someone who cannot create KPIs is told the KPIs shared with them will appear there, and is offered no button | #407 | `e2e/empty-home-fits-the-reader.spec.ts` |
+| Flow walk (settings): API key scopes and webhook events were offered and listed by code alone (“KPI_DATA_ENTRY”, “okr_progress_changed”) | ✅ Fixed — each reads in words, with the code in small type beside it | #408 | `lib/webhook-events.spec.ts`, `e2e/settings-keys-webhooks.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

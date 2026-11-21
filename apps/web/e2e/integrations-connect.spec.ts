@@ -44,6 +44,8 @@ test('integrations: Slack needs a workspace ID, Jira gives its webhook address o
   // Slack: a form, checked before it is sent.
   await expect(page.getByTestId('integration-status-slack')).toHaveText('Not connected');
   await page.getByTestId('connect-slack').click();
+  // This server has no Slack signing secret: the form says so before anyone pastes addresses into Slack (F-047).
+  await expect(page.getByTestId('slack-not-ready')).toContainText('no Slack signing secret');
   await page.getByTestId('slack-team-id').fill('my workspace');
   await page.getByTestId('slack-connect-submit').click();
   await expect(page.getByTestId('slack-form-error')).toContainText('starts with T');

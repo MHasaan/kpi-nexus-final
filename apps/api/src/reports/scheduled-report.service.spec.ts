@@ -4,13 +4,18 @@
  * Queue is mocked; Prisma is an in-memory fake; AuditService is a no-op spy.
  *
  * Coverage:
- *   1. create() — persists row + registers repeatable job with correct jobId
+ *   1. create() — persists the row and puts the report on a schedule of its own
  *   2. trigger() — enqueues a one-off job (no repeat option)
- *   3. update() with changed cron — removes old repeatable job + adds new one
- *   4. update() toggling isActive=false — removes repeatable job; no new add
- *   5. update() toggling isActive=true — re-adds repeatable job
+ *   3. update() with a changed time — the schedule is replaced; the old time does not stay behind
+ *   4. update() pausing — the report leaves its schedule
+ *   5. update() resuming — the report is back on its schedule, once
  *   6. get() — cross-org lookup returns 404
- *   7. remove() — deletes row + removes repeatable job
+ *   7. remove() — deletes the row and its schedule
+ *   8. on start-up, the schedules are made to match the active reports
+ *
+ * The fake queue behaves as BullMQ 5.77 does. Until 2026-11-20 it gave every
+ * repeatable job an `id`, which the real one does not: removal looked jobs up by
+ * that id, found nothing in production, and these tests could not tell.
  */
 
 import { describe, expect, test, vi, beforeEach } from 'vitest';
@@ -76,7 +81,8 @@ class FakePrisma {
 
     findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       return this.store.filter((r) => {
-        if (r.organizationId !== where.organizationId) return false;
+        if (where.organizationId !== undefined && r.organizationId !== where.organizationId) return false;
+        if (where.isActive !== undefined && r.isActive !== where.isActive) return false;
         const cond = where.createdById;
         if (cond !== undefined) {
           if (cond && typeof cond === 'object' && 'in' in (cond as Record<string, unknown>)) {
@@ -116,7 +122,18 @@ class FakePrisma {
   };
 }
 
-// ── Fake BullMQ queue ─────────────────────────────────────────────────────────
+// ── Fake BullMQ queue, as BullMQ 5.77 behaves ─────────────────────────────────
+// A job scheduler is found by its id, which is also its key. A schedule made by
+// `add(name, data, { repeat, jobId })` — how reports were scheduled before
+// 2026-11-20 — is a scheduler with a hashed key and no id; `legacy()` seeds one.
+
+interface FakeScheduler {
+  key: string;
+  name: string;
+  pattern: string;
+  tz?: string;
+  data?: { scheduledReportId?: string; organizationId?: string };
+}
 
 class FakeQueue {
   addCalls: Array<{
@@ -124,33 +141,33 @@ class FakeQueue {
     data: unknown;
     opts: Record<string, unknown>;
   }> = [];
-  repeatableJobs: Array<{ id: string; key: string; pattern: string }> = [];
-  removedKeys: string[] = [];
+  schedulers = new Map<string, FakeScheduler>();
 
   add = vi.fn(async (name: string, data: unknown, opts: Record<string, unknown> = {}) => {
     this.addCalls.push({ name, data, opts });
-    // Simulate a repeatable job being registered.
-    const repeat = opts.repeat as { pattern?: string } | undefined;
-    if (repeat?.pattern) {
-      const id = opts.jobId as string;
-      this.repeatableJobs.push({
-        id,
-        key: `bull:scheduled-report:repeat:${id}:${repeat.pattern}`,
-        pattern: repeat.pattern,
-      });
-    }
-    return { id: `job_${Date.now()}` };
+    return { id: `job_${this.addCalls.length}` };
   });
 
-  getRepeatableJobs = vi.fn(async () => {
-    return this.repeatableJobs;
-  });
+  upsertJobScheduler = vi.fn(
+    async (id: string, repeat: { pattern: string; tz?: string }, template: { name?: string; data?: FakeScheduler['data'] } = {}) => {
+      this.schedulers.set(id, { key: id, name: template.name ?? id, pattern: repeat.pattern, tz: repeat.tz, data: template.data });
+      return { id: `next:${id}` };
+    },
+  );
 
-  removeRepeatableByKey = vi.fn(async (key: string) => {
-    this.removedKeys.push(key);
-    const idx = this.repeatableJobs.findIndex((j) => j.key === key);
-    if (idx !== -1) this.repeatableJobs.splice(idx, 1);
-  });
+  removeJobScheduler = vi.fn(async (id: string) => this.schedulers.delete(id));
+
+  getJobSchedulers = vi.fn(async () => [...this.schedulers.values()]);
+
+  /** A schedule the old code left: a hashed key, no id, nothing to say whose it is. */
+  legacy(key: string, pattern: string): void {
+    this.schedulers.set(key, { key, name: 'run', pattern });
+  }
+
+  /** The schedules that run one report. */
+  of(reportId: string): FakeScheduler[] {
+    return [...this.schedulers.values()].filter((s) => s.data?.scheduledReportId === reportId);
+  }
 }
 
 // ── No-op audit ───────────────────────────────────────────────────────────────
@@ -216,12 +233,11 @@ describe('ScheduledReportService', () => {
     // Reset internal state
     prisma.store = [];
     queue.addCalls = [];
-    queue.repeatableJobs = [];
-    queue.removedKeys = [];
+    queue.schedulers.clear();
   });
 
-  // 1. create() — repeatable job registered
-  test('create() persists row and registers repeatable job with correct jobId', async () => {
+  // 1. create() — on a schedule of its own
+  test('create() persists the row and puts the report on a schedule of its own, named for it', async () => {
     await runAs(ORG_A, USER_A, async () => {
       const row = await service.create({
         name: 'Weekly Sales',
@@ -234,21 +250,21 @@ describe('ScheduledReportService', () => {
       expect(row.organizationId).toBe(ORG_A);
       expect(row.name).toBe('Weekly Sales');
 
-      // Queue.add should have been called with repeat + deterministic jobId.
-      expect(queue.add).toHaveBeenCalledOnce();
-      const [jobName, _jobData, opts] = queue.add.mock.calls[0]!;
-      expect(jobName).toBe('run');
-      expect((opts as Record<string, unknown>).jobId).toBe(`scheduled-report:${row.id}`);
-      expect(((opts as Record<string, unknown>).repeat as { pattern: string }).pattern).toBe('0 9 * * 1');
+      // One scheduler, named for the report, so it can be found again to move or remove it.
+      expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+        `scheduled-report-${row.id}`,
+        { pattern: '0 9 * * 1', tz: 'UTC' },
+        { name: 'run', data: { scheduledReportId: row.id, organizationId: ORG_A } },
+      );
+      expect(queue.of(row.id)).toHaveLength(1);
     });
   });
 
   test("the schedule runs on the organisation's clock: the job carries its timezone (plan 6.1)", async () => {
     prisma.organizationTimezone = 'Asia/Karachi';
     await runAs(ORG_A, USER_A, async () => {
-      await service.create({ name: 'Morning numbers', cron: '0 8 * * *', format: 'CSV', recipients: ['ceo@example.com'] });
-      const opts = queue.add.mock.calls[0]![2] as { repeat: { pattern: string; tz?: string } };
-      expect(opts.repeat).toEqual({ pattern: '0 8 * * *', tz: 'Asia/Karachi' });
+      const row = await service.create({ name: 'Morning numbers', cron: '0 8 * * *', format: 'CSV', recipients: ['ceo@example.com'] });
+      expect(queue.of(row.id)).toEqual([expect.objectContaining({ pattern: '0 8 * * *', tz: 'Asia/Karachi' })]);
     });
   });
 
@@ -275,8 +291,9 @@ describe('ScheduledReportService', () => {
     });
   });
 
-  // 3. update() with changed cron — remove + re-add
-  test('update() with changed cron removes old repeatable job and adds new one', async () => {
+  // 3. update() with a changed time — the bug: the new time was added and the old one left
+  //    running, so the report went out at both.
+  test('update() with a changed time replaces the schedule: the old time does not stay behind', async () => {
     await runAs(ORG_A, USER_A, async () => {
       const row = await service.create({
         name: 'Cron Change Test',
@@ -285,22 +302,14 @@ describe('ScheduledReportService', () => {
         recipients: ['x@y.com'],
       });
 
-      queue.add.mockClear();
-
       await service.update(row.id, { cron: '0 10 * * 2' });
 
-      // Should have removed the old key and added a new job.
-      expect(queue.removeRepeatableByKey).toHaveBeenCalledOnce();
-      expect(queue.add).toHaveBeenCalledOnce();
-      const [, , newOpts] = queue.add.mock.calls[0]!;
-      expect(
-        ((newOpts as Record<string, unknown>).repeat as { pattern: string }).pattern,
-      ).toBe('0 10 * * 2');
+      expect(queue.of(row.id).map((s) => s.pattern)).toEqual(['0 10 * * 2']);
     });
   });
 
-  // 4. update() toggling isActive=false — remove job
-  test('update() toggling isActive=false removes repeatable job and does not re-add', async () => {
+  // 4. update() pausing — off its schedule
+  test('update() pausing takes the report off its schedule and puts it on no other', async () => {
     await runAs(ORG_A, USER_A, async () => {
       const row = await service.create({
         name: 'Deactivate Test',
@@ -309,18 +318,14 @@ describe('ScheduledReportService', () => {
         recipients: ['x@y.com'],
       });
 
-      queue.add.mockClear();
-
       await service.update(row.id, { isActive: false });
 
-      expect(queue.removeRepeatableByKey).toHaveBeenCalledOnce();
-      // Should NOT add a new job since it's now inactive.
-      expect(queue.add).not.toHaveBeenCalled();
+      expect(queue.of(row.id)).toEqual([]);
     });
   });
 
-  // 5. update() toggling isActive=true — re-add job
-  test('update() toggling isActive=true re-adds the repeatable job', async () => {
+  // 5. update() resuming — back on its schedule, once
+  test('update() resuming puts the report back on its schedule, once', async () => {
     await runAs(ORG_A, USER_A, async () => {
       const row = await service.create({
         name: 'Reactivate Test',
@@ -329,20 +334,10 @@ describe('ScheduledReportService', () => {
         recipients: ['x@y.com'],
       });
 
-      // First, deactivate.
       await service.update(row.id, { isActive: false });
-      queue.add.mockClear();
-      queue.removeRepeatableByKey.mockClear();
-
-      // Then, reactivate.
       await service.update(row.id, { isActive: true });
 
-      // Should add the repeatable job again.
-      expect(queue.add).toHaveBeenCalledOnce();
-      const [, , opts] = queue.add.mock.calls[0]!;
-      expect(((opts as Record<string, unknown>).repeat as { pattern: string }).pattern).toBe(
-        '0 9 * * 1',
-      );
+      expect(queue.of(row.id).map((s) => s.pattern)).toEqual(['0 9 * * 1']);
     });
   });
 
@@ -365,8 +360,8 @@ describe('ScheduledReportService', () => {
     });
   });
 
-  // 7. remove() — deletes row + removes repeatable job
-  test('remove() deletes the row and removes the repeatable job', async () => {
+  // 7. remove() — the row and its schedule
+  test('remove() deletes the row and its schedule', async () => {
     await runAs(ORG_A, USER_A, async () => {
       const row = await service.create({
         name: 'Delete Test',
@@ -375,11 +370,9 @@ describe('ScheduledReportService', () => {
         recipients: ['a@b.com'],
       });
 
-      queue.removeRepeatableByKey.mockClear();
-
       await service.remove(row.id);
 
-      expect(queue.removeRepeatableByKey).toHaveBeenCalledOnce();
+      expect(queue.of(row.id)).toEqual([]);
       expect(prisma.store.find((r) => r.id === row.id)).toBeUndefined();
     });
   });
@@ -433,14 +426,14 @@ describe('ScheduledReportService', () => {
       theirsId = r.id;
     });
     await runAs(ORG_A, 'me', async () => {
-      queue.add.mockClear();
-      queue.removeRepeatableByKey.mockClear();
+      queue.upsertJobScheduler.mockClear();
+      queue.removeJobScheduler.mockClear();
       await expect(service.update(theirsId, { cron: '0 10 * * 2' })).rejects.toBeInstanceOf(
         NotFoundException,
       );
-      // No queue side-effects and the stored cron is untouched.
-      expect(queue.add).not.toHaveBeenCalled();
-      expect(queue.removeRepeatableByKey).not.toHaveBeenCalled();
+      // No schedule changes and the stored cron is untouched.
+      expect(queue.upsertJobScheduler).not.toHaveBeenCalled();
+      expect(queue.removeJobScheduler).not.toHaveBeenCalled();
     });
     expect(prisma.store.find((r) => r.id === theirsId)!.cron).toBe('0 9 * * 1');
   });
@@ -454,9 +447,9 @@ describe('ScheduledReportService', () => {
       theirsId = r.id;
     });
     await runAs(ORG_A, 'me', async () => {
-      queue.removeRepeatableByKey.mockClear();
+      queue.removeJobScheduler.mockClear();
       await expect(service.remove(theirsId)).rejects.toBeInstanceOf(NotFoundException);
-      expect(queue.removeRepeatableByKey).not.toHaveBeenCalled();
+      expect(queue.removeJobScheduler).not.toHaveBeenCalled();
     });
     // Row must still exist.
     expect(prisma.store.find((r) => r.id === theirsId)).toBeDefined();
@@ -492,6 +485,59 @@ describe('ScheduledReportService', () => {
       // remove
       await service.remove(r.id);
       expect(prisma.store.find((x) => x.id === r.id)).toBeUndefined();
+    });
+  });
+
+  // 8. On start-up. Until 2026-11-20 no schedule could be removed (see the fake queue), so every paused,
+  //    deleted or re-timed report left one behind — 629 of them on one test stack — and a re-timed report
+  //    went out at both times. Start-up removes what no active report owns and gives each its own.
+  describe('on start-up, the schedules match the active reports', () => {
+    const report = (over: Partial<FakeReport> & Pick<FakeReport, 'id' | 'organizationId' | 'cron'>): FakeReport => ({
+      createdById: USER_A,
+      name: over.id,
+      description: null,
+      dashboardId: null,
+      kpiIds: [],
+      format: 'CSV',
+      recipients: ['a@b.com'],
+      isActive: true,
+      lastRunAt: null,
+      nextRunAt: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      ...over,
+    });
+
+    test('what no active report owns is removed, and every active report has one schedule of its own', async () => {
+      prisma.store.push(
+        report({ id: 'sr_live', organizationId: ORG_A, cron: '0 9 * * 1' }),
+        report({ id: 'sr_other', organizationId: ORG_B, cron: '30 7 * * *' }),
+        report({ id: 'sr_paused', organizationId: ORG_A, cron: '0 9 1 * *', isActive: false }),
+      );
+      // Left by the old code: sr_live's schedule and an old time of it, and sr_paused's.
+      queue.legacy('f2d70fa37e82fdbbc97b76ea303156dc', '0 9 * * 1');
+      queue.legacy('1b2c3d4e5f60718293a4b5c6d7e8f901', '0 8 * * 1');
+      queue.legacy('0a1b2c3d4e5f60718293a4b5c6d7e8f9', '0 9 1 * *');
+      // And one for a report deleted since.
+      await queue.upsertJobScheduler('scheduled-report-sr_deleted', { pattern: '0 6 * * *' }, { name: 'run', data: { scheduledReportId: 'sr_deleted', organizationId: ORG_A } });
+
+      await expect(service.reconcileSchedules()).resolves.toEqual({ removed: 4, scheduled: 2 });
+
+      expect([...queue.schedulers.keys()].sort()).toEqual(['scheduled-report-sr_live', 'scheduled-report-sr_other']);
+      expect(queue.of('sr_live').map((s) => s.pattern)).toEqual(['0 9 * * 1']);
+      expect(queue.of('sr_other')).toEqual([expect.objectContaining({ pattern: '30 7 * * *', data: { scheduledReportId: 'sr_other', organizationId: ORG_B } })]);
+    });
+
+    test('run again, it changes nothing', async () => {
+      prisma.store.push(report({ id: 'sr_live', organizationId: ORG_A, cron: '0 9 * * 1' }));
+      await service.reconcileSchedules();
+      await expect(service.reconcileSchedules()).resolves.toEqual({ removed: 0, scheduled: 1 });
+      expect([...queue.schedulers.keys()]).toEqual(['scheduled-report-sr_live']);
+    });
+
+    test('without Redis at start-up, the app still starts', async () => {
+      queue.getJobSchedulers.mockRejectedValueOnce(new Error('no redis'));
+      await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
     });
   });
 });

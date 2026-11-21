@@ -14841,7 +14841,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "KPI_VIEW"
+            "REPORTS_MANAGE"
           ]
         }
       }
@@ -14881,7 +14881,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "KPI_VIEW"
+            "REPORTS_MANAGE"
           ]
         }
       }

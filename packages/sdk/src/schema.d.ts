@@ -4681,6 +4681,7 @@ export interface operations {
                 "application/json": {
                     dailyCapUsd?: number;
                     monthlyCapUsd?: number;
+                    dailyCallCap?: number;
                     /** @enum {string} */
                     circuitBreaker?: "FAIL_CLOSED" | "FALLBACK";
                 };

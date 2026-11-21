@@ -198,6 +198,7 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [confirmCode, setConfirmCode] = useState('');
+  const [codesCopied, setCodesCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
@@ -331,12 +332,13 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
               >
                 {enrollment.secret}
               </p>
+              {/* The address opens an authenticator app on this device; the raw otpauth:// text is not printed (F-062). */}
               <a
                 href={enrollment.otpauthUrl}
                 data-testid="mfa-otpauth-url"
-                className="mt-1 block break-all text-xs text-accent-primary underline"
+                className="mt-1 inline-block text-xs text-accent-primary underline"
               >
-                {enrollment.otpauthUrl}
+                Open in an authenticator app on this device
               </a>
             </div>
 
@@ -345,8 +347,33 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
                 2. Save these recovery codes
               </h4>
               <p className="mt-1 text-xs text-content-muted">
-                Each code can be used once if you lose access to your authenticator.
+                Each code signs you in once if you lose access to your authenticator. Keep them somewhere safe:
+                copy or download them now.
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  data-testid="mfa-copy-codes"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(enrollment.recoveryCodes.join('\n'))
+                      .then(() => setCodesCopied(true))
+                      .catch(() => setCodesCopied(false));
+                  }}
+                >
+                  {codesCopied ? 'Copied' : 'Copy codes'}
+                </Button>
+                <a
+                  href={`data:text/plain;charset=utf-8,${encodeURIComponent(`${enrollment.recoveryCodes.join('\n')}\n`)}`}
+                  download="kpi-nexus-recovery-codes.txt"
+                  data-testid="mfa-download-codes"
+                  className="text-xs font-medium text-accent-primary underline"
+                >
+                  Download as a text file
+                </a>
+              </div>
               <ul
                 className="mt-2 grid grid-cols-2 gap-1.5 font-mono text-xs"
                 data-testid="mfa-recovery-codes"

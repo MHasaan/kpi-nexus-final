@@ -14,6 +14,10 @@ export interface SpendSnapshot {
   monthlySpend: number;
   dailyCapUsd: number;
   monthlyCapUsd: number;
+  /** Calls made today, free ones included. */
+  dailyCalls: number;
+  /** Calls allowed per day; 0 means no limit (F-045). */
+  dailyCallCap: number;
   circuitBreaker: CircuitBreakerMode;
 }
 
@@ -47,36 +51,34 @@ export class AiBudgetService implements OnModuleDestroy {
   private monthKey(orgId: string): string {
     return `ai_budget:${orgId}:monthly:${monthStamp(new Date())}`;
   }
+  private callsKey(orgId: string): string {
+    return `ai_budget:${orgId}:calls:${dayStamp(new Date())}`;
+  }
 
   /** Load the budget row, lazily creating defaults the first time. */
   private async budgetRow(orgId: string): Promise<{
     dailyCapUsd: number;
     monthlyCapUsd: number;
+    dailyCallCap: number;
     circuitBreaker: CircuitBreakerMode;
   }> {
     const existing = await this.prisma.aiBudget.findUnique({ where: { organizationId: orgId } });
-    if (existing) {
-      return {
-        dailyCapUsd: existing.dailyCapUsd,
-        monthlyCapUsd: existing.monthlyCapUsd,
-        circuitBreaker: existing.circuitBreaker,
-      };
-    }
-    const created = await this.prisma.aiBudget.create({ data: { organizationId: orgId } });
+    const row = existing ?? (await this.prisma.aiBudget.create({ data: { organizationId: orgId } }));
     return {
-      dailyCapUsd: created.dailyCapUsd,
-      monthlyCapUsd: created.monthlyCapUsd,
-      circuitBreaker: created.circuitBreaker,
+      dailyCapUsd: row.dailyCapUsd,
+      monthlyCapUsd: row.monthlyCapUsd,
+      dailyCallCap: row.dailyCallCap,
+      circuitBreaker: row.circuitBreaker,
     };
   }
 
-  private async liveSpend(orgId: string): Promise<{ daily: number; monthly: number }> {
+  private async liveSpend(orgId: string): Promise<{ daily: number; monthly: number; calls: number }> {
     try {
-      const [d, m] = await this.redis.mget(this.dayKey(orgId), this.monthKey(orgId));
-      return { daily: Number(d) || 0, monthly: Number(m) || 0 };
+      const [d, m, c] = await this.redis.mget(this.dayKey(orgId), this.monthKey(orgId), this.callsKey(orgId));
+      return { daily: Number(d) || 0, monthly: Number(m) || 0, calls: Number(c) || 0 };
     } catch (err) {
       this.logger.warn(`ai-budget liveSpend failed (failing open): ${String(err)}`);
-      return { daily: 0, monthly: 0 };
+      return { daily: 0, monthly: 0, calls: 0 };
     }
   }
 
@@ -91,28 +93,36 @@ export class AiBudgetService implements OnModuleDestroy {
         monthlySpend: spend.monthly,
         dailyCapUsd: row.dailyCapUsd,
         monthlyCapUsd: row.monthlyCapUsd,
+        dailyCalls: spend.calls,
+        dailyCallCap: row.dailyCallCap,
         circuitBreaker: row.circuitBreaker,
       },
       estimatedCost,
     );
   }
 
-  /** Record actual spend after a successful paid call (free calls are no-ops). */
+  /**
+   * Record a successful call: it counts towards the day's calls whatever it cost (the free tier
+   * records no spend — F-045), and its cost towards the spend windows when there is one.
+   */
   async debit(cost: number): Promise<void> {
-    if (cost <= 0) return;
     const ctx = RequestContextStore.require();
     const dayKey = this.dayKey(ctx.organizationId);
     const monthKey = this.monthKey(ctx.organizationId);
+    const callsKey = this.callsKey(ctx.organizationId);
     try {
-      const result = await this.redis
-        .multi()
-        .incrbyfloat(dayKey, cost)
-        .expire(dayKey, 60 * 60 * 48) // keep ~2 days so the window survives clock skew
-        .incrbyfloat(monthKey, cost)
-        .expire(monthKey, 60 * 60 * 24 * 40) // keep ~40 days
-        .exec();
-      const daily = Number(result?.[0]?.[1] ?? 0);
-      const monthly = Number(result?.[2]?.[1] ?? 0);
+      const multi = this.redis.multi().incr(callsKey).expire(callsKey, 60 * 60 * 48);
+      if (cost > 0) {
+        multi
+          .incrbyfloat(dayKey, cost)
+          .expire(dayKey, 60 * 60 * 48) // keep ~2 days so the window survives clock skew
+          .incrbyfloat(monthKey, cost)
+          .expire(monthKey, 60 * 60 * 24 * 40); // keep ~40 days
+      }
+      const result = await multi.exec();
+      if (cost <= 0) return;
+      const daily = Number(result?.[2]?.[1] ?? 0);
+      const monthly = Number(result?.[4]?.[1] ?? 0);
       await this.prisma.aiBudget
         .update({
           where: { organizationId: ctx.organizationId },
@@ -133,6 +143,8 @@ export class AiBudgetService implements OnModuleDestroy {
       monthlySpend: spend.monthly,
       dailyCapUsd: row.dailyCapUsd,
       monthlyCapUsd: row.monthlyCapUsd,
+      dailyCalls: spend.calls,
+      dailyCallCap: row.dailyCallCap,
       circuitBreaker: row.circuitBreaker,
     };
   }
@@ -140,6 +152,7 @@ export class AiBudgetService implements OnModuleDestroy {
   async updateBudget(input: {
     dailyCapUsd?: number;
     monthlyCapUsd?: number;
+    dailyCallCap?: number;
     circuitBreaker?: CircuitBreakerMode;
   }): Promise<SpendSnapshot> {
     const ctx = RequestContextStore.require();
@@ -149,6 +162,7 @@ export class AiBudgetService implements OnModuleDestroy {
       data: {
         ...(input.dailyCapUsd !== undefined ? { dailyCapUsd: input.dailyCapUsd } : {}),
         ...(input.monthlyCapUsd !== undefined ? { monthlyCapUsd: input.monthlyCapUsd } : {}),
+        ...(input.dailyCallCap !== undefined ? { dailyCallCap: input.dailyCallCap } : {}),
         ...(input.circuitBreaker !== undefined ? { circuitBreaker: input.circuitBreaker } : {}),
       },
     });

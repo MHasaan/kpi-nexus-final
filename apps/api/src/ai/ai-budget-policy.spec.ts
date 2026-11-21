@@ -7,6 +7,8 @@ const base = {
   monthlySpend: 0,
   dailyCapUsd: 1,
   monthlyCapUsd: 30,
+  dailyCalls: 0,
+  dailyCallCap: 300,
   circuitBreaker: 'FAIL_CLOSED' as const,
 };
 
@@ -60,6 +62,30 @@ describe('evaluateBudget (pre-flight gating)', () => {
 
   it('reports zero free cost as always allowed even at the cap', () => {
     expect(evaluateBudget({ ...base, dailySpend: 1, monthlySpend: 30 }, 0).allowed).toBe(true);
+  });
+
+  // Manual QA (2026-11-19, F-045): the free tier records no spend, so the dollar caps never triggered and
+  // a busy day could use the provider's whole free quota. Calls are capped by number too.
+  describe('the daily call cap', () => {
+    it('blocks the call after the cap, free calls included', () => {
+      const d = evaluateBudget({ ...base, dailyCalls: 300 }, 0);
+      expect(d.allowed).toBe(false);
+      expect(d.reason).toBe('DAILY_CALLS');
+    });
+
+    it('allows the call that reaches the cap', () => {
+      expect(evaluateBudget({ ...base, dailyCalls: 299 }, 0).allowed).toBe(true);
+    });
+
+    it('treats a call cap of 0 as unlimited', () => {
+      expect(evaluateBudget({ ...base, dailyCallCap: 0, dailyCalls: 100_000 }, 0).allowed).toBe(true);
+    });
+
+    it('is checked after the spend caps, and keeps the circuit-breaker mode', () => {
+      expect(evaluateBudget({ ...base, dailySpend: 1, dailyCalls: 300 }, 0.5).reason).toBe('DAILY_CAP');
+      const d = evaluateBudget({ ...base, dailyCalls: 300, circuitBreaker: 'FALLBACK' }, 0);
+      expect(d).toEqual({ allowed: false, reason: 'DAILY_CALLS', mode: 'FALLBACK' });
+    });
   });
 });
 

@@ -18,6 +18,7 @@ import {
   type Dashboard,
   type DashboardWidget,
   type WidgetType,
+  meRequest,
 } from '../../../lib/api-client';
 import { WidgetEditor } from '../../../components/dashboard-grid/widget-editor';
 import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
@@ -43,6 +44,7 @@ import {
 import { nextWidgetPosition } from '../../../lib/widget-placement';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useAccess } from '../../../lib/use-access';
 import { type RangePreset, presetToRange } from '../../../lib/date-presets';
 import { useFiscalConfig } from '../../../lib/use-fiscal-config';
 import { useFormat } from '../../../lib/format-context';
@@ -63,8 +65,18 @@ type DatePreset = RangePreset | 'custom';
 
 function DashboardDetailInner() {
   const fmt = useFormat();
-  // Buttons that change the dashboard are shown only to those the API will let change it.
+  // Buttons that change the dashboard are shown only to those the API will let change it: someone with
+  // DASHBOARD_MANAGE who is its owner or an administrator (F-068: a reader it was published to saw them too).
   const canManage = usePermissions().has('DASHBOARD_MANAGE');
+  const { profile } = useAccess();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    meRequest()
+      .then((res) => setCurrentUserId(res.user.id))
+      .catch(() => {
+        /* the buttons stay hidden until we know who is reading */
+      });
+  }, []);
   const { terminology } = useTerminology();
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -73,6 +85,8 @@ function DashboardDetailInner() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const canChange =
+    canManage && (profile?.isAdmin === true || (currentUserId != null && dashboard?.ownerUserId === currentUserId));
 
   // Edit mode
   const [editMode, setEditMode] = useState(false);
@@ -304,38 +318,43 @@ function DashboardDetailInner() {
             }
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                {/* Changing a dashboard is DASHBOARD_MANAGE on the API: a viewer is not shown buttons that would be refused (UI-013). */}
+                {/* Changing a dashboard is DASHBOARD_MANAGE on the API, and the owner's or an administrator's:
+                    a viewer is not shown buttons that would be refused (UI-013, F-068). */}
+                {canChange && (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={editMode ? 'primary' : 'secondary'}
+                      onClick={() => setEditMode((e) => !e)}
+                      data-testid="dashboard-edit-toggle"
+                      leftIcon={<Pencil className="h-4 w-4" />}
+                    >
+                      {editMode ? 'Done editing' : 'Edit'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={showSettings ? 'primary' : 'secondary'}
+                      onClick={() => setShowSettings((s) => !s)}
+                      data-testid="dashboard-settings-toggle"
+                      leftIcon={<SettingsIcon className="h-4 w-4" />}
+                    >
+                      Settings
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setShowAddForm((s) => !s)}
+                      data-testid="dashboard-add-widget-toggle"
+                      leftIcon={<Plus className="h-4 w-4" />}
+                    >
+                      Add widget
+                    </Button>
+                  </>
+                )}
                 <PermissionGuard permission="DASHBOARD_MANAGE">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={editMode ? 'primary' : 'secondary'}
-                    onClick={() => setEditMode((e) => !e)}
-                    data-testid="dashboard-edit-toggle"
-                    leftIcon={<Pencil className="h-4 w-4" />}
-                  >
-                    {editMode ? 'Done editing' : 'Edit'}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={showSettings ? 'primary' : 'secondary'}
-                    onClick={() => setShowSettings((s) => !s)}
-                    data-testid="dashboard-settings-toggle"
-                    leftIcon={<SettingsIcon className="h-4 w-4" />}
-                  >
-                    Settings
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setShowAddForm((s) => !s)}
-                    data-testid="dashboard-add-widget-toggle"
-                    leftIcon={<Plus className="h-4 w-4" />}
-                  >
-                    Add widget
-                  </Button>
                   <Button
                     type="button"
                     size="sm"
@@ -357,7 +376,7 @@ function DashboardDetailInner() {
                     History
                   </Button>
                 </Link>
-<PermissionGuard permission="DASHBOARD_MANAGE">
+{canChange && (
                   <Link
                     href={`/dashboards/${dashboardId}/share`}
                     data-testid="dashboard-share-link"
@@ -371,7 +390,7 @@ function DashboardDetailInner() {
                       Share
                     </Button>
                   </Link>
-                </PermissionGuard>
+                )}
                 <Button
                   type="button"
                   size="sm"

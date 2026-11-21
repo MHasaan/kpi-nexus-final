@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const meRequest = vi.fn();
 vi.mock('./api-client', () => ({ meRequest: () => meRequest() }));
 
-import { REFRESH_WINDOW_MS, freshSession, resetFreshSession, samePermissions } from './session-refresh';
+import { REFRESH_WINDOW_MS, freshSession, resetFreshSession, samePermissions, sessionChanged } from './session-refresh';
 
 beforeEach(() => {
   meRequest.mockReset();
@@ -40,5 +40,19 @@ describe('samePermissions', () => {
     expect(samePermissions(['A'], ['A', 'B'])).toBe(false);
     expect(samePermissions(['A', 'B'], ['A', 'C'])).toBe(false);
     expect(samePermissions([], [])).toBe(true);
+  });
+});
+
+describe('a new session', () => {
+  test('forgets the answer kept for the session before, so the next ask goes to the server', async () => {
+    meRequest.mockResolvedValue({ user: { permissions: ['AUDIT_VIEW'] } });
+    await freshSession(1_000);
+    meRequest.mockResolvedValue({ user: { permissions: ['KPI_VIEW'] } });
+
+    sessionChanged();
+
+    const next = await freshSession(1_500);
+    expect(meRequest).toHaveBeenCalledTimes(2);
+    expect(next?.permissions).toEqual(['KPI_VIEW']);
   });
 });

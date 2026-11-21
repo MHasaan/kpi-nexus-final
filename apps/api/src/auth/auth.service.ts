@@ -18,6 +18,7 @@ import { RequestContextStore } from '../tenancy/request-context.js';
 import { verifyTotp } from '../mfa/totp.js';
 import { DEFAULT_ROLES } from './services/default-roles.js';
 import { RefreshTokenService } from './services/refresh-token.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import type { JwtPayload } from './jwt.strategy.js';
 import type { RegisterOrgDto } from './dto/register-org.dto.js';
 import type { LoginDto } from './dto/login.dto.js';
@@ -59,6 +60,9 @@ export interface ClientInfo {
   userAgent?: string;
 }
 
+/** How a session was started, for the audit log's LOGIN row. */
+type SignInHow = 'password' | 'password and code' | 'registration' | 'invitation' | 'setup';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -70,6 +74,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly audit: AuditService,
   ) {}
 
   async registerOrganization(
@@ -151,6 +156,7 @@ export class AuthService {
           adm: true,
         },
         client,
+        'registration',
       );
 
       return {
@@ -274,6 +280,7 @@ export class AuthService {
           adm: isAdmin,
         },
         client,
+        user.mfaEnabled ? 'password and code' : 'password',
       );
 
       return { ...pair, user: this.publicUser(user) };
@@ -388,6 +395,7 @@ export class AuthService {
           adm: isAdmin,
         },
         client,
+        'invitation',
       );
 
       return { ...pair, user: this.publicUser(user) };
@@ -480,7 +488,19 @@ export class AuthService {
 
   async logout(refreshToken: string): Promise<void> {
     // Public route — the refresh token is the only credential (OT-014).
-    await RequestContextStore.runWithBypass('logout', () => this.refreshTokens.revoke(refreshToken));
+    const ended = await RequestContextStore.runWithBypass('logout', () => this.refreshTokens.revoke(refreshToken));
+    if (!ended) return;
+    // Sign-outs were never written to the audit log (F-058).
+    const user = await RequestContextStore.runWithBypass('logout', () =>
+      this.prisma.user.findUnique({ where: { id: ended.userId }, select: { organizationId: true } }),
+    );
+    await this.audit.record({
+      action: 'LOGOUT',
+      entityType: 'User',
+      entityId: ended.userId,
+      organizationId: user?.organizationId,
+      userId: ended.userId,
+    });
   }
 
   /**
@@ -488,10 +508,19 @@ export class AuthService {
    * session so the person can tell their sessions apart: without it every row
    * of "Active sessions" read "Unknown device".
    */
-  private async issuePair(payload: JwtPayload, client: ClientInfo = {}): Promise<AuthPair> {
+  private async issuePair(payload: JwtPayload, client: ClientInfo = {}, how: SignInHow = 'password'): Promise<AuthPair> {
     const refresh = await this.refreshTokens.issue(payload.sub, undefined, client.ip, client.userAgent);
     // The access token names its session, so a password change can keep this one and end the others (F-061).
     const accessToken = await this.signAccess({ ...payload, sid: refresh.id });
+    // Every new session is a sign-in the audit log records (F-058: it recorded none).
+    await this.audit.record({
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: payload.sub,
+      organizationId: payload.org,
+      userId: payload.sub,
+      metadata: { sessionId: refresh.id, how },
+    });
     return { accessToken, refreshToken: refresh.plaintext, expiresIn: this.accessTtlSeconds };
   }
 
@@ -512,12 +541,16 @@ export class AuthService {
       RequestContextStore.run(
         { userId: params.userId, organizationId: params.organizationId, roleId: params.roleId || null, principalType: 'user' },
         () =>
-          this.issuePair({
-            sub: params.userId,
-            org: params.organizationId,
-            rid: params.roleId,
-            adm: params.isAdmin,
-          }),
+          this.issuePair(
+            {
+              sub: params.userId,
+              org: params.organizationId,
+              rid: params.roleId,
+              adm: params.isAdmin,
+            },
+            {},
+            'setup',
+          ),
       ),
     );
   }

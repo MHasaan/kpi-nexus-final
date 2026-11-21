@@ -109,12 +109,16 @@ export class RefreshTokenService {
     return { ...next, userId: existing.userId };
   }
 
-  async revoke(presentedToken: string): Promise<void> {
+  /** End the session the token belongs to. Says whose it was, so the sign-out can be audited; null for a token that is not live. */
+  async revoke(presentedToken: string): Promise<{ userId: string } | null> {
     const hashedToken = this.hash(presentedToken);
+    const row = await this.prisma.refreshToken.findUnique({ where: { hashedToken }, select: { userId: true, revokedAt: true } });
+    if (!row || row.revokedAt) return null;
     await this.prisma.refreshToken.updateMany({
       where: { hashedToken, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    return { userId: row.userId };
   }
 
   async revokeAllForUser(userId: string): Promise<void> {

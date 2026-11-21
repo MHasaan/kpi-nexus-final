@@ -605,6 +605,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-033): at ~1140 px the channels, people and KPI tables were cut off on the right (Disable read "Disab…") | ✅ Fixed — action buttons wrap and the People page's side column waits for 1280 px, so the tables fit | #474 | `wide-tables-fit-a-laptop.spec.ts` |
 | Manual QA (2026-11-20, F-071): Lineage showed "kpi:cmwmyjra CASCADE_ROLLUP"; Benchmarks showed raw kinds, unformatted numbers and a machine note | ✅ Fixed — hops are named links with the connection in words; benchmarks in words with formatted numbers | #475 | `lineage.service.spec.ts`, `lineage-and-benchmarks-read-as-words.spec.ts` |
 | Manual QA (2026-11-19, F-043): Ask listed every KPI as a source under an answer about one | ✅ Fixed — the sources are the KPIs the answer names, plus any a tool read | #476 | `nlq.service.spec.ts` |
+| Manual QA (2026-11-20, F-070/F-036): failed deliveries showed only a truncated id and Retry gave no word; an alert's page did not say who acknowledged it | ✅ Fixed — rows name the KPI, message and channel, Retry says so; the alert says who acknowledged | #477 | deliveries and alerts service specs, `deliveries-and-alerts-say-what-and-who.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

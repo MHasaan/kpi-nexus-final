@@ -532,6 +532,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk: every page had two top-level headings (its own, and its name in the top bar); four pages had a third, hidden one | ✅ Fixed — one per page; the top bar’s name is plain text marked as the current page | #399 | `e2e/one-top-heading-per-page.spec.ts` |
 | Flow walk (Ask): the example questions named KPIs the organisation may not have (“Forecast MRR…”, “Compare CAC…”) | ✅ Fixed — they name the organisation’s own KPIs, or none | #400 | `lib/ask-starters.spec.ts`, `e2e/ask-examples-name-your-kpis.spec.ts` |
 | Flow walk (first use): the welcome tour was the same five slides for everyone — a Viewer was told to define KPIs and shown alerts and AI pages they do not have | ✅ Fixed — the slides follow what the person can open and do | #401 | `components/onboarding-tour.spec.ts`, `e2e/tour-fits-the-reader.spec.ts` |
+| Flow walk (settings): at 1280 px the AI settings table cut its model names (“gemini-3.5”) and choices (“Built-in fa”) | ✅ Fixed — provider and model share a column; the source badge sits under the feature’s name | #402 | `e2e/ai-settings-table-fits.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

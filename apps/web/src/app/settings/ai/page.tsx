@@ -214,8 +214,15 @@ function RoutingRow({
       <TableCell className="align-top">
         <span className="block font-medium" data-testid={`ai-config-${config.feature}-name`}>{info.name}</span>
         {info.does && <span className="block text-xs text-content-muted">{info.does}</span>}
+        <Badge tone={config.isOverride ? 'info' : 'neutral'} className="mt-1.5">
+          {config.isOverride ? 'Override' : 'Default'}
+        </Badge>
       </TableCell>
-      <TableCell>
+      {/* Provider and model share a column, one above the other, as the fallback's do: side by side, with
+          seven columns, a 1280-pixel screen had room for "gemini-3.5" of "gemini-3.5-flash". */}
+      <TableCell className="align-top">
+        {/* Wide enough for the longest model on offer, "gemini-3.5-flash-lite". */}
+        <div className="flex min-w-[14rem] flex-col gap-1.5">
         <Select
           aria-label={`Provider for ${info.name}`}
           data-testid={`ai-config-${config.feature}-provider`}
@@ -229,8 +236,6 @@ function RoutingRow({
             </option>
           ))}
         </Select>
-      </TableCell>
-      <TableCell>
         <Input
           aria-label={`Model for ${info.name}`}
           data-testid={`ai-config-${config.feature}-model`}
@@ -245,9 +250,10 @@ function RoutingRow({
             <option key={m} value={m} />
           ))}
         </datalist>
+        </div>
       </TableCell>
-      <TableCell>
-        <div className="flex flex-col gap-1.5">
+      <TableCell className="align-top">
+        <div className="flex min-w-[11.5rem] flex-col gap-1.5">
           <Select
             aria-label={`Fallback provider for ${info.name}`}
             data-testid={`ai-config-${config.feature}-fallback-provider`}
@@ -284,7 +290,7 @@ function RoutingRow({
           )}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="align-top">
         <Input
           aria-label={`Daily cap in dollars for ${info.name}`}
           aria-invalid={capInvalid || undefined}
@@ -296,11 +302,6 @@ function RoutingRow({
           disabled={busy}
           onChange={(e) => setCap(e.target.value)}
         />
-      </TableCell>
-      <TableCell className="align-top">
-        <Badge tone={config.isOverride ? 'info' : 'neutral'}>
-          {config.isOverride ? 'Override' : 'Default'}
-        </Badge>
       </TableCell>
       <TableCell className="align-top">
         <div className="flex items-center justify-end gap-2">
@@ -610,11 +611,9 @@ export default function AiSettingsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Feature</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Model</TableHead>
+                  <TableHead>Provider and model</TableHead>
                   <TableHead>If it fails or is over budget</TableHead>
                   <TableHead>Daily cap (USD)</TableHead>
-                  <TableHead>Source</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>

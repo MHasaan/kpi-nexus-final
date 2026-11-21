@@ -73,3 +73,44 @@ export function wouldCreateDependencyCycle(
   }
   return false;
 }
+
+/**
+ * A parse error as the person typing sees it. Two bare words in a row are almost always a KPI name typed
+ * without its quotes ("Unexpected token 'Recurring'"), the error people met most (F-016): that one gets the
+ * hint. Names already in quotes or brackets are not counted.
+ */
+export function formulaErrorMessage(raw: string, message: string): string {
+  // One pass over the typed text, no regular expression (a pattern over what someone typed can be made
+  // to run slowly): a quoted or bracketed name is skipped whole; a bare word followed only by spaces and
+  // another bare word is the hint's case.
+  let i = 0;
+  let afterBareWord = false;
+  while (i < raw.length) {
+    const ch = raw[i]!;
+    if (ch === '"' || ch === '[') {
+      const close = raw.indexOf(ch === '"' ? '"' : ']', i + 1);
+      i = close === -1 ? raw.length : close + 1;
+      afterBareWord = false;
+      continue;
+    }
+    if (isWordStart(ch)) {
+      if (afterBareWord) {
+        return `${message}. A KPI name with spaces goes in double quotes: "Monthly Recurring Revenue" * 12`;
+      }
+      while (i < raw.length && isWordChar(raw[i]!)) i += 1;
+      afterBareWord = true;
+      continue;
+    }
+    if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r') afterBareWord = false;
+    i += 1;
+  }
+  return message;
+}
+
+function isWordStart(ch: string): boolean {
+  return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_';
+}
+
+function isWordChar(ch: string): boolean {
+  return isWordStart(ch) || (ch >= '0' && ch <= '9');
+}

@@ -4,6 +4,7 @@ import { parseFormula } from '../formula/formula.js';
 import {
   type DependencyEdge,
   extractIdentifiers,
+  formulaErrorMessage,
   wouldCreateDependencyCycle,
 } from './formula-deps.js';
 
@@ -58,5 +59,26 @@ describe('wouldCreateDependencyCycle', () => {
 
   it('allows a self-reference check (source === dependent is a cycle)', () => {
     expect(wouldCreateDependencyCycle([], 'a', 'a')).toBe(true);
+  });
+});
+
+describe('extractIdentifiers — quoted KPI names', () => {
+  test('a name in quotes is one identifier, as written', () => {
+    expect(extractIdentifiers(parseFormula('"Monthly Recurring Revenue" * 12'))).toEqual(['Monthly Recurring Revenue']);
+    expect(extractIdentifiers(parseFormula('[Net Promoter Score (NPS)] - cost')).sort()).toEqual(['Net Promoter Score (NPS)', 'cost']);
+  });
+});
+
+// The error people met most: a KPI name typed bare, so the parser stopped at its second word.
+describe('formulaErrorMessage', () => {
+  test('two bare words in a row get the quoting hint', () => {
+    expect(formulaErrorMessage('Monthly Recurring Revenue * 12', "Unexpected token 'Recurring'")).toBe(
+      'Unexpected token \'Recurring\'. A KPI name with spaces goes in double quotes: "Monthly Recurring Revenue" * 12',
+    );
+  });
+
+  test('other errors are passed on as they are', () => {
+    expect(formulaErrorMessage('(1 + 2', 'Expected )')).toBe('Expected )');
+    expect(formulaErrorMessage('"Monthly Recurring Revenue" +', 'Unexpected end of input')).toBe('Unexpected end of input');
   });
 });

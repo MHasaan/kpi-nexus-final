@@ -269,9 +269,11 @@ describe('Formula evaluator — escape attempts (safe by construction)', () => {
     expect(() => parseFormula('var x = 1')).toThrow(ParseError);
   });
   test('string literals are rejected (no string type in DSL)', () => {
-    // Even passing a quoted string is rejected because ' and " aren't tokens
+    // A single-quoted string is not a token. Double quotes name a KPI (F-016): the text is looked up in
+    // the context like any identifier and is never a value of its own.
     expect(() => parseFormula("'foo'")).toThrow(ParseError);
-    expect(() => parseFormula('"foo"')).toThrow(ParseError);
+    expect(() => evaluateFormula('"foo"', {})).toThrow(UnknownIdentifierError);
+    expect(() => evaluateFormula('"foo" + 1', { foo: 'bar' as unknown as number })).toThrow();
   });
   test('host lookup returning a non-number/non-boolean is caught', () => {
     const ctx = {
@@ -328,5 +330,39 @@ describe('Formula evaluator — real-world formulas', () => {
         retention: 90,
       }),
     ).toBeCloseTo(74, 5);
+  });
+});
+
+// Manual QA (2026-11-19, F-016): almost every KPI name has spaces ("Monthly Recurring Revenue"), and a formula
+// could name a KPI only as a bare word, so `Monthly Recurring Revenue * 12` failed with "Unexpected token
+// 'Recurring'" and nothing could be derived from a real KPI. A name in double quotes (or square brackets) is
+// one identifier now.
+describe('Formula evaluator — KPI names with spaces', () => {
+  test('a name in double quotes is one identifier', () => {
+    expect(evaluateFormula('"Monthly Recurring Revenue" * 12', { 'Monthly Recurring Revenue': 100 })).toBe(1200);
+  });
+
+  test('square brackets work the same way', () => {
+    expect(evaluateFormula('[Monthly Recurring Revenue] * 12', { 'Monthly Recurring Revenue': 100 })).toBe(1200);
+  });
+
+  test('a quoted name may hold digits, brackets and punctuation, and mixes with bare names', () => {
+    expect(evaluateFormula('"Net Promoter Score (NPS)" + cost', { 'Net Promoter Score (NPS)': 48, cost: 2 })).toBe(50);
+    expect(evaluateFormula('("Revenue 2026" - cost) / "Revenue 2026" * 100', { 'Revenue 2026': 200, cost: 50 })).toBe(75);
+  });
+
+  test('spaces just inside the quotes do not count', () => {
+    expect(evaluateFormula('" MRR " * 2', { MRR: 3 })).toBe(6);
+  });
+
+  test('a quote that is never closed, or an empty name, is a parse error that says so', () => {
+    expect(() => parseFormula('"Monthly Recurring Revenue * 12')).toThrow(ParseError);
+    expect(() => parseFormula('"Monthly Recurring Revenue * 12')).toThrow(/closing "/);
+    expect(() => parseFormula('[Monthly Recurring Revenue * 12')).toThrow(/closing \]/);
+    expect(() => parseFormula('"" + 1')).toThrow(/empty/i);
+  });
+
+  test('a quoted name that is not in the context is still an unknown identifier', () => {
+    expect(() => evaluateFormula('"Monthly Recurring Revenue" * 12', {})).toThrow(UnknownIdentifierError);
   });
 });

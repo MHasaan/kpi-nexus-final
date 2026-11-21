@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import {
   type DependencyEdge,
-  extractIdentifiers,
+  extractIdentifiers, formulaErrorMessage,
   wouldCreateDependencyCycle,
 } from './formula-deps.js';
 import type { AttachFormulaDto } from './dto/formula.dto.js';
@@ -54,7 +54,7 @@ export class KpiFormulaService {
       ast = parseFormula(dto.raw);
     } catch (err) {
       if (err instanceof FormulaError) {
-        throw new BadRequestException({ code: 'FORMULA_PARSE_ERROR', message: err.message });
+        throw new BadRequestException({ code: 'FORMULA_PARSE_ERROR', message: formulaErrorMessage(dto.raw, err.message) });
       }
       throw err;
     }

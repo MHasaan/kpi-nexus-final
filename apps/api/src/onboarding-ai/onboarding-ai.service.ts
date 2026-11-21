@@ -23,8 +23,11 @@ const FEATURE: Record<OnboardingAiMode, AiFeature> = {
 // Roles may only hold these keys; anything else grants nothing.
 const PERMISSIONS_RULE = `Role permissions ⊆ ${ALL_PERMISSIONS.join('|')}. The admin role gets all of them.`;
 
-const GEN_SYSTEM = [
-  'You are an onboarding assistant. Generate a complete organization setup as JSON ONLY (no prose, no fences):',
+/**
+ * The draft's sections, their fields and the values each may take: the generator writes a whole draft by them
+ * and the assistant changes one by them, so what either proposes can be applied as it is.
+ */
+const FIELD_RULES = [
   '{"organization":{"name","industry","type","sizeTier","timezone","currency","locale","fiscalYearStartMonth","weekStartsOn"},"roles":[{"name","isAdmin","level","permissions":[]}],',
   '"positions":[{"name","track"}],"orgUnitTypes":[{"name","dimension"}],"orgUnits":[{"name","type","parent"}],',
   '"kpiCategories":[{"name"}],"kpis":[{"name","category","scope","type","direction","frequency","unit","scorecardQuadrant"}]}.',
@@ -35,6 +38,19 @@ const GEN_SYSTEM = [
   'frequency ∈ DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY. scorecardQuadrant ∈ FINANCIAL|CUSTOMER|INTERNAL_PROCESS|LEARNING_GROWTH.',
   'Every orgUnit.type must match an orgUnitTypes.name; every kpi.category must match a kpiCategories.name. Exactly one role with isAdmin=true.',
   PERMISSIONS_RULE,
+];
+
+const GEN_SYSTEM = [
+  'You are an onboarding assistant. Generate a complete organization setup as JSON ONLY (no prose, no fences):',
+  ...FIELD_RULES,
+].join('\n');
+
+const ASSISTANT_SYSTEM = [
+  'You are an onboarding assistant. Given the current draft and an instruction, respond with ONLY a JSON array of RFC 6902 operations. No prose.',
+  'Add to a section with its "/-" path (e.g. {"op":"add","path":"/kpis/-","value":{...}}); replace or remove only what the instruction names, never a whole section.',
+  'Use exactly these sections, fields and values:',
+  ...FIELD_RULES,
+  'A new KPI\'s category must be one of the draft\'s kpiCategories; if none fits, add the category first. Say a KPI is recorded per unit or per person with its scope.',
 ].join('\n');
 
 /**
@@ -161,9 +177,7 @@ export class OnboardingAiService {
 
   async assistant(sessionId: string, token: string, instruction: string) {
     const draft = await this.onboarding.getDraft(sessionId, token);
-    const sys =
-      'You are an onboarding assistant. Given the current draft and an instruction, respond with ONLY a JSON array of RFC 6902 operations (e.g. [{"op":"add","path":"/roles/-","value":{...}}]). No prose.' +
-      ` ${PERMISSIONS_RULE}`;
+    const sys = ASSISTANT_SYSTEM;
     const { interactionId, content } = await this.run(
       sessionId,
       token,

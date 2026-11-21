@@ -568,6 +568,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | AI test (real Gemini): Ask's forecasts said "t+1" instead of a month | ✅ Fixed — periods counted on from the last recorded one; `forecastPeriodStart` moved to contracts and shared with the web | #435 | `nlq.tools.spec.ts`, web forecast-period tests; live |
 | AI test (real Gemini): Ask could not compare teams or people; per-team series came back under ids | ✅ Fixed — each series named for its team or person, from this organisation only | #436 | `nlq.tools.spec.ts`; live |
 | AI test (real Gemini): the co-pilot gave a Lahore company no timezone, currency or language, and a size the app does not store | ✅ Fixed — the generator fills the five settings when the description gives them, and uses the four stored sizes | #437 | `onboarding-ai.service.spec.ts`; live |
+| AI test (real Gemini): the co-pilot's assistant invented field values (type "QUANTITY", scope "DEPARTMENT") and could replace a whole section | ✅ Fixed — the assistant shares the generator's field rules and appends with `/-` | #438 | `onboarding-ai.service.spec.ts`; live |
 
 ### UI completion round — open findings (2026-11-16)
 

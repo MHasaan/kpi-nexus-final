@@ -146,3 +146,19 @@ describe("OnboardingAiService — the generated organisation's settings", () => 
     expect(system).toMatch(/only when the description/i);
   });
 });
+
+// Real Gemini (2026-11-20), told "Add a weekly KPI for food waste in kilograms, recorded by each kitchen unit",
+// proposed type "QUANTITY", scope "DEPARTMENT" and a category the draft does not have: the assistant's prompt had
+// none of the generator's field rules, so every one had to be fixed by hand after applying.
+describe("OnboardingAiService — the assistant's field rules", () => {
+  it('gives the assistant the same field names and values as the generator, and says to append', async () => {
+    const { service, complete } = setup();
+    complete.mockResolvedValue({ content: '[]', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.assistant('s1', 'tok', 'Add a weekly KPI for food waste in kilograms, recorded by each kitchen unit.');
+    const system = complete.mock.calls[0]![0].systemPrompt ?? '';
+    expect(system).toContain('scope ∈ ORG_WIDE|PER_UNIT|PER_USER');
+    expect(system).toContain('type ∈ NUMBER|PERCENTAGE|CURRENCY|DURATION|COUNT|RATING|BOOLEAN');
+    expect(system).toContain('every kpi.category must match a kpiCategories.name');
+    expect(system).toContain('/-"');
+  });
+});

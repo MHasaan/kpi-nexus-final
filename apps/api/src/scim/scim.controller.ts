@@ -61,8 +61,13 @@ export class ScimController {
 
   @Public()
   @Get('Users')
-  listUsers(@Headers('authorization') auth: string | undefined, @Query('filter') filter?: string): Promise<unknown> {
-    return this.run(auth, () => this.users.list(filter));
+  listUsers(
+    @Headers('authorization') auth: string | undefined,
+    @Query('filter') filter?: string,
+    @Query('startIndex') startIndex?: string,
+    @Query('count') count?: string,
+  ): Promise<unknown> {
+    return this.run(auth, () => this.users.list(filter, { startIndex: startIndex ? Number(startIndex) : undefined, count: count ? Number(count) : undefined }));
   }
 
   @Public()

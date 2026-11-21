@@ -34,8 +34,9 @@ export interface ScimListResponse {
 }
 
 /** A user is SCIM-`active` unless deactivated/archived. */
+/** Active means able to sign in: someone who never accepted their invitation is not (F-067). */
 function isActive(status: string): boolean {
-  return status !== 'SUSPENDED' && status !== 'ARCHIVED' && status !== 'DELETED';
+  return status === 'ACTIVE';
 }
 
 function toScim(u: UserRow): ScimUserResource {
@@ -55,7 +56,7 @@ function toScim(u: UserRow): ScimUserResource {
 export class ScimUsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(filter?: string): Promise<ScimListResponse> {
+  async list(filter?: string, paging: { startIndex?: number; count?: number } = {}): Promise<ScimListResponse> {
     const ctx = RequestContextStore.require();
     const userName = parseEqFilter(filter, 'userName');
     const rows = await this.prisma.user.findMany({
@@ -63,11 +64,15 @@ export class ScimUsersService {
       select: { id: true, email: true, fullName: true, status: true },
       orderBy: [{ createdAt: 'asc' }],
     });
-    const resources = rows.map(toScim);
+    // SCIM pages are 1-based; `count` was ignored before (26 people came back for count=2) — F-067.
+    const startIndex = Math.max(1, Math.floor(paging.startIndex ?? 1));
+    const count = paging.count === undefined ? rows.length : Math.max(0, Math.floor(paging.count));
+    const all = rows.map(toScim);
+    const resources = all.slice(startIndex - 1, startIndex - 1 + count);
     return {
       schemas: [LIST_SCHEMA],
-      totalResults: resources.length,
-      startIndex: 1,
+      totalResults: all.length,
+      startIndex,
       itemsPerPage: resources.length,
       Resources: resources,
     };

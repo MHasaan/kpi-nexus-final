@@ -51,7 +51,7 @@ export default function ScimSettingsPage() {
       setLabel('');
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Mint failed');
+      setError(e instanceof ApiError ? e.message : 'The token was not created');
     }
   };
 
@@ -66,6 +66,7 @@ export default function ScimSettingsPage() {
     if (!ok) return;
     try {
       await revokeScimToken(id);
+      setMinted(null);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Revoke failed');
@@ -100,7 +101,7 @@ export default function ScimSettingsPage() {
 
         <div className="mt-5 flex gap-2">
           <input data-testid="scim-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (e.g. Okta production)" className="flex-1 rounded border border-border bg-surface-1 px-3 py-2 text-sm text-content-strong" />
-          <button type="button" data-testid="scim-mint" onClick={mint} className="rounded bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90">Mint token</button>
+          <button type="button" data-testid="scim-mint" onClick={mint} className="rounded bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90">Create token</button>
         </div>
 
         <div className="mt-6 space-y-2" data-testid="scim-token-list">

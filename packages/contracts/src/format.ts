@@ -187,6 +187,27 @@ export function formatNumber(
   return `${negative ? '-' : ''}${group(whole, style.group, style.indian)}${trimmed ? `${style.decimal}${trimmed}` : ''}`;
 }
 
+/**
+ * A number shortened for an axis or a tile, in the organisation's style: 240000 → "240k", 1250000 → "1.25M".
+ * A chart's y-axis wrote six digits in a space for five, so 240000 read "40000" (2026-11-19).
+ */
+export function formatCompact(value: number | null | undefined, settings: FormatSettings): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+  const abs = Math.abs(value);
+  for (const [size, suffix] of [
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'k'],
+  ] as const) {
+    if (abs >= size) {
+      const scaled = abs / size;
+      const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+      return `${value < 0 ? '-' : ''}${formatNumber(scaled, settings, { maximumFractionDigits: digits })}${suffix}`;
+    }
+  }
+  return formatNumber(value, settings);
+}
+
 /** An amount of money: the organisation's currency symbol and the number, to two places. */
 export function formatCurrency(value: number | null | undefined, settings: FormatSettings): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';

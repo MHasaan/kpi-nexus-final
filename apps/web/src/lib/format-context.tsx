@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   DEFAULT_FORMAT_SETTINGS,
   type FormatSettings,
-  formatCurrency,
+  formatCompact, formatCurrency,
   formatDate,
   formatDateTime,
   formatDay,
@@ -28,6 +28,8 @@ export interface Formatters {
   /** A calendar day (a period's start or end) — never shifted by the timezone. */
   day: (value: DateInput) => string;
   number: (value: number | null | undefined, options?: { minimumFractionDigits?: number; maximumFractionDigits?: number }) => string;
+  /** A number shortened for an axis or a tile: 240000 → "240k". */
+  compact: (value: number | null | undefined) => string;
   currency: (value: number | null | undefined) => string;
   settings: FormatSettings;
   /** The organisation's own timezone, whatever the person chose for themself. */
@@ -42,6 +44,7 @@ function build(settings: FormatSettings, organizationTimezone: string, refresh: 
     dateTime: (value) => formatDateTime(value, settings),
     day: (value) => formatDay(value, settings),
     number: (value, options) => formatNumber(value, settings, options),
+    compact: (value) => formatCompact(value, settings),
     currency: (value) => formatCurrency(value, settings),
     settings,
     organizationTimezone,

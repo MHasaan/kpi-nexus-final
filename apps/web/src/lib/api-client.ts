@@ -16,6 +16,7 @@ import type {
 } from '@kpi-nexus/contracts';
 
 import { clearCachedAccessProfile, setCachedAccessProfile } from './access';
+import { SESSION_CHANGED_EVENT, announce } from './session-events';
 import type { KpiHolders } from '@kpi-nexus/contracts';
 import { validationMessage } from './validation-message';
 import { clearCachedPermissions, setCachedPermissions } from './permissions';
@@ -50,10 +51,24 @@ export function getRefreshToken(): string | null {
   return window.localStorage.getItem(REFRESH_KEY);
 }
 
-export function setTokens(accessToken: string, refreshToken: string): void {
+/** Keep a rotated pair for the session already running; nothing else about the session changes. */
+function keepTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(TOKEN_KEY, accessToken);
   window.localStorage.setItem(REFRESH_KEY, refreshToken);
+}
+
+/**
+ * Store the tokens of a new session: signing in, registering, accepting an invitation. What the browser kept
+ * of the session before (its permissions and page access) is not this person's and is dropped, so the menu is
+ * theirs from the first paint; the hooks ask the server afresh (F-011).
+ */
+export function setTokens(accessToken: string, refreshToken: string): void {
+  if (typeof window === 'undefined') return;
+  keepTokens(accessToken, refreshToken);
+  clearCachedPermissions();
+  clearCachedAccessProfile();
+  announce(SESSION_CHANGED_EVENT);
 }
 
 export function clearTokens(): void {
@@ -80,7 +95,7 @@ function refreshSession(): Promise<boolean> {
       });
       if (!res.ok) return false;
       const pair = (await res.json()) as { accessToken: string; refreshToken: string };
-      setTokens(pair.accessToken, pair.refreshToken);
+      keepTokens(pair.accessToken, pair.refreshToken);
       return true;
     } catch {
       return false;

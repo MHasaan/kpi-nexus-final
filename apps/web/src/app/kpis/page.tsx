@@ -465,13 +465,14 @@ function KpisPageInner() {
               <Table data-testid="kpis-list">
                 <TableHeader sticky>
                   <TableRow>
+                    {/* On a phone the actions sit under the name and the less-needed columns step aside (F-060). */}
                     <TableHead>Name</TableHead>
-                    <TableHead>Scope</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">Scope</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Target</TableHead>
-                    <TableHead>Assigned</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="hidden text-right md:table-cell">Target</TableHead>
+                    <TableHead className="hidden lg:table-cell">Assigned</TableHead>
+                    <TableHead className="hidden text-right md:table-cell">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -533,6 +534,19 @@ interface KpiRowProps {
   onRecord: (e: FormEvent<HTMLFormElement>) => void;
 }
 
+/** Whether the screen is narrower than Tailwind's `md` (768 px); false on the server and the first paint. */
+function useNarrowScreen(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const apply = () => setNarrow(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+  return narrow;
+}
+
 function KpiRow({
   kpi,
   category,
@@ -556,6 +570,55 @@ function KpiRow({
 }: KpiRowProps) {
   const fmt = useFormat();
   const CategoryIcon = categoryIcon(category?.icon);
+  const narrow = useNarrowScreen();
+  // The row's actions: in the Actions column on a wide screen, under the name on a phone (F-060). One copy is
+  // in the page at a time, so nothing matches twice.
+  const actions = (suffix: '' | 'phone-') => (
+    <div className="inline-flex flex-wrap justify-end gap-2">
+          {kpi.scope === 'ORG_WIDE' && (
+            <PermissionGuard permission="KPI_DATA_ENTRY">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onExpand}
+                data-testid={`expand-kpi-${suffix}${kpi.name}`}
+              >
+                {expanded ? 'Hide data' : 'Record value'}
+              </Button>
+            </PermissionGuard>
+          )}
+          {/* A per-unit or per-person value needs to know whose it is: the KPI's Data tab asks, and
+              says so plainly when there is nothing this person can record. */}
+          {kpi.scope !== 'ORG_WIDE' && (
+            <PermissionGuard permission="KPI_DATA_ENTRY">
+              <Link href={`/kpis/${kpi.id}?tab=data`} data-testid={`record-kpi-${suffix}${kpi.name}`}>
+                <Button variant="secondary" size="sm">
+                  Record value
+                </Button>
+              </Link>
+            </PermissionGuard>
+          )}
+          <PermissionGuard permission="KPI_EDIT">
+            <Link href={`/kpis/${kpi.id}/edit`} data-testid={`kpi-edit-${suffix}${kpi.id}`}>
+              <Button variant="ghost" size="sm">
+                Edit
+              </Button>
+            </Link>
+          </PermissionGuard>
+          <PermissionGuard permission="KPI_DELETE">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              disabled={deleting}
+              data-testid={`delete-kpi-${suffix}${kpi.name}`}
+              className="text-status-critical hover:bg-status-critical-bg"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </PermissionGuard>
+        </div>
+  );
   return (
     <>
       <TableRow data-testid={`kpi-row-${kpi.name}`} className="hover:bg-surface-hover">
@@ -594,13 +657,14 @@ function KpiRow({
               {category.name}
             </span>
           )}
+          {narrow && <div className="mt-1">{actions('phone-')}</div>}
         </TableCell>
-        <TableCell>
+        <TableCell className="hidden sm:table-cell">
           <span data-testid="kpi-scope-badge">
             <ScopeBadge scope={kpi.scope} />
           </span>
         </TableCell>
-        <TableCell>
+        <TableCell className="hidden md:table-cell">
           <span data-testid="kpi-type" className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content">
             {labelFor(KPI_TYPE_LABELS, kpi.type)}
           </span>
@@ -610,7 +674,7 @@ function KpiRow({
             <Badge tone={KPI_STATUS_TONE[kpi.status]}>{labelFor(KPI_STATUS_LABELS, kpi.status)}</Badge>
           </span>
         </TableCell>
-        <TableCell className="text-right tabular-nums">
+        <TableCell className="hidden text-right tabular-nums md:table-cell">
           {kpi.targetValue !== null ? (
             <span data-testid="kpi-target">
               {fmt.number(kpi.targetValue)}
@@ -620,7 +684,7 @@ function KpiRow({
             <span className="text-content-muted">—</span>
           )}
         </TableCell>
-        <TableCell className="text-content-muted">
+        <TableCell className="hidden text-content-muted lg:table-cell">
           {kpi.scope === 'PER_UNIT' && kpi.orgUnitAssignments.length > 0 && (
             <span data-testid={`kpi-assignment-count-${kpi.name}`} className="tabular-nums">
               {kpi.orgUnitAssignments.length} unit
@@ -637,52 +701,7 @@ function KpiRow({
             (kpi.scope === 'PER_USER' && kpi.userAssignments.length === 0) ||
             kpi.scope === 'ORG_WIDE') && <span>—</span>}
         </TableCell>
-        <TableCell className="text-right">
-          <div className="inline-flex gap-2">
-            {kpi.scope === 'ORG_WIDE' && (
-              <PermissionGuard permission="KPI_DATA_ENTRY">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onExpand}
-                  data-testid={`expand-kpi-${kpi.name}`}
-                >
-                  {expanded ? 'Hide data' : 'Record value'}
-                </Button>
-              </PermissionGuard>
-            )}
-            {/* A per-unit or per-person value needs to know whose it is: the KPI's Data tab asks, and
-                says so plainly when there is nothing this person can record. */}
-            {kpi.scope !== 'ORG_WIDE' && (
-              <PermissionGuard permission="KPI_DATA_ENTRY">
-                <Link href={`/kpis/${kpi.id}?tab=data`} data-testid={`record-kpi-${kpi.name}`}>
-                  <Button variant="secondary" size="sm">
-                    Record value
-                  </Button>
-                </Link>
-              </PermissionGuard>
-            )}
-            <PermissionGuard permission="KPI_EDIT">
-              <Link href={`/kpis/${kpi.id}/edit`} data-testid={`kpi-edit-${kpi.id}`}>
-                <Button variant="ghost" size="sm">
-                  Edit
-                </Button>
-              </Link>
-            </PermissionGuard>
-            <PermissionGuard permission="KPI_DELETE">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDelete}
-                disabled={deleting}
-                data-testid={`delete-kpi-${kpi.name}`}
-                className="text-status-critical hover:bg-status-critical-bg"
-              >
-                {deleting ? 'Deleting…' : 'Delete'}
-              </Button>
-            </PermissionGuard>
-          </div>
-        </TableCell>
+        <TableCell className="hidden text-right md:table-cell">{!narrow && actions('')}</TableCell>
       </TableRow>
 
       {expanded && (

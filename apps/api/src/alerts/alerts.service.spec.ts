@@ -89,6 +89,13 @@ class FakePrisma {
     }),
   };
   kPI = { findMany: vi.fn(async () => [] as Array<{ id: string }>) };
+  /** The people of the organisation, for "acknowledged by" (F-036). */
+  users: Array<{ id: string; organizationId: string; fullName: string | null; email: string }> = [];
+  user = {
+    findFirst: vi.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+      this.users.find((u) => u.id === where.id && u.organizationId === where.organizationId) ?? null,
+    ),
+  };
 }
 
 class FakeAudit {
@@ -269,5 +276,17 @@ describe('AlertsService.list — older alerts', () => {
     expect(await withCtx({ userId: 'me' }, () => service.list({ before: 'a_theirs' }))).toEqual([]);
     expect(await withCtx({ userId: 'me' }, () => service.list({ before: 'nope' }))).toEqual([]);
     expect(prisma.alert.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// Manual QA (2026-11-20, F-036): after Acknowledge the page showed only the time, not who did it.
+describe('AlertsService.getById says who acknowledged', () => {
+  test('the acknowledging person\'s name comes with the alert; none when no one has', async () => {
+    const { service, prisma, accessContext } = makeService();
+    accessContext.isAdmin = true;
+    prisma.alerts.push(mkAlert({ id: 'a1', acknowledgedAt: new Date(), acknowledgedById: 'u2' }), mkAlert({ id: 'a2' }));
+    prisma.users.push({ id: 'u2', organizationId: ORG, fullName: 'Marcus Lee', email: 'marcus@x.test' });
+    expect(await withCtx({ userId: 'admin' }, () => service.getById('a1'))).toMatchObject({ id: 'a1', acknowledgedBy: 'Marcus Lee' });
+    expect(await withCtx({ userId: 'admin' }, () => service.getById('a2'))).toMatchObject({ id: 'a2', acknowledgedBy: null });
   });
 });

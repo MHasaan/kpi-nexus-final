@@ -320,6 +320,11 @@
                     "type": "number",
                     "minimum": 0
                   },
+                  "dailyCallCap": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
                   "circuitBreaker": {
                     "type": "string",
                     "enum": [
@@ -1554,6 +1559,27 @@
                   },
                   "isActive": {
                     "type": "boolean"
+                  },
+                  "kpiId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ruleType": {
+                    "type": "string",
+                    "enum": [
+                      "STATIC_THRESHOLD",
+                      "DYNAMIC_STDDEV",
+                      "RATE_OF_CHANGE",
+                      "NO_DATA",
+                      "COMPOSITE"
+                    ]
+                  },
+                  "config": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
                   },
                   "escalationLevels": {
                     "maxItems": 10,
@@ -5653,6 +5679,36 @@
         "x-required-permissions": {
           "all": [
             "KPI_VIEW"
+          ]
+        }
+      }
+    },
+    "/integrations/slack/readiness": {
+      "get": {
+        "operationId": "IntegrationProvidersController_slackReadiness",
+        "tags": [
+          "IntegrationProviders"
+        ],
+        "summary": "GET /integrations/slack/readiness",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "INTEGRATIONS_MANAGE"
           ]
         }
       }
@@ -12539,6 +12595,77 @@
             "GROUPS_MANAGE"
           ]
         }
+      },
+      "patch": {
+        "operationId": "OrgUnitsController_updateMemberRole",
+        "tags": [
+          "OrgUnits"
+        ],
+        "summary": "PATCH /org-units/:id/members/:userId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "memberRole": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "MANAGER",
+                      "LEAD",
+                      "DEPUTY"
+                    ]
+                  }
+                },
+                "required": [
+                  "memberRole"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "GROUPS_MANAGE"
+          ]
+        }
       }
     },
     "/org-units/{id}/merge-into": {
@@ -14749,7 +14876,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "KPI_VIEW"
+            "REPORTS_MANAGE"
           ]
         }
       }
@@ -14789,7 +14916,7 @@
         ],
         "x-required-permissions": {
           "all": [
-            "KPI_VIEW"
+            "REPORTS_MANAGE"
           ]
         }
       }
@@ -16062,6 +16189,54 @@
           "ScheduledReports"
         ],
         "summary": "GET /scheduled-reports/:id/runs/:runId/download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "REPORTS_VIEW"
+          ]
+        }
+      }
+    },
+    "/scheduled-reports/{id}/runs/{runId}/file": {
+      "get": {
+        "operationId": "ScheduledReportsController_file",
+        "tags": [
+          "ScheduledReports"
+        ],
+        "summary": "GET /scheduled-reports/:id/runs/:runId/file",
         "parameters": [
           {
             "name": "id",

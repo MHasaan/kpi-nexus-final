@@ -8,7 +8,7 @@ import { AnyPermissionGuard } from '../../components/auth/permission-guard';
 import { RequireAnyPermission } from '../../components/auth/require-permission';
 import { CopyButton } from '../../components/copy-button';
 import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Input, Label, PageHeader, Skeleton } from '../../components/ui';
-import { ApiError, apiBaseUrl } from '../../lib/api-client';
+import { ApiError, apiBaseUrl, getSlackReadiness } from '../../lib/api-client';
 import { useFormat } from '../../lib/format-context';
 import {
   connectIntegration,
@@ -76,6 +76,20 @@ export default function IntegrationsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   // Slack: the form is open, and what is typed in it.
   const [slackOpen, setSlackOpen] = useState(false);
+  // Whether this server can complete a Slack connection; unknown until asked, and asked when the setup is shown.
+  const [slackReady, setSlackReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!slackOpen && !connections['slack']) return;
+    getSlackReadiness()
+      .then((r) => setSlackReady(r.signingSecretSet))
+      .catch(() => setSlackReady(null));
+  }, [slackOpen, connections]);
+  const slackNotReady = slackReady === false && (
+    <p role="alert" data-testid="slack-not-ready" className="rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-content-strong">
+      This server has no Slack signing secret yet, so Slack cannot confirm a connection. Whoever runs the server sets
+      SLACK_SIGNING_SECRET and restarts it; until then the addresses below will not work.
+    </p>
+  );
   const [teamId, setTeamId] = useState('');
   const [slackError, setSlackError] = useState<string | null>(null);
   // Jira: the webhook secret, shown once after connecting or rotating.
@@ -174,7 +188,7 @@ export default function IntegrationsPage() {
         <PageHeader title="Integrations" subtitle="Connect KPI Nexus to chat, issue trackers, data sources, and more." />
 
         {loading && (
-          <div data-testid="integrations-loading" className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-testid="integrations-loading" className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-44 rounded-xl" />
             ))}
@@ -188,7 +202,7 @@ export default function IntegrationsPage() {
         )}
 
         {!loading && (
-          <div data-testid="integrations-grid" className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-testid="integrations-grid" className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {CATALOG.map((item) => {
               const connection = item.kind === 'connection' ? connections[item.key] : undefined;
               const status = statusOf(connection, item.name);
@@ -218,6 +232,7 @@ export default function IntegrationsPage() {
 
                     {item.key === 'slack' && connection && (
                       <div className="space-y-2" data-testid="slack-setup">
+                        {slackNotReady}
                         <p className="text-xs text-content-muted">
                           {connection.status === 'CONNECTED'
                             ? 'In your Slack app these two addresses are in use:'
@@ -225,12 +240,13 @@ export default function IntegrationsPage() {
                         </p>
                         <Address label="Slash command — Request URL" value={SLACK_COMMANDS_URL} testId="slack-commands-url" />
                         <Address label="Interactivity — Request URL" value={SLACK_INTERACTIVE_URL} testId="slack-interactive-url" />
-                        <p className="text-[11px] text-content-muted">The app&apos;s signing secret is set on the server by whoever runs it, not here.</p>
+                        <p className="text-[11px] text-content-muted">The app&apos;s signing secret is set on the server by whoever runs it, not here{slackReady ? ', and it is set' : ''}.</p>
                       </div>
                     )}
 
                     {item.key === 'slack' && !connection && slackOpen && (
                       <form onSubmit={connectSlack} className="space-y-2" data-testid="slack-form">
+                        {slackNotReady}
                         <Label htmlFor="slack-team-id">Slack workspace ID</Label>
                         <Input id="slack-team-id" data-testid="slack-team-id" value={teamId} onChange={(e) => setTeamId(e.target.value.toUpperCase())} placeholder="T0ABC123" autoComplete="off" />
                         <p className="text-[11px] text-content-muted">In Slack: the workspace name → Settings &amp; administration → the address ends in the ID.</p>

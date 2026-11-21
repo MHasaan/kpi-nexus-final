@@ -182,7 +182,7 @@ export function managerChoices(team: readonly TeamRow[], index: number, adminEma
 }
 
 /** Set or clear one optional field on a person without leaving an `undefined` behind. */
-export function setTeamField(person: TeamRow, field: 'role' | 'position' | 'unit' | 'manager', value: string): TeamRow {
+export function setTeamField(person: TeamRow, field: 'role' | 'position' | 'unit' | 'unitRole' | 'manager', value: string): TeamRow {
   if (value) return { ...person, [field]: value };
   const { [field]: _dropped, ...rest } = person;
   return rest;

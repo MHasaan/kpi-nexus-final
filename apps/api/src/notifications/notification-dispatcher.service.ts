@@ -6,6 +6,7 @@ import { isTimeZone } from '@kpi-nexus/contracts';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { decryptConfig } from '../notification-channels/notification-crypto.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import {
   NotificationAdaptersService,
   NonRetryableDeliveryError,
@@ -20,6 +21,14 @@ export const NOTIFICATION_RETRY_QUEUE = 'notification-retry';
 export interface NotificationRetryJobData {
   deliveryId: string;
   organizationId: string;
+}
+
+const SEVERITY_WORDS: Readonly<Record<string, string>> = { HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' };
+
+/** "High alert: Monthly Recurring Revenue"; without the KPI's name, "High alert". */
+export function alertTitle(severity: string, kpiName: string | null): string {
+  const word = SEVERITY_WORDS[severity] ?? 'KPI';
+  return `${word} alert${kpiName ? `: ${kpiName}` : ''}`;
 }
 
 /** Retry backoff in ms by attempt number already made (1→2nd attempt, etc.). */
@@ -79,6 +88,32 @@ export class NotificationDispatcherService {
       await this.attemptDelivery(row.id);
     }
     return ids;
+  }
+
+  /**
+   * The addresses the given channels send email to, lowercased: someone on one of them is not emailed a
+   * second time by name (F-034). Channels that are not email, inactive or unreadable add nothing.
+   */
+  async emailAddressesOf(channelIds: string[]): Promise<Set<string>> {
+    const addresses = new Set<string>();
+    if (channelIds.length === 0) return addresses;
+    const channels = await this.prisma.notificationChannel.findMany({
+      where: { id: { in: channelIds }, kind: 'EMAIL', isActive: true },
+      select: { config: true },
+    });
+    for (const channel of channels) {
+      let config: Record<string, unknown>;
+      try {
+        config = decryptConfig(channel.config as string);
+      } catch {
+        continue;
+      }
+      const listed = Array.isArray(config.recipients) ? config.recipients : [config.fromAddress ?? config.to];
+      for (const address of listed) {
+        if (typeof address === 'string' && address.trim()) addresses.add(address.trim().toLowerCase());
+      }
+    }
+    return addresses;
   }
 
   /**
@@ -151,21 +186,29 @@ export class NotificationDispatcherService {
 
     const alert = await this.prisma.alert.findUnique({
       where: { id: delivery.alertId },
-      select: { id: true, kpiId: true, severity: true, message: true },
+      select: { id: true, kpiId: true, severity: true, message: true, alertRule: { select: { name: true, description: true } } },
     });
     if (!alert) return;
+    // The KPI's name heads the notification; not knowing it is no reason to hold the alert back.
+    const kpi = await this.prisma.kPI.findUnique({ where: { id: alert.kpiId }, select: { name: true } }).catch(() => null);
 
     // Whose alert it is, for an email's header and colour. Not knowing is no reason to hold the alert back.
     const org = await this.prisma.organization
       .findUnique({ where: { id: delivery.organizationId }, select: { name: true, logoUrl: true, primaryColor: true } })
       .catch(() => null);
 
+    // Every notification said "KPI Alert" and carried only the message (F-034): now the KPI, the rule, what
+    // the rule says to do, and where the alert is.
     const payload: NotificationPayload = {
       alertId: alert.id,
       kpiId: alert.kpiId,
       severity: alert.severity,
       message: alert.message,
-      title: 'KPI Alert',
+      title: alertTitle(alert.severity, kpi?.name ?? null),
+      kpiName: kpi?.name ?? null,
+      ruleName: alert.alertRule?.name ?? null,
+      runbook: alert.alertRule?.description?.trim() || null,
+      link: webAppUrl(`/alerts/${alert.id}`),
       brand: emailBrandOf(org),
     };
 

@@ -22,7 +22,13 @@ const deliverySelect = {
   createdAt: true,
 } satisfies Prisma.NotificationDeliverySelect;
 
-export type PublicDelivery = Prisma.NotificationDeliveryGetPayload<{ select: typeof deliverySelect }>;
+export type PublicDelivery = Prisma.NotificationDeliveryGetPayload<{ select: typeof deliverySelect }> & {
+  /** The channel it went through, by name; null when it went to a person (F-070: the page showed only an id). */
+  channelName: string | null;
+  /** The KPI and the alert's message, so the row says what failed. */
+  kpiName: string | null;
+  alertMessage: string | null;
+};
 
 @Injectable()
 export class NotificationDeliveriesService {
@@ -48,12 +54,13 @@ export class NotificationDeliveriesService {
       if (filter.from) where.createdAt.gte = filter.from;
       if (filter.to) where.createdAt.lte = filter.to;
     }
-    return this.prisma.notificationDelivery.findMany({
+    const rows = await this.prisma.notificationDelivery.findMany({
       where,
       select: deliverySelect,
       orderBy: [{ createdAt: 'desc' }],
       take: Math.min(filter.limit ?? 100, 500),
     });
+    return this.withNames(rows);
   }
 
   /** Manually re-attempt a failed delivery (DLQ retry). */
@@ -67,9 +74,40 @@ export class NotificationDeliveriesService {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Delivery not found' });
     }
     await this.dispatcher.attemptDelivery(id);
-    return this.prisma.notificationDelivery.findUniqueOrThrow({
+    const row = await this.prisma.notificationDelivery.findUniqueOrThrow({
       where: { id },
       select: deliverySelect,
+    });
+    return (await this.withNames([row]))[0]!;
+  }
+
+  /** Each row with the names a person needs: the channel, the KPI and the alert's message (F-070). */
+  private async withNames(rows: Prisma.NotificationDeliveryGetPayload<{ select: typeof deliverySelect }>[]): Promise<PublicDelivery[]> {
+    if (rows.length === 0) return [];
+    const ctx = RequestContextStore.require();
+    const channelIds = [...new Set(rows.map((r) => r.channelId).filter((id): id is string => id !== null))];
+    const alertIds = [...new Set(rows.map((r) => r.alertId))];
+    const [channels, alerts] = await Promise.all([
+      channelIds.length > 0
+        ? this.prisma.notificationChannel.findMany({ where: { id: { in: channelIds }, organizationId: ctx.organizationId }, select: { id: true, name: true } })
+        : [],
+      this.prisma.alert.findMany({ where: { id: { in: alertIds }, organizationId: ctx.organizationId }, select: { id: true, message: true, kpiId: true } }),
+    ]);
+    const kpiIds = [...new Set(alerts.map((a) => a.kpiId))];
+    const kpis = kpiIds.length > 0
+      ? await this.prisma.kPI.findMany({ where: { id: { in: kpiIds }, organizationId: ctx.organizationId }, select: { id: true, name: true } })
+      : [];
+    const channelName = new Map(channels.map((c) => [c.id, c.name]));
+    const alertById = new Map(alerts.map((a) => [a.id, a]));
+    const kpiName = new Map(kpis.map((k) => [k.id, k.name]));
+    return rows.map((r) => {
+      const alert = alertById.get(r.alertId);
+      return {
+        ...r,
+        channelName: r.channelId ? (channelName.get(r.channelId) ?? null) : null,
+        kpiName: alert ? (kpiName.get(alert.kpiId) ?? null) : null,
+        alertMessage: alert?.message ?? null,
+      };
     });
   }
 }

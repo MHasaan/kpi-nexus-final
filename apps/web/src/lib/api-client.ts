@@ -1964,6 +1964,8 @@ export interface Alert {
   targetUserId: string | null;
   acknowledgedAt: string | null;
   acknowledgedById: string | null;
+  /** Who acknowledged it, by name (on an alert's own page). */
+  acknowledgedBy?: string | null;
   resolvedAt: string | null;
   meta: Record<string, unknown> | null;
   createdAt: string;
@@ -2237,6 +2239,10 @@ export interface NotificationDelivery {
   error: string | null;
   sentAt: string | null;
   createdAt: string;
+  /** What failed, in words: the channel, the KPI and the alert's message (F-070). Absent on older answers. */
+  channelName?: string | null;
+  kpiName?: string | null;
+  alertMessage?: string | null;
 }
 
 /** The most deliveries the API gives in one answer (notification-deliveries.service.ts). */

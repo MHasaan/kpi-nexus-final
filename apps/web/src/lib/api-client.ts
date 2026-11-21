@@ -2603,6 +2603,8 @@ export interface LineageHop {
   id: string;
   via: string;
   edgeId: string;
+  /** The node's name when it is one of this organisation's KPIs. */
+  name?: string;
 }
 export async function getLineageUpstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
   return api(`/lineage/${type}/${id}/upstream?depth=${depth}`);

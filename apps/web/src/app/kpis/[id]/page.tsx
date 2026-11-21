@@ -98,7 +98,7 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { PastValuesForm } from '../../../components/kpis/past-values-form';
 import { KpiPicker } from '../../../components/dashboard-grid/kpi-picker';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
-import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, BENCHMARK_KIND_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, LINEAGE_DOWNSTREAM_LABELS, LINEAGE_UPSTREAM_LABELS, type LabelMap, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useAllowed } from '../../../lib/use-allowed';
 import { useAccess } from '../../../lib/use-access';
@@ -1419,7 +1419,16 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
   );
 }
 
+/** "computed:internal_historical:30d:n=8" → "the average of 8 values over 30 days"; anything else as written. */
+function benchmarkSourceInWords(source: string): string {
+  const m = /^computed:internal_historical:(\d+)d:n=(\d+)$/.exec(source);
+  if (!m) return source;
+  const n = Number(m[2]);
+  return `the average of ${n} value${n === 1 ? '' : 's'} over ${m[1]} days`;
+}
+
 function BenchmarksTab({ kpiId }: { kpiId: string }) {
+  const fmt = useFormat();
   const confirm = useConfirm();
   const [benchmarks, reload, loadError] = useAsync(() => listBenchmarks(kpiId), [kpiId]);
   const [form, setForm] = useState({ kind: 'EXTERNAL_INDUSTRY', value: '', source: '' });
@@ -1495,17 +1504,20 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
           {(benchmarks ?? []).map((b: Benchmark) => (
             <div
               key={b.id}
+              data-testid="benchmark-row"
               className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
             >
+              {/* In words and formatted: "EXTERNAL_INDUSTRY: 260000 (computed:internal_historical:30d:n=8)" told nobody (F-071). */}
               <span className="tabular-nums text-content-strong">
-                {b.kind}: {b.value} {b.source && <span className="text-content-muted">({b.source})</span>}
+                {labelFor(BENCHMARK_KIND_LABELS, b.kind)}: {fmt.number(b.value)}{' '}
+                {b.source && <span className="text-content-muted">({benchmarkSourceInWords(b.source)})</span>}
               </span>
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() =>
                   void confirm({
-                    title: `Delete the ${b.kind.toLowerCase().replace(/_/g, ' ')} benchmark?`,
+                    title: `Delete the ${labelFor(BENCHMARK_KIND_LABELS, b.kind).toLowerCase()}?`,
                     description: 'It is no longer shown against this KPI. Recorded values are kept.',
                     confirmLabel: 'Delete benchmark',
                     tone: 'danger',
@@ -1539,16 +1551,23 @@ function LineageTab({ kpiId }: { kpiId: string }) {
     reloadUp();
     reloadDown();
   };
-  const col = (title: string, hops: LineageHop[] | null) => (
-    <UICard>
+  // Each hop by name, as a link when it is a KPI, and how it connects in words (F-071: "kpi:cmwmyjra CASCADE_ROLLUP").
+  const col = (title: string, hops: LineageHop[] | null, labels: LabelMap, testId: string) => (
+    <UICard data-testid={testId}>
       <CardContent>
         <p className="kn-eyebrow mb-2">{title}</p>
         {(hops ?? []).map((h) => (
           <div key={h.edgeId} className="border-b border-border-divider py-2 text-sm last:border-0">
-            <span className="font-mono text-content-strong">
-              {h.type}:{h.id.slice(0, 8)}
-            </span>
-            <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-content-muted">{h.via}</span>
+            {h.type === 'kpi' && h.name ? (
+              <Link href={`/kpis/${h.id}`} className="font-medium text-content-strong hover:text-accent-primary">
+                {h.name}
+              </Link>
+            ) : (
+              <span className="font-mono text-content-strong">
+                {h.type}:{h.id.slice(0, 8)}
+              </span>
+            )}
+            <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-content-muted">{labelFor(labels, h.via)}</span>
           </div>
         ))}
         {hops && hops.length === 0 && <p className="py-2 text-content-muted">None.</p>}
@@ -1558,8 +1577,8 @@ function LineageTab({ kpiId }: { kpiId: string }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <TabLoadError error={loadError} onRetry={reload} className="sm:col-span-2" />
-      {col('Upstream (inputs)', up)}
-      {col('Downstream (consumers)', down)}
+      {col('What feeds this KPI', up, LINEAGE_UPSTREAM_LABELS, 'lineage-upstream')}
+      {col('What this KPI feeds', down, LINEAGE_DOWNSTREAM_LABELS, 'lineage-downstream')}
     </div>
   );
 }

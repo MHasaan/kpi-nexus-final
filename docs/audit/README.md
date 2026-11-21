@@ -607,6 +607,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-043): Ask listed every KPI as a source under an answer about one | ✅ Fixed — the sources are the KPIs the answer names, plus any a tool read | #476 | `nlq.service.spec.ts` |
 | Manual QA (2026-11-20, F-070/F-036): failed deliveries showed only a truncated id and Retry gave no word; an alert's page did not say who acknowledged it | ✅ Fixed — rows name the KPI, message and channel, Retry says so; the alert says who acknowledged | #477 | deliveries and alerts service specs, `deliveries-and-alerts-say-what-and-who.spec.ts` |
 | Manual QA (2026-11-19, F-001): the co-pilot's Suggest and Explain tabs shared one feed | ✅ Fixed — each tab shows its own thread and keeps it | #478 | `wizard-copilot-rail.spec.ts` |
+| Manual QA (2026-11-19, F-041): an automation's task was unassigned with no due date or priority, and the form offered none | ✅ Fixed — the form asks for the owner, priority and days until due, and saves them | #479 | `workflow-form.spec.ts`, `automations.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

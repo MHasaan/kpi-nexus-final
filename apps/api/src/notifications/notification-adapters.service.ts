@@ -15,6 +15,11 @@ export interface NotificationPayload {
   title?: string;
   /** The organisation the alert belongs to, for an email's header and colour (plan 6.3). */
   brand?: EmailBrand;
+  /** The KPI's name, the rule that raised the alert and what it says to do, and where to open the alert (F-034). */
+  kpiName?: string | null;
+  ruleName?: string | null;
+  runbook?: string | null;
+  link?: string | null;
 }
 
 /** Thrown by adapters for permanent (4xx-class) failures — not retried. */
@@ -49,7 +54,12 @@ export class NotificationAdaptersService {
         return this.sendEmail(config, payload);
       case 'SLACK':
         return this.postJson(String(config.webhookUrl ?? ''), {
-          text: `${SEVERITY_EMOJI[payload.severity] ?? ''} *${payload.title ?? 'Alert'}*\n${payload.message}`,
+          text: [
+            `${SEVERITY_EMOJI[payload.severity] ?? ''} *${payload.title ?? 'Alert'}*`,
+            payload.message,
+            ...(payload.runbook ? [`What to do: ${payload.runbook}`] : []),
+            ...(payload.link ? [payload.link] : []),
+          ].join('\n'),
         });
       case 'TEAMS':
         // An Adaptive Card: Teams retired the legacy MessageCard connector format.
@@ -86,12 +96,24 @@ export class NotificationAdaptersService {
       this.logger.debug('EMAIL channel has no recipients configured — skipping');
       return;
     }
-    const body = `<p><strong>${escapeHtml(payload.title ?? 'KPI Alert')}</strong></p><p>${escapeHtml(payload.message)}</p>`;
+    // What the person needs to act (F-034): the KPI in the title, the rule, what to do, and the way in.
+    const title = payload.title ?? 'KPI Alert';
+    const paragraphs = [`<p><strong>${escapeHtml(title)}</strong></p><p>${escapeHtml(payload.message)}</p>`];
+    if (payload.ruleName) paragraphs.push(`<p>Rule: ${escapeHtml(payload.ruleName)}</p>`);
+    if (payload.runbook) paragraphs.push(`<p><strong>What to do:</strong> ${escapeHtml(payload.runbook)}</p>`);
+    if (payload.link) paragraphs.push(`<p><a href="${escapeHtml(payload.link)}">Open the alert</a></p>`);
+    const body = paragraphs.join('');
+    const text = [
+      payload.message,
+      ...(payload.ruleName ? [`Rule: ${payload.ruleName}`] : []),
+      ...(payload.runbook ? [`What to do: ${payload.runbook}`] : []),
+      ...(payload.link ? [`Open the alert: ${payload.link}`] : []),
+    ].join('\n');
     await this.email.send({
       to: recipients,
-      subject: `${SEVERITY_EMOJI[payload.severity] ?? ''} ${payload.title ?? 'KPI Alert'}`,
+      subject: `${SEVERITY_EMOJI[payload.severity] ?? ''} ${title}${payload.ruleName ? ` — ${payload.ruleName}` : ''}`,
       html: payload.brand ? brandedHtml(payload.brand, body) : body,
-      text: payload.message,
+      text,
     });
   }
 

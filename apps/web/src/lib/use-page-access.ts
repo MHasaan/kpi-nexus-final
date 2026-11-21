@@ -8,6 +8,7 @@ import {
   pageAccessOf,
   type PageAccessResolved,
 } from './access';
+import { ACCESS_PROFILE_EVENT } from './session-events';
 
 export interface UsePageAccessResult {
   /** The resolved page-access config for the current user (no-restriction default). */
@@ -42,12 +43,17 @@ export function usePageAccess(): UsePageAccessResult {
 
     read();
 
-    // Re-read if another tab/flow updates the cached profile.
+    // Re-read if another tab/flow updates the cached profile, or this tab's shell takes the server's fresh
+    // answer (F-050: a page hidden for a role stayed in the menu until a reload).
     function onStorage(e: StorageEvent) {
       if (e.key === 'kpi-nexus.access-profile') read();
     }
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener(ACCESS_PROFILE_EVENT, read);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(ACCESS_PROFILE_EVENT, read);
+    };
   }, []);
 
   return { pageAccess, ready };

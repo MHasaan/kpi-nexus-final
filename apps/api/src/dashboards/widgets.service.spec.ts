@@ -24,7 +24,7 @@ function make() {
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'w1', ...data })),
     },
   };
-  const dashboards = { getById: vi.fn(async () => ({ id: 'd1' })) };
+  const dashboards = { getById: vi.fn(async () => ({ id: 'd1' })), getByIdForChange: vi.fn(async () => ({ id: 'd1' })) };
   const service = new WidgetsService(
     prisma as unknown as PrismaService,
     { record: vi.fn(async () => undefined) } as unknown as AuditService,

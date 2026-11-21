@@ -46,7 +46,7 @@ test('KPI tabs: deleting a target, a band, a benchmark or a cascade link asks fi
   for (const [tab, button, dialogId, says] of [
     ['targets', 'Delete', 'target-delete-confirm', 'Delete the static target?'],
     ['thresholds', 'Delete', 'band-delete-confirm', 'Delete the band “On track”?'],
-    ['benchmarks', 'Delete', 'benchmark-delete-confirm', 'Delete the external industry benchmark?'],
+    ['benchmarks', 'Delete', 'benchmark-delete-confirm', 'Delete the industry benchmark?'],
     ['cascade', 'Detach', 'cascade-detach-confirm', `Detach from “Profit ${stamp}”?`],
   ] as const) {
     await page.goto(`/kpis/${kpi.id}?tab=${tab}`);

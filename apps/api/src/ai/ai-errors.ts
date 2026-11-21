@@ -4,16 +4,18 @@ import type { AiProviderKey } from '@kpi-nexus/contracts';
 
 /** Raised when a pre-flight budget check blocks a call in FAIL_CLOSED mode. */
 export class AiBudgetExceededError extends HttpException {
-  constructor(reason: 'DAILY_CAP' | 'MONTHLY_CAP' | 'FEATURE_CAP') {
+  constructor(reason: 'DAILY_CAP' | 'MONTHLY_CAP' | 'FEATURE_CAP' | 'DAILY_CALLS') {
     super(
       {
         code: 'AI_BUDGET_EXCEEDED',
         message:
           reason === 'DAILY_CAP'
             ? 'Daily AI spend cap reached. Try again tomorrow or raise the cap in AI settings.'
-            : reason === 'FEATURE_CAP'
-              ? "This AI feature has reached its own daily cap. Try again tomorrow or raise the feature's cap in AI settings."
-              : 'Monthly AI spend cap reached. Raise the cap in AI settings to continue.',
+            : reason === 'DAILY_CALLS'
+              ? "Today's AI call limit is reached. Try again tomorrow or raise the limit in AI settings."
+              : reason === 'FEATURE_CAP'
+                ? "This AI feature has reached its own daily cap. Try again tomorrow or raise the feature's cap in AI settings."
+                : 'Monthly AI spend cap reached. Raise the cap in AI settings to continue.',
         details: { reason },
       },
       HttpStatus.PAYMENT_REQUIRED,

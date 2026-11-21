@@ -15,7 +15,7 @@ function make(visible: string[]) {
   const insight = (kpiId: string) => ({ id: `ins_${kpiId}`, kpiId }) as unknown as KPIInsight;
   const service = {
     generate: vi.fn(async (kpiId: string) => insight(kpiId)),
-    generateBatch: vi.fn(async () => [insight('k_visible'), insight('k_hidden')]),
+    generateBatch: vi.fn(async () => ({ insights: [insight('k_visible'), insight('k_hidden')], skipped: { tooFewValues: 0, littleChange: 0 }, thresholdChangePct: 10 })),
   };
   const access = {
     isKpiVisible: vi.fn(async (id: string) => visible.includes(id)),

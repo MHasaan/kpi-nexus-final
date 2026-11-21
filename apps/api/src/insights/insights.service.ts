@@ -34,6 +34,18 @@ const SYSTEM_PROMPT = [
   'Be specific with numbers. When a target is given, say how the latest value compares to it (e.g. "12% below its target of Y"). No preamble, no markdown headers — just the narrative.',
 ].join('\n');
 
+/** What a batch run made, and what it passed over. */
+export interface InsightBatch {
+  insights: KPIInsight[];
+  skipped: {
+    /** KPIs with fewer than two values: no trend to speak of. */
+    tooFewValues: number;
+    /** KPIs that changed less than the threshold since their first value. */
+    littleChange: number;
+  };
+  thresholdChangePct: number;
+}
+
 /** Fields pulled from the KPI to ground the insight narrative. */
 interface KpiGrounding {
   id: string;
@@ -208,8 +220,11 @@ export class InsightsService {
     return created;
   }
 
-  /** Generate insights for the org's most-changed KPIs (|changePct| ≥ threshold). */
-  async generateBatch(input: { thresholdChangePct?: number; topN?: number } = {}): Promise<KPIInsight[]> {
+  /**
+   * Generate insights for the org's most-changed KPIs (|changePct| ≥ threshold), and say what was skipped
+   * and why: "Generate" used to come back empty-handed with no word (F-042).
+   */
+  async generateBatch(input: { thresholdChangePct?: number; topN?: number } = {}): Promise<InsightBatch> {
     const ctx = RequestContextStore.require();
     const threshold = input.thresholdChangePct ?? 10;
     const topN = Math.min(50, Math.max(1, input.topN ?? 20));
@@ -220,11 +235,12 @@ export class InsightsService {
     });
 
     const candidates: Array<{ kpiId: string; changePct: number }> = [];
+    const skipped = { tooFewValues: 0, littleChange: 0 };
     for (const { id } of kpis) {
       const stats = computeWindowStats((await this.recentPoints(ctx.organizationId, id)).map((p) => p.value));
-      if (stats && Math.abs(stats.changePct) >= threshold) {
-        candidates.push({ kpiId: id, changePct: stats.changePct });
-      }
+      if (!stats) skipped.tooFewValues += 1;
+      else if (Math.abs(stats.changePct) < threshold) skipped.littleChange += 1;
+      else candidates.push({ kpiId: id, changePct: stats.changePct });
     }
 
     const ranked = rankByAbsChange(candidates, topN);
@@ -233,7 +249,7 @@ export class InsightsService {
       const insight = await this.generate(kpiId);
       if (insight) insights.push(insight);
     }
-    return insights;
+    return { insights, skipped, thresholdChangePct: threshold };
   }
 
   async list(filter: { kpiId?: string; from?: Date; to?: Date; includeDismissed?: boolean }): Promise<KPIInsight[]> {
@@ -300,7 +316,7 @@ export class InsightsService {
           { userId: 'insights-system', organizationId, roleId: null, principalType: 'user', bypassRls: true },
           () => this.generateBatch(),
         );
-        total += made.length;
+        total += made.insights.length;
       } catch (err) {
         this.logger.warn(`insights batch failed for org ${organizationId}: ${String(err)}`);
       }

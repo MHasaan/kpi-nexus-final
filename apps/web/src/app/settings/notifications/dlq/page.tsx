@@ -33,12 +33,14 @@ import { currentLoginRedirect } from '../../../../lib/auth-redirect';
 import { RequirePermission } from '../../../../components/auth/require-permission';
 import { usePermissions } from '../../../../lib/use-permissions';
 import { useFormat } from '../../../../lib/format-context';
+import { useToast } from '../../../../lib/use-toast';
 
 const FIRST_PAGE = 100;
 const OLDER_STEP = 200;
 
 export default function DlqPage() {
   const fmt = useFormat();
+  const toast = useToast();
   const router = useRouter();
   const [rows, setRows] = useState<NotificationDelivery[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function DlqPage() {
     try {
       await retryNotificationDelivery(id);
       await refresh();
+      toast.success('Sent again', 'The delivery was tried once more; the row shows how it went.');
     } catch (err) {
       setLoadError(err instanceof ApiError ? err.message : 'Retry failed');
     } finally {
@@ -173,7 +176,8 @@ export default function DlqPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Delivery</TableHead>
+                <TableHead>What failed</TableHead>
+                <TableHead>Through</TableHead>
                 <TableHead>Attempts</TableHead>
                 <TableHead>Error</TableHead>
                 <TableHead>Failed at</TableHead>
@@ -183,9 +187,19 @@ export default function DlqPage() {
             <TableBody>
               {rows.map((d) => (
                 <TableRow key={d.id} data-testid={`dlq-row-${d.id}`}>
-                  <TableCell className="font-mono text-xs text-content-muted">
-                    {d.id.slice(0, 10)}…
+                  {/* Which alert and channel, not a delivery id (F-070). */}
+                  <TableCell className="max-w-sm text-content-strong">
+                    {d.kpiName || d.alertMessage ? (
+                      <>
+                        {d.kpiName && <span className="font-medium">{d.kpiName}</span>}
+                        {d.kpiName && d.alertMessage && <span className="text-content-muted">: </span>}
+                        {d.alertMessage && <span className="text-content">{d.alertMessage}</span>}
+                      </>
+                    ) : (
+                      <span className="font-mono text-xs text-content-muted">{d.id.slice(0, 10)}…</span>
+                    )}
                   </TableCell>
+                  <TableCell className="text-content">{d.channelName ?? (d.targetUserId ? `${d.kind ? d.kind.toLowerCase() : 'a message'} to a person` : 'In-app')}</TableCell>
                   <TableCell className="tabular-nums">
                     <Badge tone="warning">{d.attempts}</Badge>
                   </TableCell>

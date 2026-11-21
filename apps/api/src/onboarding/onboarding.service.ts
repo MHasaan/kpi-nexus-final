@@ -568,7 +568,8 @@ export class OnboardingService {
           const unitId = person.unit?.trim() ? created.unitIds.get(nameKey(person.unit)) : undefined;
           if (unitId) {
             await this.prisma.orgUnitMember.create({
-              data: { organizationId: created.org.id, orgUnitId: unitId, userId: invited.user.id },
+              // The role the wizard gave them in the unit; a member unless it said otherwise (F-005).
+              data: { organizationId: created.org.id, orgUnitId: unitId, userId: invited.user.id, memberRole: person.unitRole ?? 'MEMBER' },
             });
           }
           outcome.set(email, { email, invited: true, emailSent: invited.emailSent, inviteToken: invited.inviteToken });

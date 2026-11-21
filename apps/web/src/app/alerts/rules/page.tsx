@@ -19,9 +19,7 @@ import {
   Button,
   Card,
   EmptyState,
-  Input,
   PageHeader,
-  Select,
   Skeleton,
   Table,
   TableBody,
@@ -29,7 +27,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Textarea,
 } from '../../../components/ui';
 import type { BadgeTone } from '../../../components/ui';
 import {
@@ -68,11 +65,6 @@ const linkSecondary =
 const linkPrimary =
   'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent-primary px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-interface EditDraft {
-  name: string;
-  severity: AlertSeverity;
-  description: string;
-}
 
 export default function AlertRulesPage() {
   const fmt = useFormat();
@@ -82,8 +74,6 @@ export default function AlertRulesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EditDraft | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleAuthError = useCallback(
@@ -140,23 +130,9 @@ export default function AlertRulesPage() {
     }
   }
 
+  /** The whole rule opens in the form that made it (F-069: the inline edit took only name, severity, description). */
   function startEdit(rule: AlertRule) {
-    setConfirmDeleteId(null);
-    setEditingId(rule.id);
-    setDraft({ name: rule.name, severity: rule.severity, description: rule.description ?? '' });
-  }
-
-  async function saveEdit(id: string) {
-    if (!draft) return;
-    await run(id, () =>
-      updateAlertRule(id, {
-        name: draft.name.trim(),
-        severity: draft.severity,
-        description: draft.description.trim(),
-      }),
-    );
-    setEditingId(null);
-    setDraft(null);
+    router.push(`/alerts/new?edit=${rule.id}`);
   }
 
   const activeCount = (rules ?? []).filter((r) => r.isActive).length;
@@ -233,68 +209,6 @@ export default function AlertRulesPage() {
                 {sorted.map((rule) => {
                   const sev = SEVERITY_META[rule.severity];
                   const busy = busyId === rule.id;
-                  if (editingId === rule.id && draft) {
-                    return (
-                      <TableRow key={rule.id} data-testid={`alert-rule-row-${rule.id}`}>
-                        <TableCell colSpan={6}>
-                          <form
-                            className="grid gap-3 py-2 sm:grid-cols-[1fr_10rem]"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              void saveEdit(rule.id);
-                            }}
-                          >
-                            <label className="flex flex-col gap-1 text-xs font-medium text-content-muted">
-                              Name
-                              <Input
-                                value={draft.name}
-                                minLength={2}
-                                maxLength={160}
-                                required
-                                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                              />
-                            </label>
-                            <label className="flex flex-col gap-1 text-xs font-medium text-content-muted">
-                              Severity
-                              <Select
-                                value={draft.severity}
-                                onChange={(e) => setDraft({ ...draft, severity: e.target.value as AlertSeverity })}
-                              >
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
-                              </Select>
-                            </label>
-                            <label className="flex flex-col gap-1 text-xs font-medium text-content-muted sm:col-span-2">
-                              Description
-                              <Textarea
-                                rows={2}
-                                maxLength={2000}
-                                value={draft.description}
-                                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                              />
-                            </label>
-                            <div className="flex gap-2 sm:col-span-2">
-                              <Button type="submit" size="sm" disabled={busy || draft.name.trim().length < 2}>
-                                Save
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditingId(null);
-                                  setDraft(null);
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </form>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
                   return (
                     <TableRow key={rule.id} data-testid={`alert-rule-row-${rule.id}`}>
                       <TableCell>
@@ -369,10 +283,7 @@ export default function AlertRulesPage() {
                                 disabled={busy}
                                 aria-label={`Delete ${rule.name}`}
                                 data-testid={`alert-rule-delete-${rule.id}`}
-                                onClick={() => {
-                                  setEditingId(null);
-                                  setConfirmDeleteId(rule.id);
-                                }}
+                                onClick={() => setConfirmDeleteId(rule.id)}
                               >
                                 <Trash2 aria-hidden className="h-4 w-4" />
                               </Button>

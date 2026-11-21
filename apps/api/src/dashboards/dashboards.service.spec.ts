@@ -12,7 +12,7 @@
  *   - setDefault clears any previous default for the same user
  */
 import { describe, expect, test, vi } from 'vitest';
-import { NotFoundException, PreconditionFailedException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, PreconditionFailedException } from '@nestjs/common';
 
 import type { ResourceGrant } from '@kpi-nexus/contracts';
 
@@ -805,3 +805,48 @@ function makeRow(over: Partial<FakeDashboard> = {}): FakeDashboard {
     ...over,
   };
 }
+
+// Manual QA (2026-11-19, F-068): "Publish to unit" had no effect for anyone with the default scopes: a dashboard
+// published to a unit reached its members only when their dashboards scope was "their units". And anyone who
+// could see a dashboard and held DASHBOARD_MANAGE could change or delete it, a dashboard published to them included.
+describe('DashboardsService — a dashboard published to a unit (F-068)', () => {
+  function published() {
+    const made = makeService();
+    made.accessContext.dashboardsScope = 'SELF';
+    made.accessContext.memberOrgUnitIds = ['g1'];
+    made.prisma.store.push(
+      makeRow({ id: 'd1', ownerUserId: 'owner', isShared: false, unitAssignmentOrgUnitIds: ['g1'] }),
+      makeRow({ id: 'd2', ownerUserId: 'owner', isShared: false, unitAssignmentOrgUnitIds: ['g9'] }),
+    );
+    return made;
+  }
+
+  test('is listed for, and opens for, a member of the unit whatever their scope', async () => {
+    const { service } = published();
+    const listed = await withCtx({ userId: 'member' }, () => service.list());
+    expect(listed.map((d) => d.id)).toEqual(['d1']);
+    await expect(withCtx({ userId: 'member' }, () => service.getById('d1'))).resolves.toMatchObject({ id: 'd1' });
+    await expect(withCtx({ userId: 'member' }, () => service.getById('d2'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  test('is changed or removed by its owner or an administrator only', async () => {
+    const { service, prisma, accessContext } = published();
+    const refused = await Promise.resolve(withCtx({ userId: 'member' }, () => service.update('d1', { name: 'Mine now' }, null))).then(() => null, (e: unknown) => e);
+    expect(refused).toBeInstanceOf(ForbiddenException);
+    expect((refused as ForbiddenException).getResponse()).toMatchObject({ code: 'NOT_DASHBOARD_OWNER', message: expect.stringMatching(/owner or an administrator/i) });
+    await expect(withCtx({ userId: 'member' }, () => service.remove('d1'))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.store[0]!.name).not.toBe('Mine now');
+    expect(prisma.store[0]!.deletedAt).toBeNull();
+
+    await expect(withCtx({ userId: 'owner' }, () => service.update('d1', { name: 'Renamed' }, null))).resolves.toMatchObject({ name: 'Renamed' });
+    accessContext.isAdmin = true;
+    await withCtx({ userId: 'admin' }, () => service.remove('d1'));
+    expect(prisma.store[0]!.deletedAt).not.toBeNull();
+  });
+
+  test('someone granted "manage" on the dashboard may change it too', async () => {
+    const { service, accessContext } = published();
+    accessContext.resourceGrants = [{ resourceType: 'dashboard', resourceId: 'd1', action: 'manage' }];
+    await expect(withCtx({ userId: 'member' }, () => service.update('d1', { name: 'Granted' }, null))).resolves.toMatchObject({ name: 'Granted' });
+  });
+});

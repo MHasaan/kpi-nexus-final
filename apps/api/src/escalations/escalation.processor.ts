@@ -93,8 +93,19 @@ export class EscalationProcessor extends WorkerHost {
       targetUserId: alert.targetUserId,
     });
 
-    // Each person named on this level gets an email of their own, as their preferences allow (plan 6.6).
-    await this.dispatcher.dispatchToPeople({ organizationId, alertId, userIds });
+    // Each person named on this level gets an email of their own, as their preferences allow (plan 6.6),
+    // unless one of the level's email channels already reaches their address (F-034: two copies).
+    const covered = await this.dispatcher.emailAddressesOf(current.channelIds);
+    let emailedByName = userIds;
+    if (covered.size > 0 && userIds.length > 0) {
+      const people = await this.prisma.user.findMany({
+        where: { organizationId, id: { in: userIds } },
+        select: { id: true, email: true },
+      });
+      const reached = new Set(people.filter((p) => covered.has(p.email.toLowerCase())).map((p) => p.id));
+      emailedByName = userIds.filter((id) => !reached.has(id));
+    }
+    await this.dispatcher.dispatchToPeople({ organizationId, alertId, userIds: emailedByName });
 
     // Kick the digest collator for each notified user (collapses within window).
     for (const uid of userIds) {

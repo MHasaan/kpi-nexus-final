@@ -102,15 +102,37 @@ export const CreateAlertRuleDtoSchema = z.discriminatedUnion('ruleType', [
 ]);
 export type CreateAlertRuleDto = z.infer<typeof CreateAlertRuleDtoSchema>;
 
-// Update: only mutable presentation/activation fields + optional escalation.
-// Changing ruleType/config wholesale is done by recreating the rule (keeps the
-// config↔ruleType invariant simple and avoids partial-union validation).
+const RULE_TYPES = ['STATIC_THRESHOLD', 'DYNAMIC_STDDEV', 'RATE_OF_CHANGE', 'NO_DATA', 'COMPOSITE'] as const;
+export type AlertRuleKind = (typeof RULE_TYPES)[number];
+
+/** The config schema a rule of this kind must satisfy. */
+export function configSchemaFor(ruleType: AlertRuleKind): z.ZodTypeAny {
+  switch (ruleType) {
+    case 'STATIC_THRESHOLD':
+      return StaticThresholdConfigSchema;
+    case 'DYNAMIC_STDDEV':
+      return DynamicStddevConfigSchema;
+    case 'RATE_OF_CHANGE':
+      return RateOfChangeConfigSchema;
+    case 'NO_DATA':
+      return NoDataConfigSchema;
+    case 'COMPOSITE':
+      return CompositeConfigSchema;
+  }
+}
+
+// Update: any of the rule's fields. A new config (or kind) is checked against the kind the rule will have
+// in the service, since the pair must fit (F-069: until 2026-11-21 only name, severity, description and
+// the escalation steps could change; a new threshold meant deleting the rule and making it again).
 export const UpdateAlertRuleDtoSchema = z
   .object({
     name: z.string().trim().min(2).max(160).optional(),
     description: z.string().trim().max(2000).optional(),
     severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
     isActive: z.boolean().optional(),
+    kpiId: z.string().min(1).optional(),
+    ruleType: z.enum(RULE_TYPES).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
     escalationLevels: z.array(EscalationLevelSchema).max(10).optional(),
   })
   .strict();

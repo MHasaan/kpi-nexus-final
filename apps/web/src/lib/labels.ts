@@ -79,6 +79,14 @@ export const QUADRANT_LABELS: LabelMap = {
 };
 
 /** `status` on a dashboard-summary row (apps/api/src/kpis/kpi-health.ts). */
+/** A person's role in a unit (OrgUnitMemberRole). */
+export const UNIT_ROLE_LABELS: LabelMap = {
+  MEMBER: 'Member',
+  LEAD: 'Lead',
+  MANAGER: 'Manager',
+  DEPUTY: 'Deputy',
+};
+
 export const HEALTH_STATUS_LABELS: LabelMap = {
   ON_TRACK: 'On track',
   AT_RISK: 'At risk',

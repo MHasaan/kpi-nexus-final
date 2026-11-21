@@ -39,6 +39,8 @@ const parse = <S extends ZodTypeAny>(schema: S, data: unknown): ZInfer<S> => {
  * GET  /reports/board-pack       — JSON board-pack summary.
  * POST /reports/kpis/:id/embed-token — mint a public embed token for a KPI.
  * POST /reports/kpis/:id/embed-token/revoke — revoke all embed tokens for a KPI.
+ * Both take REPORTS_MANAGE: a public link publishes the KPI's figures outside the app, so it is not
+ * a reader's to make (F-051: anyone who could view a KPI could make, rotate and revoke its links).
  */
 @Controller('reports')
 export class ReportsController {
@@ -92,7 +94,7 @@ export class ReportsController {
    * Returns { token }.
    */
   @Post('kpis/:id/embed-token')
-  @RequirePermissions(PermissionKey.KPI_VIEW)
+  @RequirePermissions(PermissionKey.REPORTS_MANAGE)
   @HttpCode(HttpStatus.CREATED)
   async mintEmbedToken(@Param('id') id: string): Promise<{ token: string }> {
     return { token: await this.embedTokens.mint(id) };
@@ -107,7 +109,7 @@ export class ReportsController {
    * Returns { embedTokenVersion } (the new version).
    */
   @Post('kpis/:id/embed-token/revoke')
-  @RequirePermissions(PermissionKey.KPI_VIEW)
+  @RequirePermissions(PermissionKey.REPORTS_MANAGE)
   @HttpCode(HttpStatus.OK)
   async revokeEmbedToken(@Param('id') id: string): Promise<{ embedTokenVersion: number }> {
     return this.embedTokens.revoke(id);

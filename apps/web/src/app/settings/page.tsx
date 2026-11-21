@@ -8,6 +8,7 @@ import { AppShell } from '../../components/app-shell';
 import { RequirePermission } from '../../components/auth/require-permission';
 import { getAccessToken } from '../../lib/api-client';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { isOnHold } from '../../lib/settings-on-hold';
 
 interface SettingLink {
   href: string;
@@ -86,7 +87,8 @@ export default function SettingsIndexPage() {
               <section key={group.heading} data-testid={`settings-group-${group.heading.toLowerCase()}`}>
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-content-muted">{group.heading}</h2>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.links.map((link) => (
+                  {/* Pages on hold (single sign-on, custom domain) are not listed until they are built. */}
+                  {group.links.filter((link) => !isOnHold(link.href)).map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}

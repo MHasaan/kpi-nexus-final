@@ -17,8 +17,15 @@ import {
 } from '../../../lib/api-client';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useAllowed } from '../../../lib/use-allowed';
+import { isOnHold } from '../../../lib/settings-on-hold';
+import { SettingOnHold } from '../../../components/settings/setting-on-hold';
 
+// On hold until custom domains are built (UI-014, ADR-003): the page below is kept for then.
 export default function CustomDomainSettingsPage() {
+  return isOnHold('/settings/custom-domain') ? <SettingOnHold /> : <CustomDomainSettings />;
+}
+
+function CustomDomainSettings() {
   const router = useRouter();
   const [domains, setDomains] = useState<CustomDomain[]>([]);
   const [input, setInput] = useState('');

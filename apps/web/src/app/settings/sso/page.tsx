@@ -9,8 +9,15 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
 import { usePermissions } from '../../../lib/use-permissions';
+import { isOnHold } from '../../../lib/settings-on-hold';
+import { SettingOnHold } from '../../../components/settings/setting-on-hold';
 
+// On hold until single sign-on is built (UI-014, ADR-002): the page below is kept for then.
 export default function SsoSettingsPage() {
+  return isOnHold('/settings/sso') ? <SettingOnHold /> : <SsoSettings />;
+}
+
+function SsoSettings() {
   const router = useRouter();
   const [config, setConfig] = useState<SsoConfig | null>(null);
   const [protocol, setProtocol] = useState<'SAML' | 'OIDC'>('SAML');

@@ -12539,6 +12539,77 @@
             "GROUPS_MANAGE"
           ]
         }
+      },
+      "patch": {
+        "operationId": "OrgUnitsController_updateMemberRole",
+        "tags": [
+          "OrgUnits"
+        ],
+        "summary": "PATCH /org-units/:id/members/:userId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "memberRole": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "MANAGER",
+                      "LEAD",
+                      "DEPUTY"
+                    ]
+                  }
+                },
+                "required": [
+                  "memberRole"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "GROUPS_MANAGE"
+          ]
+        }
       }
     },
     "/org-units/{id}/merge-into": {

@@ -32,3 +32,9 @@ export const AddMemberDtoSchema = z.object({
 });
 
 export type AddMemberDto = z.infer<typeof AddMemberDtoSchema>;
+
+/** A member's role in the unit, changed in place (F-005: it could only be set when adding them). */
+export const UpdateMemberRoleDtoSchema = z.object({
+  memberRole: z.enum(['MEMBER', 'MANAGER', 'LEAD', 'DEPUTY']),
+});
+export type UpdateMemberRoleDto = z.infer<typeof UpdateMemberRoleDtoSchema>;

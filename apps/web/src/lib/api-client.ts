@@ -2363,14 +2363,18 @@ export async function listInsights(): Promise<Insight[]> {
   return api('/insights');
 }
 
-export async function generateInsightsBatch(
-  body: { thresholdChangePct?: number; topN?: number } = {},
-): Promise<Insight[]> {
-  const res = await api<{ insights: Insight[] }>('/insights/generate-batch', {
+/** What a batch run made, and what it passed over and why (F-042). */
+export interface InsightBatch {
+  insights: Insight[];
+  skipped: { tooFewValues: number; littleChange: number };
+  thresholdChangePct: number;
+}
+
+export async function generateInsightsBatch(body: { thresholdChangePct?: number; topN?: number } = {}): Promise<InsightBatch> {
+  return api<InsightBatch>('/insights/generate-batch', {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  return res.insights;
 }
 
 // =============================================================================

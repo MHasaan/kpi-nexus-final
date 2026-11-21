@@ -609,6 +609,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-001): the co-pilot's Suggest and Explain tabs shared one feed | ✅ Fixed — each tab shows its own thread and keeps it | #478 | `wizard-copilot-rail.spec.ts` |
 | Manual QA (2026-11-19, F-041): an automation's task was unassigned with no due date or priority, and the form offered none | ✅ Fixed — the form asks for the owner, priority and days until due, and saves them | #479 | `workflow-form.spec.ts`, `automations.spec.ts` |
 | Manual QA (2026-11-19, F-008): the People table had no Position column, so positions set on invitation were shown nowhere | ✅ Fixed — a Position column; the founder's own position in the wizard is left for the owner | #480 | `people-list-shows-positions.spec.ts` |
+| Manual QA (2026-11-19, F-029): a dashboard's toolbar squeezed its title to a 110-px column at laptop width; a stray snapshot label box sat under the header | ✅ Fixed — the toolbar has its own row under the title; the label sits beside Snapshot | #481 | `dashboard-header-keeps-its-title.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

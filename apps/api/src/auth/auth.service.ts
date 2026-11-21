@@ -469,6 +469,7 @@ export class AuthService {
       org: user.organizationId,
       rid: user.roleId,
       adm: isAdmin,
+      sid: next.id,
     });
     return {
       accessToken,
@@ -488,8 +489,9 @@ export class AuthService {
    * of "Active sessions" read "Unknown device".
    */
   private async issuePair(payload: JwtPayload, client: ClientInfo = {}): Promise<AuthPair> {
-    const accessToken = await this.signAccess(payload);
     const refresh = await this.refreshTokens.issue(payload.sub, undefined, client.ip, client.userAgent);
+    // The access token names its session, so a password change can keep this one and end the others (F-061).
+    const accessToken = await this.signAccess({ ...payload, sid: refresh.id });
     return { accessToken, refreshToken: refresh.plaintext, expiresIn: this.accessTtlSeconds };
   }
 

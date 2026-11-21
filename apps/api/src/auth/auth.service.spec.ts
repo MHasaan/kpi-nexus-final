@@ -244,4 +244,20 @@ describe('AuthService.refresh() — runs its lookups under the RLS bypass (OT-01
     expect(seen).toEqual([true, true]);
     expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sub: 'u1', org: 'org_a', adm: true }), expect.anything());
   });
+
+  // F-061: the access token names the session (refresh token row) it was issued with, so changing a password
+  // can keep this session and sign out the others.
+  test('the access token names the session it was issued with, on refresh too', async () => {
+    const prisma = {
+      user: { findUniqueOrThrow: vi.fn(async () => ({ id: 'u1', organizationId: 'org_a', roleId: null })) },
+      roleDefinition: { findUnique: vi.fn(async () => null) },
+    };
+    const jwt = { signAsync: vi.fn(async () => 'access-token') };
+    const refreshTokens = { rotate: vi.fn(async () => ({ id: 'rt_9', userId: 'u1', plaintext: 'next-refresh' })) };
+    const service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService, {} as ConfigService, refreshTokens as unknown as RefreshTokenService);
+
+    await service.refresh('old-refresh');
+
+    expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sub: 'u1', sid: 'rt_9' }), expect.anything());
+  });
 });

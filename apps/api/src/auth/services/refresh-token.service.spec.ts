@@ -78,3 +78,27 @@ describe('RefreshTokenService: where a session was made from', () => {
     expect(rows[0]!.userAgent).toHaveLength(500);
   });
 });
+
+// Manual QA (2026-11-20, F-061): changing your password, or turning two-step sign-in off, signed you out of the
+// very session you did it from. A session is a refresh token row; the access token now names its row, so the
+// row it was made from can be kept while every other one is revoked.
+describe('RefreshTokenService — keeping the current session', () => {
+  test('issue returns the id of the row it made, so the access token can name its session', async () => {
+    const { service, rows } = make();
+    const issued = await service.issue('u1');
+    expect(issued.id).toBe('rt_1');
+    expect(rows).toHaveLength(1);
+  });
+
+  test('revokeAllExceptSession revokes every other live token of the person and keeps the named one', async () => {
+    const updateMany = vi.fn(async () => ({ count: 2 }));
+    const service = new RefreshTokenService({ refreshToken: { updateMany } } as unknown as PrismaService);
+
+    await expect(service.revokeAllExceptSession('u1', 'rt_7')).resolves.toEqual({ revoked: 2 });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', revokedAt: null, expiresAt: { gt: expect.any(Date) }, id: { not: 'rt_7' } },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+});

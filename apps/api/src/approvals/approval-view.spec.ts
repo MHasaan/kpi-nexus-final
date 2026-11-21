@@ -21,6 +21,11 @@ describe('canDecide — the buttons appear exactly when pressing them would work
     expect(canDecide(request({ requesterUserId: 'boss' }), approver, roles)).toBe(false);
   });
 
+  test('…unless they are an administrator and nobody else could decide it', () => {
+    expect(canDecide(request({ requesterUserId: 'boss' }), approver, roles, { soleApprover: true })).toBe(true);
+    expect(canDecide(request({ requesterUserId: 'boss' }), approver, roles, { soleApprover: false })).toBe(false);
+  });
+
   test('someone whose role is not an approver cannot', () => {
     expect(canDecide(request(), { userId: 'x', roleId: 'role-other' }, roles)).toBe(false);
     expect(canDecide(request(), { userId: 'x', roleId: null }, roles)).toBe(false);

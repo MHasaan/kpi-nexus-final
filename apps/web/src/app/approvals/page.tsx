@@ -335,6 +335,8 @@ export default function ApprovalsPage() {
         ) : (
           pending.map((req) => {
             const standing = requestStanding(req, currentUserId);
+            // Their own request — also when, as a sole administrator, they may decide it.
+            const mine = currentUserId !== null && req.requesterUserId === currentUserId;
             const busy = busyId === req.id;
             const hasBefore = req.currentPayload !== null && req.currentPayload !== undefined;
             return (
@@ -344,7 +346,7 @@ export default function ApprovalsPage() {
                     <div>
                       <RequestTitle request={req} />
                       <div className="mt-1 text-xs text-content-muted">
-                        Asked by {standing === 'mine' ? 'you' : (req.requesterName ?? 'someone who has left')} on{' '}
+                        Asked by {mine ? 'you' : (req.requesterName ?? 'someone who has left')} on{' '}
                         {fmt.date(req.createdAt)} ·{' '}
                         {standing === 'decide' ? (
                           <span className="text-accent-primary">Waiting for your decision</span>
@@ -377,13 +379,21 @@ export default function ApprovalsPage() {
                           </Button>
                         </>
                       )}
-                      {currentUserId !== null && req.requesterUserId === currentUserId && (
+                      {mine && (
                         <Button size="sm" variant="ghost" data-testid={`cancel-${req.id}`} disabled={busy} onClick={() => void act(req, 'cancel')}>
                           Cancel request
                         </Button>
                       )}
                     </div>
                   </div>
+
+                  {/* A sole administrator may decide their own request: say why the buttons are there. */}
+                  {standing === 'decide' && mine && (
+                    <p data-testid={`own-request-note-${req.id}`} className="text-xs text-content-muted">
+                      You asked for this change, and nobody else can approve it, so as an administrator you may decide it
+                      yourself. The decision is recorded as one made on your own request.
+                    </p>
+                  )}
 
                   <div data-testid={`approval-diff-${req.id}`}>
                     <div className="kn-eyebrow mb-1.5">{hasBefore ? 'What would change' : 'What is asked for'}</div>

@@ -42,6 +42,11 @@ function make() {
       }),
       findUnique: vi.fn(async ({ where }: { where: { hashedToken: string } }) => rows.find((r) => r.hashedToken === where.hashedToken) ?? null),
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<Row> }) => Object.assign(rows.find((r) => r.id === where.id)!, data)),
+      updateMany: vi.fn(async ({ where, data }: { where: { hashedToken?: string; revokedAt?: null }; data: Partial<Row> }) => {
+        const hit = rows.filter((r) => (where.hashedToken === undefined || r.hashedToken === where.hashedToken) && (where.revokedAt === undefined || r.revokedAt === null));
+        hit.forEach((r) => Object.assign(r, data));
+        return { count: hit.length };
+      }),
     },
   };
   return { service: new RefreshTokenService(prisma as unknown as PrismaService), rows };
@@ -100,5 +105,14 @@ describe('RefreshTokenService — keeping the current session', () => {
       where: { userId: 'u1', revokedAt: null, expiresAt: { gt: expect.any(Date) }, id: { not: 'rt_7' } },
       data: { revokedAt: expect.any(Date) },
     });
+  });
+});
+
+describe('RefreshTokenService.revoke — says whose session it ended', () => {
+  test('a live token: revoked, and the owner named; an unknown token: null', async () => {
+    const { service } = make();
+    const issued = await service.issue('u1');
+    await expect(service.revoke(issued.plaintext)).resolves.toEqual({ userId: 'u1' });
+    await expect(service.revoke('not-a-token')).resolves.toBeNull();
   });
 });

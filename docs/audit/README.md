@@ -606,6 +606,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-20, F-071): Lineage showed "kpi:cmwmyjra CASCADE_ROLLUP"; Benchmarks showed raw kinds, unformatted numbers and a machine note | ✅ Fixed — hops are named links with the connection in words; benchmarks in words with formatted numbers | #475 | `lineage.service.spec.ts`, `lineage-and-benchmarks-read-as-words.spec.ts` |
 | Manual QA (2026-11-19, F-043): Ask listed every KPI as a source under an answer about one | ✅ Fixed — the sources are the KPIs the answer names, plus any a tool read | #476 | `nlq.service.spec.ts` |
 | Manual QA (2026-11-20, F-070/F-036): failed deliveries showed only a truncated id and Retry gave no word; an alert's page did not say who acknowledged it | ✅ Fixed — rows name the KPI, message and channel, Retry says so; the alert says who acknowledged | #477 | deliveries and alerts service specs, `deliveries-and-alerts-say-what-and-who.spec.ts` |
+| Manual QA (2026-11-19, F-001): the co-pilot's Suggest and Explain tabs shared one feed | ✅ Fixed — each tab shows its own thread and keeps it | #478 | `wizard-copilot-rail.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

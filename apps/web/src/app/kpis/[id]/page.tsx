@@ -1655,7 +1655,7 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
                 onClick={() =>
                   void confirm({
                     title: `Detach from “${nm(e.parentKpiId)}”?`,
-                    description: 'This KPI stops feeding into it. Both KPIs and their values are kept.',
+                    description: 'This KPI stops feeding into it. Its recorded values are kept; the other KPI\'s calculated values are worked out again from the children left, or removed when none remain.',
                     confirmLabel: 'Detach',
                     tone: 'danger',
                     testId: 'cascade-detach-confirm',
@@ -1748,7 +1748,7 @@ function CascadeTab({ kpiId }: { kpiId: string }) {
                 onClick={() =>
                   void confirm({
                     title: `Detach “${nm(e.childKpiId)}”?`,
-                    description: 'It stops feeding into this KPI. Both KPIs and their values are kept.',
+                    description: 'It stops feeding into this KPI. Its recorded values are kept; this KPI\'s calculated values are worked out again from the children left, or removed when none remain.',
                     confirmLabel: 'Detach',
                     tone: 'danger',
                     testId: 'cascade-detach-confirm',

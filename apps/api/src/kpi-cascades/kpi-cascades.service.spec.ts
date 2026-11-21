@@ -76,6 +76,7 @@ class FakeAudit {
 
 class FakeCascade {
   computeForParent = vi.fn(async () => ({}) as never);
+  refreshParent = vi.fn(async () => 'removed' as const);
 }
 
 class FakeAccessContext {
@@ -97,6 +98,7 @@ function makeService(): {
   service: KpiCascadesService;
   prisma: FakePrisma;
   accessContext: FakeAccessContext;
+  cascade: FakeCascade;
 } {
   const prisma = new FakePrisma();
   const audit = new FakeAudit();
@@ -108,7 +110,7 @@ function makeService(): {
     cascade as unknown as CascadeService,
     accessContext as unknown as AccessContextService,
   );
-  return { service, prisma, accessContext };
+  return { service, prisma, accessContext, cascade };
 }
 
 function makeEdge(over: Partial<FakeEdge> = {}): FakeEdge {
@@ -227,5 +229,29 @@ describe('KpiCascadesService category allowlist — tree()', () => {
     expect(serialized).not.toContain('Secret Parent');
     expect(serialized).not.toContain('c_secret');
     expect(serialized).not.toContain('Secret Child');
+  });
+});
+
+// Manual QA (2026-11-19, F-028): detaching a child left the parent's calculated rows in place, with no way to
+// correct or remove them. The parent is now worked out again from the children left, or cleared.
+describe('KpiCascadesService.detach — the parent is refreshed', () => {
+  test("after the edge is gone, the parent's calculated rows are worked out again or removed", async () => {
+    const { service, prisma, cascade } = makeService();
+    prisma.store = [makeEdge({ id: 'edge_1', parentKpiId: 'kpi_mrr', childKpiId: 'kpi_bookings' })];
+    const cascades = prisma.kPICascade as unknown as Record<string, unknown>;
+    cascades.findFirst = vi.fn(async ({ where }: { where: { id: string } }) => {
+      const e = prisma.store.find((x) => x.id === where.id);
+      return e ? { id: e.id, parentKpiId: e.parentKpiId } : null;
+    });
+    cascades.delete = vi.fn(async ({ where }: { where: { id: string } }) => {
+      prisma.store = prisma.store.filter((x) => x.id !== where.id);
+      return {};
+    });
+    cascades.update = vi.fn(async () => ({}));
+
+    await withCtx(() => service.detach('edge_1'));
+
+    expect(prisma.store).toHaveLength(0);
+    expect(cascade.refreshParent).toHaveBeenCalledWith('kpi_mrr');
   });
 });

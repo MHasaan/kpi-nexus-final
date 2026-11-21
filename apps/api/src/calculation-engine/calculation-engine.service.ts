@@ -116,16 +116,8 @@ export class CalculationEngineService {
     const result = await this.cascade.computeForParent(parentKpiId, periodStart, periodEnd);
     if (result.value === null) return { value: null, parents };
 
-    await this.prisma.kPIDataPoint.create({
-      data: {
-        organizationId: ctx.organizationId,
-        kpiId: parentKpiId,
-        value: result.value,
-        periodStart,
-        periodEnd,
-        sourceType: 'COMPUTED',
-      },
-    });
+    // One calculated row per period, replaced on each run (F-028).
+    await this.cascade.writeComputedPoint(parentKpiId, periodStart, periodEnd, result.value);
 
     const children = await this.prisma.kPICascade.findMany({
       where: { parentKpiId, organizationId: ctx.organizationId },

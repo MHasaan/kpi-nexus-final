@@ -587,6 +587,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-017): the Data tab saved a second value for the same month beside the first; the extra row could not be moved or removed | ✅ Fixed — a hand-typed value for a recorded period is refused (409) and the form says to correct it instead; imports and calculated rows are not held to it | #455 | `kpi-data-one-value-per-period.spec.ts`, `a-period-is-recorded-once.spec.ts` |
 | Manual QA (2026-11-19, F-037): a value for a month not yet begun was accepted, became the latest value and fired an alert | ✅ Fixed — a period starting more than a day ahead is refused (400) from the form and integrations alike | #456 | `kpi-data-future-period.spec.ts`, `no-values-for-periods-not-begun.spec.ts` |
 | Manual QA (2026-11-19, F-018): a steadily rising MRR had its values flagged "outlier" on the Data tab while the Anomalies page found the series healthy | ✅ Fixed — an outlier is judged against the trend line, from six values or more | #457 | `outlier-detector.spec.ts` |
+| Manual QA (2026-11-19, F-042): "Generate insights" did nothing and said nothing when no KPI qualified | ✅ Fixed — the batch reports what it skipped and why, and the page says so | #458 | `insights.service.spec.ts`, `insights.controller.spec.ts`, `generate-insights-says-when-nothing-qualifies.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

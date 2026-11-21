@@ -49,10 +49,15 @@ test('outlier: wild value flagged, baseline values not', async () => {
     data: { name: `Outlier KPI ${stamp}`, scope: 'ORG_WIDE', type: 'NUMBER', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' },
   })).json()) as { id: string };
 
-  const record = (value: number) =>
-    api.post(`/kpis/${kpi.id}/data`, {
-      data: { value, periodStart: '2026-05-01T00:00:00.000Z', periodEnd: '2026-05-01T01:00:00.000Z' },
+  // One recorded value per period: each value is a day of May.
+  let day = 0;
+  const record = (value: number) => {
+    day += 1;
+    const d = String(day).padStart(2, '0');
+    return api.post(`/kpis/${kpi.id}/data`, {
+      data: { value, periodStart: `2026-05-${d}T00:00:00.000Z`, periodEnd: `2026-05-${d}T01:00:00.000Z` },
     });
+  };
 
   // Build a solid stable history (10 points) so the sample stddev is realistic.
   for (const v of [10, 11, 9, 10, 12, 8, 10, 11, 9, 10]) await record(v);

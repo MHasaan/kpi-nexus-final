@@ -54,6 +54,9 @@ class FakePrisma {
   $transaction = vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
 
   kPI = {
+    findMany: vi.fn(async ({ where }: { where: { organizationId: string } }) =>
+      this.kpis.filter((k) => k.organizationId === where.organizationId && k.deletedAt === null).map((k) => ({ id: k.id })),
+    ),
     findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
       const row = this.kpis.find(
         (k) =>
@@ -505,5 +508,36 @@ describe('InsightsService — only insights about KPIs the caller can see (BE-00
     const { service, prisma } = makeService(['k_visible']);
     prisma.seed({ id: 'ins_hidden', organizationId: ORG, kpiId: 'k_hidden' });
     await expect(withCtx({}, () => service.dismiss('ins_hidden'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+// Manual QA (2026-11-19, F-042): "Generate insights" did nothing and said nothing. The batch found no KPI
+// worth an insight (too few values, or too little change) and returned an empty list; the page showed "No
+// insights yet" as before. The batch now says what it skipped and why, so the page can.
+describe('InsightsService.generateBatch — what was skipped, and why', () => {
+  test('counts the KPIs with too few values and the ones that changed too little', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedKpi('kpi_one', ORG, [100], 'One value');
+    prisma.seedKpi('kpi_flat', ORG, [100, 101], 'Barely moved');
+    prisma.seedKpi('kpi_big', ORG, [100, 150], 'Moved a lot');
+    prisma.seedKpi('kpi_elsewhere', 'org_beta', [100, 150], 'Another organisation');
+
+    const out = await withCtx({}, () => service.generateBatch());
+
+    expect(out.insights.map((i) => i.kpiId)).toEqual(['kpi_big']);
+    expect(out.skipped).toEqual({ tooFewValues: 1, littleChange: 1 });
+    expect(out.thresholdChangePct).toBe(10);
+  });
+
+  test('with nothing worth an insight, the counts say so and no insight is made', async () => {
+    const { service, prisma, aiRouter } = makeService();
+    prisma.seedKpi('kpi_one', ORG, [100], 'One value');
+
+    const out = await withCtx({}, () => service.generateBatch({ thresholdChangePct: 25 }));
+
+    expect(out.insights).toEqual([]);
+    expect(out.skipped).toEqual({ tooFewValues: 1, littleChange: 0 });
+    expect(out.thresholdChangePct).toBe(25);
+    expect(aiRouter.complete).not.toHaveBeenCalled();
   });
 });

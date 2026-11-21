@@ -1801,6 +1801,8 @@ model AiBudget {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   dailyCapUsd         Float              @default(1.0)
   monthlyCapUsd       Float              @default(30.0)
+  /// Calls per day, whatever they cost: the free tier records no spend, so the dollar caps never trigger (F-045). 0 = no cap.
+  dailyCallCap        Int                @default(300)
   circuitBreaker      CircuitBreakerMode @default(FAIL_CLOSED)
   currentDailySpend   Float              @default(0)
   currentMonthlySpend Float              @default(0)

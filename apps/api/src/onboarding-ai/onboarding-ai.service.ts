@@ -30,13 +30,16 @@ const PERMISSIONS_RULE = `Role permissions ⊆ ${ALL_PERMISSIONS.join('|')}. The
 const FIELD_RULES = [
   '{"organization":{"name","industry","type","sizeTier","timezone","currency","locale","fiscalYearStartMonth","weekStartsOn"},"roles":[{"name","isAdmin","level","permissions":[]}],',
   '"positions":[{"name","track"}],"orgUnitTypes":[{"name","dimension"}],"orgUnits":[{"name","type","parent"}],',
-  '"kpiCategories":[{"name"}],"kpis":[{"name","category","scope","type","direction","frequency","unit","scorecardQuadrant"}]}.',
+  '"kpiCategories":[{"name"}],"kpis":[{"name","category","scope","type","direction","frequency","unit","scorecardQuadrant","targetValue","units":[]}]}.',
   'sizeTier ∈ SMALL|MEDIUM|LARGE|ENTERPRISE (about 1-50, 51-250, 251-1000, more people).',
   'Fill timezone (IANA, e.g. Asia/Karachi), currency (ISO 4217, e.g. PKR), locale (BCP 47, e.g. en-PK), fiscalYearStartMonth (1-12) and weekStartsOn (0 = Sunday … 6 = Saturday) only when the description says or clearly implies them (a city or country, a currency); otherwise leave them out.',
   'track ∈ INDIVIDUAL_CONTRIBUTOR|MANAGEMENT|EXECUTIVE. scope ∈ ORG_WIDE|PER_UNIT|PER_USER.',
   'type ∈ NUMBER|PERCENTAGE|CURRENCY|DURATION|COUNT|RATING|BOOLEAN. direction ∈ HIGHER_IS_BETTER|LOWER_IS_BETTER|TARGET_IS_BEST|NEUTRAL.',
   'frequency ∈ DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY. scorecardQuadrant ∈ FINANCIAL|CUSTOMER|INTERNAL_PROCESS|LEARNING_GROWTH.',
   'Every orgUnit.type must match an orgUnitTypes.name; every kpi.category must match a kpiCategories.name. Exactly one role with isAdmin=true.',
+  // Without units, setup gives a per-unit KPI to the top-level unit and so to every unit below it (2026-11-20).
+  'A PER_UNIT KPI lists in "units" the orgUnits names that record it (e.g. only the production departments for a production KPI); units below them inherit it. Other KPIs have no units.',
+  'Give targetValue (a plain number in the KPI\'s unit: 3 for 3%) only when the description or instruction states a target; otherwise leave it out.',
   PERMISSIONS_RULE,
 ];
 

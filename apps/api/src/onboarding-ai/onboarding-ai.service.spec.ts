@@ -163,6 +163,26 @@ describe("OnboardingAiService — the assistant's field rules", () => {
   });
 });
 
+// Real Gemini (2026-11-20), generating a garment maker's setup, made "Stitching Line Efficiency" and four more KPIs
+// per unit without naming a unit: setup then gives such a KPI to the top-level unit and every unit below it, so HR and
+// Sales would be asked for stitching efficiency. Told "…with a target of 3%", the assistant added the KPI without
+// one. Neither field was in the rules the model is given.
+describe("OnboardingAiService — a KPI's units and target", () => {
+  it('asks for the units that record a per-unit KPI, and for a target only when one is given', async () => {
+    const { service, complete } = setup();
+    complete.mockResolvedValue({ content: '{}', usage: { inputTokens: 1, outputTokens: 1 }, actualCost: 0 });
+    await service.generate('s1', 'tok', 'A garment maker in Karachi with cutting, stitching and finishing departments, plus sales and HR.');
+    await service.assistant('s1', 'tok', 'Add a KPI for fabric wastage, recorded for each production unit, with a target of 3%.');
+    expect(complete).toHaveBeenCalledTimes(2);
+    for (const [req] of complete.mock.calls) {
+      const system = req.systemPrompt ?? '';
+      expect(system).toContain('"targetValue","units":[]');
+      expect(system).toContain('A PER_UNIT KPI lists in "units"');
+      expect(system).toMatch(/targetValue[^.]*only when/);
+    }
+  });
+});
+
 // Real Gemini (2026-11-20), asked to suggest KPI categories for a food-delivery company, offered "Financial,
 // Operational, Customer, Employee, Strategic": the request held only the field's name — nothing about the
 // organisation, or what the section already had.

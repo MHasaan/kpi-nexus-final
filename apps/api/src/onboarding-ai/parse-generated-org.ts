@@ -53,6 +53,29 @@ function withCanonicalPermissions(roles: TemplatePayload['roles']): TemplatePayl
   }));
 }
 
+/** A target the model wrote as text ("3%", "1,200") as a number; null when it is not one. */
+function targetNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const digits = value.replace(/[%,\s]/g, '');
+  const n = digits === '' ? Number.NaN : Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * A KPI's target and units in the shapes the draft takes. Written any other way ("3%", one unit's name), they
+ * made the draft refuse the whole proposal, as null fields did; each is read where it can be and left out where
+ * it cannot.
+ */
+function withUsableKpiFields(kpis: TemplatePayload['kpis']): TemplatePayload['kpis'] {
+  return kpis.map((k) => {
+    const { targetValue, units, ...rest } = k as TemplatePayload['kpis'][number] & { targetValue?: unknown; units?: unknown };
+    const target = targetValue === undefined ? null : targetNumber(targetValue);
+    const names = typeof units === 'string' ? [units] : Array.isArray(units) ? units.filter((u): u is string => typeof u === 'string') : [];
+    return { ...rest, ...(target !== null ? { targetValue: target } : {}), ...(names.length > 0 ? { units: names } : {}) };
+  });
+}
+
 export function parseGeneratedOrg(raw: string): PartialTemplatePayload {
   let parsed: Record<string, unknown> = {};
   try {
@@ -69,6 +92,6 @@ export function parseGeneratedOrg(raw: string): PartialTemplatePayload {
     orgUnitTypes: arr(parsed.orgUnitTypes),
     orgUnits: arr(parsed.orgUnits),
     kpiCategories: arr(parsed.kpiCategories),
-    kpis: arr(parsed.kpis),
+    kpis: withUsableKpiFields(arr(parsed.kpis)),
   };
 }

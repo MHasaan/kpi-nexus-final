@@ -71,6 +71,8 @@ test('wizard KPIs step: categories and KPIs built by hand become real KPIs, held
   await page.getByTestId('kpi-unit-0').fill('USD');
   await page.getByTestId('kpi-target-0').fill('100000');
   await page.getByTestId('kpi-quadrant-0').selectOption('FINANCIAL');
+  // Flow walk (first use): the row's one-line summary read "target 100000 USD".
+  await expect(page.getByTestId('kpi-details-0')).toContainText('target 100,000 USD');
 
   // A per-unit KPI, lower is better, held by Engineering.
   await page.getByTestId('kpi-add').click();

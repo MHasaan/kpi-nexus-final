@@ -36,3 +36,27 @@ describe('CalculationEngineService.recomputeKpi (AN-002)', () => {
     });
   });
 });
+
+describe('CalculationEngineService.rollupParent', () => {
+  it("writes the period's one calculated row through the cascade, never a new row per run (F-028)", async () => {
+    const prisma = {
+      kPICascade: { findMany: vi.fn(async () => [{ childKpiId: 'kpi_child' }]) },
+      kPIDataPoint: { create: vi.fn(async () => ({})) },
+    };
+    const cascade = {
+      computeForParent: vi.fn(async () => ({ value: 133_000, contributingChildren: 1, totalDataPoints: 2 })),
+      writeComputedPoint: vi.fn(async () => undefined),
+    };
+    const lineage = { record: vi.fn(async () => {}) };
+    const service = new CalculationEngineService(prisma as never, cascade as never, lineage as never);
+    vi.spyOn(service as unknown as { parentsOf: () => Promise<unknown[]> }, 'parentsOf').mockResolvedValue([]);
+    const start = new Date('2026-11-01T00:00:00Z');
+    const end = new Date('2026-11-30T23:59:59Z');
+
+    const result = await withCtx(() => service.rollupParent('kpi_parent', start, end));
+
+    expect(result.value).toBe(133_000);
+    expect(cascade.writeComputedPoint).toHaveBeenCalledWith('kpi_parent', start, end, 133_000);
+    expect(prisma.kPIDataPoint.create).not.toHaveBeenCalled();
+  });
+});

@@ -55,6 +55,7 @@ const SYSTEM_PROMPT = [
   'For a per-unit or per-person KPI, get_kpi_history and query_timeseries return one series per team or person, named: use them to compare teams or people, and say so when only one series comes back.',
   'Each line\'s "status:" (on track, at risk, off track) is the app\'s own judgement from the KPI\'s thresholds, the same the dashboard shows. Answer any question about what is on track, at risk or off track by it, never by comparing the value with the target yourself: a KPI can be below its target and still on track. Say "below target" only as a fact beside the status.',
   'Read "off target", "behind", "missing its target", "struggling" or "in trouble" as questions about status too: list the off track KPIs, then the at risk ones, and give only the number of others that are below target but on track. Only a question about the target itself ("which are below target?") is answered from values and targets, with each KPI\'s status beside it.',
+  'Take every count of KPIs (how many are off track, at risk, on track, or miss their target) from the "Status summary" line, which the app counted; never count the lines yourself.',
 ].join('\n');
 
 type Direction = PublicKpi['direction'];
@@ -307,7 +308,19 @@ export class NlqService {
       lines.push(this.formatLine(meta, latest, latestAt, recent, categoryById, summaryByKpi.get(id)?.status));
     }
 
-    return { context: lines.join('\n'), deepIds };
+    // Counted here, over every KPI the dashboard counts: left to count a list of 37 lines, the model miscounted.
+    const summary = statusSummary(
+      catalogIds.flatMap((id) => {
+        const meta = metaById.get(id);
+        const row = summaryByKpi.get(id);
+        if (!meta || !row?.status) return [];
+        const several = Boolean(row.holders);
+        const comparison =
+          !several && row.latestValue != null && meta.targetValue != null ? targetStatus(row.latestValue, meta.targetValue, meta.direction) : null;
+        return [{ name: meta.name, status: row.status, several, comparison }];
+      }),
+    );
+    return { context: [...(summary ? [summary] : []), ...lines].join('\n'), deepIds };
   }
 
   /** Render one rich catalog line, omitting null fields cleanly. */
@@ -373,6 +386,40 @@ export class NlqService {
  * Compute on/under/over-target status honoring direction. Only meaningful when
  * a target is set + a value present (caller guards). TARGET_IS_BEST/NEUTRAL ⇒ —.
  */
+/** A KPI and the app's status for it, for the status summary. */
+interface CountedKpi {
+  name: string;
+  status: string;
+  /** Held by several teams or people, each with their own value: no one value to compare with a target. */
+  several: boolean;
+  /** How the one latest value compares with the target: 'on target', 'below target', 'above target', or none. */
+  comparison: string | null;
+}
+
+/**
+ * What the dashboard's statuses add up to, counted here. Left to count a list of 37 lines, the model said "17 other
+ * KPIs" where there were 19 (2026-11-20). Null when no KPI has a status.
+ */
+function statusSummary(kpis: CountedKpi[]): string | null {
+  if (kpis.length === 0) return null;
+  const named = (status: string) => kpis.filter((k) => k.status === status).map((k) => k.name);
+  const list = (names: string[]) => (names.length > 0 ? ` (${names.join(', ')})` : '');
+  const off = named('OFF_TRACK');
+  const risk = named('AT_RISK');
+  const single = kpis.filter((k) => !k.several);
+  const misses = (k: CountedKpi) => k.comparison === 'below target' || k.comparison === 'above target';
+  const below = single.filter((k) => k.comparison === 'below target').length;
+  const above = single.filter((k) => k.comparison === 'above target').length;
+  const several = kpis.length - single.length;
+  return [
+    `Status summary, counted by the app as the dashboard shows it, over ${kpis.length} KPIs: off track ${off.length}${list(off)}; at risk ${risk.length}${list(risk)}; on track ${named('ON_TRACK').length}; no target ${named('NO_TARGET').length}; no data yet ${named('NO_DATA').length}.`,
+    `Of the ${single.length} KPIs with one value each, ${single.filter((k) => k.status === 'ON_TRACK' && misses(k)).length} on track ones miss their target; ${below} are below their target (higher is better) and ${above} above it (lower is better).`,
+    ...(several > 0
+      ? [`${several === 1 ? 'The other one is' : `The other ${several} are`} recorded by several teams or people; their own lines say how many of them are on track.`]
+      : []),
+  ].join(' ');
+}
+
 /** The app's health statuses (KpiHealthStatus) in the words the dashboard uses. */
 const STATUS_WORDS: Readonly<Record<string, string>> = {
   ON_TRACK: 'on track',

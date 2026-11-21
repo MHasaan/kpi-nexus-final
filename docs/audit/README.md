@@ -573,6 +573,8 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | AI test (real Gemini): insights said "over the 12-period window" with no dates | ✅ Fixed — the prompt names the period the values cover | #440 | `insights.service.spec.ts`; live |
 | AI test (real Gemini): the co-pilot's per-unit KPIs named no units, so every unit would hold them, and a stated target was dropped | ✅ Fixed — the field rules include units and `targetValue`; other shapes are read or left out | #441 | `onboarding-ai.service.spec.ts`, `onboarding-ai.pure.spec.ts`; live |
 | AI test (real Gemini): the co-pilot's field explanations were generic and partly wrong ("Size tier" was said to set a pricing tier) | ✅ Fixed — each field goes with what it means in this app, and the organisation | #442 | `onboarding-ai.service.spec.ts`; live |
+| AI test (real Gemini): Ask miscounted KPIs by status ("17 others" where there were 19) | ✅ Fixed — the context opens with a status summary the app counts, over every KPI the dashboard counts | #443 | `nlq.service.spec.ts`; live |
+| Full browser run (2026-11-20): "objective statuses and task priorities are offered in words" failed in 3 of 6 runs. It read a picker's options straight after opening the page, before they were drawn | ✅ Fixed — the test waits for the options it reads (merged ahead of #432–#443) | #431 | `pickers-read-as-words.spec.ts`, 10 runs |
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -21,10 +21,11 @@ import type {
 import type { Prisma } from '@kpi-nexus/db';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { RequestContextStore } from '../../tenancy/request-context.js';
+import { RequestContextStore, type RequestContext } from '../../tenancy/request-context.js';
 import { DOMAIN_DEFAULT_SCOPE, scopedOrgUnitIds, scopedUserIds } from '../visibility/domain-visibility.js';
 import {
   type KpiScope,
+  type KpiVisibilityContext,
   buildKpiVisibilityWhere,
   kpiContextFromProfile,
   kpiDataPointScopeWhere,
@@ -95,7 +96,7 @@ export class AccessContextService {
         select: { orgUnitId: true, memberRole: true },
       });
       for (const m of memberships) {
-        if (m.memberRole === 'MANAGER' || m.memberRole === 'LEAD') {
+        if (m.memberRole === 'MANAGER' || m.memberRole === 'LEAD' || m.memberRole === 'DEPUTY') {
           managedOrgUnitIds.push(m.orgUnitId);
         } else {
           memberOrgUnitIds.push(m.orgUnitId);
@@ -188,6 +189,31 @@ export class AccessContextService {
   }
 
   /**
+   * The KPI rule's context for the current principal. The units someone manages reach every unit
+   * below them: the VP of Sales manages the Sales unit, and so the Enterprise and SMB teams under
+   * it. Until 2026-11-21 only the unit itself counted, so a rep in Enterprise Sales saw its KPIs and
+   * the VP got "KPI not found" (F-054). The profile keeps the units managed themselves, because the
+   * ORG domain's SELF scope means the unit alone, so the walk is done here, where the KPIS and
+   * ANALYTICS rules read it; it is only needed when one of those scopes is UNITS.
+   */
+  private async kpiContext(ctx: RequestContext, profile: AccessProfile): Promise<KpiVisibilityContext> {
+    const base = kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
+    if (profile.isAdmin || profile.context.managedOrgUnitIds.length === 0) return base;
+    const analytics = profile.scopeByDomain.ANALYTICS ?? DOMAIN_DEFAULT_SCOPE.ANALYTICS;
+    if (base.scope !== 'UNITS' && analytics !== 'UNITS') return base;
+    const units = await this.prisma.orgUnit.findMany({
+      where: { organizationId: ctx.organizationId },
+      select: { id: true, parentUnitId: true },
+    });
+    const managedOrgUnitIds = scopedOrgUnitIds('UNITS', {
+      ownUnitIds: profile.context.managedOrgUnitIds,
+      reportUnitIds: [],
+      units,
+    })!;
+    return { ...base, managedOrgUnitIds };
+  }
+
+  /**
    * Whether the current principal may see KPI `kpiId` — evaluated with the very
    * rule GET /kpis lists by ({@link buildKpiVisibilityWhere}: scope + unit/user
    * assignments + category allowlist), so list, detail, data and summary can't
@@ -197,7 +223,7 @@ export class AccessContextService {
   async isKpiVisible(kpiId: string): Promise<boolean> {
     const ctx = RequestContextStore.require();
     const profile = await this.resolveForCurrentPrincipal();
-    const where = buildKpiVisibilityWhere(kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+    const where = buildKpiVisibilityWhere(await this.kpiContext(ctx, profile));
     const row = await this.prisma.kPI.findFirst({
       where: { id: kpiId, ...where, deletedAt: null } as Prisma.KPIWhereInput,
       select: { id: true },
@@ -214,7 +240,7 @@ export class AccessContextService {
     const ctx = RequestContextStore.require();
     const profile = await this.resolveForCurrentPrincipal();
     if (profile.isAdmin) return null;
-    const where = buildKpiVisibilityWhere(kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+    const where = buildKpiVisibilityWhere(await this.kpiContext(ctx, profile));
     const rows = await this.prisma.kPI.findMany({
       where: { ...where, deletedAt: null } as Prisma.KPIWhereInput,
       select: { id: true },
@@ -301,7 +327,7 @@ export class AccessContextService {
     const scope = profile.scopeByDomain.ANALYTICS ?? DOMAIN_DEFAULT_SCOPE.ANALYTICS;
     if (scope === 'ORG') return true;
     const where = buildKpiVisibilityWhere({
-      ...kpiContextFromProfile(ctx.organizationId, ctx.userId, profile),
+      ...await this.kpiContext(ctx, profile),
       scope,
     });
     const row = await this.prisma.kPI.findFirst({
@@ -318,7 +344,7 @@ export class AccessContextService {
   async kpiPointScopeWhere(kpiScope: KpiScope): Promise<{ userId?: { in: string[] }; orgUnitId?: { in: string[] } }> {
     const ctx = RequestContextStore.require();
     const profile = await this.resolveForCurrentPrincipal();
-    return kpiDataPointScopeWhere(kpiScope, kpiContextFromProfile(ctx.organizationId, ctx.userId, profile));
+    return kpiDataPointScopeWhere(kpiScope, await this.kpiContext(ctx, profile));
   }
 
   /**
@@ -331,7 +357,7 @@ export class AccessContextService {
   async analyticsPointScopeWhere(kpiScope: KpiScope): Promise<{ userId?: { in: string[] }; orgUnitId?: { in: string[] } }> {
     const ctx = RequestContextStore.require();
     const profile = await this.resolveForCurrentPrincipal();
-    const base = kpiContextFromProfile(ctx.organizationId, ctx.userId, profile);
+    const base = await this.kpiContext(ctx, profile);
     const kpisWhere = kpiDataPointScopeWhere(kpiScope, base);
     const ceiling = profile.scopeByDomain.ANALYTICS ?? DOMAIN_DEFAULT_SCOPE.ANALYTICS;
     if (ceiling === 'ORG') return kpisWhere;

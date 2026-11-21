@@ -575,6 +575,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | AI test (real Gemini): the co-pilot's field explanations were generic and partly wrong ("Size tier" was said to set a pricing tier) | ✅ Fixed — each field goes with what it means in this app, and the organisation | #442 | `onboarding-ai.service.spec.ts`; live |
 | AI test (real Gemini): Ask miscounted KPIs by status ("17 others" where there were 19) | ✅ Fixed — the context opens with a status summary the app counts, over every KPI the dashboard counts | #443 | `nlq.service.spec.ts`; live |
 | Full browser run (2026-11-20): "objective statuses and task priorities are offered in words" failed in 3 of 6 runs. It read a picker's options straight after opening the page, before they were drawn | ✅ Fixed — the test waits for the options it reads (merged ahead of #432–#443) | #431 | `pickers-read-as-words.spec.ts`, 10 runs |
+| Manual QA (2026-11-19, F-054): the VP of Sales could not open a KPI held by the teams under Sales ("KPI not found"); only the unit itself counted as managed, and deputies not at all | ✅ Fixed — the units someone manages are theirs and every unit below them; manager, lead and deputy all count | #446 | `access-context.service.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

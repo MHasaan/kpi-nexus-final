@@ -1,0 +1,88 @@
+# Azure VM overlay for infra/prod/docker-compose.yml (ADR-004): the production
+# stack plus what Vercel, Object Storage and Brevo provide in the Oracle plan —
+# the web app, an S3 store (SeaweedFS) and a mail catcher (Mailpit) that
+# forwards real mail. Every image is built on the VM and tagged local/*:demo.
+#
+# Compose loads this file by itself when it sits next to docker-compose.yml:
+#   cd /srv/kpi-nexus && docker compose ps
+# update.sh copies both files, the Caddyfile and web.Dockerfile from the
+# repository checkout in /srv/kpi-nexus/src on every update.
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    # An 8 GB VM; the production file assumes 12 GB.
+    mem_limit: 2g
+
+  web:
+    image: local/kpi-nexus-web:demo
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    mem_limit: 768m
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  s3:
+    image: chrislusf/seaweedfs:latest@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d # 4.48
+    command:
+      - mini
+      - -dir=/data
+      - -s3.port=9000
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -bucket=kpi-nexus-files
+      - -master.telemetry=false
+    volumes:
+      - s3data:/data
+      - ./seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    mem_limit: 512m
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  # Every message the app sends lands here (…/mail, password-protected). With
+  # real mail set up (configure-mail.sh), Mailpit also forwards each message to
+  # its recipients through the server in mailpit-relay.yml, except addresses
+  # that cannot receive mail (the demo organisation's, reserved test domains).
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    environment:
+      MP_WEBROOT: /mail/
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      MP_MAX_MESSAGES: "2000"
+      MP_SMTP_RELAY_CONFIG: ${MAIL_RELAY_CONFIG:-}
+      MP_SMTP_RELAY_ALL: ${MAIL_RELAY_ALL:-false}
+    volumes:
+      - ./mailpit-relay.yml:/etc/mailpit/relay.yml:ro
+    mem_limit: 128m
+    restart: unless-stopped
+    logging: *logging
+    networks: [internal]
+
+  caddy:
+    environment:
+      S3_DOMAIN: ${S3_DOMAIN:?}
+      MAIL_USER: ${MAIL_USER:?}
+      MAIL_HASH: ${MAIL_HASH:?}
+    depends_on: [api, web, s3, mailpit]
+
+  # One-off jobs with the whole repository and its dev dependencies (the seed,
+  # prisma): docker compose --profile tools run --rm tools <command>
+  tools:
+    image: local/kpi-nexus-tools:demo
+    profiles: [tools]
+    working_dir: /repo
+    env_file: app.env
+    environment:
+      DATABASE_URL: postgresql://kpi_nexus:${KPI_OWNER_DB_PASSWORD:?}@postgres:5432/kpi_nexus
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  s3data:

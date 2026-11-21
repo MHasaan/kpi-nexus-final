@@ -1,0 +1,13 @@
+# /srv/kpi-nexus/mailpit-relay.yml on the Azure VM (mode 600): the server
+# Mailpit forwards every message through once real mail is set up.
+# configure-mail.sh writes it from a mail.env; this copy is the placeholder
+# a fresh VM starts with (no forwarding until MAIL_RELAY_CONFIG is set).
+host: smtp.example.com
+port: 587
+starttls: true
+auth: plain
+username: you@example.com
+password: 'an app password'
+return-path: you@example.com
+# Addresses that cannot receive mail: the demo organisation's and reserved test domains.
+blocked-recipients: '@helios\.io$|\.(local|test|invalid|localhost|example)$|@example\.(com|org|net)$'

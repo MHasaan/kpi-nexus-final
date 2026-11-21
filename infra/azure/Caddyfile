@@ -1,0 +1,26 @@
+# Azure VM (ADR-004): one HTTPS name for the whole app — the web app at the
+# root, the API under /api, the mail catcher under /mail (password-protected) —
+# and a second name for the S3 store, so presigned report links open in a
+# browser. Caddy gets and renews both certificates from Let's Encrypt.
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle /mail* {
+		basic_auth {
+			{$MAIL_USER} {$MAIL_HASH}
+		}
+		reverse_proxy mailpit:8025
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+{$S3_DOMAIN} {
+	reverse_proxy s3:9000
+}

@@ -62,3 +62,10 @@ infra/prod/rehearsal.env
 infra/prod/rehearsal.app.env
 # deploy.sh's record of the live tags (on the VM; also written by the rehearsal)
 infra/prod/current-tag
+
+# Azure VM settings (infra/azure): only the examples are committed
+infra/azure/mail.env
+infra/azure/ai.env
+infra/azure/mailpit-relay.yml
+infra/azure/.env
+infra/azure/app.env

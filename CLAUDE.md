@@ -47,7 +47,7 @@ These are locked in `docs/superpowers/specs/2026-05-25-kpi-nexus-final-design.md
 4. 25 canonical permissions (locked enum): the 18 core keys of spec §5.2 plus 7 refined keys (`KPI_IMPORT`, `REPORTS_MANAGE`, `ANALYTICS_FORECAST`, `EXPORTS`, `AUDIT_VIEW`, `INTEGRATIONS_MANAGE`, `BILLING_MANAGE`) added 2026-06-01 with user signoff by the capability-refinement decision in [granular-access spec §5](./docs/superpowers/specs/2026-06-01-granular-access-control-design.md). That decision is titled "ADR-001" there and in code comments; it is not `docs/adrs/ADR-001` (hosting)
 5. KPI scope is first-class: ORG_WIDE / PER_UNIT / PER_USER
 6. Default AI budget: $1/day, $30/month per org
-7. Deployment: Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM (api/worker/ml/postgres/redis via Docker Compose). Replaced Fly.io + Upstash by [ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md)
+7. Deployment: Vercel Hobby (web) + one Oracle Cloud Always Free ARM VM (api/worker/ml/postgres/redis via Docker Compose). Replaced Fly.io + Upstash by [ADR-001](./docs/adrs/ADR-001-free-tier-hosting.md). Interim since 2026-11-21: one Azure for Students VM carries everything (`infra/azure/`) while Oracle has no A1 capacity, by [ADR-004](./docs/adrs/ADR-004-azure-interim-hosting.md); ADR-001 stays the target
 8. Local dev: docker-compose with all dependencies
 9. Testing: Vitest + Playwright + Testcontainers; cross-tenant fuzz on every PR
 10. Observability: Pino + OpenTelemetry + Sentry

@@ -1217,7 +1217,9 @@ function bandRange(lower: number | null, upper: number | null): string {
 function ThresholdsTab({ kpiId }: { kpiId: string }) {
   const confirm = useConfirm();
   const [bands, reload, loadError] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
-  const [status] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
+  // The current band is asked for again whenever the bands change (F-019: it kept saying no bands were set
+  // until a full reload).
+  const [status, reloadStatus] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
   const [form, setForm] = useState(EMPTY_BAND);
   const [err, setErr] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
@@ -1238,6 +1240,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       });
       setForm(EMPTY_BAND);
       reload();
+      reloadStatus();
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Failed to add band');
     }
@@ -1399,6 +1402,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
                     action: async () => {
                       await deleteThresholdBand(kpiId, b.id);
                       reload();
+                      reloadStatus();
                     },
                   })
                 }

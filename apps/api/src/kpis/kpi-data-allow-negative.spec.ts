@@ -30,7 +30,8 @@ function setup(opts: { allowNegative: boolean; scope?: 'ORG_WIDE' | 'PER_USER' }
       update: vi.fn(async () => ({})),
     },
     kPIDataPoint: {
-      findFirst: vi.fn(async () => point),
+      // The point itself when asked for by id (a correction); nothing for the same-period check (F-017).
+      findFirst: vi.fn(async ({ where }: { where: { id?: string } }) => (where.id ? point : null)),
       findMany: vi.fn(async () => []),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'p9', orgUnitId: null, userId: null, recordedAt: new Date(), ...data })),
     },

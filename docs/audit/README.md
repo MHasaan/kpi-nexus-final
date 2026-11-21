@@ -589,6 +589,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-018): a steadily rising MRR had its values flagged "outlier" on the Data tab while the Anomalies page found the series healthy | ✅ Fixed — an outlier is judged against the trend line, from six values or more | #457 | `outlier-detector.spec.ts` |
 | Manual QA (2026-11-19, F-042): "Generate insights" did nothing and said nothing when no KPI qualified | ✅ Fixed — the batch reports what it skipped and why, and the page says so | #458 | `insights.service.spec.ts`, `insights.controller.spec.ts`, `generate-insights-says-when-nothing-qualifies.spec.ts` |
 | Manual QA (2026-11-19, F-003): the home page said "No targets set" to an organisation whose KPIs all had targets held by units | ✅ Fixed — a KPI counts as targeted when any holder has a target; "No values yet" until something is recorded | #459 | `home-knows-targets-held-by-units.spec.ts` |
+| Manual QA (2026-11-19, F-005): the wizard gave everyone the plain member role; on the Teams page a role could be changed only by remove-and-re-add, and showed as its code | ✅ Fixed — a "Role in unit" choice in the wizard, a choice in place on the Teams page (new PATCH route), roles in words | #460 | `onboarding.spec.ts`, `org-units.service.spec.ts`, `unit-roles-can-be-changed.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

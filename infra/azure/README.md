@@ -80,6 +80,13 @@ ssh -i ~/.ssh/kpi-nexus-oracle ubuntu@68.210.149.147 \
   "chmod 755 /srv/kpi-nexus/ci-deploy.sh && echo 'command=\"/srv/kpi-nexus/ci-deploy.sh\",restrict $(cat ~/.ssh/kpi-nexus-azure-deploy.pub)' >> ~/.ssh/authorized_keys"
 ```
 
+Check the restriction from your computer, offering only that key (an SSH agent holding the admin key would otherwise sign in with it and show a shell):
+
+```bash
+ssh -i ~/.ssh/kpi-nexus-azure-deploy -o IdentitiesOnly=yes ubuntu@kpinexus-demo.austriaeast.cloudapp.azure.com id
+# ci-deploy: expected a full commit SHA, got 'id'
+```
+
 Repository → Settings → Secrets and variables → Actions:
 
 | Secret | Value |

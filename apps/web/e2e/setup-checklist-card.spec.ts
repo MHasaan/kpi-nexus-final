@@ -44,6 +44,8 @@ test('checklist card: each task links to where it is done, and done work shows a
   // A task is a link to the page where it is done.
   await expect(card.getByTestId('checklist-remaining_invites').getByRole('link', { name: 'Invite your team' })).toHaveAttribute('href', '/users');
   await expect(card.getByTestId('checklist-channels').getByRole('link')).toHaveAttribute('href', '/alerts/channels');
+  // Flow walk (first use): this step read "Add widgets to a dashboard" to an organisation with no dashboard yet.
+  await expect(card.getByTestId('checklist-default_dashboard').getByRole('link')).toHaveText('Put a KPI on a dashboard');
 
   // Invite someone — nothing is ticked by hand.
   expect((await ctx.api.post('/users', { data: { email: `mate-${ctx.stamp}@clcard.test.local`, fullName: 'Team Mate' } })).status()).toBe(201);

@@ -64,6 +64,8 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     allowedHeaders: ['authorization', 'content-type', 'if-match', 'x-draft-token'],
+    // The browser may read a downloaded file's name (F-044).
+    exposedHeaders: ['content-disposition'],
   });
 
   const port = Number(process.env.PORT ?? 4000);

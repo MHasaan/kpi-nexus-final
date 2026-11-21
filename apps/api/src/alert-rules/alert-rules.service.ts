@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@kpi-nexus/db';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -12,6 +12,7 @@ import type {
   EscalationLevel,
   UpdateAlertRuleDto,
 } from './dto/alert-rule.dto.js';
+import { configSchemaFor } from './dto/alert-rule.dto.js';
 
 const alertRuleSelect = {
   id: true,
@@ -149,7 +150,31 @@ export class AlertRulesService {
 
   async update(id: string, dto: UpdateAlertRuleDto): Promise<PublicAlertRule> {
     const ctx = RequestContextStore.require();
-    await this.getById(id); // tenant + existence check
+    const existing = await this.getById(id); // tenant + existence check
+
+    // A new KPI must be one of this organisation's (F-069).
+    if (dto.kpiId !== undefined && dto.kpiId !== existing.kpiId) {
+      const kpi = await this.prisma.kPI.findFirst({
+        where: { id: dto.kpiId, organizationId: ctx.organizationId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!kpi) throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });
+    }
+
+    // A new condition, or a new kind, must fit the kind the rule will have (F-069).
+    let config: Prisma.InputJsonValue | undefined;
+    if (dto.ruleType !== undefined || dto.config !== undefined) {
+      const ruleType = dto.ruleType ?? existing.ruleType;
+      const parsed = configSchemaFor(ruleType).safeParse(dto.config ?? existing.config);
+      if (!parsed.success) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: `The condition does not fit a ${ruleType.toLowerCase().replace(/_/g, ' ')} rule`,
+          details: parsed.error.flatten(),
+        });
+      }
+      config = parsed.data as Prisma.InputJsonValue;
+    }
 
     await this.prisma.alertRule.update({
       where: { id },
@@ -158,6 +183,9 @@ export class AlertRulesService {
         description: dto.description,
         severity: dto.severity,
         isActive: dto.isActive,
+        kpiId: dto.kpiId,
+        ruleType: dto.ruleType,
+        config,
       },
     });
 

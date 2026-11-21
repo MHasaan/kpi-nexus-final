@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
+import type { AlertRule } from './api-client';
+
 import {
   type AlertRuleForm,
   EMPTY_ALERT_RULE_FORM,
@@ -7,10 +9,11 @@ import {
   alertRuleProblem,
   conditionSentence,
   delayWords,
+  formFromRule,
   levelSummary,
+  savedRuleSentence,
   toMinutes,
   toggleId,
-  savedRuleSentence,
 } from './alert-rule-form';
 
 const form = (patch: Partial<AlertRuleForm> = {}): AlertRuleForm => ({ ...EMPTY_ALERT_RULE_FORM, name: 'Churn watch', kpiId: 'k1', threshold: '5', ...patch });
@@ -149,5 +152,55 @@ describe('savedRuleSentence', () => {
   test('a rule it cannot read is named by its kind, never shown as stored', () => {
     expect(savedRuleSentence({ ruleType: 'COMPOSITE', config: {} }, grouped)).toBe('When several conditions are met together');
     expect(savedRuleSentence({ ruleType: 'STATIC_THRESHOLD', config: null }, grouped)).toBe('Crosses a fixed value');
+  });
+});
+
+// Manual QA (2026-11-20, F-069): a rule could not be edited beyond its name, severity and description. The
+// form that makes a rule now also opens a saved one.
+describe('formFromRule', () => {
+  const saved = (form: AlertRuleForm): AlertRule => {
+    const body = alertRuleBody(form);
+    return {
+      id: 'rule_1',
+      organizationId: 'org',
+      kpiId: body.kpiId,
+      name: body.name,
+      description: body.description ?? null,
+      ruleType: body.ruleType,
+      config: body.config,
+      severity: body.severity,
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdById: 'u1',
+      escalationRule: body.escalationLevels ? { id: 'esc', levels: body.escalationLevels, createdAt: '', updatedAt: '' } : null,
+    };
+  };
+  const base: AlertRuleForm = { ...EMPTY_ALERT_RULE_FORM, name: 'MRR below floor', description: 'Check the pipeline', kpiId: 'kpi_1', severity: 'HIGH' };
+
+  test('a saved rule of each kind comes back as the form that made it', () => {
+    const forms: AlertRuleForm[] = [
+      { ...base, ruleType: 'STATIC_THRESHOLD', operator: '<', threshold: '230000', cooldownValue: '2', cooldownUnit: 'hours', levels: [{ delayMinutes: 0, channelIds: ['ch1'], notifyRoleIds: [], notifyUserIds: ['u1'] }] },
+      { ...base, ruleType: 'DYNAMIC_STDDEV', sigmas: '2.5', windowSize: '12' },
+      { ...base, ruleType: 'RATE_OF_CHANGE', direction: 'fall', percent: '15', windowValue: '7', windowUnit: 'days' },
+      { ...base, ruleType: 'NO_DATA', staleValue: '36', staleUnit: 'hours' },
+    ];
+    for (const form of forms) {
+      const back = formFromRule(saved(form));
+      expect(back, form.ruleType).not.toBeNull();
+      expect(alertRuleBody(back!)).toEqual(alertRuleBody(form));
+    }
+  });
+
+  test('minutes come back in the largest whole unit', () => {
+    const rule = saved({ ...base, ruleType: 'NO_DATA', staleValue: '2880', staleUnit: 'minutes', cooldownValue: '90', cooldownUnit: 'minutes' });
+    const back = formFromRule(rule)!;
+    expect([back.staleValue, back.staleUnit]).toEqual(['2', 'days']);
+    expect([back.cooldownValue, back.cooldownUnit]).toEqual(['90', 'minutes']);
+  });
+
+  test('a composite rule is not one the form can edit', () => {
+    const rule = { ...saved(base), ruleType: 'COMPOSITE' as const, config: { operator: 'AND', parts: [] } };
+    expect(formFromRule(rule)).toBeNull();
   });
 });

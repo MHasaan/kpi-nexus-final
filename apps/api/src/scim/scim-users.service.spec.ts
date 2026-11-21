@@ -79,7 +79,7 @@ describe('ScimUsersService', () => {
     const res = await withCtx({}, () => service.create({ userName: 'ada@x.test', name: { givenName: 'Ada', familyName: 'L' } }));
     expect(prisma.users[0]!.status).toBe('INVITED');
     expect(res.userName).toBe('ada@x.test');
-    expect(res.active).toBe(true);
+    expect(res.active).toBe(false) // invited, not yet able to sign in (F-067);
     expect(res.schemas).toContain('urn:ietf:params:scim:schemas:core:2.0:User');
     expect(res.meta.resourceType).toBe('User');
   });
@@ -105,6 +105,26 @@ describe('ScimUsersService', () => {
     await withCtx({}, () => service.create({ userName: 'b@x.test' }));
     const list = await withCtx({}, () => service.list());
     expect(list.totalResults).toBe(2);
+  });
+
+  // Manual QA (2026-11-20, F-067): `count` was ignored (26 came back for count=2), and people who had never
+  // accepted their invitation were reported active.
+  test('list honours startIndex and count, and still says how many there are in all', async () => {
+    const { service } = makeService();
+    for (const u of ['a', 'b', 'c']) await withCtx({}, () => service.create({ userName: `${u}@x.test` }));
+    const page = await withCtx({}, () => service.list(undefined, { startIndex: 2, count: 1 }));
+    expect(page.totalResults).toBe(3);
+    expect(page.startIndex).toBe(2);
+    expect(page.itemsPerPage).toBe(1);
+    expect(page.Resources.map((r) => r.userName)).toEqual(['b@x.test']);
+  });
+
+  test('someone who has not accepted their invitation is not active; someone signed in is', async () => {
+    const { service } = makeService();
+    const made = await withCtx({}, () => service.create({ userName: 'new@x.test' }));
+    expect(made.active).toBe(false);
+    const list = await withCtx({}, () => service.list('userName eq "new@x.test"'));
+    expect(list.Resources[0]!.active).toBe(false);
   });
 
   test('PATCH flat active:false → SUSPENDED; active:true → ACTIVE', async () => {

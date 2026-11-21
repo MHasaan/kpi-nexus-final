@@ -52,6 +52,7 @@ import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { inSentence } from '../../lib/sentence-case';
 import { KPI_STATUS_LABELS, KPI_TYPE_LABELS, SCOPE_LABELS, labelFor } from '../../lib/labels';
 import { useFormat } from '../../lib/format-context';
+import { categoryIcon } from '../../lib/category-icons';
 
 // Lifecycle-status presentation. Status is conveyed by label text (never
 // colour-only) plus a tone, derived from the canonical KpiStatus enum.
@@ -554,6 +555,7 @@ function KpiRow({
   onRecord,
 }: KpiRowProps) {
   const fmt = useFormat();
+  const CategoryIcon = categoryIcon(category?.icon);
   return (
     <>
       <TableRow data-testid={`kpi-row-${kpi.name}`} className="hover:bg-surface-hover">
@@ -570,12 +572,25 @@ function KpiRow({
           {/* The category, marked with its own colour: the colour chosen on the Categories page was shown nowhere. */}
           {category && (
             <span data-testid="kpi-category" className="mt-0.5 flex items-center gap-1.5 text-xs text-content-muted">
-              <span
-                data-testid="kpi-category-colour"
-                aria-hidden
-                className="inline-block h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: category.color ?? 'hsl(var(--border-strong))' }}
-              />
+              {/* The category's icon in its colour when it has one; otherwise a dot of its colour. */}
+              {CategoryIcon ? (
+                <span
+                  data-testid="kpi-category-icon"
+                  data-icon={category.icon}
+                  aria-hidden
+                  className="inline-flex shrink-0"
+                  style={{ color: category.color ?? undefined }}
+                >
+                  <CategoryIcon className="h-3.5 w-3.5" />
+                </span>
+              ) : (
+                <span
+                  data-testid="kpi-category-colour"
+                  aria-hidden
+                  className="inline-block h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: category.color ?? 'hsl(var(--border-strong))' }}
+                />
+              )}
               {category.name}
             </span>
           )}

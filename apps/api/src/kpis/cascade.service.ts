@@ -6,6 +6,67 @@ import { evaluateFormula } from '../formula/formula.js';
 
 export type RollupMethod = 'SUM' | 'AVG' | 'WEIGHTED_AVG' | 'MIN' | 'MAX' | 'CUSTOM_FORMULA';
 
+/** A child's data point with whose it is: a unit's, a person's, or the organisation's (both null). */
+export interface HolderPoint {
+  value: number;
+  periodStart: Date;
+  orgUnitId: string | null;
+  userId: string | null;
+}
+
+/** How a child's holders (its units or people) are combined into the child's one value for a period. */
+export type HolderCombine = 'SUM' | 'AVG' | 'MIN' | 'MAX';
+
+/** KPI types whose values add up across holders; the others (percentages, ratings, durations) are levels. */
+const ADDITIVE_KPI_TYPES: ReadonlySet<string> = new Set(['NUMBER', 'COUNT', 'CURRENCY']);
+
+/**
+ * How to combine a child's holders, given the parent's roll-up method. A sum, average, minimum or maximum
+ * across children applies across each child's holders too ("the sum of them" sums every team's bookings).
+ * A weighted average or a formula needs one value per child: amounts add up, levels are averaged.
+ */
+export function combineForMethod(method: RollupMethod, childKpiType: string): HolderCombine {
+  if (method === 'SUM' || method === 'AVG' || method === 'MIN' || method === 'MAX') return method;
+  return ADDITIVE_KPI_TYPES.has(childKpiType) ? 'SUM' : 'AVG';
+}
+
+const holderKey = (p: HolderPoint): string => `${p.orgUnitId ?? ''}|${p.userId ?? ''}`;
+
+/**
+ * One value for a child KPI over a period. The child's own organisation-level points stand for it when it
+ * has any (a child that is itself a parent has calculated ones). Otherwise each holder's points are
+ * collapsed by the child's aggregation and the holders combined with `combine`. Until 2026-11-21 all
+ * holders' points were collapsed together, so one unit's value stood for a child recorded by several.
+ */
+export function childPeriodValue(
+  points: HolderPoint[],
+  childAggregation: 'SUM' | 'AVG' | 'LAST' | 'FIRST',
+  windowStart: Date,
+  windowEnd: Date,
+  combine: HolderCombine,
+): number | null {
+  const inWindow = points.filter((p) => p.periodStart >= windowStart && p.periodStart <= windowEnd);
+  const orgLevel = inWindow.filter((p) => p.orgUnitId === null && p.userId === null);
+  if (orgLevel.length > 0) return aggregateChildPoints(orgLevel, childAggregation, windowStart, windowEnd);
+
+  const byHolder = new Map<string, HolderPoint[]>();
+  for (const p of inWindow) byHolder.set(holderKey(p), [...(byHolder.get(holderKey(p)) ?? []), p]);
+  const values = [...byHolder.values()]
+    .map((own) => aggregateChildPoints(own, childAggregation, windowStart, windowEnd))
+    .filter((v): v is number => v !== null);
+  if (values.length === 0) return null;
+  switch (combine) {
+    case 'SUM':
+      return values.reduce((a, v) => a + v, 0);
+    case 'AVG':
+      return values.reduce((a, v) => a + v, 0) / values.length;
+    case 'MIN':
+      return Math.min(...values);
+    case 'MAX':
+      return Math.max(...values);
+  }
+}
+
 export interface RollupResult {
   parentKpiId: string;
   periodStart: Date;
@@ -141,7 +202,7 @@ export class CascadeService {
       where: { parentKpiId, organizationId: ctx.organizationId },
       include: {
         childKpi: {
-          select: { id: true, name: true, aggregationMethod: true },
+          select: { id: true, name: true, aggregationMethod: true, type: true },
         },
       },
     });
@@ -173,15 +234,11 @@ export class CascadeService {
           kpiId: edge.childKpi.id,
           periodStart: { gte: periodStart, lte: periodEnd },
         },
-        select: { value: true, periodStart: true },
+        select: { value: true, periodStart: true, orgUnitId: true, userId: true },
       });
       const childAgg = collapseAggregation(edge.childKpi.aggregationMethod);
-      const collapsed = aggregateChildPoints(
-        points,
-        childAgg,
-        periodStart,
-        periodEnd,
-      );
+      // A child recorded per unit or per person counts each holder's value (F-028).
+      const collapsed = childPeriodValue(points, childAgg, periodStart, periodEnd, combineForMethod(method, edge.childKpi.type));
       if (collapsed !== null) {
         childValues[edge.childKpi.name] = collapsed;
         weights[edge.childKpi.name] = edge.weight;
@@ -205,6 +262,74 @@ export class CascadeService {
       contributingChildren: Object.keys(childValues).length,
       totalDataPoints,
     };
+  }
+
+  /** The KPI's calculated organisation-level point for a period, if it has one. */
+  private computedPointFor(kpiId: string, organizationId: string, periodStart: Date) {
+    return this.prisma.kPIDataPoint.findFirst({
+      where: { organizationId, kpiId, sourceType: 'COMPUTED', periodStart, orgUnitId: null, userId: null },
+      select: { id: true, recordedAt: true },
+    });
+  }
+
+  /**
+   * Write a KPI's calculated value for a period: one organisation-level COMPUTED row per period, replaced
+   * on each recompute. Until 2026-11-21 every recompute added another row, so a parent's history filled
+   * with duplicates that could be neither corrected nor removed (F-028). Recorded values are left alone.
+   */
+  async writeComputedPoint(kpiId: string, periodStart: Date, periodEnd: Date, value: number): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const existing = await this.computedPointFor(kpiId, ctx.organizationId, periodStart);
+    if (existing) {
+      await this.prisma.kPIDataPoint.update({
+        where: { recordedAt_id: { recordedAt: existing.recordedAt, id: existing.id } },
+        data: { value, periodEnd },
+      });
+      return;
+    }
+    await this.prisma.kPIDataPoint.create({
+      data: { organizationId: ctx.organizationId, kpiId, value, periodStart, periodEnd, sourceType: 'COMPUTED' },
+    });
+  }
+
+  /** Remove every calculated organisation-level row of a KPI. Returns how many. */
+  async removeComputedPoints(kpiId: string): Promise<number> {
+    const ctx = RequestContextStore.require();
+    const { count } = await this.prisma.kPIDataPoint.deleteMany({
+      where: { organizationId: ctx.organizationId, kpiId, sourceType: 'COMPUTED', orgUnitId: null, userId: null },
+    });
+    return count;
+  }
+
+  /**
+   * After a parent's children changed (a detach): with children left, its newest calculated period is
+   * worked out again from them; with none left, its calculated rows are removed, unless a formula owns
+   * them. Until 2026-11-21 a detach left the rows as they were.
+   */
+  async refreshParent(parentKpiId: string): Promise<'recomputed' | 'removed' | 'none'> {
+    const ctx = RequestContextStore.require();
+    const children = await this.prisma.kPICascade.count({ where: { parentKpiId, organizationId: ctx.organizationId } });
+    if (children === 0) {
+      const formula = await this.prisma.formulaExpression.findFirst({
+        where: { kpiId: parentKpiId, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (formula) return 'none';
+      return (await this.removeComputedPoints(parentKpiId)) > 0 ? 'removed' : 'none';
+    }
+    const newest = await this.prisma.kPIDataPoint.findFirst({
+      where: { organizationId: ctx.organizationId, kpiId: parentKpiId, sourceType: 'COMPUTED', orgUnitId: null, userId: null },
+      orderBy: { periodStart: 'desc' },
+      select: { periodStart: true, periodEnd: true },
+    });
+    if (!newest) return 'none';
+    const result = await this.computeForParent(parentKpiId, newest.periodStart, newest.periodEnd);
+    if (result.value === null) {
+      await this.removeComputedPoints(parentKpiId);
+      return 'removed';
+    }
+    await this.writeComputedPoint(parentKpiId, newest.periodStart, newest.periodEnd, result.value);
+    return 'recomputed';
   }
 }
 

@@ -125,11 +125,14 @@ export class KpiCascadesService {
     const ctx = RequestContextStore.require();
     const existing = await this.prisma.kPICascade.findFirst({
       where: { id, organizationId: ctx.organizationId },
-      select: { id: true },
+      select: { id: true, parentKpiId: true },
     });
     if (!existing) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Cascade edge not found' });
     await this.prisma.kPICascade.delete({ where: { id } });
     await this.recomputeLevels();
+    // The parent's calculated values no longer include this child: work them out again, or remove them
+    // when nothing feeds the parent any more (F-028).
+    await this.cascade.refreshParent(existing.parentKpiId);
     await this.audit.record({ action: 'DELETE', entityType: 'KPICascade', entityId: id });
   }
 

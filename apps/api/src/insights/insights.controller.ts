@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
-import { InsightsService } from './insights.service.js';
+import { InsightsService, type InsightBatch } from './insights.service.js';
 import { InsightsProducer } from './insights.producer.js';
 import { ApiBody } from '../openapi/api-body.decorator.js';
 
@@ -62,15 +62,15 @@ export class InsightsController {
   @Post('generate-batch')
   @RequirePermissions(PermissionKey.INSIGHTS_VIEW)
   @ApiBody(BatchSchema)
-  async generateBatch(@Body() body: unknown): Promise<{ insights: KPIInsight[] }> {
+  async generateBatch(@Body() body: unknown): Promise<InsightBatch> {
     const parsed = BatchSchema.safeParse(body ?? {});
     if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Invalid batch request', details: parsed.error.flatten() });
     // Only on a plan that includes it: 402 FEATURE_NOT_IN_PLAN otherwise.
     await this.billing.assertFeature('ai_insights');
-    const insights = await this.insights.generateBatch(parsed.data);
+    const batch = await this.insights.generateBatch(parsed.data);
     // The batch scans the whole org; return only insights about KPIs the caller can see (BE-004).
     const visible = await this.accessContext.visibleKpiIds();
-    return { insights: visible ? insights.filter((i) => visible.includes(i.kpiId)) : insights };
+    return { ...batch, insights: visible ? batch.insights.filter((i) => visible.includes(i.kpiId)) : batch.insights };
   }
 
   @Post(':id/dismiss')

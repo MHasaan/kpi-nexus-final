@@ -20,25 +20,18 @@ import { usePermissions } from '../../../lib/use-permissions';
 const AUDIT_KEYS = ['AUDIT_VIEW', 'ORG_SETTINGS'];
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { useFormat } from '../../../lib/format-context';
-import { auditSubjectName } from '../../../lib/labels';
+import { AUDIT_ACTIONS } from '@kpi-nexus/contracts';
+import { AUDIT_ACTION_LABELS, auditSubjectName, labelFor } from '../../../lib/labels';
 
 /** Rows are fetched this many at a time; "Load older entries" fetches the next lot. */
 const PAGE_SIZE = 100;
 
-const ACTION_OPTIONS: AuditAction[] = [
-  'CREATE',
-  'UPDATE',
-  'DELETE',
-  'LOGIN',
-  'LOGOUT',
-  'IMPERSONATE',
-  'EXPORT',
-  'INVITE',
-  'PERMISSION_CHANGE',
-  'CONFIG_CHANGE',
-  'BILLING_EVENT',
-  'SYSTEM_EVENT',
-];
+// Exactly what the log records, in words: six of the old choices were never written and gave a 500 (F-057).
+const ACTION_OPTIONS: AuditAction[] = [...AUDIT_ACTIONS];
+const actionWord = (action: AuditAction): string => {
+  const verb = labelFor(AUDIT_ACTION_LABELS, action);
+  return verb.charAt(0).toUpperCase() + verb.slice(1);
+};
 
 export default function AuditPage() {
   return <AuditPageInner />;
@@ -176,7 +169,7 @@ function AuditPageInner() {
                 <option value="">(all actions)</option>
                 {ACTION_OPTIONS.map((a) => (
                   <option key={a} value={a}>
-                    {a}
+                    {actionWord(a)}
                   </option>
                 ))}
               </select>

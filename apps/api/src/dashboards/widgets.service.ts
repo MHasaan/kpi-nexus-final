@@ -57,6 +57,11 @@ export class WidgetsService {
     await this.dashboards.getById(dashboardId);
   }
 
+  /** Changing widgets changes the dashboard: its owner's or an administrator's to do (F-068). */
+  private async assertDashboardChange(dashboardId: string): Promise<void> {
+    await this.dashboards.getByIdForChange(dashboardId);
+  }
+
   async list(dashboardId: string): Promise<PublicWidget[]> {
     await this.assertDashboardAccess(dashboardId);
     return this.prisma.dashboardWidget.findMany({
@@ -68,7 +73,7 @@ export class WidgetsService {
 
   async add(dashboardId: string, dto: AddWidgetDto): Promise<PublicWidget> {
     const ctx = RequestContextStore.require();
-    await this.assertDashboardAccess(dashboardId);
+    await this.assertDashboardChange(dashboardId);
     await this.assertConfigKpisInTenant(dto.config, ctx.organizationId);
 
     // Default sortOrder to (max existing + 1) so newly added widgets land
@@ -101,7 +106,7 @@ export class WidgetsService {
     widgetId: string,
     dto: UpdateWidgetDto,
   ): Promise<PublicWidget> {
-    await this.assertDashboardAccess(dashboardId);
+    await this.assertDashboardChange(dashboardId);
     const existing = await this.findWidget(dashboardId, widgetId);
     if (dto.config) {
       await this.assertConfigKpisInTenant(dto.config, RequestContextStore.require().organizationId);
@@ -137,7 +142,7 @@ export class WidgetsService {
     widgetId: string,
     position: UpdateWidgetPositionDto,
   ): Promise<PublicWidget> {
-    await this.assertDashboardAccess(dashboardId);
+    await this.assertDashboardChange(dashboardId);
     const existing = await this.findWidget(dashboardId, widgetId);
 
     return this.prisma.dashboardWidget.update({
@@ -148,7 +153,7 @@ export class WidgetsService {
   }
 
   async remove(dashboardId: string, widgetId: string): Promise<void> {
-    await this.assertDashboardAccess(dashboardId);
+    await this.assertDashboardChange(dashboardId);
     const existing = await this.findWidget(dashboardId, widgetId);
     await this.prisma.dashboardWidget.delete({ where: { id: existing.id } });
     await this.audit.record({

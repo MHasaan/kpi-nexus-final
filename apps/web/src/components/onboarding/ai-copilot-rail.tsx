@@ -70,6 +70,7 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thread, setThread] = useState<Entry[]>([]);
+  const shown = thread.filter((e) => e.mode === mode);
   const [nextId, setNextId] = useState(1);
   // The entry whose Apply is running: its button is disabled so a second press cannot send it twice.
   const [applyingId, setApplyingId] = useState<number | null>(null);
@@ -204,9 +205,10 @@ export function AiCopilotRail({ handle, payload, onDraftChanged, onClose }: AiCo
       </Tabs>
       <p className="px-4 pt-2 text-xs text-content-muted">{HINT[mode]}</p>
 
+      {/* Each tab is its own conversation (F-001: the Explain tab showed the Suggest block and its chips). */}
       <div data-testid="copilot-thread" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {thread.length === 0 && <p className="text-xs text-content-muted">Nothing here yet.</p>}
-        {thread.map((entry) => (
+        {shown.length === 0 && <p className="text-xs text-content-muted">Nothing here yet.</p>}
+        {shown.map((entry) => (
           <div key={entry.id} className="space-y-2">
             <p className="ml-6 rounded-lg bg-surface-bg px-3 py-2 text-xs text-content-strong">
               <span className="font-semibold capitalize">{entry.mode}:</span> {entry.input || '—'}

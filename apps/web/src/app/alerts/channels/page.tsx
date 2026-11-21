@@ -318,7 +318,8 @@ export default function ChannelsPage() {
                     <Badge tone={c.isActive ? 'success' : 'neutral'}>{c.isActive ? 'Active' : 'Disabled'}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    {/* The buttons wrap rather than push the table past its card (F-033: "Disab…" at laptop width). */}
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button variant="secondary" size="sm" disabled={busyId === c.id} onClick={() => void handleTest(c)} data-testid={`channel-test-${c.id}`} leftIcon={<Send className="h-3.5 w-3.5" />}>
                         Send test
                       </Button>

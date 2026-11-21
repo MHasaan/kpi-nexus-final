@@ -7,9 +7,23 @@ export interface WorkflowForm {
   operator: string;
   value: string;
   taskTitle: string;
+  /** Who the task is for; '' leaves it unassigned (F-041: it always was). */
+  assigneeUserId: string;
+  /** '' keeps the tasks' usual priority. */
+  priority: '' | TaskPriorityChoice;
+  /** Whole days from the moment the task is made; '' means no due date. */
+  dueInDays: string;
 }
 
-export const EMPTY_WORKFLOW_FORM: WorkflowForm = { name: '', kpiId: '', operator: '>', value: '', taskTitle: '' };
+export type TaskPriorityChoice = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export const TASK_PRIORITY_CHOICES: ReadonlyArray<{ value: TaskPriorityChoice; label: string }> = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+];
+
+export const EMPTY_WORKFLOW_FORM: WorkflowForm = { name: '', kpiId: '', operator: '>', value: '', taskTitle: '', assigneeUserId: '', priority: '', dueInDays: '' };
 
 /** The comparisons the rule engine knows, with how each reads in a sentence. */
 export const OPERATORS: ReadonlyArray<{ value: string; symbol: string; words: string }> = [
@@ -27,6 +41,11 @@ export function workflowFormProblem(form: WorkflowForm): string | null {
   if (!form.kpiId) return 'Choose the KPI to watch.';
   if (form.value.trim() === '' || !Number.isFinite(Number(form.value))) return 'Enter the number to compare the KPI with.';
   if (!form.taskTitle.trim()) return 'Give the task a title.';
+  if (form.dueInDays.trim() !== '') {
+    const days = Number(form.dueInDays);
+    if (!Number.isInteger(days)) return 'Due in: a whole number of days, or leave it empty.';
+    if (days < 1) return 'Due in: at least 1 day, or leave it empty.';
+  }
   return null;
 }
 
@@ -36,12 +55,18 @@ export function workflowBody(form: WorkflowForm) {
     name: form.name.trim(),
     triggers: ['kpi_changed'],
     rule: { kind: 'kpi_value', kpiId: form.kpiId, operator: form.operator, value: Number(form.value) },
-    action: { kind: 'create_task', title: form.taskTitle.trim() },
+    action: {
+      kind: 'create_task',
+      title: form.taskTitle.trim(),
+      ...(form.assigneeUserId ? { assigneeUserId: form.assigneeUserId } : {}),
+      ...(form.priority ? { priority: form.priority } : {}),
+      ...(form.dueInDays.trim() !== '' ? { dueAtRelativeHours: Number(form.dueInDays) * 24 } : {}),
+    },
   };
 }
 
 type KpiValueRule = { kind: 'kpi_value'; kpiId: string; operator: string; value: number };
-type CreateTaskAction = { kind: 'create_task'; title: string };
+type CreateTaskAction = { kind: 'create_task'; title: string; assigneeUserId?: string; priority?: TaskPriorityChoice; dueAtRelativeHours?: number };
 
 const isKpiValueRule = (rule: unknown): rule is KpiValueRule =>
   typeof rule === 'object' && rule !== null && (rule as { kind?: unknown }).kind === 'kpi_value';
@@ -57,6 +82,9 @@ export function formFromWorkflow(workflow: Workflow): WorkflowForm | null {
     operator: workflow.rule.operator,
     value: String(workflow.rule.value),
     taskTitle: workflow.action.title,
+    assigneeUserId: workflow.action.assigneeUserId ?? '',
+    priority: workflow.action.priority ?? '',
+    dueInDays: workflow.action.dueAtRelativeHours ? String(Math.round(workflow.action.dueAtRelativeHours / 24)) : '',
   };
 }
 

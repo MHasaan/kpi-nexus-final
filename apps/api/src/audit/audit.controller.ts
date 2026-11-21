@@ -1,7 +1,8 @@
 import { BadRequestException, Controller, Get, Query, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import type { AuditAction } from '@kpi-nexus/db';
-import { PermissionKey } from '@kpi-nexus/contracts';
+import { z } from 'zod';
+import { AUDIT_ACTIONS, PermissionKey } from '@kpi-nexus/contracts';
 
 import { RequireAnyPermission, RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import { AuditService, type PublicAuditLog } from './audit.service.js';
@@ -27,7 +28,7 @@ export class AuditController {
       entityType,
       entityId,
       userId,
-      action: action as AuditAction | undefined,
+      action: parseAction(action),
       limit: limit ? Number(limit) : undefined,
       cursor,
       from: parseDay(from, 'from', 'start'),
@@ -50,7 +51,7 @@ export class AuditController {
     const csv = await this.audit.exportCsv({
       entityType,
       userId,
-      action: action as AuditAction | undefined,
+      action: parseAction(action),
       from: parseDay(from, 'from', 'start'),
       to: parseDay(to, 'to', 'end'),
     });
@@ -67,6 +68,18 @@ export class AuditController {
  * A `from` / `to` query value: a day (`YYYY-MM-DD`, taken as the whole UTC day)
  * or a full ISO moment. Anything else is a 400 naming the field.
  */
+const ActionSchema = z.enum(AUDIT_ACTIONS);
+
+/** An action the log records, or a 400 naming the choices: an unknown value used to reach Prisma and come back as a 500 (F-057). */
+function parseAction(value: string | undefined): AuditAction | undefined {
+  if (value === undefined || value === '') return undefined;
+  const parsed = ActionSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `action must be one of: ${AUDIT_ACTIONS.join(', ')}` });
+  }
+  return parsed.data;
+}
+
 function parseDay(value: string | undefined, field: string, edge: 'start' | 'end'): Date | undefined {
   if (value === undefined || value === '') return undefined;
   const day = /^\d{4}-\d{2}-\d{2}$/.test(value);

@@ -18,6 +18,7 @@ import {
   type Dashboard,
   type DashboardWidget,
   type WidgetType,
+  meRequest,
 } from '../../../lib/api-client';
 import { WidgetEditor } from '../../../components/dashboard-grid/widget-editor';
 import { WIDGET_META } from '../../../components/dashboard-grid/widget-meta';
@@ -43,6 +44,7 @@ import {
 import { nextWidgetPosition } from '../../../lib/widget-placement';
 import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { usePermissions } from '../../../lib/use-permissions';
+import { useAccess } from '../../../lib/use-access';
 import { type RangePreset, presetToRange } from '../../../lib/date-presets';
 import { useFiscalConfig } from '../../../lib/use-fiscal-config';
 import { useFormat } from '../../../lib/format-context';
@@ -63,8 +65,18 @@ type DatePreset = RangePreset | 'custom';
 
 function DashboardDetailInner() {
   const fmt = useFormat();
-  // Buttons that change the dashboard are shown only to those the API will let change it.
+  // Buttons that change the dashboard are shown only to those the API will let change it: someone with
+  // DASHBOARD_MANAGE who is its owner or an administrator (F-068: a reader it was published to saw them too).
   const canManage = usePermissions().has('DASHBOARD_MANAGE');
+  const { profile } = useAccess();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  useEffect(() => {
+    meRequest()
+      .then((res) => setCurrentUserId(res.user.id))
+      .catch(() => {
+        /* the buttons stay hidden until we know who is reading */
+      });
+  }, []);
   const { terminology } = useTerminology();
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -73,6 +85,8 @@ function DashboardDetailInner() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const canChange =
+    canManage && (profile?.isAdmin === true || (currentUserId != null && dashboard?.ownerUserId === currentUserId));
 
   // Edit mode
   const [editMode, setEditMode] = useState(false);
@@ -302,10 +316,13 @@ function DashboardDetailInner() {
                 </span>
               </>
             }
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Changing a dashboard is DASHBOARD_MANAGE on the API: a viewer is not shown buttons that would be refused (UI-013). */}
-                <PermissionGuard permission="DASHBOARD_MANAGE">
+          />
+          {/* The toolbar has its own row: beside the title it squeezed it to a narrow column at laptop width (F-029). */}
+            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="dashboard-toolbar">
+              {/* Changing a dashboard is DASHBOARD_MANAGE on the API, and the owner's or an administrator's:
+                  a viewer is not shown buttons that would be refused (UI-013, F-068). */}
+              {canChange && (
+                <>
                   <Button
                     type="button"
                     size="sm"
@@ -336,55 +353,66 @@ function DashboardDetailInner() {
                   >
                     Add widget
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void handleSnapshot()}
-                    disabled={snapping}
-                    isLoading={snapping}
-                    data-testid="dashboard-snapshot-btn"
-                    leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
-                  >
-                    {snapping ? 'Saving…' : 'Snapshot'}
-                  </Button>
-                </PermissionGuard>
-                <Link
-                  href={`/dashboards/${dashboardId}/snapshots`}
-                  data-testid="dashboard-snapshots-link"
-                >
-                  <Button type="button" size="sm" variant="ghost">
-                    History
-                  </Button>
-                </Link>
-<PermissionGuard permission="DASHBOARD_MANAGE">
-                  <Link
-                    href={`/dashboards/${dashboardId}/share`}
-                    data-testid="dashboard-share-link"
-                  >
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      leftIcon={<Share2 className="h-4 w-4" />}
-                    >
-                      Share
-                    </Button>
-                  </Link>
-                </PermissionGuard>
+                </>
+              )}
+              <PermissionGuard permission="DASHBOARD_MANAGE">
+                {!snapping && !snapDone && (
+                  <Input
+                    value={snapshotLabel}
+                    onChange={(e) => setSnapshotLabel(e.target.value)}
+                    placeholder="Snapshot label (optional)"
+                    aria-label="Snapshot label"
+                    data-testid="snapshot-label-input"
+                    className="h-8 w-44 text-xs"
+                  />
+                )}
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
-                  onClick={() => window.print()}
-                  data-testid="dashboard-print-btn"
-                  leftIcon={<Printer className="h-4 w-4" />}
+                  variant="secondary"
+                  onClick={() => void handleSnapshot()}
+                  disabled={snapping}
+                  isLoading={snapping}
+                  data-testid="dashboard-snapshot-btn"
+                  leftIcon={!snapping ? <Camera className="h-4 w-4" /> : undefined}
                 >
-                  Print
+                  {snapping ? 'Saving…' : 'Snapshot'}
                 </Button>
-              </div>
-            }
-          />
+              </PermissionGuard>
+              <Link
+                href={`/dashboards/${dashboardId}/snapshots`}
+                data-testid="dashboard-snapshots-link"
+              >
+                <Button type="button" size="sm" variant="ghost">
+                  History
+                </Button>
+              </Link>
+{canChange && (
+                <Link
+                  href={`/dashboards/${dashboardId}/share`}
+                  data-testid="dashboard-share-link"
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Share2 className="h-4 w-4" />}
+                  >
+                    Share
+                  </Button>
+                </Link>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => window.print()}
+                data-testid="dashboard-print-btn"
+                leftIcon={<Printer className="h-4 w-4" />}
+              >
+                Print
+              </Button>
+            </div>
 
           {editMode && (
             <div className="mt-4 flex items-center gap-2 rounded-md border border-border bg-accent-bg px-4 py-2 text-sm text-accent-primary">
@@ -424,19 +452,6 @@ function DashboardDetailInner() {
                 className="rounded-md border border-border bg-status-critical-bg px-4 py-2 text-sm text-status-critical"
               >
                 {snapError}
-              </div>
-            )}
-
-            {/* Snapshot label (inline under the button) */}
-            {!snapping && !snapDone && (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={snapshotLabel}
-                  onChange={(e) => setSnapshotLabel(e.target.value)}
-                  placeholder="Snapshot label (optional)"
-                  data-testid="snapshot-label-input"
-                  className="w-64"
-                />
               </div>
             )}
 

@@ -22,6 +22,8 @@ export interface LineageRef {
 export interface LineageHop extends LineageRef {
   via: string; // transformType of the edge traversed to reach this node
   edgeId: string;
+  /** The node's name when it is one of this organisation's KPIs (F-071: the tab showed a raw id). */
+  name?: string;
 }
 
 export interface LineageLevel {

@@ -1,4 +1,5 @@
 import { meRequest } from './api-client';
+import { SESSION_CHANGED_EVENT } from './session-events';
 import type { AccessProfile } from '@kpi-nexus/contracts';
 
 /**
@@ -47,4 +48,13 @@ export function samePermissions(a: readonly string[], b: readonly string[]): boo
 /** For tests: forget the last answer. */
 export function resetFreshSession(): void {
   last = null;
+}
+
+/** A new session began: the answer kept for the one before is not this person's (F-011). */
+export function sessionChanged(): void {
+  last = null;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener(SESSION_CHANGED_EVENT, sessionChanged);
 }

@@ -48,6 +48,7 @@ interface Mocks {
   refreshTokens: RefreshTokenService;
   updateMock: ReturnType<typeof vi.fn>;
   revokeAllMock: ReturnType<typeof vi.fn>;
+  revokeAllExceptSessionMock: ReturnType<typeof vi.fn>;
   auditMock: ReturnType<typeof vi.fn>;
 }
 
@@ -75,7 +76,8 @@ function makeMocks(opts: {
   } as unknown as PrismaService;
 
   const audit = { record: auditMock } as unknown as AuditService;
-  const refreshTokens = { revokeAllForUser: revokeAllMock } as unknown as RefreshTokenService;
+  const revokeAllExceptSessionMock = vi.fn().mockResolvedValue({ revoked: 1 });
+  const refreshTokens = { revokeAllForUser: revokeAllMock, revokeAllExceptSession: revokeAllExceptSessionMock } as unknown as RefreshTokenService;
   const resolver = {
     resolveForCurrentPrincipal: vi.fn().mockResolvedValue(
       opts.resolved ?? { isAdmin: false, permissions: new Set([PermissionKey.KPI_VIEW]) },
@@ -83,7 +85,7 @@ function makeMocks(opts: {
   } as unknown as PermissionResolverService;
 
   const service = new AccountService(prisma, audit, resolver, refreshTokens);
-  return { service, prisma, audit, resolver, refreshTokens, updateMock, revokeAllMock, auditMock };
+  return { service, prisma, audit, resolver, refreshTokens, updateMock, revokeAllMock, revokeAllExceptSessionMock, auditMock };
 }
 
 describe('AccountService.updateProfile', () => {
@@ -247,10 +249,26 @@ describe('AccountService.changePassword', { timeout: 30_000 }, () => {
     expect(await bcrypt.compare('BrandNewPass1', newHash)).toBe(true);
     expect(await bcrypt.compare('RightCurrent1', newHash)).toBe(false);
 
-    // Other sessions revoked + audited
+    // Made under a token with no session id (before F-061): every session is revoked, as before. Audited.
     expect(revokeAllMock).toHaveBeenCalledWith('user_1');
     expect(auditMock).toHaveBeenCalledTimes(1);
     const auditArg = auditMock.mock.calls[0]![0] as { metadata?: { passwordChanged?: boolean } };
     expect(auditArg.metadata?.passwordChanged).toBe(true);
+  });
+});
+
+// Manual QA (2026-11-20, F-061): changing your password signed you out of the session you did it from, after
+// the page had half-worked for a while. The session the change is made from is kept; the others go.
+describe('AccountService.changePassword — keeps the session it was made from', () => {
+  test('with a session id in the request, every other session is revoked and this one stays', async () => {
+    const currentHash = await bcrypt.hash('RightCurrent1', 12);
+    const { service, revokeAllMock, revokeAllExceptSessionMock } = makeMocks({ passwordHash: currentHash });
+
+    await RequestContextStore.run({ ...fakeCtx, sessionId: 'sess_1' }, () =>
+      service.changePassword({ currentPassword: 'RightCurrent1', newPassword: 'BrandNewPass1' }),
+    );
+
+    expect(revokeAllExceptSessionMock).toHaveBeenCalledWith('user_1', 'sess_1');
+    expect(revokeAllMock).not.toHaveBeenCalled();
   });
 });

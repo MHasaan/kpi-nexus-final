@@ -5,6 +5,7 @@
  * `permissions.ts`. SSR-safe — every accessor guards `typeof window`.
  */
 
+import { ACCESS_PROFILE_EVENT, announce } from './session-events';
 import type { AccessProfile, Domain, Scope } from '@kpi-nexus/contracts';
 
 const ACCESS_PROFILE_KEY = 'kpi-nexus.access-profile';
@@ -33,6 +34,8 @@ export function getCachedAccessProfile(): AccessProfile | null {
 export function setCachedAccessProfile(profile: AccessProfile): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(ACCESS_PROFILE_KEY, JSON.stringify(profile));
+  // The menu in this tab re-reads it: a page hidden for a role stayed in the menu until a reload (F-050).
+  announce(ACCESS_PROFILE_EVENT);
 }
 
 export function clearCachedAccessProfile(): void {

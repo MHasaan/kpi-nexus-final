@@ -40,6 +40,7 @@ import {
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
+import { useToast } from '../../lib/use-toast';
 import { scheduleInWords } from '../../lib/report-schedule';
 
 const CRUMBS = [{ label: 'Execute' }, { label: 'Reports' }];
@@ -76,6 +77,7 @@ function RunStatusBadge({ status }: { status: ReportRun['status'] }) {
 export default function ReportsPage() {
   const fmt = useFormat();
   const router = useRouter();
+  const toast = useToast();
   const confirm = useConfirm();
   const [reports, setReports] = useState<ScheduledReport[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -110,6 +112,8 @@ export default function ReportsPage() {
     setActionError(null);
     try {
       await triggerScheduledReport(report.id);
+      // Something happened: the only sign used to be the email (F-044).
+      toast.success(`Running ${report.name} now`, 'The file appears under its runs in a moment.');
       await refresh();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : `Failed to trigger ${report.name}`);
@@ -255,7 +259,10 @@ export default function ReportsPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-content-muted">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarClock className="h-3.5 w-3.5" aria-hidden />
-                        <span>{scheduleInWords(report.cron)}</span>
+                        {/* On whose clock: the API runs a report in the organisation's time zone (F-044). */}
+                        <span>
+                          {scheduleInWords(report.cron)}, {fmt.organizationTimezone} time
+                        </span>
                       </span>
                       {report.recipients.length > 0 && (
                         <span className="tabular-nums">

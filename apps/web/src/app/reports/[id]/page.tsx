@@ -19,7 +19,7 @@ import {
   ApiError,
   clearTokens,
   getAccessToken,
-  getReportRunDownloadUrl,
+  downloadReportRunFile,
   getScheduledReport,
   triggerScheduledReport,
   type ReportRun,
@@ -93,18 +93,14 @@ export default function ReportDetailPage() {
   // The address stored on a run stops working a week after the report ran, so a new one is
   // asked for on each press. The tab is opened at once, while the press still counts as the
   // user's own, and pointed at the file when the address arrives.
+  // The file comes through the API, signed in, and is saved under the report's name (F-044).
   const download = async (runId: string) => {
     setDownloadError(null);
     setDownloadingId(runId);
-    const tab = window.open('', '_blank');
-    if (tab) tab.opener = null;
     try {
-      const url = await getReportRunDownloadUrl(reportId, runId);
-      if (tab) tab.location.href = url;
-      else window.location.assign(url);
+      await downloadReportRunFile(reportId, runId);
     } catch (e) {
-      tab?.close();
-      setDownloadError(e instanceof ApiError ? e.message : 'Could not prepare the download');
+      setDownloadError(e instanceof ApiError ? e.message : 'Could not download the report');
     } finally {
       setDownloadingId(null);
     }

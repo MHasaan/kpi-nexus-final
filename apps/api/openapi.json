@@ -5683,6 +5683,36 @@
         }
       }
     },
+    "/integrations/slack/readiness": {
+      "get": {
+        "operationId": "IntegrationProvidersController_slackReadiness",
+        "tags": [
+          "IntegrationProviders"
+        ],
+        "summary": "GET /integrations/slack/readiness",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "INTEGRATIONS_MANAGE"
+          ]
+        }
+      }
+    },
     "/kpi-cascades": {
       "get": {
         "operationId": "KpiCascadesController_list",

@@ -16,7 +16,9 @@ const localStorageMock = {
 vi.stubGlobal('window', { localStorage: localStorageMock });
 vi.stubGlobal('localStorage', localStorageMock);
 
+import { getCachedAccessProfile, setCachedAccessProfile } from './access';
 import { ApiError, api, getAccessToken, getRefreshToken, setTokens, subscribeRealtime } from './api-client';
+import { getCachedPermissions, setCachedPermissions } from './permissions';
 
 type Call = { url: string; auth: string | null; body: unknown };
 
@@ -144,5 +146,21 @@ describe('subscribeRealtime — reconnects after refreshing an expired token', (
     stop();
     expect(auths).toEqual(['Bearer expired', 'Bearer fresh']);
     expect(events[0]).toEqual({ type: 'kpi.updated', payload: { id: 'k1' } });
+  });
+});
+
+// Manual QA (2026-11-19, F-011): accepting an invitation in a browser where someone else had been signed in
+// showed the previous person's menu: the new tokens were stored, but what the browser kept of the old
+// session's permissions and page access stayed and was drawn first.
+describe('setTokens — a new session starts clean', () => {
+  test('the cached permissions and access profile of the session before are dropped', () => {
+    setCachedPermissions(['USERS_VIEW', 'AUDIT_VIEW']);
+    setCachedAccessProfile({ isAdmin: false, pageAccess: { allow: null, deny: ['/ask'] } } as never);
+
+    setTokens('new-access', 'new-refresh');
+
+    expect(getCachedPermissions()).toEqual([]);
+    expect(getCachedAccessProfile()).toBeNull();
+    expect(getAccessToken()).toBe('new-access');
   });
 });

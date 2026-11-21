@@ -1555,6 +1555,27 @@
                   "isActive": {
                     "type": "boolean"
                   },
+                  "kpiId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ruleType": {
+                    "type": "string",
+                    "enum": [
+                      "STATIC_THRESHOLD",
+                      "DYNAMIC_STDDEV",
+                      "RATE_OF_CHANGE",
+                      "NO_DATA",
+                      "COMPOSITE"
+                    ]
+                  },
+                  "config": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
                   "escalationLevels": {
                     "maxItems": 10,
                     "type": "array",
@@ -12518,6 +12539,77 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "Missing a required permission"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-permissions": {
+          "all": [
+            "GROUPS_MANAGE"
+          ]
+        }
+      },
+      "patch": {
+        "operationId": "OrgUnitsController_updateMemberRole",
+        "tags": [
+          "OrgUnits"
+        ],
+        "summary": "PATCH /org-units/:id/members/:userId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "memberRole": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "MANAGER",
+                      "LEAD",
+                      "DEPUTY"
+                    ]
+                  }
+                },
+                "required": [
+                  "memberRole"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"

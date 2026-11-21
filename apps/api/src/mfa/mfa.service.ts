@@ -148,8 +148,9 @@ export class MfaService {
       },
     });
 
-    // Revoke refresh tokens — force re-login post-disable
-    await this.refreshTokens.revokeAllForUser(ctx.userId);
+    // Every other device signs in again; the one this was done from carries on (F-061).
+    if (ctx.sessionId) await this.refreshTokens.revokeAllExceptSession(ctx.userId, ctx.sessionId);
+    else await this.refreshTokens.revokeAllForUser(ctx.userId);
 
     await this.audit.record({
       action: 'UPDATE',

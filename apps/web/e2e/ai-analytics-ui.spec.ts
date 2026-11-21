@@ -49,7 +49,7 @@ async function setup(page: Page, values: number[] = [10, 11, 9, 10, 12, 8, 10, 1
   })).json()) as { id: string };
   for (let i = 0; i < values.length; i += 1) {
     const m = String(i + 1).padStart(2, '0');
-    await api.post(`/kpis/${kpi.id}/data`, { data: { value: values[i], periodStart: `2026-${m}-01`, periodEnd: `2026-${m}-28` } });
+    await api.post(`/kpis/${kpi.id}/data`, { data: { value: values[i], periodStart: `2025-${m}-01`, periodEnd: `2025-${m}-28` } });
   }
 
   await page.goto('/');
@@ -87,7 +87,7 @@ test('anomalies page: chart renders, detect & save flags the spike, confirm work
   await expect(row).toBeVisible({ timeout: 10_000 });
   // Flow walk (anomalies): a saved anomaly was a score and a method. It says which value, and when: the 100 recorded for October.
   await expect(page.getByTestId('anom-saved').getByRole('columnheader')).toHaveText(['Period', 'Value', 'How unusual', 'Method', 'State']);
-  await expect(row).toContainText('2026-10-01');
+  await expect(row).toContainText('2025-10-01');
   await expect(row).toContainText('100');
   await expect(row).toContainText('Far from the average');
   await expect(row).not.toContainText('ZSCORE');
@@ -142,11 +142,11 @@ test('forecast page: generate renders chart + fit metrics', async ({ page }) => 
   await expect(page.getByTestId('fc-metrics')).toBeVisible();
 
   // Flow walk (forecast): the table was headed "Date / yhat" with rows "t+1", "t+2".
-  // Each row is a real period — the months after December 2026, the last one recorded.
+  // Each row is a real period — the months after December 2025, the last one recorded (a period not yet begun takes no value, so the history is last year's).
   const table = page.getByTestId('fc-predictions');
   await expect(table.getByRole('columnheader')).toHaveText(['Period', 'Forecast', 'Likely range (80%)', 'Wider range (95%)']);
   await expect(table.getByRole('row')).toHaveCount(6);
-  await expect(table.getByRole('row').nth(1)).toContainText('2027');
+  await expect(table.getByRole('row').nth(1)).toContainText('2026');
   await expect(table).not.toContainText('t+1');
   await expect(table).not.toContainText('yhat');
 });

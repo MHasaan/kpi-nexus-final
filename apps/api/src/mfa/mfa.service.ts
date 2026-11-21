@@ -91,7 +91,7 @@ export class MfaService {
     if (!verifyTotp(code, user.mfaPendingSecret)) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
-        message: 'Invalid TOTP code',
+        message: 'That code is not right. Enter the current 6-digit code from your authenticator app.',
       });
     }
 
@@ -134,7 +134,7 @@ export class MfaService {
     if (!ok) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
-        message: 'Invalid TOTP or recovery code',
+        message: 'That code is not right. Enter the current 6-digit code from your authenticator app, or one of your recovery codes.',
       });
     }
 
@@ -148,8 +148,9 @@ export class MfaService {
       },
     });
 
-    // Revoke refresh tokens — force re-login post-disable
-    await this.refreshTokens.revokeAllForUser(ctx.userId);
+    // Every other device signs in again; the one this was done from carries on (F-061).
+    if (ctx.sessionId) await this.refreshTokens.revokeAllExceptSession(ctx.userId, ctx.sessionId);
+    else await this.refreshTokens.revokeAllForUser(ctx.userId);
 
     await this.audit.record({
       action: 'UPDATE',

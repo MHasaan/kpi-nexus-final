@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 import { Injectable, Logger } from '@nestjs/common';
 import {
   S3Client,
@@ -94,6 +96,16 @@ export class StorageService {
     );
     this.logger.log(`Uploaded to S3: ${this.bucket}/${key}`);
     return key;
+  }
+
+  /**
+   * The object itself, as a stream, for the API to hand on: the storage server's own address is private in
+   * production, so a presigned address could not be opened by a reader (F-044).
+   */
+  async getObject(key: string): Promise<{ body: Readable; contentType?: string; contentLength?: number }> {
+    const out = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (!out.Body) throw new Error(`No body for ${this.bucket}/${key}`);
+    return { body: out.Body as Readable, contentType: out.ContentType, contentLength: out.ContentLength };
   }
 
   /**

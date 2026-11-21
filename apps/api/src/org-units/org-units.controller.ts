@@ -16,6 +16,7 @@ import type { ZodTypeAny, infer as ZInfer } from 'zod';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
 import {
   AddMemberDtoSchema,
+  UpdateMemberRoleDtoSchema,
   CreateOrgUnitDtoSchema,
   UpdateOrgUnitDtoSchema,
 } from './dto/create-org-unit.dto.js';
@@ -132,6 +133,14 @@ export class OrgUnitsController {
   @ApiBody(AddMemberDtoSchema)
   addMember(@Param('id') id: string, @Body() body: unknown) {
     return this.orgUnits.addMember(id, parse(AddMemberDtoSchema, body));
+  }
+
+  /** A member's role in the unit, changed in place: it used to take Remove and re-add (F-005). */
+  @Patch(':id/members/:userId')
+  @RequirePermissions(PermissionKey.GROUPS_MANAGE)
+  @ApiBody(UpdateMemberRoleDtoSchema)
+  updateMemberRole(@Param('id') id: string, @Param('userId') userId: string, @Body() body: unknown) {
+    return this.orgUnits.updateMemberRole(id, userId, parse(UpdateMemberRoleDtoSchema, body).memberRole);
   }
 
   @Delete(':id/members/:userId')

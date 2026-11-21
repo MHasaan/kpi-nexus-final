@@ -142,10 +142,11 @@ export class NlqService {
     const route = await this.configs.resolve('NLQ_PRIMARY');
     const { result, costUsd, usage, toolCalls, warning } = await this.runToolLoop(question, context, metaById, history);
 
-    // Sources = the KPIs we put deep detail on (or all when the catalog is small),
-    // plus any KPI a tool read.
+    // Sources = the KPIs the answer names, plus any a tool read. Every catalog KPI used to be listed under
+    // an answer about one of them (F-043); when the answer names none, the KPIs given in depth stand in.
     const toolKpiIds = toolCalls.flatMap((c) => c.kpiIds);
-    const sourceIds = [...new Set([...(catalogIds.length <= 12 ? catalogIds : deepIds), ...toolKpiIds])];
+    const named = namedKpiIds(result.content, catalogIds, metaById);
+    const sourceIds = [...new Set([...(named.length > 0 ? named : deepIds), ...toolKpiIds])];
     const sources: NlqSource[] = sourceIds
       .map((id) => metaById.get(id))
       .filter((k): k is NonNullable<typeof k> => Boolean(k))
@@ -463,4 +464,14 @@ function formatDate(d: Date): string {
   } catch {
     return String(d);
   }
+}
+
+/** The catalog KPIs whose names the answer mentions, in catalog order (case-insensitive, whole names). */
+export function namedKpiIds(answer: string, catalogIds: string[], metaById: Map<string, { name: string }>): string[] {
+  const text = answer.toLowerCase();
+  if (text.trim() === '') return [];
+  return catalogIds.filter((id) => {
+    const name = metaById.get(id)?.name.trim().toLowerCase();
+    return name !== undefined && name !== '' && text.includes(name);
+  });
 }

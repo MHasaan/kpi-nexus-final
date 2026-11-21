@@ -14,7 +14,7 @@ const ORG = 'org_1';
 
 function setup(opts: { allowNegative: boolean; scope?: 'ORG_WIDE' | 'PER_USER' }) {
   const scope = opts.scope ?? 'ORG_WIDE';
-  const kpi = { id: 'k1', name: 'Calls', scope, allowNegative: opts.allowNegative, categoryId: null, direction: 'HIGHER_IS_BETTER' };
+  const kpi = { id: 'k1', name: 'Calls', scope, allowNegative: opts.allowNegative, categoryId: null, direction: 'HIGHER_IS_BETTER', ownerUserId: 'me' };
   const point = {
     id: 'p1', organizationId: ORG, kpiId: 'k1', userId: 'me', orgUnitId: null, value: 10, note: null, recordedById: 'me', sourceType: 'MANUAL',
     periodStart: new Date('2026-10-01'), periodEnd: new Date('2026-10-31'), recordedAt: new Date('2026-11-01'),
@@ -30,7 +30,8 @@ function setup(opts: { allowNegative: boolean; scope?: 'ORG_WIDE' | 'PER_USER' }
       update: vi.fn(async () => ({})),
     },
     kPIDataPoint: {
-      findFirst: vi.fn(async () => point),
+      // The point itself when asked for by id (a correction); nothing for the same-period check (F-017).
+      findFirst: vi.fn(async ({ where }: { where: { id?: string } }) => (where.id ? point : null)),
       findMany: vi.fn(async () => []),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'p9', orgUnitId: null, userId: null, recordedAt: new Date(), ...data })),
     },

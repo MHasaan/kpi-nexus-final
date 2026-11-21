@@ -29,8 +29,13 @@ test('language: chosen once, it is saved on the account and applied in a fresh b
 
   await page.goto('/profile');
   await page.getByRole('tab', { name: 'Preferences' }).click();
-  await page.getByTestId('locale-select').selectOption('fr');
-  await expect.poll(language).toBe('fr');
+  // Only languages with translations are offered (F-065): Spanish and French are not in the list.
+  const offered = await page.getByTestId('locale-select').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+  expect(offered).toContain('en-US');
+  expect(offered).not.toContain('fr');
+  expect(offered).not.toContain('es');
+  await page.getByTestId('locale-select').selectOption('ur-PK');
+  await expect.poll(language).toBe('ur-PK');
 
   // Another device: nothing stored in the browser but the session.
   const other = await browser.newContext();
@@ -45,7 +50,7 @@ test('language: chosen once, it is saved on the account and applied in a fresh b
     [session.accessToken, session.refreshToken] as const,
   );
   await fresh.goto('/dashboard');
-  await expect(fresh.locator('html')).toHaveAttribute('lang', 'fr');
+  await expect(fresh.locator('html')).toHaveAttribute('lang', 'ur-PK');
   await other.close();
 
   // A language the app does not have is refused.

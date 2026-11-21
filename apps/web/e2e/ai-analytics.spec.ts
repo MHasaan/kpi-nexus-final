@@ -52,7 +52,7 @@ async function makeKpiWithSpike(api: APIRequestContext): Promise<string> {
   for (let i = 0; i < values.length; i += 1) {
     const month = String(i + 1).padStart(2, '0');
     const res = await api.post(`/kpis/${kpi.id}/data`, {
-      data: { value: values[i], periodStart: `2026-${month}-01`, periodEnd: `2026-${month}-28` },
+      data: { value: values[i], periodStart: `2025-${month}-01`, periodEnd: `2025-${month}-28` },
     });
     expect(res.status()).toBe(201);
   }

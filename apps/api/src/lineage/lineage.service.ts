@@ -48,13 +48,29 @@ export class LineageService {
   /** Immediate-to-N-hop parents (sources that feed the node). */
   async getUpstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
     const edges = await this.loadEdges();
-    return flattenLevels(traverse(edges, { type, id }, 'upstream', depth), depth);
+    return this.withNames(flattenLevels(traverse(edges, { type, id }, 'upstream', depth), depth));
   }
 
   /** Immediate-to-N-hop children (targets the node feeds). */
   async getDownstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
     const edges = await this.loadEdges();
-    return flattenLevels(traverse(edges, { type, id }, 'downstream', depth), depth);
+    return this.withNames(flattenLevels(traverse(edges, { type, id }, 'downstream', depth), depth));
+  }
+
+  /** The KPI hops carry their names, so the page can say "New Bookings" rather than "kpi:cmwmyjra" (F-071). */
+  private async withNames(hops: LineageHop[]): Promise<LineageHop[]> {
+    const ctx = RequestContextStore.require();
+    const kpiIds = [...new Set(hops.filter((h) => h.type === 'kpi').map((h) => h.id))];
+    if (kpiIds.length === 0) return hops;
+    const kpis = await this.prisma.kPI.findMany({
+      where: { id: { in: kpiIds }, organizationId: ctx.organizationId },
+      select: { id: true, name: true },
+    });
+    const names = new Map(kpis.map((k) => [k.id, k.name]));
+    return hops.map((h) => {
+      const name = h.type === 'kpi' ? names.get(h.id) : undefined;
+      return name === undefined ? h : { ...h, name };
+    });
   }
 
   /**

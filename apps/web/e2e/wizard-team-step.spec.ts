@@ -62,6 +62,8 @@ test('wizard team step: people added by hand and pasted as a list are invited wi
   await page.getByTestId('team-role-0').selectOption('Member');
   await page.getByTestId('team-position-0').selectOption('Engineer');
   await page.getByTestId('team-unit-0').selectOption('Engineering');
+  // Her role in the unit (F-005): until now everyone joined as a plain member.
+  await page.getByTestId('team-unit-role-0').selectOption('LEAD');
   await page.getByTestId('team-manager-0').selectOption({ label: `Me (admin-${stamp}@team.test.local)` });
 
   // Three pasted — one of them already on the list, one line with no email.
@@ -114,6 +116,11 @@ test('wizard team step: people added by hand and pasted as a list are invited wi
   expect(by(mail('dev')).managerId).toBe(by(mail('lena')).id);
   expect(by(mail('ops')).managerId).toBeNull();
   expect(by(mail('dev')).roleId).toBeTruthy();
+  // Lena leads Engineering.
+  const units = (await (await api.get('/org-units')).json()) as Array<{ id: string; name: string }>;
+  const engineering = units.find((u) => u.name === 'Engineering')!;
+  const members = (await (await api.get(`/org-units/${engineering.id}/members`)).json()) as Array<{ userId: string; memberRole: string }>;
+  expect(members.find((m) => m.userId === by(mail('lena')).id)?.memberRole).toBe('LEAD');
 
   // And "My team" shows the report.
   await page.goto('/team');

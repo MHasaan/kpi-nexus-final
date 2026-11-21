@@ -1,5 +1,5 @@
 import type { DynamicStddevConfig } from '../../alert-rules/dto/alert-rule.dto.js';
-import { detectOutlier } from '../../kpis/outlier-detector.js';
+import { detectOutlierFromMean } from '../../kpis/outlier-detector.js';
 import { type EvaluationResult, notTriggered } from './types.js';
 
 /**
@@ -14,7 +14,8 @@ import { type EvaluationResult, notTriggered } from './types.js';
  */
 export function evaluateDynamicStddev(config: DynamicStddevConfig, value: number, history: readonly number[]): EvaluationResult {
   const window = history.slice(0, config.windowSize);
-  const result = detectOutlier([...window], value, config.sigmas);
+  // The rule's own meaning: far from the mean and spread of the last N values (the Data tab's flag follows the trend instead, F-018).
+  const result = detectOutlierFromMean([...window], value, config.sigmas);
   if (!result.isOutlier) return notTriggered;
   const direction = value > result.mean ? 'above' : 'below';
   return {

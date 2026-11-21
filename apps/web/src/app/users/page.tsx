@@ -366,8 +366,9 @@ function UsersPageInner() {
           )}
 
           {/* minmax(0,…): a bare column is never narrower than the table, which pushed the form off a 1280-pixel
-              screen — and, with one column, pushed the whole page off a phone. */}
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+              screen — and, with one column, pushed the whole page off a phone. The side column is for screens
+              from 1280 px: at laptop width (F-033) it left the table 472 px and cut the Actions column off. */}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
             <section data-testid="users-list-section">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <Segmented

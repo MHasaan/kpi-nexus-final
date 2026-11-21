@@ -396,6 +396,33 @@ export class OrgUnitsService {
     return created;
   }
 
+  /**
+   * Change a member's role in the unit (member, lead, manager, deputy) in place. Until 2026-11-21 the only
+   * way was Remove and re-add (F-005), and a new organisation had no unit managers until then.
+   */
+  async updateMemberRole(orgUnitId: string, userId: string, memberRole: AddMemberDto['memberRole']) {
+    const ctx = RequestContextStore.require();
+    await this.getById(orgUnitId); // verify orgUnit ownership
+    const member = await this.prisma.orgUnitMember.findFirst({
+      where: { organizationId: ctx.organizationId, orgUnitId, userId, leftAt: null },
+      select: { id: true, memberRole: true },
+    });
+    if (!member) throw new NotFoundException({ code: 'NOT_FOUND', message: 'This person is not a member of the unit' });
+    const updated = await this.prisma.orgUnitMember.update({
+      where: { id: member.id },
+      data: { memberRole },
+      select: memberSelect,
+    });
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'OrgUnitMember',
+      entityId: member.id,
+      metadata: { orgUnitId, userId, from: member.memberRole, to: memberRole },
+    });
+    this.structureChanged();
+    return updated;
+  }
+
   async removeMember(orgUnitId: string, userId: string): Promise<void> {
     const ctx = RequestContextStore.require();
     await this.getById(orgUnitId); // tenant + ORG-scope visibility

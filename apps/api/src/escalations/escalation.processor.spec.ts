@@ -16,6 +16,10 @@ function makeProcessor(opts: {
   alertStatus: string;
   alertRuleId?: string | null;
   levels?: unknown[];
+  /** People named on a level, with their addresses. */
+  people?: Array<{ id: string; email: string }>;
+  /** Addresses the level's email channels already send to. */
+  channelAddresses?: string[];
 }) {
   const prisma = {
     alert: {
@@ -30,11 +34,16 @@ function makeProcessor(opts: {
     escalationRule: {
       findFirst: vi.fn(async () => (opts.levels ? { levels: opts.levels } : null)),
     },
-    user: { findMany: vi.fn(async () => []) },
+    user: {
+      findMany: vi.fn(async ({ where }: { where: { id?: { in: string[] }; roleId?: unknown } }) =>
+        where.id ? (opts.people ?? []).filter((p) => where.id!.in.includes(p.id)) : [],
+      ),
+    },
   };
   const dispatcher = {
     dispatchToPeople: vi.fn(async () => []),
     dispatch: vi.fn(async (_p: { channelIds: string[]; organizationId: string; alertId: string }) => [] as string[]),
+    emailAddressesOf: vi.fn(async () => new Set(opts.channelAddresses ?? [])),
   };
   const realtime = { publish: vi.fn(async () => {}) };
   const escalations = { enqueueLevel: vi.fn(async () => {}) };
@@ -91,5 +100,29 @@ describe('EscalationProcessor', () => {
     const h = makeProcessor({ alertStatus: 'OPEN', levels: undefined });
     await h.processor.process(job(0));
     expect(h.dispatcher.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+// Manual QA (2026-11-19, F-034): Olivia, named on the level and also an address on its email channel, got the
+// alert twice. Someone the channel already reaches is not emailed separately.
+describe('EscalationProcessor — no two copies for one person', () => {
+  test('a person whose address is on the level\'s email channel is left out of the personal emails', async () => {
+    const { processor, dispatcher, digest } = makeProcessor({
+      alertStatus: 'OPEN',
+      levels: [{ delayMinutes: 0, channelIds: ['ch_finance'], notifyRoleIds: [], notifyUserIds: ['u_olivia', 'u_priya'] }],
+      people: [
+        { id: 'u_olivia', email: 'Olivia@Example.test' },
+        { id: 'u_priya', email: 'priya@example.test' },
+      ],
+      channelAddresses: ['olivia@example.test', 'cfo@example.test'],
+    });
+
+    await processor.process(job(0));
+
+    expect(dispatcher.emailAddressesOf).toHaveBeenCalledWith(['ch_finance']);
+    expect(dispatcher.dispatchToPeople).toHaveBeenCalledWith(expect.objectContaining({ userIds: ['u_priya'] }));
+    // Both still get the alert in the app and in their digest.
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(expect.objectContaining({ channelIds: ['ch_finance'], includeInApp: true }));
+    expect(digest.enqueueDigest.mock.calls.map((c) => c[1]).sort()).toEqual(['u_olivia', 'u_priya']);
   });
 });

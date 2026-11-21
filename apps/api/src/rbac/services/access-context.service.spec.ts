@@ -830,8 +830,105 @@ describe('AccessContextService PEOPLE / ORG / ANALYTICS scopes (BE-004)', () => 
     await expect(inCtx(() => make({ KPIS: 'SELF' }).svc.analyticsPointScopeWhere('PER_USER'))).resolves.toEqual({ userId: { in: ['me'] } });
   });
 
-  test('analyticsPointScopeWhere: a PER_UNIT KPI reaches my units, none under an ANALYTICS SELF ceiling', async () => {
-    await expect(inCtx(() => make({}).svc.analyticsPointScopeWhere('PER_UNIT'))).resolves.toEqual({ orgUnitId: { in: ['eng-be'] } });
+  test('analyticsPointScopeWhere: a PER_UNIT KPI reaches my units (and the units under them), none under an ANALYTICS SELF ceiling', async () => {
+    const mine = (await inCtx(() => make({}).svc.analyticsPointScopeWhere('PER_UNIT'))) as { orgUnitId: { in: string[] } };
+    expect(sorted(mine.orgUnitId.in)).toEqual(['eng-be', 'eng-be-platform']);
     await expect(inCtx(() => make({ ANALYTICS: 'SELF' }).svc.analyticsPointScopeWhere('PER_UNIT'))).resolves.toEqual({ orgUnitId: { in: [] } });
+  });
+});
+
+// Manual QA (2026-11-19, F-054): the VP of Sales, unit manager of Sales, could not open "New Bookings", held by
+// the Enterprise Sales and SMB Sales teams under Sales ("KPI not found"), while a rep in Enterprise Sales could.
+// The units a manager manages reach every unit below them wherever the KPI rule is evaluated. The profile itself
+// keeps the units managed, because the ORG domain's SELF scope means the unit alone.
+describe('AccessContextService — a manager sees the units under theirs (F-054)', () => {
+  type Profile = import('@kpi-nexus/contracts').AccessProfile;
+  const tree = [
+    { id: 'company', parentUnitId: null },
+    { id: 'sales', parentUnitId: 'company' },
+    { id: 'enterprise-sales', parentUnitId: 'sales' },
+    { id: 'smb-sales', parentUnitId: 'sales' },
+    { id: 'smb-east', parentUnitId: 'smb-sales' },
+    { id: 'engineering', parentUnitId: 'company' },
+  ];
+  function make(
+    context: Profile['context'],
+    scopes: Partial<Record<'KPIS' | 'ANALYTICS', import('@kpi-nexus/contracts').Scope>> = {},
+    units = tree,
+  ) {
+    const orgUnitFindMany = vi.fn(async () => units);
+    const kpiFindFirst = vi.fn(async () => ({ id: 'k1' }));
+    const svc = new AccessContextService(
+      { orgUnit: { findMany: orgUnitFindMany }, kPI: { findFirst: kpiFindFirst } } as unknown as PrismaService,
+      {} as PermissionResolverService,
+    );
+    vi.spyOn(svc, 'resolveForCurrentPrincipal').mockResolvedValue({
+      isAdmin: false,
+      capabilities: [],
+      scopeByDomain: { KPIS: 'UNITS', PEOPLE: 'ORG', ORG: 'ORG', ANALYTICS: 'ORG', ...scopes },
+      dataTypeFilters: { kpiCategoryIds: null, orgUnitIds: null, dashboardIds: null },
+      dataLimits: { historyWindowDays: null, maxListRows: null, maxExportRows: null },
+      context,
+      resourceGrants: [],
+      pageAccess: { allow: null, deny: [] },
+    } as Profile);
+    return { svc, orgUnitFindMany, kpiFindFirst };
+  }
+  const inCtx = <T>(fn: () => Promise<T>) =>
+    RequestContextStore.run({ userId: 'me', organizationId: 'org', roleId: 'role', principalType: 'user' }, fn) as Promise<T>;
+  const sorted = (xs: readonly string[]) => [...xs].sort();
+  const unitsInListRule = (findFirst: ReturnType<typeof vi.fn>) => {
+    const where = (findFirst.mock.calls[0] as unknown as [{ where: { OR: Array<Record<string, unknown>> } }])[0].where;
+    const branch = where.OR.find((b) => b.scope === 'PER_UNIT') as
+      | { orgUnitAssignments: { some: { orgUnitId: { in: string[] } } } }
+      | undefined;
+    return branch ? sorted(branch.orgUnitAssignments.some.orgUnitId.in) : [];
+  };
+  const manager = { managedOrgUnitIds: ['sales'], memberOrgUnitIds: [], directReportIds: [] };
+
+  test('the manager of Sales may read the unit values of the teams under it', async () => {
+    const { svc } = make(manager);
+    const where = (await inCtx(() => svc.kpiPointScopeWhere('PER_UNIT'))) as { orgUnitId: { in: string[] } };
+    expect(sorted(where.orgUnitId.in)).toEqual(['enterprise-sales', 'sales', 'smb-east', 'smb-sales']);
+  });
+
+  test('the KPI list rule reaches the KPIs held by the teams under a managed unit', async () => {
+    const { svc, kpiFindFirst } = make(manager);
+    await inCtx(() => svc.isKpiVisible('k1'));
+    expect(unitsInListRule(kpiFindFirst)).toEqual(['enterprise-sales', 'sales', 'smb-east', 'smb-sales']);
+  });
+
+  test('a plain member of a parent unit does not get the units below it', async () => {
+    const { svc, kpiFindFirst, orgUnitFindMany } = make({ managedOrgUnitIds: [], memberOrgUnitIds: ['sales'], directReportIds: [] });
+    await inCtx(() => svc.isKpiVisible('k1'));
+    expect(unitsInListRule(kpiFindFirst)).toEqual(['sales']);
+    expect(orgUnitFindMany).not.toHaveBeenCalled();
+  });
+
+  test('at the ORG scope for KPIs nothing is walked', async () => {
+    const { svc, orgUnitFindMany } = make(manager, { KPIS: 'ORG' });
+    await expect(inCtx(() => svc.kpiPointScopeWhere('PER_UNIT'))).resolves.toEqual({});
+    expect(orgUnitFindMany).not.toHaveBeenCalled();
+  });
+
+  test('a parent cycle left by old data is walked once', async () => {
+    const { svc } = make({ managedOrgUnitIds: ['a'], memberOrgUnitIds: [], directReportIds: [] }, {}, [
+      { id: 'a', parentUnitId: 'b' },
+      { id: 'b', parentUnitId: 'a' },
+    ]);
+    const where = (await inCtx(() => svc.kpiPointScopeWhere('PER_UNIT'))) as { orgUnitId: { in: string[] } };
+    expect(sorted(where.orgUnitId.in)).toEqual(['a', 'b']);
+  });
+
+  test('the profile keeps the units managed themselves, and a deputy manages like a manager or lead', async () => {
+    const prisma = new FakePrisma();
+    prisma.memberships = [
+      { userId: 'm1', orgUnitId: 'sales', memberRole: 'MANAGER', leftAt: null },
+      { userId: 'm1', orgUnitId: 'engineering', memberRole: 'DEPUTY', leftAt: null },
+    ];
+    const svc = new AccessContextService(prisma as unknown as PrismaService, makeResolver(false, [PermissionKey.KPI_VIEW]));
+    const profile = await run(() => svc.resolveForCurrentPrincipal());
+    expect(sorted(profile.context.managedOrgUnitIds)).toEqual(['engineering', 'sales']);
+    expect(profile.context.memberOrgUnitIds).toEqual([]);
   });
 });

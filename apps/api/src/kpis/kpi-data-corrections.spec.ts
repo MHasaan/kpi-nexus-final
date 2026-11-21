@@ -133,7 +133,7 @@ describe('KpiDataService → KPI watchers', () => {
 
   it('a recorded value is announced to watchers', async () => {
     const { svc, prisma, watches } = setup();
-    (prisma.kPI.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'k1', name: 'Rev', scope: 'ORG_WIDE', allowNegative: true, categoryId: null });
+    (prisma.kPI.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'k1', name: 'Rev', scope: 'ORG_WIDE', allowNegative: true, categoryId: null, ownerUserId: 'me' });
     (prisma as unknown as { kPIDataPoint: Record<string, unknown> }).kPIDataPoint.create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
       id: 'p9', ...data, orgUnitId: null, userId: null, recordedAt: new Date(), sourceType: 'MANUAL',
     }));

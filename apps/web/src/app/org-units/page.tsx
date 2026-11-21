@@ -246,7 +246,16 @@ function OrgUnitsPageInner() {
     }
   }
 
-  async function handleRemoveMember(unitId: string, userId: string) {
+  async function handleRemoveMember(unitId: string, userId: string, who: string, unitName: string) {
+    // Asks first, like every other destructive action here (F-006: the member was removed at once).
+    const ok = await confirm({
+      title: `Remove ${who} from “${unitName}”?`,
+      description: 'They stay in the organisation and keep their own KPIs; they leave this unit and its KPIs.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      testId: 'remove-member-confirm',
+    });
+    if (!ok) return;
     try {
       await removeOrgUnitMember(unitId, userId);
       const refreshed = await listOrgUnitMembers(unitId);
@@ -610,7 +619,7 @@ function OrgUnitsPageInner() {
                                         <button
                                           type="button"
                                           onClick={() =>
-                                            void handleRemoveMember(unit.id, m.userId)
+                                            void handleRemoveMember(unit.id, m.userId, user?.fullName ?? user?.email ?? m.userId, unit.name)
                                           }
                                           data-testid={`remove-member-${m.userId}`}
                                           className="text-xs font-medium text-status-critical hover:underline"

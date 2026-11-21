@@ -91,7 +91,7 @@ export class MfaService {
     if (!verifyTotp(code, user.mfaPendingSecret)) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
-        message: 'Invalid TOTP code',
+        message: 'That code is not right. Enter the current 6-digit code from your authenticator app.',
       });
     }
 
@@ -134,7 +134,7 @@ export class MfaService {
     if (!ok) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
-        message: 'Invalid TOTP or recovery code',
+        message: 'That code is not right. Enter the current 6-digit code from your authenticator app, or one of your recovery codes.',
       });
     }
 

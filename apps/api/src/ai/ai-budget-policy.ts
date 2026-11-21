@@ -10,19 +10,25 @@ export interface BudgetState {
   monthlySpend: number;
   dailyCapUsd: number;
   monthlyCapUsd: number;
+  /** Calls made today, whatever they cost. */
+  dailyCalls: number;
+  /** Calls allowed per day; 0 means unlimited. */
+  dailyCallCap: number;
   circuitBreaker: CircuitBreakerMode;
 }
 
+export type BudgetBlockReason = 'DAILY_CAP' | 'MONTHLY_CAP' | 'DAILY_CALLS';
+
 export interface BudgetDecision {
   allowed: boolean;
-  reason?: 'DAILY_CAP' | 'MONTHLY_CAP';
+  reason?: BudgetBlockReason;
   /** Echoed so the router knows whether to fail closed or try the fallback. */
   mode: CircuitBreakerMode;
 }
 
 /**
  * Decide whether a call estimated at `estimatedCost` USD fits within the caps.
- * The daily cap is checked first. A call landing exactly on a cap is allowed;
+ * The daily spend cap is checked first, then the monthly one, then the day's call count. A call landing exactly on a cap is allowed;
  * one that would push spend strictly above is blocked.
  */
 export function evaluateBudget(state: BudgetState, estimatedCost: number): BudgetDecision {
@@ -32,6 +38,11 @@ export function evaluateBudget(state: BudgetState, estimatedCost: number): Budge
   }
   if (state.monthlyCapUsd > 0 && state.monthlySpend + estimatedCost > state.monthlyCapUsd) {
     return { allowed: false, reason: 'MONTHLY_CAP', mode };
+  }
+  // Calls are counted as well as dollars: the free tier records no spend, so the dollar caps never
+  // triggered and a busy day could use the provider's whole free quota (F-045).
+  if (state.dailyCallCap > 0 && state.dailyCalls >= state.dailyCallCap) {
+    return { allowed: false, reason: 'DAILY_CALLS', mode };
   }
   return { allowed: true, mode };
 }

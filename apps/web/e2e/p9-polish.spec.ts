@@ -62,7 +62,8 @@ test('SCIM round-trip: provision (INVITED) → deactivate (SUSPENDED) → delete
   const created = await scim.post('/scim/v2/Users', { data: { userName, name: { givenName: 'Scim', familyName: 'User' } } });
   expect(created.status()).toBe(201);
   const scimUser = (await created.json()) as { id: string; active: boolean };
-  expect(scimUser.active).toBe(true);
+  // Manual QA (F-067): an invited person cannot sign in yet, so SCIM reports them as not active.
+  expect(scimUser.active).toBe(false);
 
   // Admin sees the new user as INVITED.
   const users = (await (await ctx.get('/users')).json()) as Array<{ email: string; status: string }>;

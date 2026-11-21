@@ -65,6 +65,7 @@ import {
   type ThresholdBand,
   unassignKpiFromUnit,
   unassignUserKpi,
+  meRequest,
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
 import { WatchButton } from '../../../components/kpis/watch-button';
@@ -97,9 +98,10 @@ import { currentLoginRedirect } from '../../../lib/auth-redirect';
 import { PastValuesForm } from '../../../components/kpis/past-values-form';
 import { KpiPicker } from '../../../components/dashboard-grid/kpi-picker';
 import { RecordValueForm } from '../../../components/kpis/record-value-form';
-import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
+import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, BENCHMARK_KIND_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, LINEAGE_DOWNSTREAM_LABELS, LINEAGE_UPSTREAM_LABELS, type LabelMap, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useAllowed } from '../../../lib/use-allowed';
+import { useAccess } from '../../../lib/use-access';
 import { attainmentOf } from '../../../lib/attainment';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
@@ -297,11 +299,32 @@ function TabLoadError({ error, onRetry, className }: { error: string | null; onR
 
 // ---- Tabs ------------------------------------------------------------------
 
+/**
+ * Whether the reader may record this KPI's values. KPI_DATA_ENTRY says they may record; an
+ * organisation-wide KPI's values are its owner's or an administrator's to record (F-055: every
+ * employee could write ARR and MRR). Per-unit and per-person KPIs are gated by their assignments.
+ */
+function useMayRecord(kpi: KpiSummary): boolean {
+  const allowed = useAllowed('KPI_DATA_ENTRY');
+  const { profile } = useAccess();
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    meRequest()
+      .then((res) => setMe(res.user.id))
+      .catch(() => {
+        /* until we know who is reading, the form stays hidden */
+      });
+  }, []);
+  if (!allowed) return false;
+  if (kpi.scope !== 'ORG_WIDE') return true;
+  return profile?.isAdmin === true || (me != null && kpi.ownerUserId === me);
+}
+
 function OverviewTab({ kpi }: { kpi: KpiSummary }) {
   const fmt = useFormat();
   const [points, reloadPoints, pointsError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [status] = useAsync(() => getThresholdStatus(kpi.id).catch(() => null), [kpi.id]);
-  const mayRecord = useAllowed('KPI_DATA_ENTRY');
+  const mayRecord = useMayRecord(kpi);
   const latest = points?.[0];
   const series = (points ?? []).slice().reverse().map((p) => p.value);
   const unit = kpi.unit ? ` ${kpi.unit}` : '';
@@ -530,13 +553,16 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
     reload();
     reloadAssignments();
   };
+  const mayRecord = useMayRecord(kpi);
 
   // Where several past values at once are recorded, and which periods already have one — for the same
   // unit or person as the one-value form above (pasting a year used to mean entering it month by month).
   const selectedUnit = units.find((u) => u.assignmentId === selected) ?? null;
   const pastRecorder: { onRecord: (body: { value: number; periodStart: string; periodEnd: string }) => Promise<unknown> } | null =
     kpi.scope === 'ORG_WIDE'
-      ? { onRecord: (body) => recordOrgWideDataPoint(kpi.id, body) }
+      ? mayRecord
+        ? { onRecord: (body) => recordOrgWideDataPoint(kpi.id, body) }
+        : null
       : kpi.scope === 'PER_UNIT' && selectedUnit
         ? { onRecord: (body) => recordUnitKpiData(selectedUnit.assignmentId, body) }
         : kpi.scope === 'PER_USER' && mine[0]
@@ -557,14 +583,20 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
       <PermissionGuard permission="KPI_DATA_ENTRY">
         <UICard>
           <CardContent>
-            {kpi.scope === 'ORG_WIDE' && (
-              <RecordValueForm
-                frequency={kpi.frequency}
-                unit={kpi.unit}
-                onRecord={(body) => recordOrgWideDataPoint(kpi.id, body)}
-                onRecorded={afterRecord}
-              />
-            )}
+            {kpi.scope === 'ORG_WIDE' &&
+              (mayRecord ? (
+                <RecordValueForm
+                  frequency={kpi.frequency}
+                  unit={kpi.unit}
+                  onRecord={(body) => recordOrgWideDataPoint(kpi.id, body)}
+                  onRecorded={afterRecord}
+                />
+              ) : (
+                <p className="text-sm text-content-muted" data-testid="data-owner-only">
+                  This KPI is organisation-wide: its values are recorded by its owner or an administrator.
+                  {kpi.ownerUserId ? '' : ' It has no owner yet; an administrator can set one on the Edit page.'}
+                </p>
+              ))}
 
             {kpi.scope === 'PER_UNIT' &&
               (units.length === 0 ? (
@@ -1185,7 +1217,9 @@ function bandRange(lower: number | null, upper: number | null): string {
 function ThresholdsTab({ kpiId }: { kpiId: string }) {
   const confirm = useConfirm();
   const [bands, reload, loadError] = useAsync(() => listThresholdBands(kpiId), [kpiId]);
-  const [status] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
+  // The current band is asked for again whenever the bands change (F-019: it kept saying no bands were set
+  // until a full reload).
+  const [status, reloadStatus] = useAsync(() => getThresholdStatus(kpiId).catch(() => null), [kpiId]);
   const [form, setForm] = useState(EMPTY_BAND);
   const [err, setErr] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
@@ -1206,6 +1240,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
       });
       setForm(EMPTY_BAND);
       reload();
+      reloadStatus();
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Failed to add band');
     }
@@ -1367,6 +1402,7 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
                     action: async () => {
                       await deleteThresholdBand(kpiId, b.id);
                       reload();
+                      reloadStatus();
                     },
                   })
                 }
@@ -1383,7 +1419,16 @@ function ThresholdsTab({ kpiId }: { kpiId: string }) {
   );
 }
 
+/** "computed:internal_historical:30d:n=8" → "the average of 8 values over 30 days"; anything else as written. */
+function benchmarkSourceInWords(source: string): string {
+  const m = /^computed:internal_historical:(\d+)d:n=(\d+)$/.exec(source);
+  if (!m) return source;
+  const n = Number(m[2]);
+  return `the average of ${n} value${n === 1 ? '' : 's'} over ${m[1]} days`;
+}
+
 function BenchmarksTab({ kpiId }: { kpiId: string }) {
+  const fmt = useFormat();
   const confirm = useConfirm();
   const [benchmarks, reload, loadError] = useAsync(() => listBenchmarks(kpiId), [kpiId]);
   const [form, setForm] = useState({ kind: 'EXTERNAL_INDUSTRY', value: '', source: '' });
@@ -1459,17 +1504,20 @@ function BenchmarksTab({ kpiId }: { kpiId: string }) {
           {(benchmarks ?? []).map((b: Benchmark) => (
             <div
               key={b.id}
+              data-testid="benchmark-row"
               className="flex items-center justify-between border-b border-border-divider py-2 text-sm last:border-0"
             >
+              {/* In words and formatted: "EXTERNAL_INDUSTRY: 260000 (computed:internal_historical:30d:n=8)" told nobody (F-071). */}
               <span className="tabular-nums text-content-strong">
-                {b.kind}: {b.value} {b.source && <span className="text-content-muted">({b.source})</span>}
+                {labelFor(BENCHMARK_KIND_LABELS, b.kind)}: {fmt.number(b.value)}{' '}
+                {b.source && <span className="text-content-muted">({benchmarkSourceInWords(b.source)})</span>}
               </span>
               <PermissionGuard permission="KPI_EDIT"><Button
                 variant="ghost"
                 size="sm"
                 onClick={() =>
                   void confirm({
-                    title: `Delete the ${b.kind.toLowerCase().replace(/_/g, ' ')} benchmark?`,
+                    title: `Delete the ${labelFor(BENCHMARK_KIND_LABELS, b.kind).toLowerCase()}?`,
                     description: 'It is no longer shown against this KPI. Recorded values are kept.',
                     confirmLabel: 'Delete benchmark',
                     tone: 'danger',
@@ -1503,16 +1551,23 @@ function LineageTab({ kpiId }: { kpiId: string }) {
     reloadUp();
     reloadDown();
   };
-  const col = (title: string, hops: LineageHop[] | null) => (
-    <UICard>
+  // Each hop by name, as a link when it is a KPI, and how it connects in words (F-071: "kpi:cmwmyjra CASCADE_ROLLUP").
+  const col = (title: string, hops: LineageHop[] | null, labels: LabelMap, testId: string) => (
+    <UICard data-testid={testId}>
       <CardContent>
         <p className="kn-eyebrow mb-2">{title}</p>
         {(hops ?? []).map((h) => (
           <div key={h.edgeId} className="border-b border-border-divider py-2 text-sm last:border-0">
-            <span className="font-mono text-content-strong">
-              {h.type}:{h.id.slice(0, 8)}
-            </span>
-            <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-content-muted">{h.via}</span>
+            {h.type === 'kpi' && h.name ? (
+              <Link href={`/kpis/${h.id}`} className="font-medium text-content-strong hover:text-accent-primary">
+                {h.name}
+              </Link>
+            ) : (
+              <span className="font-mono text-content-strong">
+                {h.type}:{h.id.slice(0, 8)}
+              </span>
+            )}
+            <span className="ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 text-xs text-content-muted">{labelFor(labels, h.via)}</span>
           </div>
         ))}
         {hops && hops.length === 0 && <p className="py-2 text-content-muted">None.</p>}
@@ -1522,8 +1577,8 @@ function LineageTab({ kpiId }: { kpiId: string }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <TabLoadError error={loadError} onRetry={reload} className="sm:col-span-2" />
-      {col('Upstream (inputs)', up)}
-      {col('Downstream (consumers)', down)}
+      {col('What feeds this KPI', up, LINEAGE_UPSTREAM_LABELS, 'lineage-upstream')}
+      {col('What this KPI feeds', down, LINEAGE_DOWNSTREAM_LABELS, 'lineage-downstream')}
     </div>
   );
 }

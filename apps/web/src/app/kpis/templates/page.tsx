@@ -194,7 +194,9 @@ export default function TemplatesPage() {
                         {tag}
                       </span>
                     ))}
-                    {t.popularity > 0 && (
+                    {/* A built-in template's count came with the catalogue, not from anyone here (F-025): only a
+                        template this organisation made shows how often it was used. */}
+                    {!t.isGlobal && t.popularity > 0 && (
                       <span
                         className="ml-auto rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-content-muted"
                         data-testid={`tmpl-popularity-${t.slug}`}

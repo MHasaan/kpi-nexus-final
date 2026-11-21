@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LineChart as LineChartIcon } from 'lucide-react';
 
+import { useAllowed } from '../../../../lib/use-allowed';
 import { AppShell } from '../../../../components/app-shell';
 import { forecastPeriodStart } from '../../../../lib/forecast-periods';
 import { useFormat } from '../../../../lib/format-context';
@@ -59,12 +60,14 @@ interface DataPoint {
 // Shared analytics navigation strip — lets users move between the KPI's
 // analytics surfaces and back to the detail page.
 function AnalyticsNav({ kpiId, active }: { kpiId: string; active: string }) {
+  // Embed links publish the KPI outside the app, so the tab is for someone who manages reports (F-051).
+  const mayEmbed = useAllowed('REPORTS_MANAGE');
   const links: Array<{ key: string; label: string; href: string }> = [
     { key: 'detail', label: 'Overview', href: `/kpis/${kpiId}` },
     { key: 'forecast', label: 'Forecast', href: `/kpis/${kpiId}/forecast` },
     { key: 'anomalies', label: 'Anomalies', href: `/kpis/${kpiId}/anomalies` },
     { key: 'whatif', label: 'What-if', href: `/kpis/${kpiId}/whatif` },
-    { key: 'embed', label: 'Embed', href: `/kpis/${kpiId}/embed` },
+    ...(mayEmbed ? [{ key: 'embed', label: 'Embed', href: `/kpis/${kpiId}/embed` }] : []),
   ];
   return (
     <nav

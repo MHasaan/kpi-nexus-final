@@ -1095,6 +1095,11 @@ export async function getKpiSnapshot(kpiId: string, snapshotId: string): Promise
 }
 
 /** Bind the Slack user from a /kpi link to the signed-in account. */
+/** Whether this server can complete a Slack connection (it needs a signing secret set by whoever runs it). */
+export async function getSlackReadiness(): Promise<{ signingSecretSet: boolean }> {
+  return api('/integrations/slack/readiness');
+}
+
 export async function linkSlackAccount(token: string): Promise<{ linked: true }> {
   return api('/integrations/slack/link', { method: 'POST', body: JSON.stringify({ token }) });
 }
@@ -1730,6 +1735,43 @@ export async function getReportRunDownloadUrl(reportId: string, runId: string): 
   return res.url;
 }
 
+/** The name a Content-Disposition header gives the file, or the fallback. */
+export function filenameFromDisposition(header: string | null, fallback: string): string {
+  const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header ?? '');
+  return m?.[1] ? decodeURIComponent(m[1]) : fallback;
+}
+
+/**
+ * Fetch a finished run's file through the API, signed in, and hand it to the browser to save (F-044: the
+ * storage server's own address could not be reached from outside the machine).
+ */
+export async function downloadReportRunFile(reportId: string, runId: string): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`${apiBaseUrl}/scheduled-reports/${reportId}/runs/${runId}/file`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let message = 'Could not download the report';
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // The reply was not JSON: keep the plain message.
+    }
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  const name = filenameFromDisposition(res.headers.get('content-disposition'), `report-${runId}`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function updateScheduledReport(
   id: string,
   patch: Partial<{
@@ -1927,6 +1969,8 @@ export interface Alert {
   targetUserId: string | null;
   acknowledgedAt: string | null;
   acknowledgedById: string | null;
+  /** Who acknowledged it, by name (on an alert's own page). */
+  acknowledgedBy?: string | null;
   resolvedAt: string | null;
   meta: Record<string, unknown> | null;
   createdAt: string;
@@ -1970,7 +2014,16 @@ export async function createAlertRule(body: {
 /** PATCH /alert-rules/:id — name, description, severity, pause/resume (isActive). */
 export async function updateAlertRule(
   id: string,
-  body: { name?: string; description?: string; severity?: AlertSeverity; isActive?: boolean },
+  body: {
+    name?: string;
+    description?: string;
+    severity?: AlertSeverity;
+    isActive?: boolean;
+    kpiId?: string;
+    ruleType?: AlertRuleType;
+    config?: Record<string, unknown>;
+    escalationLevels?: EscalationLevelInput[];
+  },
 ): Promise<AlertRule> {
   return api(`/alert-rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
@@ -2191,6 +2244,10 @@ export interface NotificationDelivery {
   error: string | null;
   sentAt: string | null;
   createdAt: string;
+  /** What failed, in words: the channel, the KPI and the alert's message (F-070). Absent on older answers. */
+  channelName?: string | null;
+  kpiName?: string | null;
+  alertMessage?: string | null;
 }
 
 /** The most deliveries the API gives in one answer (notification-deliveries.service.ts). */
@@ -2557,6 +2614,8 @@ export interface LineageHop {
   id: string;
   via: string;
   edgeId: string;
+  /** The node's name when it is one of this organisation's KPIs. */
+  name?: string;
 }
 export async function getLineageUpstream(type: string, id: string, depth = 1): Promise<LineageHop[]> {
   return api(`/lineage/${type}/${id}/upstream?depth=${depth}`);

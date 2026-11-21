@@ -108,8 +108,9 @@ test.describe('/org-units page — admin CRUD UI', () => {
     await expect(memberRow).toBeVisible();
     await expect(memberRow.getByTestId(`member-role-${reg.user.id}`)).toHaveValue('LEAD');
 
-    // 4. Remove the member
+    // 4. Remove the member (it asks first — F-006)
     await page.getByTestId(`remove-member-${reg.user.id}`).click();
+    await page.getByTestId('remove-member-confirm-confirm').click();
     await expect(memberRow).not.toBeVisible();
 
     // 5. Collapse + delete child

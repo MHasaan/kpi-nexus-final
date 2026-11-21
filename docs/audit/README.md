@@ -601,6 +601,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-019): the Thresholds tab's "Current band" did not change after adding bands until a full reload | ✅ Fixed — the current band is read again whenever a band is added or removed | #469 | `the-current-band-follows-the-bands.spec.ts` |
 | Manual QA (2026-11-20, F-065): the language picker offered Spanish and French, which translate nothing | ✅ Fixed — only languages with translations are offered; the rest wait until ready (decision) | #470 | `dictionaries.spec.ts`, `personal-language.spec.ts` |
 | Manual QA (2026-11-20, F-062): MFA errors said "Invalid TOTP code", recovery codes could not be copied or downloaded, the raw otpauth address was printed, and the sign-in field did not say a recovery code would do | ✅ Fixed — plain words, Copy and Download, a link instead of the address, and the field says so | #471 | `two-step-sign-in-in-plain-words.spec.ts` |
+| Manual QA (2026-11-19, F-027): the embed page scrolled sideways because the public address did not wrap; the tree labelled levels "L0", "L1" | ✅ Fixed — the address wraps; levels read "Top level", "Level 2" | #472 | `embed-url-wraps-and-tree-levels-read-as-words.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

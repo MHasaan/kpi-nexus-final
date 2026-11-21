@@ -608,6 +608,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-20, F-070/F-036): failed deliveries showed only a truncated id and Retry gave no word; an alert's page did not say who acknowledged it | ✅ Fixed — rows name the KPI, message and channel, Retry says so; the alert says who acknowledged | #477 | deliveries and alerts service specs, `deliveries-and-alerts-say-what-and-who.spec.ts` |
 | Manual QA (2026-11-19, F-001): the co-pilot's Suggest and Explain tabs shared one feed | ✅ Fixed — each tab shows its own thread and keeps it | #478 | `wizard-copilot-rail.spec.ts` |
 | Manual QA (2026-11-19, F-041): an automation's task was unassigned with no due date or priority, and the form offered none | ✅ Fixed — the form asks for the owner, priority and days until due, and saves them | #479 | `workflow-form.spec.ts`, `automations.spec.ts` |
+| Manual QA (2026-11-19, F-008): the People table had no Position column, so positions set on invitation were shown nowhere | ✅ Fixed — a Position column; the founder's own position in the wizard is left for the owner | #480 | `people-list-shows-positions.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

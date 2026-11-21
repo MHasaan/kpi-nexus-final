@@ -25,9 +25,11 @@ const PERMISSIONS_RULE = `Role permissions ⊆ ${ALL_PERMISSIONS.join('|')}. The
 
 const GEN_SYSTEM = [
   'You are an onboarding assistant. Generate a complete organization setup as JSON ONLY (no prose, no fences):',
-  '{"organization":{"name","industry","type","sizeTier"},"roles":[{"name","isAdmin","level","permissions":[]}],',
+  '{"organization":{"name","industry","type","sizeTier","timezone","currency","locale","fiscalYearStartMonth","weekStartsOn"},"roles":[{"name","isAdmin","level","permissions":[]}],',
   '"positions":[{"name","track"}],"orgUnitTypes":[{"name","dimension"}],"orgUnits":[{"name","type","parent"}],',
   '"kpiCategories":[{"name"}],"kpis":[{"name","category","scope","type","direction","frequency","unit","scorecardQuadrant"}]}.',
+  'sizeTier ∈ SMALL|MEDIUM|LARGE|ENTERPRISE (about 1-50, 51-250, 251-1000, more people).',
+  'Fill timezone (IANA, e.g. Asia/Karachi), currency (ISO 4217, e.g. PKR), locale (BCP 47, e.g. en-PK), fiscalYearStartMonth (1-12) and weekStartsOn (0 = Sunday … 6 = Saturday) only when the description says or clearly implies them (a city or country, a currency); otherwise leave them out.',
   'track ∈ INDIVIDUAL_CONTRIBUTOR|MANAGEMENT|EXECUTIVE. scope ∈ ORG_WIDE|PER_UNIT|PER_USER.',
   'type ∈ NUMBER|PERCENTAGE|CURRENCY|DURATION|COUNT|RATING|BOOLEAN. direction ∈ HIGHER_IS_BETTER|LOWER_IS_BETTER|TARGET_IS_BEST|NEUTRAL.',
   'frequency ∈ DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY. scorecardQuadrant ∈ FINANCIAL|CUSTOMER|INTERNAL_PROCESS|LEARNING_GROWTH.',

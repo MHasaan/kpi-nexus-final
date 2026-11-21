@@ -21,6 +21,8 @@ import {
   Skeleton,
 } from '../../components/ui';
 import { cn } from '../../lib/cn';
+import { UNIT_ROLE_LABELS, labelFor } from '../../lib/labels';
+import { usePermissions } from '../../lib/use-permissions';
 import {
   addOrgUnitMember,
   ApiError,
@@ -31,6 +33,7 @@ import {
   listOrgUnitMembers,
   listOrgUnits,
   removeOrgUnitMember,
+  updateOrgUnitMemberRole,
   updateOrgUnit,
   type OrgUnitMember,
   type OrgUnitMemberRole,
@@ -46,6 +49,8 @@ import { treeOrder } from '../../lib/tree-order';
 import { inSentence } from '../../lib/sentence-case';
 import { withFound } from '../../lib/people';
 import { type Person, useFoundPeople, usePeople } from '../../lib/use-people';
+
+const UNIT_ROLES: OrgUnitMemberRole[] = ['MEMBER', 'LEAD', 'MANAGER', 'DEPUTY'];
 
 export default function OrgUnitsPage() {
   return (
@@ -78,6 +83,7 @@ function OrgUnitsPageInner() {
   const users = withFound(known, found);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const canManageUnits = usePermissions().has('GROUPS_MANAGE');
 
   // Add-member form state
   const [memberUserId, setMemberUserId] = useState('');
@@ -227,6 +233,16 @@ function OrgUnitsPageInner() {
       setAddMemberError(err instanceof ApiError ? err.message : 'Failed to add member');
     } finally {
       setAddingMember(false);
+    }
+  }
+
+  async function handleChangeMemberRole(unitId: string, userId: string, memberRole: OrgUnitMemberRole) {
+    setMembersError(null);
+    try {
+      const updated = await updateOrgUnitMemberRole(unitId, userId, memberRole);
+      setUnitMembers((current) => (current ?? []).map((m) => (m.userId === userId ? { ...m, memberRole: updated.memberRole } : m)));
+    } catch (err) {
+      setMembersError(err instanceof ApiError ? err.message : 'The role was not changed');
     }
   }
 
@@ -569,14 +585,26 @@ function OrgUnitsPageInner() {
                                         <span className="text-content-strong">
                                           {user?.fullName ?? user?.email ?? m.userId}
                                         </span>
-                                        <Badge
-                                          tone={
-                                            m.memberRole === 'MANAGER' ? 'info' : 'neutral'
-                                          }
-                                          className="font-mono text-[10px]"
-                                        >
-                                          {m.memberRole}
-                                        </Badge>
+                                        {/* The role in words; changed in place by someone who manages units (F-005). */}
+                                        {canManageUnits ? (
+                                          <select
+                                            value={m.memberRole}
+                                            onChange={(e) => void handleChangeMemberRole(unit.id, m.userId, e.target.value as OrgUnitMemberRole)}
+                                            aria-label={`Role of ${user?.fullName ?? user?.email ?? m.userId} in ${unit.name}`}
+                                            data-testid={`member-role-${m.userId}`}
+                                            className="rounded-md border border-border bg-surface-bg px-2 py-1 text-xs text-content-strong"
+                                          >
+                                            {UNIT_ROLES.map((r) => (
+                                              <option key={r} value={r}>
+                                                {labelFor(UNIT_ROLE_LABELS, r)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <Badge tone={m.memberRole === 'MEMBER' ? 'neutral' : 'info'} className="text-[10px]">
+                                            {labelFor(UNIT_ROLE_LABELS, m.memberRole)}
+                                          </Badge>
+                                        )}
                                       </span>
                                       <PermissionGuard permission="GROUPS_MANAGE">
                                         <button

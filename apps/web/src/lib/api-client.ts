@@ -740,6 +740,11 @@ export async function addOrgUnitMember(
   });
 }
 
+/** Change a member's role in the unit in place (F-005). */
+export async function updateOrgUnitMemberRole(unitId: string, userId: string, memberRole: OrgUnitMemberRole): Promise<OrgUnitMember> {
+  return api(`/org-units/${unitId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ memberRole }) });
+}
+
 export async function removeOrgUnitMember(unitId: string, userId: string): Promise<void> {
   return api(`/org-units/${unitId}/members/${userId}`, { method: 'DELETE' });
 }

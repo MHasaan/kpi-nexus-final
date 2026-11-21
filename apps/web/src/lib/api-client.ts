@@ -1730,6 +1730,43 @@ export async function getReportRunDownloadUrl(reportId: string, runId: string): 
   return res.url;
 }
 
+/** The name a Content-Disposition header gives the file, or the fallback. */
+export function filenameFromDisposition(header: string | null, fallback: string): string {
+  const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header ?? '');
+  return m?.[1] ? decodeURIComponent(m[1]) : fallback;
+}
+
+/**
+ * Fetch a finished run's file through the API, signed in, and hand it to the browser to save (F-044: the
+ * storage server's own address could not be reached from outside the machine).
+ */
+export async function downloadReportRunFile(reportId: string, runId: string): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`${apiBaseUrl}/scheduled-reports/${reportId}/runs/${runId}/file`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    let message = 'Could not download the report';
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body.message) message = body.message;
+    } catch {
+      // The reply was not JSON: keep the plain message.
+    }
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  const name = filenameFromDisposition(res.headers.get('content-disposition'), `report-${runId}`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function updateScheduledReport(
   id: string,
   patch: Partial<{

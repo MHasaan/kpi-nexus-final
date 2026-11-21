@@ -53,6 +53,17 @@ function wallMinutes(now: Date, timezone: string): number {
   return get('hour') * 60 + get('minute');
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** The hour (0–23) and the day of the week (0 = Sunday) at `now`, on the wall clock of `timezone`. */
+export function wallClock(now: Date, timezone: string): { hour: number; weekday: number } {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(now);
+  return {
+    hour: Number(parts.find((p) => p.type === 'hour')?.value ?? 0),
+    weekday: WEEKDAYS.indexOf(parts.find((p) => p.type === 'weekday')?.value ?? 'Sun'),
+  };
+}
+
 /**
  * When the mute hours that contain `now` end, or null when `now` is outside
  * them (or none are set). The hours are on the person's own clock.

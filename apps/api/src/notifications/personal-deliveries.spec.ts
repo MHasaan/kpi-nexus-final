@@ -132,10 +132,12 @@ describe('NotificationDispatcherService.dispatchToPeople', () => {
 
 describe('PersonalDigestService.sendDue', () => {
   const held = (over: Partial<Row> = {}): Row => ({ id: 'd1', organizationId: 'org-a', alertId: 'a1', channelId: null, kind: 'EMAIL', targetUserId: 'u1', status: 'PENDING', held: 'DIGEST', error: null, attempts: 0, sentAt: null, ...over });
+  // The run is hourly; a digest goes out at 07:00 on the person's own clock (UTC for these people).
+  const SEVEN_UTC = new Date('2026-11-18T07:00:00.000Z'); // a Wednesday
 
   test('a daily digest is one email with everything kept for that person, and the rows are marked sent', async () => {
     const h = harness([person({ notificationSettings: { digestMode: 'DAILY' } })], [held(), held({ id: 'd2' })]);
-    await expect(h.digest.sendDue(NOW)).resolves.toEqual({ people: 1, notifications: 2 });
+    await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 1, notifications: 2 });
     expect(h.email.send).toHaveBeenCalledOnce();
     expect(h.email.send.mock.calls[0]![0]).toMatchObject({ to: 'ada@example.test', subject: '2 KPI alerts' });
     expect(h.email.send.mock.calls[0]![0].text).toContain('Revenue is below its critical threshold');
@@ -144,7 +146,7 @@ describe('PersonalDigestService.sendDue', () => {
 
   test('a weekly digest goes out on Monday only', async () => {
     const h = harness([person({ notificationSettings: { digestMode: 'WEEKLY' } })], [held()]);
-    await expect(h.digest.sendDue(NOW)).resolves.toEqual({ people: 0, notifications: 0 }); // Wednesday
+    await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 0, notifications: 0 }); // Wednesday
     expect(h.rows[0]).toMatchObject({ status: 'PENDING', held: 'DIGEST' });
     await expect(h.digest.sendDue(new Date('2026-11-23T07:00:00.000Z'))).resolves.toEqual({ people: 1, notifications: 1 }); // Monday
   });
@@ -157,7 +159,34 @@ describe('PersonalDigestService.sendDue', () => {
   test('a failed email leaves the rows kept, for the next run', async () => {
     const h = harness([person({ notificationSettings: { digestMode: 'DAILY' } })], [held()]);
     h.email.send.mockRejectedValueOnce(new Error('smtp down'));
-    await expect(h.digest.sendDue(NOW)).resolves.toEqual({ people: 0, notifications: 0 });
+    await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 0, notifications: 0 });
     expect(h.rows[0]).toMatchObject({ status: 'PENDING', held: 'DIGEST' });
+  });
+
+  // Since 2026-11-20 the digest goes out at 07:00 on each person's own clock, not at 07:00 UTC.
+  describe('at 07:00 on the person’s own clock', () => {
+    test('someone in Karachi gets it at 02:00 UTC — 07:00 there — and not at 07:00 UTC', async () => {
+      const h = harness([person({ timezone: 'Asia/Karachi', notificationSettings: { digestMode: 'DAILY' } })], [held()]);
+      await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 0, notifications: 0 }); // 12:00 in Karachi
+      await expect(h.digest.sendDue(new Date('2026-11-18T02:00:00.000Z'))).resolves.toEqual({ people: 1, notifications: 1 });
+    });
+
+    test('with no timezone of their own, the organisation’s clock is theirs', async () => {
+      const h = harness([person({ notificationSettings: { digestMode: 'DAILY' } })], [held()]);
+      h.prisma.organization.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
+      await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 0, notifications: 0 }); // 02:00 in New York
+      await expect(h.digest.sendDue(new Date('2026-11-18T12:00:00.000Z'))).resolves.toEqual({ people: 1, notifications: 1 }); // 07:00 there
+    });
+
+    test('weekly means Monday morning where they are, though it is still Sunday in UTC', async () => {
+      const h = harness([person({ timezone: 'Pacific/Auckland', notificationSettings: { digestMode: 'WEEKLY' } })], [held()]);
+      // Sunday 18:00 UTC is Monday 07:00 in Auckland (summer time, UTC+13).
+      await expect(h.digest.sendDue(new Date('2026-11-22T18:00:00.000Z'))).resolves.toEqual({ people: 1, notifications: 1 });
+    });
+
+    test('a timezone that is not one is read as UTC', async () => {
+      const h = harness([person({ timezone: 'Mars/Olympus', notificationSettings: { digestMode: 'DAILY' } })], [held()]);
+      await expect(h.digest.sendDue(SEVEN_UTC)).resolves.toEqual({ people: 1, notifications: 1 });
+    });
   });
 });

@@ -131,9 +131,10 @@ function NotificationsCard() {
               onChange={setDigestMode}
               className="w-fit"
             />
-            <p className="text-xs text-content-muted">
-              Daily or weekly keeps your alert emails and sends them as one (daily at 07:00 UTC, weekly on
-              Mondays). &ldquo;Off&rdquo; sends each one as it happens.
+            <p className="text-xs text-content-muted" data-testid="digest-help">
+              Daily or weekly keeps your alert emails and sends them as one, at 07:00 on your own clock (your
+              timezone, or the organisation&apos;s) — weekly on Mondays. &ldquo;Off&rdquo; sends each one as it
+              happens.
             </p>
           </div>
 

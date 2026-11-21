@@ -17,7 +17,7 @@ vi.stubGlobal('window', { localStorage: localStorageMock });
 vi.stubGlobal('localStorage', localStorageMock);
 
 import { getCachedAccessProfile, setCachedAccessProfile } from './access';
-import { ApiError, api, getAccessToken, getRefreshToken, setTokens, subscribeRealtime } from './api-client';
+import { ApiError, api, filenameFromDisposition, getAccessToken, getRefreshToken, setTokens, subscribeRealtime } from './api-client';
 import { getCachedPermissions, setCachedPermissions } from './permissions';
 
 type Call = { url: string; auth: string | null; body: unknown };
@@ -162,5 +162,13 @@ describe('setTokens — a new session starts clean', () => {
     expect(getCachedPermissions()).toEqual([]);
     expect(getCachedAccessProfile()).toBeNull();
     expect(getAccessToken()).toBe('new-access');
+  });
+});
+
+describe('filenameFromDisposition', () => {
+  test('reads the name the server gives the file, quoted or encoded, else the fallback', () => {
+    expect(filenameFromDisposition('attachment; filename="Weekly sales 2026-01-05.csv"', 'x')).toBe('Weekly sales 2026-01-05.csv');
+    expect(filenameFromDisposition("attachment; filename*=UTF-8''Caf%C3%A9.pdf", 'x')).toBe('Café.pdf');
+    expect(filenameFromDisposition(null, 'report-run_1')).toBe('report-run_1');
   });
 });

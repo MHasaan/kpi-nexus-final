@@ -43,6 +43,9 @@ interface Budget {
   monthlySpend: number;
   dailyCapUsd: number;
   monthlyCapUsd: number;
+  /** Calls made today, free ones included, and the day's limit (0 = none) — F-045. */
+  dailyCalls: number;
+  dailyCallCap: number;
   circuitBreaker: 'FAIL_CLOSED' | 'FALLBACK';
 }
 
@@ -75,9 +78,9 @@ const MODEL_SUGGESTIONS: Record<AiProviderKey, string[]> = {
 };
 
 /** Spend tile: eyebrow label + large tabular value + sub-line cap. */
-function SpendTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function SpendTile({ label, value, sub, testId }: { label: string; value: string; sub?: string; testId?: string }) {
   return (
-    <Card>
+    <Card data-testid={testId}>
       <CardContent>
         <Metric label={label} value={value} size="sm" />
         {sub && <p className="mt-1 text-xs tabular-nums text-content-muted">{sub}</p>}
@@ -341,6 +344,7 @@ export default function AiSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [dailyCap, setDailyCap] = useState('');
   const [monthlyCap, setMonthlyCap] = useState('');
+  const [callCap, setCallCap] = useState('');
   const [atCap, setAtCap] = useState<'FAIL_CLOSED' | 'FALLBACK'>('FAIL_CLOSED');
   const [budgetError, setBudgetError] = useState<string | null>(null);
   const [savingBudget, setSavingBudget] = useState(false);
@@ -364,6 +368,7 @@ export default function AiSettingsPage() {
         setBudget(b);
         setDailyCap(String(b.dailyCapUsd));
         setMonthlyCap(String(b.monthlyCapUsd));
+        setCallCap(String(b.dailyCallCap));
         setAtCap(b.circuitBreaker === 'FALLBACK' ? 'FALLBACK' : 'FAIL_CLOSED');
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load budget'));
@@ -395,17 +400,24 @@ export default function AiSettingsPage() {
     if (value < 0) return `${label} cannot be below 0.`;
     return null;
   };
+  /** The day's call limit as typed: a whole number of calls, 0 or more (0 = no limit). */
+  const callCapProblem = (typed: string): string | null => {
+    const value = Number(typed);
+    if (typed.trim() === '' || !Number.isInteger(value)) return 'Calls per day must be a whole number. Enter 0 for no limit.';
+    if (value < 0) return 'Calls per day cannot be below 0.';
+    return null;
+  };
 
   const saveCap = async () => {
     setError(null);
-    const problem = capProblem('Daily cap', dailyCap) ?? capProblem('Monthly cap', monthlyCap);
+    const problem = capProblem('Daily cap', dailyCap) ?? capProblem('Monthly cap', monthlyCap) ?? callCapProblem(callCap);
     setBudgetError(problem);
     if (problem) return;
     setSavingBudget(true);
     try {
       await api('/ai/budget', {
         method: 'PATCH',
-        body: JSON.stringify({ dailyCapUsd: Number(dailyCap), monthlyCapUsd: Number(monthlyCap), circuitBreaker: atCap }),
+        body: JSON.stringify({ dailyCapUsd: Number(dailyCap), monthlyCapUsd: Number(monthlyCap), dailyCallCap: Number(callCap), circuitBreaker: atCap }),
       });
       flash('Budget saved.');
       load();
@@ -509,7 +521,7 @@ export default function AiSettingsPage() {
         <section className="space-y-3" data-testid="ai-budget-section">
           <h2 className="text-sm font-semibold text-content-strong">Spend budget</h2>
           {budget && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <SpendTile
                 label="Today"
                 value={`$${budget.dailySpend.toFixed(2)}`}
@@ -520,13 +532,19 @@ export default function AiSettingsPage() {
                 value={`$${budget.monthlySpend.toFixed(2)}`}
                 sub={`cap $${budget.monthlyCapUsd}`}
               />
+              <SpendTile
+                label="Calls today"
+                value={String(budget.dailyCalls)}
+                sub={budget.dailyCallCap > 0 ? `limit ${budget.dailyCallCap}` : 'no limit'}
+                testId="ai-calls-today"
+              />
             </div>
           )}
 
           {budget && (
             <Card data-testid="ai-budget-form">
               <CardContent className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="daily-cap">Daily cap (USD)</Label>
                     <Input id="daily-cap" inputMode="decimal" data-testid="ai-daily-cap-input" value={dailyCap} onChange={(e) => setDailyCap(e.target.value)} />
@@ -534,6 +552,10 @@ export default function AiSettingsPage() {
                   <div className="space-y-1.5">
                     <Label htmlFor="monthly-cap">Monthly cap (USD)</Label>
                     <Input id="monthly-cap" inputMode="decimal" data-testid="ai-monthly-cap-input" value={monthlyCap} onChange={(e) => setMonthlyCap(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="call-cap">Calls per day</Label>
+                    <Input id="call-cap" inputMode="numeric" data-testid="ai-call-cap-input" value={callCap} onChange={(e) => setCallCap(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="at-cap">When a cap is reached</Label>
@@ -550,7 +572,7 @@ export default function AiSettingsPage() {
                   </div>
                 </div>
                 <p className="text-xs text-content-muted" data-testid="ai-circuit-breaker-help">
-                  A cap of 0 means no cap.{' '}
+                  A cap of 0 means no cap. Calls are counted as well as dollars: a free model records no spend, so the day&apos;s call limit is what holds a busy day back.{' '}
                   {atCap === 'FAIL_CLOSED'
                     ? 'Once a cap is reached, AI calls are refused until it resets.'
                     : 'Once a cap is reached, each feature switches to its cheaper fallback model.'}

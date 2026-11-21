@@ -47,6 +47,7 @@ import {
   Select,
   Skeleton,
 } from '../../components/ui';
+import { useAccess } from '../../lib/use-access';
 import { useConfirm } from '../../lib/use-confirm';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
 import { useFormat } from '../../lib/format-context';
@@ -154,6 +155,10 @@ function DashboardsListInner() {
         /* ignore — "Mine" filter degrades gracefully */
       });
   }, [router]);
+
+  // Changing or deleting a dashboard is for its owner or an administrator (F-068).
+  const { profile } = useAccess();
+  const mayChange = (d: Dashboard) => profile?.isAdmin === true || (currentUserId != null && d.ownerUserId === currentUserId);
 
   const visible = useMemo(() => {
     if (dashboards === null) return null;
@@ -423,18 +428,21 @@ function DashboardsListInner() {
                         Set default
                       </Button>
                     )}
-                    <PermissionGuard permission="DASHBOARD_MANAGE">
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDelete(d)}
-                        disabled={pendingId === d.id}
-                        data-testid={`dashboard-delete-${d.id}`}
-                      >
-                        Delete
-                      </Button>
-                    </PermissionGuard>
+                    {/* A dashboard is its owner's (or an administrator's) to delete; a reader it was published to is not shown the button (F-068). */}
+                    {mayChange(d) && (
+                      <PermissionGuard permission="DASHBOARD_MANAGE">
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(d)}
+                          disabled={pendingId === d.id}
+                          data-testid={`dashboard-delete-${d.id}`}
+                        >
+                          Delete
+                        </Button>
+                      </PermissionGuard>
+                    )}
                   </div>
                 </CardContent>
               </Card>

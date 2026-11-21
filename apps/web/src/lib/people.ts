@@ -16,6 +16,22 @@ export function peopleFor(named: readonly PersonLite[], me: PersonLite | null): 
   return [...byId.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
+/** Someone a picker offers; the email is there only for a reader who may list people. */
+type Offered = PersonLite & { email?: string };
+
+/**
+ * What a people picker offers: the people the page knows plus colleagues found by name (X-05), each once,
+ * in name order. What the page knew about someone is kept — it may hold an email the look-up never gives.
+ * With nobody found, the page's own list is returned as it is.
+ */
+export function withFound(known: Offered[], found: readonly PersonLite[]): Offered[] {
+  if (found.length === 0) return known;
+  const byId = new Map<string, Offered>();
+  for (const person of found) byId.set(person.id, person);
+  for (const person of known) byId.set(person.id, person);
+  return [...byId.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
 /** The distinct, non-empty ids in a list that may hold nulls and repeats, in a stable order. */
 export function distinctIds(ids: ReadonlyArray<string | null | undefined>): string[] {
   return [...new Set(ids.filter((id): id is string => typeof id === 'string' && id !== ''))].sort();

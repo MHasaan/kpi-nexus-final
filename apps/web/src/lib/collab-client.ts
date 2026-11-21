@@ -68,8 +68,10 @@ export function updateComment(id: string, body: { body: string; mentionedUserIds
   return api(`/comments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 /**
- * Colleagues to mention whose name starts with what was typed: names and ids
- * only. For someone who may comment but may not list people.
+ * Colleagues whose name starts with what was typed: names and ids only, never
+ * the asker, at most eight. For someone who may not list people — to mention a
+ * colleague (owner decision 2026-11-19), or to pick one in a people picker
+ * (`FindColleague`, owner decision 2026-11-20).
  */
 export function lookupMentionable(query: string): Promise<Array<{ id: string; fullName: string }>> {
   return api('/comments/mentionable', { method: 'POST', body: JSON.stringify({ query }) });

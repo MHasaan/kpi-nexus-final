@@ -35,6 +35,43 @@ export function periodFromStart(frequency: string, periodStart: string, previous
   return { periodStart, periodEnd: currentPeriod(frequency, day, config).periodEnd };
 }
 
+/** What the one-value form keeps about its period. */
+export interface RecordPeriod {
+  period: Period;
+  /** The person has changed the period: the calendar arriving no longer resets it. */
+  touched: boolean;
+  /** The person set the end themself: moving the start no longer moves it. */
+  endChosen: boolean;
+}
+
+export type RecordPeriodAction =
+  /** The organisation's calendar is known (it arrives a moment after the form). */
+  | { type: 'calendar'; frequency: string; config: FiscalConfig; now: Date }
+  | { type: 'start'; frequency: string; value: string; config?: FiscalConfig }
+  | { type: 'end'; value: string };
+
+/** Before the calendar is known: the period `now` falls in, in the calendar year and Monday weeks. */
+export function initialRecordPeriod(frequency: string, now: Date = new Date()): RecordPeriod {
+  return { period: currentPeriod(frequency, now), touched: false, endChosen: false };
+}
+
+/**
+ * The form's period as one reducer. The calendar's default used to be set by an effect that read "has the
+ * person changed it?" as it stood when the calendar arrived: a date typed in that same moment was applied
+ * first and then overwritten by the default. Here every action reads the state as it is when applied, so
+ * what the person typed stands whichever of the two comes first.
+ */
+export function recordPeriodReducer(state: RecordPeriod, action: RecordPeriodAction): RecordPeriod {
+  switch (action.type) {
+    case 'calendar':
+      return state.touched ? state : { ...state, period: currentPeriod(action.frequency, action.now, action.config) };
+    case 'start':
+      return { ...state, touched: true, period: periodFromStart(action.frequency, action.value, state.period, state.endChosen, action.config) };
+    case 'end':
+      return { ...state, touched: true, endChosen: true, period: { ...state.period, periodEnd: action.value } };
+  }
+}
+
 /** A period in words: one day, or both ends of a range. */
 export function periodLabel(period: Period, locale?: string): string {
   const start = new Date(period.periodStart);

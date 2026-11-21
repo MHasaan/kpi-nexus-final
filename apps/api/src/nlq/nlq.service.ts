@@ -52,6 +52,8 @@ const MAX_TOOL_RESULT_CHARS = 8000;
 const SYSTEM_PROMPT = [
   "You are the organization's KPI analyst. The context below contains the CURRENT STATE of every KPI the user can see — latest values, targets, threshold status, and recent trends. Use it to answer: compute trends and percentages, compare values to targets, rank or filter KPIs, and cite specific numbers. The data IS available to you in the context. Only say a metric is unavailable if that specific KPI is genuinely not in the list. Be concise and concrete.",
   'When the context is not enough (exact dates, a longer history, a date range, a side-by-side comparison), call a tool with KPI ids from the context. A tool answers "KPI not found" for any KPI the user cannot see: then say you do not have access to that data.',
+  'Each line\'s "status:" (on track, at risk, off track) is the app\'s own judgement from the KPI\'s thresholds, the same the dashboard shows. Answer any question about what is on track, at risk or off track by it, never by comparing the value with the target yourself: a KPI can be below its target and still on track. Say "below target" only as a fact beside the status.',
+  'Read "off target", "behind", "missing its target", "struggling" or "in trouble" as questions about status too: list the off track KPIs, then the at risk ones, and give only the number of others that are below target but on track. Only a question about the target itself ("which are below target?") is answered from values and targets, with each KPI\'s status beside it.',
 ].join('\n');
 
 type Direction = PublicKpi['direction'];
@@ -247,11 +249,11 @@ export class NlqService {
     metaById: Map<string, PublicKpi>,
   ): Promise<{ context: string; deepIds: string[] }> {
     // Latest value per KPI in ONE visibility + dataLimits aware call.
-    const summaryByKpi = new Map<string, { latestValue: number | null; latestRecordedAt: Date | null; holders: KpiHolders | null; scope: string }>();
+    const summaryByKpi = new Map<string, { latestValue: number | null; latestRecordedAt: Date | null; holders: KpiHolders | null; scope: string; status?: string }>();
     try {
       const summary = await this.kpiData.dashboardSummary();
       for (const row of summary) {
-        summaryByKpi.set(row.kpiId, { latestValue: row.latestValue, latestRecordedAt: row.latestRecordedAt, holders: row.holders, scope: row.scope });
+        summaryByKpi.set(row.kpiId, { latestValue: row.latestValue, latestRecordedAt: row.latestRecordedAt, holders: row.holders, scope: row.scope, status: row.status });
       }
     } catch (err) {
       this.logger.warn(`dashboardSummary failed (non-fatal): ${String(err)}`);
@@ -282,7 +284,7 @@ export class NlqService {
       // series (UI-018): say how many are on track, and draw no trend through different people's values.
       const held = summaryByKpi.get(id);
       if (held?.holders) {
-        lines.push(`${this.formatLine(meta, null, latestAt, [], categoryById)} | ${holdersText(held.holders, held.scope)} (each holder has their own value and target)`);
+        lines.push(`${this.formatLine(meta, null, latestAt, [], categoryById, held.status)} | ${holdersText(held.holders, held.scope)} (each holder has their own value and target)`);
         continue;
       }
 
@@ -301,7 +303,7 @@ export class NlqService {
         }
       }
 
-      lines.push(this.formatLine(meta, latest, latestAt, recent, categoryById));
+      lines.push(this.formatLine(meta, latest, latestAt, recent, categoryById, summaryByKpi.get(id)?.status));
     }
 
     return { context: lines.join('\n'), deepIds };
@@ -314,6 +316,8 @@ export class NlqService {
     latestAt: Date | null,
     recent: number[],
     categoryById: Map<string, string>,
+    /** The app's own status (dashboardSummary): what the dashboard shows. */
+    status?: string,
   ): string {
     const parts: string[] = [];
     // Header: name (unit) [category] scope/direction
@@ -332,11 +336,15 @@ export class NlqService {
       parts.push('latest no data');
     }
 
-    // Target → status
+    // Target → how the latest value compares with it (a fact, not the status).
     if (meta.targetValue != null) {
-      const status = latest != null ? targetStatus(latest, meta.targetValue, meta.direction) : null;
-      parts.push(`target ${formatNum(meta.targetValue)}${status ? ` → ${status}` : ''}`);
+      const comparison = latest != null ? targetStatus(latest, meta.targetValue, meta.direction) : null;
+      parts.push(`target ${formatNum(meta.targetValue)}${comparison ? ` → ${comparison}` : ''}`);
     }
+
+    // The app's own status, from the KPI's thresholds — the one status questions are answered by.
+    const said = status ? STATUS_WORDS[status] : undefined;
+    if (said) parts.push(`status: ${said}`);
 
     // Thresholds (only the ones that are set)
     const th: string[] = [];
@@ -364,6 +372,15 @@ export class NlqService {
  * Compute on/under/over-target status honoring direction. Only meaningful when
  * a target is set + a value present (caller guards). TARGET_IS_BEST/NEUTRAL ⇒ —.
  */
+/** The app's health statuses (KpiHealthStatus) in the words the dashboard uses. */
+const STATUS_WORDS: Readonly<Record<string, string>> = {
+  ON_TRACK: 'on track',
+  AT_RISK: 'at risk',
+  OFF_TRACK: 'off track',
+  NO_TARGET: 'no target set',
+  NO_DATA: 'no data yet',
+};
+
 function targetStatus(value: number, target: number, direction: Direction): string {
   switch (direction) {
     case 'HIGHER_IS_BETTER':

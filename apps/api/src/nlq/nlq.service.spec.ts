@@ -62,6 +62,10 @@ function kpi(partial: Partial<Kpi> & { id: string; name: string }): Kpi {
 function buildService(opts: {
   kpis: Kpi[];
   latest?: Record<string, { latestValue: number | null; latestRecordedAt: Date | null }>;
+  /** The app's own status per KPI, as dashboardSummary gives it (ON_TRACK, AT_RISK, OFF_TRACK…). */
+  status?: Record<string, string>;
+  /** Several holders in sight for a per-unit or per-person KPI, as dashboardSummary gives them. */
+  holders?: Record<string, { total: number; withValue: number; withTarget: number; onTrack: number }>;
   series?: Record<string, number[]>;
   cosine?: Array<{ kpiId: string; similarity: number }>;
   categories?: Array<{ id: string; name: string }>;
@@ -107,6 +111,8 @@ function buildService(opts: {
         targetValue: k.targetValue,
         latestValue: latest[k.id]?.latestValue ?? null,
         latestRecordedAt: latest[k.id]?.latestRecordedAt ?? null,
+        ...(opts.status?.[k.id] ? { status: opts.status[k.id] } : {}),
+        ...(opts.holders?.[k.id] ? { holders: opts.holders[k.id] } : {}),
         aggregatedValue: null,
         pointCount: (series[k.id] ?? []).length,
         scorecardQuadrant: null,
@@ -228,6 +234,44 @@ describe('NlqService.ask — catalog grounding', () => {
     const churnLine = content.split('\n').find((l) => l.includes('Churn'))!;
     expect(cacLine.toLowerCase()).toContain('on target');
     expect(churnLine.toLowerCase()).toContain('above target');
+  });
+
+  // Real Gemini (2026-11-20), asked "Which KPIs are off target right now?", listed 19 — every KPI below its target
+  // value — while the dashboard showed 2 off track and 4 at risk: the context gave only a bare target comparison.
+  // Each line now carries the app's own status, and the model is told to answer status questions by it.
+  it("gives each KPI the app's own status, which status questions are answered by", async () => {
+    const kpis = [
+      kpi({ id: 'mrr', name: 'Monthly Recurring Revenue', unit: 'USD', direction: 'HIGHER_IS_BETTER', targetValue: 520000 }),
+      kpi({ id: 'arr', name: 'Annual Recurring Revenue', unit: 'USD', direction: 'HIGHER_IS_BETTER', targetValue: 6240000 }),
+      kpi({ id: 'cac', name: 'Customer Acquisition Cost', unit: 'USD', direction: 'LOWER_IS_BETTER', targetValue: 1200 }),
+      kpi({ id: 'quota', name: 'Sales Quota Attainment', unit: '%', scope: 'PER_USER', targetValue: 100 }),
+    ];
+    const latest = {
+      mrr: { latestValue: 498000, latestRecordedAt: new Date('2026-11-01') },
+      arr: { latestValue: 5976000, latestRecordedAt: new Date('2026-11-01') },
+      cac: { latestValue: 1420, latestRecordedAt: new Date('2026-11-01') },
+    };
+    const status = { mrr: 'AT_RISK', arr: 'ON_TRACK', cac: 'OFF_TRACK', quota: 'AT_RISK' };
+    // Held by four people, three of them on track: the dashboard counts the KPI as at risk.
+    const holders = { quota: { total: 4, withValue: 4, withTarget: 4, onTrack: 3 } };
+    const { service, completeCalls } = buildService({ kpis, latest, status, holders });
+
+    await run(() => service.ask('Which KPIs are off target right now?'));
+    const call = completeCalls[0]!;
+    const content = call.messages.map((m) => m.content).join('\n');
+    const line = (name: string) => content.split('\n').find((l) => l.includes(name))!;
+    // Both revenue KPIs are below their targets; only the app's status tells them apart.
+    expect(line('Monthly Recurring Revenue')).toContain('status: at risk');
+    expect(line('Annual Recurring Revenue')).toContain('status: on track');
+    expect(line('Customer Acquisition Cost')).toContain('status: off track');
+    expect(line('Annual Recurring Revenue')).toContain('below target');
+    expect(line('Sales Quota Attainment')).toContain('status: at risk');
+    expect(call.systemPrompt).toMatch(/status:/);
+    expect(call.systemPrompt.toLowerCase()).toContain('the dashboard');
+    // Retried with Gemini after the status was added: "off target" was still read as "below target" and all
+    // 23 KPIs below their targets were listed. The everyday words for it are status questions too.
+    expect(call.systemPrompt).toContain('"off target"');
+    expect(call.systemPrompt).toContain('only the number of others');
   });
 
   it('only describes KPIs returned by kpis.list() — never one outside it', async () => {

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { type KpiSummary, getKpi } from './api-client';
 import { useAsyncData } from './use-async-data';
+import { usePermissions } from './use-permissions';
 
 /**
  * The heading of a page about one KPI — its Forecast, Anomalies, What-if and
@@ -19,7 +20,10 @@ export function useKpiHeading(
   kpiId: string,
   title: string,
 ): { crumbs: Array<{ label: string; href: string }>; title: ReactNode; kpi: KpiSummary | null } {
-  const kpi = useAsyncData(() => getKpi(kpiId), [kpiId]);
+  // Asked for only with a session. Someone signed out is on their way to the sign-in page, and the
+  // request was refused (401) and logged as a console error on each of these pages (audit crawl).
+  const { ready, authenticated } = usePermissions();
+  const kpi = useAsyncData(() => getKpi(kpiId), [kpiId], { enabled: ready && authenticated });
   const name = kpi.data?.name ?? null;
   return {
     // The KPI itself, for a page that needs more of it than its name (its frequency, its unit).

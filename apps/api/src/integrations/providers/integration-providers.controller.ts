@@ -10,6 +10,7 @@ import {
   Query,
   Req,
   UnauthorizedException,
+  Get,
 } from '@nestjs/common';
 
 import { PermissionKey } from '@kpi-nexus/contracts';
@@ -64,6 +65,17 @@ export class IntegrationProvidersController {
       text: form.get('text') ?? '',
       responseUrl: form.get('response_url') ?? '',
     });
+  }
+
+  /**
+   * Whether this server can complete a Slack connection: Slack's calls are signature-checked, so without
+   * SLACK_SIGNING_SECRET a connection could never be confirmed and nothing said why (F-047). The secret
+   * itself is never given.
+   */
+  @Get('slack/readiness')
+  @RequirePermissions(PermissionKey.INTEGRATIONS_MANAGE)
+  slackReadiness(): { signingSecretSet: boolean } {
+    return { signingSecretSet: Boolean(process.env.SLACK_SIGNING_SECRET) };
   }
 
   /** Signed in: bind the Slack user from a `/kpi` link to this account. */

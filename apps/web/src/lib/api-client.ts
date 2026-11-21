@@ -1095,6 +1095,11 @@ export async function getKpiSnapshot(kpiId: string, snapshotId: string): Promise
 }
 
 /** Bind the Slack user from a /kpi link to the signed-in account. */
+/** Whether this server can complete a Slack connection (it needs a signing secret set by whoever runs it). */
+export async function getSlackReadiness(): Promise<{ signingSecretSet: boolean }> {
+  return api('/integrations/slack/readiness');
+}
+
 export async function linkSlackAccount(token: string): Promise<{ linked: true }> {
   return api('/integrations/slack/link', { method: 'POST', body: JSON.stringify({ token }) });
 }

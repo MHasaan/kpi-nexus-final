@@ -2,7 +2,7 @@ import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PermissionKey } from '@kpi-nexus/contracts';
 
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
-import { AlertsService, type PublicAlert } from './alerts.service.js';
+import { AlertsService, type PublicAlert, type PublicAlertDetail } from './alerts.service.js';
 
 @Controller('alerts')
 export class AlertsController {
@@ -34,7 +34,7 @@ export class AlertsController {
 
   @Get(':id')
   @RequirePermissions(PermissionKey.ALERTS_VIEW)
-  getById(@Param('id') id: string): Promise<PublicAlert> {
+  getById(@Param('id') id: string): Promise<PublicAlertDetail> {
     return this.alerts.getById(id);
   }
 

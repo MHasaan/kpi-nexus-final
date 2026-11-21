@@ -9,7 +9,9 @@ import {
   Param,
   Patch,
   Post,
+  Res,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { PermissionKey } from '@kpi-nexus/contracts';
 import type { ZodTypeAny, infer as ZInfer } from 'zod';
 
@@ -92,6 +94,17 @@ export class ScheduledReportsController {
   @RequirePermissions(PermissionKey.REPORTS_VIEW)
   download(@Param('id') id: string, @Param('runId') runId: string): Promise<{ url: string }> {
     return this.downloads.freshUrl(id, runId);
+  }
+
+  /** The file itself, through the API: a storage address is private in production (F-044). */
+  @Get(':id/runs/:runId/file')
+  @RequirePermissions(PermissionKey.REPORTS_VIEW)
+  async file(@Param('id') id: string, @Param('runId') runId: string, @Res() reply: FastifyReply): Promise<void> {
+    const { stream, contentType, filename } = await this.downloads.file(id, runId);
+    await reply
+      .header('Content-Type', contentType)
+      .header('Content-Disposition', `attachment; filename="${filename.replace(/"/g, "'")}"`)
+      .send(stream);
   }
 
   @Post(':id/trigger')

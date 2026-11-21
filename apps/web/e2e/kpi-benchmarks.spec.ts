@@ -68,9 +68,10 @@ test('benchmarks: manual CRUD + compute internal historical from data points', a
   expect((await noData.json()).code).toBe('NO_DATA');
 
   // Record three data points, then compute the internal-historical benchmark.
-  for (const v of [60, 80, 100]) {
+  // One recorded value per period: three days, one value each.
+  for (const [i, v] of [60, 80, 100].entries()) {
     await api.post(`/kpis/${kpi.id}/data`, {
-      data: { value: v, periodStart: '2026-05-29T00:00:00.000Z', periodEnd: '2026-05-29T12:00:00.000Z' },
+      data: { value: v, periodStart: `2026-05-${27 + i}T00:00:00.000Z`, periodEnd: `2026-05-${27 + i}T12:00:00.000Z` },
     });
   }
   const computeRes = await api.post(`/kpis/${kpi.id}/benchmarks/compute`, { data: { days: 30 } });

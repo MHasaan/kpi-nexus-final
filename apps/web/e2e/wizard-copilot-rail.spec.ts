@@ -143,3 +143,32 @@ test('co-pilot suggest: a suggestion that is already in the draft says so', asyn
   await expect(page.getByTestId('ai-suggestion-note').last()).toHaveText('“Growth” is already in your draft.');
   await expect(page.getByTestId('count-kpiCategories')).toHaveText('1');
 });
+
+// Manual QA (2026-11-19, F-001): the Suggest and Explain tabs looked like separate tools but shared one feed —
+// the Explain tab still showed the Suggest block and its chips. Each tab now shows its own thread.
+test('co-pilot tabs: each shows its own thread, and keeps it when you come back', async ({ page }) => {
+  test.skip(!apiAvailable, 'api not reachable');
+  await page.route('**/onboarding/ai/suggest', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ interactionId: 'stub-3', mode: 'suggest', suggestions: ['Growth'] }) }),
+  );
+  await page.route('**/onboarding/ai/explain', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ interactionId: 'stub-4', mode: 'explain', explanation: 'A category groups KPIs that belong together.' }) }),
+  );
+  await enter(page, suffix());
+  await page.getByTestId('copilot-tab-suggest').click();
+  await page.getByTestId('ai-suggest-field').selectOption('kpiCategories');
+  await page.getByTestId('ai-send').click();
+  await expect(page.getByTestId('ai-suggestion-chip').filter({ hasText: 'Growth' })).toBeVisible();
+
+  await page.getByTestId('copilot-tab-explain').click();
+  const thread = page.getByTestId('copilot-thread');
+  await expect(thread.getByTestId('ai-suggestion-chip')).toHaveCount(0);
+  await expect(thread).toContainText('Nothing here yet');
+  await page.getByTestId('ai-send').click();
+  await expect(thread).toContainText('A category groups KPIs that belong together.');
+  await expect(thread.getByTestId('ai-suggestion-chip')).toHaveCount(0);
+
+  await page.getByTestId('copilot-tab-suggest').click();
+  await expect(thread.getByTestId('ai-suggestion-chip').filter({ hasText: 'Growth' })).toBeVisible();
+  await expect(thread).not.toContainText('A category groups KPIs');
+});

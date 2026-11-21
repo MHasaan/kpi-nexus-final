@@ -31,6 +31,7 @@ test('an automation made on the page creates a task when its KPI crosses the lin
     return;
   }
   const api = await request.newContext({ baseURL: API_URL, extraHTTPHeaders: { authorization: `Bearer ${session.accessToken}` } });
+  const me = (await (await api.get('/auth/me')).json()) as { user: { id: string } };
   const kpi = (await (await api.post('/kpis', {
     data: { name: `Monthly Revenue ${stamp}`, scope: 'ORG_WIDE', type: 'CURRENCY', direction: 'HIGHER_IS_BETTER', aggregationMethod: 'LAST' },
   })).json()) as { id: string };
@@ -50,6 +51,10 @@ test('an automation made on the page creates a task when its KPI crosses the lin
   await page.getByTestId('wf-operator').selectOption('>');
   await page.getByTestId('wf-value').fill('100000');
   await page.getByTestId('wf-task-title').fill(`Celebrate ${stamp}`);
+  // The task it makes has an owner, a priority and a due date (F-041: it was unassigned, with neither).
+  await page.getByTestId('wf-assignee').selectOption({ label: 'Auto Admin' });
+  await page.getByTestId('wf-priority').selectOption('HIGH');
+  await page.getByTestId('wf-due-in-days').fill('2');
   await page.getByTestId('wf-create').click();
 
   // Listed as a sentence, with the KPI by name — not an id.
@@ -62,6 +67,11 @@ test('an automation made on the page creates a task when its KPI crosses the lin
   expect(await taskTitles()).not.toContain(`Celebrate ${stamp}`);
   await record(150_000, '02');
   await expect.poll(taskTitles).toContain(`Celebrate ${stamp}`);
+  const made = ((await (await api.get('/tasks')).json()) as Array<{ title: string; assigneeUserId: string | null; priority: string; dueAt: string | null }>).find((t) => t.title === `Celebrate ${stamp}`)!;
+  expect(made.priority).toBe('HIGH');
+  expect(made.assigneeUserId).toBe(me.user.id);
+  expect(made.dueAt).not.toBeNull();
+  expect(new Date(made.dueAt!).getTime() - Date.now()).toBeGreaterThan(40 * 3_600_000);
 
   // While that task is open, crossing the line again makes no second one; once it is done, the next crossing does.
   const mine = async () =>

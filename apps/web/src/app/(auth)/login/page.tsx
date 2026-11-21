@@ -53,7 +53,7 @@ export default function LoginPage() {
     } catch (err) {
       if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
         setMfaRequired(true);
-        setError('Enter your 6-digit authenticator code.');
+        setError('Enter the 6-digit code from your authenticator app, or one of your recovery codes.');
       } else if (err instanceof ApiError && err.code === 'PASSWORD_EXPIRED') {
         setExpired(true);
         setError('Your password has expired. Reset it to sign in.');
@@ -120,8 +120,8 @@ export default function LoginPage() {
         </div>
         {mfaRequired && (
           <Field
-            label="Authenticator code"
-            inputMode="numeric"
+            label="Code from your authenticator app, or a recovery code"
+            inputMode="text"
             autoComplete="one-time-code"
             placeholder="123456"
             required

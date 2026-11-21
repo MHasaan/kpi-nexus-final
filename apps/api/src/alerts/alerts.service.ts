@@ -25,6 +25,8 @@ const alertSelect = {
 } satisfies Prisma.AlertSelect;
 
 export type PublicAlert = Prisma.AlertGetPayload<{ select: typeof alertSelect }>;
+/** An alert's page: the alert, and who acknowledged it by name (F-036: the page showed only the time). */
+export type PublicAlertDetail = PublicAlert & { acknowledgedBy: string | null };
 
 export interface ListAlertsFilter {
   status?: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
@@ -122,14 +124,20 @@ export class AlertsService {
     });
   }
 
-  async getById(id: string): Promise<PublicAlert> {
+  async getById(id: string): Promise<PublicAlertDetail> {
     const ctx = RequestContextStore.require();
     const where = await this.applyVisibility({ organizationId: ctx.organizationId, id } as Prisma.AlertWhereInput);
     const alert = await this.prisma.alert.findFirst({ where, select: alertSelect });
     if (!alert) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Alert not found' });
     }
-    return alert;
+    const who = alert.acknowledgedById
+      ? await this.prisma.user.findFirst({
+          where: { id: alert.acknowledgedById, organizationId: ctx.organizationId },
+          select: { fullName: true, email: true },
+        })
+      : null;
+    return { ...alert, acknowledgedBy: who ? (who.fullName ?? who.email) : null };
   }
 
   /** Whether the caller may see this alert (getById's rule, without throwing). Used by the realtime stream. */

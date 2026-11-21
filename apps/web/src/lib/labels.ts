@@ -79,6 +79,14 @@ export const QUADRANT_LABELS: LabelMap = {
 };
 
 /** `status` on a dashboard-summary row (apps/api/src/kpis/kpi-health.ts). */
+/** A person's role in a unit (OrgUnitMemberRole). */
+export const UNIT_ROLE_LABELS: LabelMap = {
+  MEMBER: 'Member',
+  LEAD: 'Lead',
+  MANAGER: 'Manager',
+  DEPUTY: 'Deputy',
+};
+
 export const HEALTH_STATUS_LABELS: LabelMap = {
   ON_TRACK: 'On track',
   AT_RISK: 'At risk',
@@ -292,3 +300,22 @@ export function activitySentence(row: ActivityRow, formatNumber: (n: number) => 
   if (subject.kpiName && kind !== 'kpi') return { text: `${activityLabel(row.action, row.entityType)} on ${subject.kpiName}`, href: kpiHref };
   return { text: activityLabel(row.action, row.entityType), href: page };
 }
+
+/** How a KPI's inputs connect to it, read from the KPI being looked at (F-071: the tab showed "CASCADE_ROLLUP"). */
+export const LINEAGE_UPSTREAM_LABELS: LabelMap = {
+  CASCADE_ROLLUP: 'rolls up into this KPI',
+  FORMULA: "is used in this KPI's formula",
+  INGEST: 'feeds this KPI',
+};
+export const LINEAGE_DOWNSTREAM_LABELS: LabelMap = {
+  CASCADE_ROLLUP: 'this KPI rolls up into it',
+  FORMULA: 'its formula uses this KPI',
+  INGEST: 'this KPI feeds it',
+};
+
+/** What a benchmark is, in words. */
+export const BENCHMARK_KIND_LABELS: LabelMap = {
+  EXTERNAL_INDUSTRY: 'Industry benchmark',
+  EXTERNAL_PEER: 'Peer benchmark',
+  INTERNAL_HISTORICAL: 'Our own history',
+};

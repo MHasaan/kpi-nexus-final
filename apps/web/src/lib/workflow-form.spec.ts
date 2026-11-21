@@ -3,7 +3,8 @@ import { describe, expect, test } from 'vitest';
 import type { Workflow } from './collab-client';
 import { EMPTY_WORKFLOW_FORM, OPERATORS, describeWorkflow, formFromWorkflow, workflowBody, workflowFormProblem } from './workflow-form';
 
-const form = { name: 'Celebrate big MRR', kpiId: 'kpi-1', operator: '>', value: '100000', taskTitle: ' Celebrate! ' };
+const form = {
+  ...EMPTY_WORKFLOW_FORM, name: 'Celebrate big MRR', kpiId: 'kpi-1', operator: '>', value: '100000', taskTitle: ' Celebrate! ' };
 const workflow = (extra: Partial<Workflow> = {}): Workflow => ({
   id: 'wf-1',
   name: 'Celebrate big MRR',
@@ -50,7 +51,16 @@ describe('workflowFormProblem', () => {
 
 describe('formFromWorkflow', () => {
   test('an automation this form made comes back as the form', () => {
-    expect(formFromWorkflow(workflow())).toEqual({ name: 'Celebrate big MRR', kpiId: 'kpi-1', operator: '>', value: '100000', taskTitle: 'Celebrate!' });
+    expect(formFromWorkflow(workflow())).toEqual({
+      name: 'Celebrate big MRR',
+      kpiId: 'kpi-1',
+      operator: '>',
+      value: '100000',
+      taskTitle: 'Celebrate!',
+      assigneeUserId: '',
+      priority: '',
+      dueInDays: '',
+    });
   });
 
   test('one of another kind (made through the API) is not editable here', () => {
@@ -82,5 +92,32 @@ describe('describeWorkflow', () => {
     expect(describeWorkflow(workflow({ rule: { kind: 'alert_severity', operator: '>=', severity: 'HIGH' }, action: { kind: 'send_notification', channelId: 'c', message: 'm' } }), names)).toBe(
       'When an alert’s severity reaches or goes above high, send a notification',
     );
+  });
+});
+
+// Manual QA (2026-11-19, F-041): the task an automation made had no owner, due date or priority, and the form
+// offered none. The form now carries them, and the body sends them the way the rule engine reads them.
+describe('an automation\'s task has an owner, a priority and a due date', () => {
+  const full = { ...EMPTY_WORKFLOW_FORM, name: 'CSAT watch', kpiId: 'k1', operator: '<', value: '4', taskTitle: 'Investigate CSAT drop', assigneeUserId: 'u7', priority: 'HIGH' as const, dueInDays: '2' };
+
+  test('sends the owner, the priority and the due date in hours', () => {
+    expect(workflowBody(full).action).toEqual({ kind: 'create_task', title: 'Investigate CSAT drop', assigneeUserId: 'u7', priority: 'HIGH', dueAtRelativeHours: 48 });
+  });
+
+  test('leaves out what was not chosen', () => {
+    expect(workflowBody({ ...full, assigneeUserId: '', priority: '', dueInDays: '' }).action).toEqual({ kind: 'create_task', title: 'Investigate CSAT drop' });
+  });
+
+  test('refuses a due date that is not a whole number of days', () => {
+    expect(workflowFormProblem({ ...full, dueInDays: '1.5' })).toMatch(/whole number of days/);
+    expect(workflowFormProblem({ ...full, dueInDays: '0' })).toMatch(/at least 1/);
+    expect(workflowFormProblem(full)).toBeNull();
+  });
+
+  test('reads them back from a saved automation', () => {
+    const wf = { id: 'w', name: 'CSAT watch', description: null, triggers: ['kpi_changed'], isActive: true, lastRunAt: null,
+      rule: { kind: 'kpi_value', kpiId: 'k1', operator: '<', value: 4 },
+      action: { kind: 'create_task', title: 'Investigate CSAT drop', assigneeUserId: 'u7', priority: 'HIGH', dueAtRelativeHours: 48 } };
+    expect(formFromWorkflow(wf)).toMatchObject({ assigneeUserId: 'u7', priority: 'HIGH', dueInDays: '2' });
   });
 });

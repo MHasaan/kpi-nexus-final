@@ -14,6 +14,8 @@ export interface ActiveSessionInfo {
 }
 
 export interface IssuedRefreshToken {
+  /** The session's row id: the access token names it (`sid`), so the session a change is made from can be kept. */
+  id: string;
   plaintext: string;
   expiresAt: Date;
 }
@@ -39,7 +41,7 @@ export class RefreshTokenService {
     const plaintext = randomBytes(32).toString('base64url');
     const hashedToken = this.hash(plaintext);
     const expiresAt = new Date(Date.now() + this.ttlDays * 24 * 60 * 60 * 1000);
-    await this.prisma.refreshToken.create({
+    const row = await this.prisma.refreshToken.create({
       data: {
         userId,
         hashedToken,
@@ -50,7 +52,7 @@ export class RefreshTokenService {
         expiresAt,
       },
     });
-    return { plaintext, expiresAt };
+    return { id: row.id, plaintext, expiresAt };
   }
 
   /**
@@ -107,12 +109,16 @@ export class RefreshTokenService {
     return { ...next, userId: existing.userId };
   }
 
-  async revoke(presentedToken: string): Promise<void> {
+  /** End the session the token belongs to. Says whose it was, so the sign-out can be audited; null for a token that is not live. */
+  async revoke(presentedToken: string): Promise<{ userId: string } | null> {
     const hashedToken = this.hash(presentedToken);
+    const row = await this.prisma.refreshToken.findUnique({ where: { hashedToken }, select: { userId: true, revokedAt: true } });
+    if (!row || row.revokedAt) return null;
     await this.prisma.refreshToken.updateMany({
       where: { hashedToken, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    return { userId: row.userId };
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
@@ -207,6 +213,19 @@ export class RefreshTokenService {
       data: { revokedAt: new Date() },
     });
 
+    return { revoked: result.count };
+  }
+
+  /**
+   * Revoke every live session of the person except the one named (the row the caller's access token was
+   * issued with). Changing a password or turning two-step sign-in off used to revoke the caller's own
+   * session too, so the page half-worked until the access token ran out (F-061).
+   */
+  async revokeAllExceptSession(userId: string, sessionId: string): Promise<{ revoked: number }> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() }, id: { not: sessionId } },
+      data: { revokedAt: new Date() },
+    });
     return { revoked: result.count };
   }
 

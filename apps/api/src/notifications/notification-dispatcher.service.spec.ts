@@ -22,6 +22,8 @@ interface FakeDelivery {
   status: string;
   error: string | null;
   sentAt: Date | null;
+  kind?: string | null;
+  targetUserId?: string | null;
 }
 
 function makeHarness(opts: {
@@ -56,7 +58,11 @@ function makeHarness(opts: {
     alert: {
       findUnique: vi.fn(async () => ({
         id: 'a1', kpiId: 'k1', severity: 'HIGH', message: 'breach',
+        alertRule: { name: 'MRR below 230k floor', description: 'Check pipeline with Sales, then brief the CFO' },
       })),
+    },
+    kPI: {
+      findUnique: vi.fn(async () => ({ name: 'Monthly Recurring Revenue' })),
     },
     notificationChannel: {
       findUnique: vi.fn(async () => opts.channel ?? null),
@@ -139,5 +145,44 @@ describe('NotificationDispatcherService.attemptDelivery', () => {
     await h.dispatcher.attemptDelivery('d1');
     expect(h.delivery.status).toBe('FAILED');
     expect(h.adapters.send).not.toHaveBeenCalled();
+  });
+});
+
+// Manual QA (2026-11-19, F-034 / F-035): every notification was titled "KPI Alert" and carried only the
+// message. The payload now names the KPI and the rule, carries the rule's "what to do" and a link to the alert.
+describe('NotificationDispatcherService — what a notification says', () => {
+  test('the payload names the KPI in its title, the rule, what to do, and where the alert is', async () => {
+    const { dispatcher, adapters } = makeHarness({ delivery: { kind: 'EMAIL', targetUserId: 'u1' } });
+    (dispatcher as unknown as { prisma: { user: unknown } }).prisma.user = {
+      findUnique: vi.fn(async () => ({ email: 'olivia@example.test', status: 'ACTIVE' })),
+    };
+
+    await dispatcher.attemptDelivery('d1');
+
+    expect(adapters.send).toHaveBeenCalledTimes(1);
+    const payload = (adapters.send as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      title: 'High alert: Monthly Recurring Revenue',
+      kpiName: 'Monthly Recurring Revenue',
+      ruleName: 'MRR below 230k floor',
+      runbook: 'Check pipeline with Sales, then brief the CFO',
+    });
+    expect(payload.link).toMatch(/\/alerts\/a1$/);
+  });
+
+  test('an alert raised without a rule, on a KPI that cannot be read, is still sent', async () => {
+    const { dispatcher, adapters, prisma } = makeHarness({ delivery: { kind: 'EMAIL', targetUserId: 'u1' } });
+    prisma.alert.findUnique = vi.fn(async () => ({ id: 'a1', kpiId: 'k1', severity: 'LOW', message: 'breach', alertRule: null })) as never;
+    (prisma as unknown as { kPI: { findUnique: unknown } }).kPI.findUnique = vi.fn(async () => null);
+    (dispatcher as unknown as { prisma: { user: unknown } }).prisma.user = {
+      findUnique: vi.fn(async () => ({ email: 'olivia@example.test', status: 'ACTIVE' })),
+    };
+
+    await dispatcher.attemptDelivery('d1');
+
+    const payload = (adapters.send as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload.title).toBe('Low alert');
+    expect(payload.ruleName).toBeNull();
+    expect(payload.runbook).toBeNull();
   });
 });

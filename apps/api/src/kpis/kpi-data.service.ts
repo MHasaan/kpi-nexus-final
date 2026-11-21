@@ -101,6 +101,7 @@ function aggregate(values: number[], method: string): number | null {
 }
 
 /** How many periods a dashboard-summary row carries for its sparkline. */
+const DAY_MS = 24 * 60 * 60 * 1000;
 const SPARK_POINTS = 12;
 
 @Injectable()
@@ -711,7 +712,8 @@ export class KpiDataService {
         orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         take: 30,
       });
-      return detectOutlier(prior.map((p) => p.value), params.dto.value).isOutlier;
+      // Oldest first: the check follows the trend of the history (F-018).
+      return detectOutlier(prior.map((p) => p.value).reverse(), params.dto.value).isOutlier;
     } catch (err) {
       this.logger.warn(`outlier detection failed for kpi ${params.kpiId}: ${String(err)}`);
       return false;
@@ -733,6 +735,34 @@ export class KpiDataService {
       });
     }
     await this.assertValueAllowed(params.kpiId, params.dto.value);
+    // A period that has not begun takes no value (F-037): a December value recorded in November became the
+    // KPI's latest value and fired an alert. A day's grace covers every timezone. Calculated rows are the
+    // engine's own.
+    if (params.dto.sourceType !== 'COMPUTED' && params.dto.periodStart.getTime() > Date.now() + DAY_MS) {
+      throw new BadRequestException({ code: 'PERIOD_NOT_BEGUN', message: 'This period has not begun. Record its value once it has.' });
+    }
+    // A period takes one recorded value per holder (F-017): a second one, typed by hand, used to be saved beside
+    // the first with no warning, and could then be neither moved nor removed. Integrations and imports manage
+    // their own periods, and a calculated row is a different thing from a recorded one.
+    if (params.dto.sourceType === 'MANUAL') {
+      const already = await this.prisma.kPIDataPoint.findFirst({
+        where: {
+          organizationId: params.organizationId,
+          kpiId: params.kpiId,
+          orgUnitId: params.orgUnitId,
+          userId: params.userId,
+          periodStart: params.dto.periodStart,
+          sourceType: { not: 'COMPUTED' },
+        },
+        select: { id: true },
+      });
+      if (already) {
+        throw new ConflictException({
+          code: 'PERIOD_ALREADY_RECORDED',
+          message: 'A value for this period is already recorded. Correct it on the Data tab instead of recording another.',
+        });
+      }
+    }
     const isOutlier = await this.computeOutlierFlag(params);
     const point = await this.prisma.kPIDataPoint.create({
       data: {

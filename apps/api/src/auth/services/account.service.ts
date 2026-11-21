@@ -102,7 +102,8 @@ export class AccountService {
    * Verifies `currentPassword` against the stored bcrypt hash (same primitive
    * login uses), validates `newPassword` against the org password policy
    * (same as the reset-confirm flow), re-hashes, and revokes every other
-   * session — forcing re-login on all devices.
+   * session: the one the change is made from stays signed in (F-061), the
+   * others must sign in again.
    */
   async changePassword(input: {
     currentPassword: string;
@@ -152,8 +153,10 @@ export class AccountService {
       data: { passwordHash, passwordChangedAt: new Date() },
     });
 
-    // Force re-login on every device after a credential change.
-    await this.refreshTokens.revokeAllForUser(ctx.userId);
+    // Every other device signs in again after a credential change; this one carries on. A token issued
+    // before sessions were named has no session id, and then every session goes, as before.
+    if (ctx.sessionId) await this.refreshTokens.revokeAllExceptSession(ctx.userId, ctx.sessionId);
+    else await this.refreshTokens.revokeAllForUser(ctx.userId);
 
     await this.audit.record({
       action: 'UPDATE',

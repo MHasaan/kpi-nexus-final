@@ -609,6 +609,42 @@ describe('AccessContextService', () => {
     await run(() => svc.resolveForCurrentPrincipal());
     expect(prisma.orgUnitMember.findMany).toHaveBeenCalledTimes(2);
   });
+
+  test('a profile worked out before the cache was cleared is not kept after it (F-050)', async () => {
+    // An administrator hides a page for a role while one of its holders' /auth/me is in flight: the
+    // answer still being worked out must not land in the cache and stand for five minutes.
+    const prisma = new FakePrisma();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let roleRead!: () => void;
+    const readingRole = new Promise<void>((resolve) => {
+      roleRead = resolve;
+    });
+    const readRole = prisma.roleDefinition.findFirst.getMockImplementation()!;
+    prisma.roleDefinition.findFirst.mockImplementationOnce(async (args) => {
+      const asItWas = await readRole(args); // read before the change…
+      roleRead();
+      await gate; // …and the rest of the profile worked out after it
+      return asItWas;
+    });
+    const svc = new AccessContextService(
+      prisma as unknown as PrismaService,
+      makeResolver(false, []),
+    );
+
+    const inFlight = run(() => svc.resolveForCurrentPrincipal());
+    await readingRole;
+    prisma.rolePageAccess = { allow: null, deny: ['/ask'] };
+    svc.invalidateAll();
+    release();
+    expect((await inFlight).pageAccess.deny).toEqual([]); // the old answer, for the request that asked before
+
+    const next = await run(() => svc.resolveForCurrentPrincipal());
+    expect(next.pageAccess.deny).toEqual(['/ask']);
+    expect(prisma.roleDefinition.findFirst).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('AccessContextService.unitMemberUserIds (Phase 2.5)', () => {

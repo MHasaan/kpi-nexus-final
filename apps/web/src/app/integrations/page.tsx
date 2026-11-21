@@ -195,7 +195,8 @@ export default function IntegrationsPage() {
               const isBusy = busy === item.key;
               return (
                 <Card key={item.key} data-testid={`integration-card-${item.key}`} className="flex flex-col">
-                  <CardHeader>
+                  {/* A column: the shared header is a row, which squeezed icon, status, name and description side by side. */}
+                  <CardHeader className="flex-col items-stretch justify-start gap-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-bg text-xl" aria-hidden>
                         {item.icon}

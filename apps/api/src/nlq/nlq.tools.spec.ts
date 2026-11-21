@@ -9,14 +9,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ForecastsService } from '../analytics/forecasts.service.js';
 import type { KpiDataService } from '../kpis/kpi-data.service.js';
 import type { PublicKpi } from '../kpis/kpis.service.js';
-import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
+import { NLQ_TOOLS, NlqToolbox, seriesNamesFrom } from './nlq.tools.js';
 
 const kpi = (id: string, extra: Partial<PublicKpi> = {}) =>
   ({ id, name: `KPI ${id}`, description: null, unit: 'USD', scope: 'ORG_WIDE', direction: 'HIGHER_IS_BETTER', targetValue: 100, warningThreshold: 80, criticalThreshold: 50, frequency: 'MONTHLY', ...extra }) as unknown as PublicKpi;
 
 const point = (period: string, value: number, extra: Record<string, unknown> = {}) => ({ periodStart: new Date(period), value, userId: null, orgUnitId: null, ...extra });
 
-function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}, weekStartsOn?: number) {
+function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}, weekStartsOn?: number, names: Record<string, string> = {}) {
   // listForKpi returns newest first, like the real reader.
   const listForKpi = vi.fn(async (kpiId: string) => [...(series[kpiId] ?? [])].sort((a, b) => b.periodStart.getTime() - a.periodStart.getTime()));
   const visible = new Map([kpi('rev'), kpi('churn', { direction: 'LOWER_IS_BETTER', unit: '%' }), kpi('calls', { scope: 'PER_USER' })].map((k) => [k.id, k]));
@@ -27,8 +27,9 @@ function makeToolbox(series: Record<string, ReturnType<typeof point>[]> = {}, we
     // The ML sidecar numbers its predictions "t+1", "t+2"…: so many periods after the last value it was given.
     predictions: Array.from({ length: opts.horizon }, (_, i) => ({ ds: `t+${i + 1}`, yhat: 10 + i, yhat_lower_80: 8, yhat_upper_80: 12, extra: 'x' })),
   }));
-  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService, weekStartsOn);
-  return { toolbox, listForKpi, forecast };
+  const seriesNames = vi.fn(async (ids: string[]) => new Map(ids.filter((id) => names[id]).map((id) => [id, names[id]!] as const)));
+  const toolbox = new NlqToolbox({ listForKpi } as unknown as KpiDataService, visible, { forecast } as unknown as ForecastsService, weekStartsOn, seriesNames);
+  return { toolbox, listForKpi, forecast, seriesNames };
 }
 
 const call = (name: string, input: object) => ({ id: 'c1', name, input });
@@ -190,5 +191,38 @@ describe('NlqToolbox forecast_kpi', () => {
     expect(forecast).not.toHaveBeenCalled();
     forecast.mockRejectedValueOnce(new Error('Not enough data to forecast'));
     expect((await toolbox.run(call('forecast_kpi', { kpiId: 'rev' }))).result).toEqual({ error: 'Not enough data to forecast' });
+  });
+});
+
+// Real Gemini (2026-11-20), asked "Which team has the best customer satisfaction?", named the team that owns CSAT
+// instead of comparing teams: a per-unit KPI's history came back with each series under its unit's id, so no
+// team could be named. Each series is now named for its team or person.
+describe('NlqToolbox — series named for their team or person', () => {
+  const units = [point('2026-11-01', 94, { orgUnitId: 'u_sales' }), point('2026-11-01', 91, { orgUnitId: 'u_support' })];
+
+  it("a per-unit KPI's history names each team", async () => {
+    const { toolbox, seriesNames } = makeToolbox({ rev: units }, undefined, { u_sales: 'Sales', u_support: 'Customer Support' });
+    const out = await toolbox.run(call('get_kpi_history', { kpiId: 'rev' }));
+    expect((out.result as { points: Array<{ series: string }> }).points.map((p) => p.series).sort()).toEqual(['Customer Support', 'Sales']);
+    expect(seriesNames).toHaveBeenCalledWith(expect.arrayContaining(['u_sales', 'u_support']));
+  });
+
+  it('a single series is not labelled, and nothing is looked up', async () => {
+    const { toolbox, seriesNames } = makeToolbox({ rev: [point('2026-11-01', 94)] });
+    const out = await toolbox.run(call('query_timeseries', { kpiId: 'rev' }));
+    expect((out.result as { points: Array<Record<string, unknown>> }).points[0]).not.toHaveProperty('series');
+    expect(seriesNames).not.toHaveBeenCalled();
+  });
+});
+
+describe('seriesNamesFrom', () => {
+  it("names teams and people from this organisation only", async () => {
+    const orgUnit = { findMany: vi.fn(async () => [{ id: 'u_sales', name: 'Sales' }]) };
+    const user = { findMany: vi.fn(async () => [{ id: 'p_ada', fullName: 'Ada Admin' }]) };
+    const names = await seriesNamesFrom({ orgUnit, user } as never, 'org_a')(['u_sales', 'p_ada']);
+    expect([...names.entries()]).toEqual([['u_sales', 'Sales'], ['p_ada', 'Ada Admin']]);
+    for (const m of [orgUnit.findMany, user.findMany]) {
+      expect(m).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: 'org_a', id: { in: ['u_sales', 'p_ada'] } } }));
+    }
   });
 });

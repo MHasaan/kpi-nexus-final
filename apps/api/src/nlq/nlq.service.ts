@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AccessContextService } from '../rbac/services/access-context.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { KpiCatalogEmbeddingService } from './kpi-catalog-embedding.service.js';
-import { NLQ_TOOLS, NlqToolbox } from './nlq.tools.js';
+import { NLQ_TOOLS, NlqToolbox, seriesNamesFrom } from './nlq.tools.js';
 import { MAX_HISTORY_TURNS, type NlqTurn } from './nlq-ask.dto.js';
 import { type KpiHolders, holdersText } from '@kpi-nexus/contracts';
 
@@ -52,6 +52,7 @@ const MAX_TOOL_RESULT_CHARS = 8000;
 const SYSTEM_PROMPT = [
   "You are the organization's KPI analyst. The context below contains the CURRENT STATE of every KPI the user can see — latest values, targets, threshold status, and recent trends. Use it to answer: compute trends and percentages, compare values to targets, rank or filter KPIs, and cite specific numbers. The data IS available to you in the context. Only say a metric is unavailable if that specific KPI is genuinely not in the list. Be concise and concrete.",
   'When the context is not enough (exact dates, a longer history, a date range, a side-by-side comparison), call a tool with KPI ids from the context. A tool answers "KPI not found" for any KPI the user cannot see: then say you do not have access to that data.',
+  'For a per-unit or per-person KPI, get_kpi_history and query_timeseries return one series per team or person, named: use them to compare teams or people, and say so when only one series comes back.',
   'Each line\'s "status:" (on track, at risk, off track) is the app\'s own judgement from the KPI\'s thresholds, the same the dashboard shows. Answer any question about what is on track, at risk or off track by it, never by comparing the value with the target yourself: a KPI can be below its target and still on track. Say "below target" only as a fact beside the status.',
   'Read "off target", "behind", "missing its target", "struggling" or "in trouble" as questions about status too: list the off track KPIs, then the at risk ones, and give only the number of others that are below target but on track. Only a question about the target itself ("which are below target?") is answered from values and targets, with each KPI\'s status beside it.',
 ].join('\n');
@@ -194,7 +195,7 @@ export class NlqService {
     const org = await this.prisma.organization
       .findUnique({ where: { id: ctx.organizationId }, select: { weekStartsOn: true, fiscalCalendar: true } })
       .catch(() => null);
-    const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts, fiscalConfigOf(org).weekStartsOn);
+    const toolbox = new NlqToolbox(this.kpiData, metaById, this.forecasts, fiscalConfigOf(org).weekStartsOn, seriesNamesFrom(this.prisma, ctx.organizationId));
     const messages: AiMessage[] = [
       // The conversation so far, so a follow-up has something to refer to. The KPI context goes
       // with the new question only: it is the current state, and one copy is enough.

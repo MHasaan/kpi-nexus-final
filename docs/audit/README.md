@@ -588,6 +588,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Manual QA (2026-11-19, F-037): a value for a month not yet begun was accepted, became the latest value and fired an alert | ✅ Fixed — a period starting more than a day ahead is refused (400) from the form and integrations alike | #456 | `kpi-data-future-period.spec.ts`, `no-values-for-periods-not-begun.spec.ts` |
 | Manual QA (2026-11-19, F-018): a steadily rising MRR had its values flagged "outlier" on the Data tab while the Anomalies page found the series healthy | ✅ Fixed — an outlier is judged against the trend line, from six values or more | #457 | `outlier-detector.spec.ts` |
 | Manual QA (2026-11-19, F-042): "Generate insights" did nothing and said nothing when no KPI qualified | ✅ Fixed — the batch reports what it skipped and why, and the page says so | #458 | `insights.service.spec.ts`, `insights.controller.spec.ts`, `generate-insights-says-when-nothing-qualifies.spec.ts` |
+| Manual QA (2026-11-19, F-003): the home page said "No targets set" to an organisation whose KPIs all had targets held by units | ✅ Fixed — a KPI counts as targeted when any holder has a target; "No values yet" until something is recorded | #459 | `home-knows-targets-held-by-units.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

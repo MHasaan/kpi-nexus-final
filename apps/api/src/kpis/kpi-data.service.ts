@@ -712,7 +712,8 @@ export class KpiDataService {
         orderBy: [{ periodStart: 'desc' }, { recordedAt: 'desc' }],
         take: 30,
       });
-      return detectOutlier(prior.map((p) => p.value), params.dto.value).isOutlier;
+      // Oldest first: the check follows the trend of the history (F-018).
+      return detectOutlier(prior.map((p) => p.value).reverse(), params.dto.value).isOutlier;
     } catch (err) {
       this.logger.warn(`outlier detection failed for kpi ${params.kpiId}: ${String(err)}`);
       return false;

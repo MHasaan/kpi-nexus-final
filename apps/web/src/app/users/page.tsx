@@ -85,6 +85,7 @@ function UsersPageInner() {
   const [users, setUsers] = useState<UserSummary[] | null>(null);
   const [roles, setRoles] = useState<RoleSummary[] | null>(null);
   const [positions, setPositions] = useState<PositionSummary[]>([]);
+  const positionById = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions]);
   const [meId, setMeId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const toast = useToast();
@@ -411,6 +412,7 @@ function UsersPageInner() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         <TableHead>Name</TableHead>
+                        <TableHead>Position</TableHead>
                         <TableHead>Manager</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>{terminology.roleLabel}</TableHead>
@@ -446,6 +448,10 @@ function UsersPageInner() {
                                   <span className="block break-all font-mono text-xs font-normal text-content-muted">{user.email}</span>
                                 </span>
                               </Link>
+                            </TableCell>
+                            {/* The position set on invitation was shown nowhere (F-008). */}
+                            <TableCell className="text-content-default" data-testid="user-position">
+                              {positionById.get(user.positionId ?? '')?.name ?? '—'}
                             </TableCell>
                             <TableCell className="text-content-default">
                               {managerName}

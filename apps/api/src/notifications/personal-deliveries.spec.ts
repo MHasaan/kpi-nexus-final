@@ -38,6 +38,7 @@ function harness(people: Person[], existing: Row[] = []) {
   const rows: Row[] = [...existing];
   const prisma = {
     organization: { findUnique: vi.fn(async () => ({ timezone: 'UTC' })) },
+    kPI: { findUnique: vi.fn(async () => ({ name: 'Churn' })) },
     user: {
       findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => people.filter((p) => where.id.in.includes(p.id) && p.status === 'ACTIVE')),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) => people.find((p) => p.id === where.id) ?? null),

@@ -86,7 +86,7 @@ export class AiRouterService {
     ];
 
     const attempted: Array<{ provider: AiProviderKey; error: string }> = [];
-    let budgetReason: 'DAILY_CAP' | 'MONTHLY_CAP' | undefined;
+    let budgetReason: BudgetDecision['reason'];
 
     for (const candidate of candidates) {
       const estimated = priceCall(candidate.model, {

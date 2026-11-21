@@ -205,7 +205,7 @@ function RolesPageInner() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createRole({
+      const created = await createRole({
         name: newName.trim(),
         description: newDescription.trim() || undefined,
       });
@@ -213,6 +213,9 @@ function RolesPageInner() {
       setNewDescription('');
       setShowCreate(false);
       await refresh();
+      // The role just made is the one to set up next (F-014: the matrix stayed on Admin, and an administrator
+      // ticking boxes straight away was editing the wrong role).
+      setSelectedRoleId(created.id);
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : 'Failed to create role');
     } finally {
@@ -304,6 +307,7 @@ function RolesPageInner() {
                 <Button
                   leftIcon={<Plus aria-hidden className="h-4 w-4" />}
                   onClick={() => setShowCreate((v) => !v)}
+                  data-testid="roles-new-button"
                 >
                   New {inSentence(terminology.roleLabel)}
                 </Button>

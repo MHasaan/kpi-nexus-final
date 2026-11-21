@@ -3,6 +3,8 @@
  * when the report ran, and good for seven days. After that the link on the page
  * was dead although the file was still there. A fresh one is now made on request.
  */
+import { Readable } from 'node:stream';
+
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -19,11 +21,14 @@ function make(run: Record<string, unknown> | null, reportVisible = true) {
   const scheduledReports = {
     get: vi.fn(async () => {
       if (!reportVisible) throw new NotFoundException();
-      return { id: 'rep_1' };
+      return { id: 'rep_1', name: 'Weekly sales' };
     }),
   };
   const prisma = { reportRun: { findFirst: vi.fn(async (_args: { where: Record<string, unknown> }) => run) } };
-  const storage = { getDownloadUrl: vi.fn(async (key: string, seconds?: number) => `https://files.test/${key}?good-for=${seconds}`) };
+  const storage = {
+    getDownloadUrl: vi.fn(async (key: string, seconds?: number) => `https://files.test/${key}?good-for=${seconds}`),
+    getObject: vi.fn(async (key: string) => ({ body: Readable.from([`file at ${key}`]), contentType: 'text/csv', contentLength: 12 })),
+  };
   const service = new ReportDownloadService(
     prisma as unknown as PrismaService,
     scheduledReports as unknown as ScheduledReportService,
@@ -63,6 +68,30 @@ describe('ReportDownloadService.freshUrl', () => {
       const { service, storage } = make(run);
       await expect(RequestContextStore.run(ctx, () => service.freshUrl('rep_1', 'run_1'))).rejects.toBeInstanceOf(NotFoundException);
       expect(storage.getDownloadUrl).not.toHaveBeenCalled();
+    }
+  });
+});
+
+// Manual QA (2026-11-19, F-044): the report email linked straight to the storage server's own address
+// (127.0.0.1:9000 locally; a private one in production), which no reader outside the machine could reach, and
+// the page's Download handed out the same kind of address. The file now comes through the API itself.
+describe('ReportDownloadService.file', () => {
+  test('streams the file of a finished run, named for the report and the day it ran', async () => {
+    const { service, storage } = make({ id: 'run_1', status: 'SUCCEEDED', format: 'CSV', fileUrl: 'https://x/old', ranAt: new Date('2026-01-05T09:00:00Z') });
+    const file = await RequestContextStore.run(ctx, () => service.file('rep_1', 'run_1'));
+    expect(storage.getObject).toHaveBeenCalledWith('reports/org_a/run_1.csv');
+    expect(file.filename).toBe('Weekly sales 2026-01-05.csv');
+    expect(file.contentType).toBe('text/csv');
+    let text = '';
+    for await (const chunk of file.stream) text += String(chunk);
+    expect(text).toBe('file at reports/org_a/run_1.csv');
+  });
+
+  test('a run with nothing to download is not found, and nothing is read', async () => {
+    for (const run of [null, { id: 'run_1', status: 'FAILED', format: 'PDF', fileUrl: null, ranAt: null }]) {
+      const { service, storage } = make(run);
+      await expect(RequestContextStore.run(ctx, () => service.file('rep_1', 'run_1'))).rejects.toBeInstanceOf(NotFoundException);
+      expect(storage.getObject).not.toHaveBeenCalled();
     }
   });
 });

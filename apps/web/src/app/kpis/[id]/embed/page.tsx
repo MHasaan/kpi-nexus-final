@@ -254,7 +254,7 @@ export default function KpiEmbedPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-content-muted">
-                  Public URL: <span className="font-mono text-content">{embedUrl(token)}</span>
+                  Public URL: <span className="break-all font-mono text-content">{embedUrl(token)}</span>
                 </p>
               </CardContent>
             </Card>

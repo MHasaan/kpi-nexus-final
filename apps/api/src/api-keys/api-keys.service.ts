@@ -30,7 +30,16 @@ export interface VerifiedApiKey {
   scopes: string[];
 }
 
-/** SHA-256 hex of the plaintext key — what we store + look up by. */
+/**
+ * SHA-256 hex of the plaintext key — what we store + look up by.
+ *
+ * A fast hash is the right one here, and a slow password hash would be the wrong one. A key is
+ * `kpinx_` plus 24 bytes from the operating system's secure random generator (192 bits), so no one
+ * can guess their way to it, which is the job a slow hash (bcrypt, argon2) does for passwords people
+ * choose. And a key is found by its hash, which only works with a hash that always gives the same
+ * result. (Code scanning flags this as js/insufficient-password-hash: it cannot tell a random token
+ * from a password. Dismissed as a false positive on 2026-11-20 for this reason.)
+ */
 function hashKey(plaintext: string): string {
   return createHash('sha256').update(plaintext).digest('hex');
 }

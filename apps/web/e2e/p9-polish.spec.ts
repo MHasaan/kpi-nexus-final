@@ -8,6 +8,8 @@
  * (SAML SSO round-trip needs a real IdP and is manual; JIT logic is unit-tested.)
  * Requires the api at $API_URL.
  */
+import { randomUUID } from 'node:crypto';
+
 import { type APIRequestContext, expect, request, test } from '@playwright/test';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
@@ -27,7 +29,7 @@ test.beforeAll(async () => {
 });
 
 function suffix(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${Date.now()}-${randomUUID().slice(0, 6)}`;
 }
 
 async function adminCtx(): Promise<{ ctx: APIRequestContext; stamp: string }> {

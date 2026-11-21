@@ -2971,7 +2971,8 @@ export interface paths {
         delete: operations["OrgUnitsController_removeMember"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** PATCH /org-units/:id/members/:userId */
+        patch: operations["OrgUnitsController_updateMemberRole"];
         trace?: never;
     };
     "/org-units/{id}/merge-into": {
@@ -3766,6 +3767,23 @@ export interface paths {
         };
         /** GET /scheduled-reports/:id/runs/:runId/download */
         get: operations["ScheduledReportsController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scheduled-reports/{id}/runs/{runId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /scheduled-reports/:id/runs/:runId/file */
+        get: operations["ScheduledReportsController_file"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4663,6 +4681,7 @@ export interface operations {
                 "application/json": {
                     dailyCapUsd?: number;
                     monthlyCapUsd?: number;
+                    dailyCallCap?: number;
                     /** @enum {string} */
                     circuitBreaker?: "FAIL_CLOSED" | "FALLBACK";
                 };
@@ -5263,6 +5282,12 @@ export interface operations {
                     /** @enum {string} */
                     severity?: "LOW" | "MEDIUM" | "HIGH";
                     isActive?: boolean;
+                    kpiId?: string;
+                    /** @enum {string} */
+                    ruleType?: "STATIC_THRESHOLD" | "DYNAMIC_STDDEV" | "RATE_OF_CHANGE" | "NO_DATA" | "COMPOSITE";
+                    config?: {
+                        [key: string]: unknown;
+                    };
                     escalationLevels?: {
                         delayMinutes: number;
                         /** @default [] */
@@ -13149,6 +13174,48 @@ export interface operations {
             };
         };
     };
+    OrgUnitsController_updateMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    memberRole: "MEMBER" | "MANAGER" | "LEAD" | "DEPUTY";
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     OrgUnitsController_mergeInto: {
         parameters: {
             query?: never;
@@ -15516,6 +15583,41 @@ export interface operations {
         };
     };
     ScheduledReportsController_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing a required permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ScheduledReportsController_file: {
         parameters: {
             query?: never;
             header?: never;

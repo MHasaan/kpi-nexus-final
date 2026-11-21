@@ -822,3 +822,28 @@ describe('OrgUnitsService — ORG / PEOPLE scopes (BE-004)', () => {
     expect(env.accessContext.invalidateAll).toHaveBeenCalled();
   });
 });
+
+// Manual QA (2026-11-19, F-005): a member's unit role (member, lead, manager, deputy) could be chosen only when
+// adding them; changing it meant Remove and re-add. Making nine people managers took eighteen steps, and until
+// then a new organisation had no unit managers at all.
+describe('OrgUnitsService — updateMemberRole', () => {
+  test('changes the role of an active member and audits it', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'sales', name: 'Sales' });
+    prisma.seedMember({ id: 'm1', orgUnitId: 'sales', userId: 'sofia', memberRole: 'MEMBER' });
+
+    const updated = await withCtx({}, () => service.updateMemberRole('sales', 'sofia', 'MANAGER'));
+
+    expect(updated.memberRole).toBe('MANAGER');
+    expect(prisma.members.find((m) => m.id === 'm1')!.memberRole).toBe('MANAGER');
+  });
+
+  test('someone who is not an active member of the unit is not found', async () => {
+    const { service, prisma } = makeService();
+    prisma.seedUnit({ id: 'sales', name: 'Sales' });
+    prisma.seedMember({ id: 'm1', orgUnitId: 'sales', userId: 'left', memberRole: 'MEMBER', leftAt: new Date() });
+
+    await expect(withCtx({}, () => service.updateMemberRole('sales', 'nobody', 'LEAD'))).rejects.toBeInstanceOf(NotFoundException);
+    await expect(withCtx({}, () => service.updateMemberRole('sales', 'left', 'LEAD'))).rejects.toBeInstanceOf(NotFoundException);
+  });
+});

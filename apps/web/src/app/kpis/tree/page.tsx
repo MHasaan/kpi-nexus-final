@@ -78,7 +78,8 @@ export default function CascadeTreePage() {
                 <div className="p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Badge tone="neutral">L{node.level}</Badge>
+                      {/* In words, not "L0" (F-027). */}
+                      <Badge tone="neutral">{node.level === 0 ? 'Top level' : `Level ${node.level + 1}`}</Badge>
                       <Link
                         href={`/kpis/${node.parentKpiId}`}
                         className="font-semibold text-content-strong hover:text-accent-primary"

@@ -107,14 +107,16 @@ function withCtx<T>(ctx: Partial<RequestContext>, fn: () => Promise<T> | T): Pro
 
 function makeService() {
   const prisma = new FakePrisma();
-  const apply = { apply: vi.fn(async () => {}) };
+  // Who the change is applied as: the audit rows the application writes carry that person.
+  const appliedAs: Array<string | undefined> = [];
+  const apply = { apply: vi.fn(async () => { appliedAs.push(RequestContextStore.get()?.userId); }) };
   const audit = { record: vi.fn(async () => {}) };
   const service = new ApprovalRequestService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     apply as unknown as ApprovalApplyService,
   );
-  return { service, prisma, apply };
+  return { service, prisma, apply, audit, appliedAs };
 }
 
 function seedPending(prisma: FakePrisma, opts: { requireAll?: boolean; roleIds?: string[]; requester?: string } = {}): FakeRequest {
@@ -297,5 +299,33 @@ describe('ApprovalRequestService.list', () => {
     const { service, prisma } = makeService();
     seedPending(prisma);
     expect(await withCtx({ organizationId: 'other' }, () => service.list({}))).toEqual([]);
+  });
+});
+
+// Manual QA (2026-11-19, F-058): an approval appeared in the audit log as "UPDATE ApprovalRequest" by the
+// approver, with no APPROVE action to filter by, and the KPI change itself was credited to the approver, not to
+// the person who asked for it.
+describe('ApprovalRequestService.decide — what the audit log says', () => {
+  test('approving writes APPROVE, naming who asked, and the change is applied as that person', async () => {
+    const { service, prisma, audit, appliedAs } = makeService();
+    seedPending(prisma, { roleIds: ['role_appr'], requester: 'manager' });
+
+    await withCtx({ userId: 'approver', roleId: 'role_appr' }, () => service.decide('req_1', { decision: 'approve' }));
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'APPROVE', entityType: 'ApprovalRequest', entityId: 'req_1', metadata: expect.objectContaining({ requesterUserId: 'manager' }) }),
+    );
+    expect(appliedAs).toEqual(['manager']);
+  });
+
+  test('rejecting writes REJECT with the reason given', async () => {
+    const { service, prisma, audit } = makeService();
+    seedPending(prisma, { roleIds: ['role_appr'] });
+
+    await withCtx({ userId: 'approver', roleId: 'role_appr' }, () => service.decide('req_1', { decision: 'reject', comment: 'Not this quarter' }));
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'REJECT', entityId: 'req_1', metadata: expect.objectContaining({ requesterUserId: 'manager', comment: 'Not this quarter' }) }),
+    );
   });
 });

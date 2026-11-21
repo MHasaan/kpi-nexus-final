@@ -638,7 +638,7 @@ function KpiRow({
             kpi.scope === 'ORG_WIDE') && <span>—</span>}
         </TableCell>
         <TableCell className="text-right">
-          <div className="inline-flex gap-2">
+          <div className="inline-flex flex-wrap justify-end gap-2">
             {kpi.scope === 'ORG_WIDE' && (
               <PermissionGuard permission="KPI_DATA_ENTRY">
                 <Button

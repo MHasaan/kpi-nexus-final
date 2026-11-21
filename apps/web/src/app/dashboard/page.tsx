@@ -536,11 +536,19 @@ export default function DashboardPage() {
         <>
           {summary.length === 0 ? (
             <div data-testid="dashboard-empty">
-              <EmptyState
-                title="No KPIs yet"
-                description="Create your first KPI to start tracking what matters across your organization."
-                action={<NewKpiAction />}
-              />
+              {/* Worded for the reader: someone who cannot make KPIs was asked to create the first one. */}
+              {perms.has('KPI_CREATE') ? (
+                <EmptyState
+                  title="No KPIs yet"
+                  description="Create your first KPI to start tracking what matters across your organization."
+                  action={<NewKpiAction />}
+                />
+              ) : (
+                <EmptyState
+                  title="No KPIs to show yet"
+                  description="KPIs your organisation shares with you will appear here, with how each one stands."
+                />
+              )}
               {/* A new organisation lands here first: this is where "what next" matters most. */}
               <div className="mt-4">
                 <SetupChecklistCard />

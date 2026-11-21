@@ -65,6 +65,7 @@ import {
   type ThresholdBand,
   unassignKpiFromUnit,
   unassignUserKpi,
+  meRequest,
 } from '../../../lib/api-client';
 import { CommentsDrawer } from '../../../components/comments-drawer';
 import { WatchButton } from '../../../components/kpis/watch-button';
@@ -100,6 +101,7 @@ import { RecordValueForm } from '../../../components/kpis/record-value-form';
 import { ASSIGNMENT_STATUS_LABELS, BAND_STATUS_LABELS, DIRECTION_LABELS, FREQUENCY_LABELS, HEALTH_STATUS_LABELS, KPI_STATUS_LABELS, KPI_TYPE_LABELS, labelFor } from '../../../lib/labels';
 import { BAND_PRESETS, bandMeaning } from '@kpi-nexus/contracts';
 import { useAllowed } from '../../../lib/use-allowed';
+import { useAccess } from '../../../lib/use-access';
 import { attainmentOf } from '../../../lib/attainment';
 import { useConfirm } from '../../../lib/use-confirm';
 import { type KpiTab, kpiAnalyticsLinksFor, kpiTabFromParam, kpiTabHref, kpiTabsFor } from '../../../lib/kpi-detail-tabs';
@@ -297,11 +299,32 @@ function TabLoadError({ error, onRetry, className }: { error: string | null; onR
 
 // ---- Tabs ------------------------------------------------------------------
 
+/**
+ * Whether the reader may record this KPI's values. KPI_DATA_ENTRY says they may record; an
+ * organisation-wide KPI's values are its owner's or an administrator's to record (F-055: every
+ * employee could write ARR and MRR). Per-unit and per-person KPIs are gated by their assignments.
+ */
+function useMayRecord(kpi: KpiSummary): boolean {
+  const allowed = useAllowed('KPI_DATA_ENTRY');
+  const { profile } = useAccess();
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    meRequest()
+      .then((res) => setMe(res.user.id))
+      .catch(() => {
+        /* until we know who is reading, the form stays hidden */
+      });
+  }, []);
+  if (!allowed) return false;
+  if (kpi.scope !== 'ORG_WIDE') return true;
+  return profile?.isAdmin === true || (me != null && kpi.ownerUserId === me);
+}
+
 function OverviewTab({ kpi }: { kpi: KpiSummary }) {
   const fmt = useFormat();
   const [points, reloadPoints, pointsError] = useAsync(() => listKpiDataPoints(kpi.id), [kpi.id]);
   const [status] = useAsync(() => getThresholdStatus(kpi.id).catch(() => null), [kpi.id]);
-  const mayRecord = useAllowed('KPI_DATA_ENTRY');
+  const mayRecord = useMayRecord(kpi);
   const latest = points?.[0];
   const series = (points ?? []).slice().reverse().map((p) => p.value);
   const unit = kpi.unit ? ` ${kpi.unit}` : '';
@@ -530,13 +553,16 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
     reload();
     reloadAssignments();
   };
+  const mayRecord = useMayRecord(kpi);
 
   // Where several past values at once are recorded, and which periods already have one — for the same
   // unit or person as the one-value form above (pasting a year used to mean entering it month by month).
   const selectedUnit = units.find((u) => u.assignmentId === selected) ?? null;
   const pastRecorder: { onRecord: (body: { value: number; periodStart: string; periodEnd: string }) => Promise<unknown> } | null =
     kpi.scope === 'ORG_WIDE'
-      ? { onRecord: (body) => recordOrgWideDataPoint(kpi.id, body) }
+      ? mayRecord
+        ? { onRecord: (body) => recordOrgWideDataPoint(kpi.id, body) }
+        : null
       : kpi.scope === 'PER_UNIT' && selectedUnit
         ? { onRecord: (body) => recordUnitKpiData(selectedUnit.assignmentId, body) }
         : kpi.scope === 'PER_USER' && mine[0]
@@ -557,14 +583,20 @@ function DataTab({ kpi }: { kpi: KpiSummary }) {
       <PermissionGuard permission="KPI_DATA_ENTRY">
         <UICard>
           <CardContent>
-            {kpi.scope === 'ORG_WIDE' && (
-              <RecordValueForm
-                frequency={kpi.frequency}
-                unit={kpi.unit}
-                onRecord={(body) => recordOrgWideDataPoint(kpi.id, body)}
-                onRecorded={afterRecord}
-              />
-            )}
+            {kpi.scope === 'ORG_WIDE' &&
+              (mayRecord ? (
+                <RecordValueForm
+                  frequency={kpi.frequency}
+                  unit={kpi.unit}
+                  onRecord={(body) => recordOrgWideDataPoint(kpi.id, body)}
+                  onRecorded={afterRecord}
+                />
+              ) : (
+                <p className="text-sm text-content-muted" data-testid="data-owner-only">
+                  This KPI is organisation-wide: its values are recorded by its owner or an administrator.
+                  {kpi.ownerUserId ? '' : ' It has no owner yet; an administrator can set one on the Edit page.'}
+                </p>
+              ))}
 
             {kpi.scope === 'PER_UNIT' &&
               (units.length === 0 ? (

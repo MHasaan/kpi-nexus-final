@@ -29,6 +29,7 @@ import {
 } from '../../components/ui';
 import { useKpiNames } from '../../lib/use-kpi-names';
 import { currentLoginRedirect } from '../../lib/auth-redirect';
+import { nothingToAddNotice } from '../../lib/insights-notice';
 import { useAllowed } from '../../lib/use-allowed';
 import { useFormat } from '../../lib/format-context';
 
@@ -46,6 +47,8 @@ export default function InsightsPage() {
   const { nameOf } = useKpiNames();
   const [rows, setRows] = useState<Insight[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // What "Generate" passed over and why, when it made nothing (F-042: it said nothing).
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Per-card regeneration spinner — keyed by kpiId.
   const [regenKpiId, setRegenKpiId] = useState<string | null>(null);
@@ -72,9 +75,11 @@ export default function InsightsPage() {
 
   const generate = async () => {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
-      await generateInsightsBatch({});
+      const batch = await generateInsightsBatch({});
+      setNotice(nothingToAddNotice(batch));
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Generation failed');
@@ -150,6 +155,11 @@ export default function InsightsPage() {
           >
             {error}
           </div>
+        )}
+        {notice && (
+          <p role="status" data-testid="insights-notice" className="rounded-lg border border-border bg-surface-1 px-4 py-3 text-sm text-content-default">
+            {notice}
+          </p>
         )}
 
         {!loading && (rows?.length ?? 0) > 0 && (

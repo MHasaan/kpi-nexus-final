@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { EmailService } from '../email/email.service.js';
 import { escapeHtml } from '../email/escape-html.js';
+import { webAppUrl } from '../email/web-app-url.js';
 import { ReportsService } from './reports.service.js';
 import { StorageService } from './services/storage.service.js';
 import type { ScheduledReportJobData } from './scheduled-report.service.js';
@@ -138,15 +139,17 @@ export class ScheduledReportProcessor extends WorkerHost {
       await this.storage.upload(key, buffer, contentType);
       const fileUrl = await this.storage.getDownloadUrl(key);
 
-      // Email recipients.
+      // Email recipients. The link leads into the app, not to the storage server's own address, which no
+      // reader outside the machine could reach (F-044).
       if (scheduledReport.recipients.length > 0) {
+        const page = webAppUrl(`/reports/${scheduledReportId}`);
         const downloadHtml = `<p>Your scheduled report "<strong>${escapeHtml(scheduledReport.name)}</strong>" is ready.</p>
-<p><a href="${escapeHtml(fileUrl)}">Download report</a> (link valid for 7 days)</p>`;
+<p><a href="${escapeHtml(page)}">Open the report</a> and download it from its runs. You will be asked to sign in.</p>`;
         await this.email.send({
           to: scheduledReport.recipients,
           subject: `Your scheduled report: ${scheduledReport.name}`,
           html: downloadHtml,
-          text: `Your scheduled report "${scheduledReport.name}" is ready. Download: ${fileUrl}`,
+          text: `Your scheduled report "${scheduledReport.name}" is ready. Open it and download it from its runs (you will be asked to sign in): ${page}`,
         });
       }
 

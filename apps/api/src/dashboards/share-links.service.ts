@@ -157,8 +157,9 @@ export class ShareLinksService {
    */
   async create(dashboardId: string, dto: CreateShareLinkDto): Promise<PublicShareLink> {
     const ctx = RequestContextStore.require();
-    // Enforce visibility + org-scope; throws 404 if not found or not visible.
-    await this.dashboards.getById(dashboardId);
+    // Visibility + org-scope (404), and the dashboard's owner or an administrator (403): a share link
+    // publishes the dashboard, which is not a reader's to do (F-068).
+    await this.dashboards.getByIdForChange(dashboardId);
 
     // A link that has already run out opens nothing: refuse it rather than store it.
     if (dto.expiresAt && dto.expiresAt.getTime() <= Date.now()) {

@@ -79,7 +79,7 @@ function ChangePasswordCard() {
       setCurrent('');
       setNext('');
       setConfirm('');
-      setSuccess('Password changed. You may need to sign in again on other devices.');
+      setSuccess('Password changed. You stay signed in here; other devices are signed out.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to change password');
     } finally {
@@ -204,6 +204,7 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
   const [disableCode, setDisableCode] = useState('');
   const [disabling, setDisabling] = useState(false);
   const [disableError, setDisableError] = useState<string | null>(null);
+  const [disableNote, setDisableNote] = useState<string | null>(null);
 
   async function handleEnroll() {
     setEnrolling(true);
@@ -243,6 +244,7 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
     try {
       await disableMfa({ code: disableCode.trim() });
       setDisableCode('');
+      setDisableNote('Two-step sign-in is off. You stay signed in here; other devices are signed out.');
       await onRefreshUser();
     } catch (err) {
       setDisableError(err instanceof ApiError ? err.message : 'Disable failed — check your code');
@@ -270,6 +272,11 @@ function MfaCard({ user, onRefreshUser }: SecurityTabProps) {
         </span>
       </CardHeader>
       <CardContent className="grid gap-4">
+        {disableNote && (
+          <p data-testid="mfa-disabled-note" className="mb-3 text-sm text-status-success">
+            {disableNote}
+          </p>
+        )}
         <p className="text-sm text-content-muted">
           Multi-factor authentication adds a one-time code from your authenticator app on every
           sign-in.

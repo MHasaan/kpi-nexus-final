@@ -394,13 +394,15 @@ function makeDashboardStub(opts: {
     ...opts.dashboard,
   };
 
+  const getById = vi.fn(async () => {
+    if (opts.throws) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Dashboard not found' });
+    }
+    return base;
+  });
   return {
-    getById: vi.fn(async () => {
-      if (opts.throws) {
-        throw new NotFoundException({ code: 'NOT_FOUND', message: 'Dashboard not found' });
-      }
-      return base;
-    }),
+    getById,
+    getByIdForChange: getById,
     list: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),

@@ -151,6 +151,11 @@ export const DraftTeamMemberSchema = z.object({
   position: name.optional(),
   /** The unit they belong to, by name. */
   unit: name.optional(),
+  /**
+   * Their role in that unit: a manager, lead or deputy sees the unit's KPIs and those of the units below it.
+   * Left out, they join as a member (F-005: until 2026-11-21 everyone did, unit heads included).
+   */
+  unitRole: z.enum(['MEMBER', 'LEAD', 'MANAGER', 'DEPUTY']).optional(),
   /** Who they report to: another team member's email, or the administrator's. */
   manager: z.string().max(254).optional(),
 });

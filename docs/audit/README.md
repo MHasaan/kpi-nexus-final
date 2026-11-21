@@ -559,6 +559,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Dependency audit (pnpm audit, 2026-11-20): brace-expansion 5.0.6 had five high advisories (denial of service through exponential expansion, unbounded length, unbounded intermediate arrays and uncontrolled recursion) and one moderate (quadratic expansion), all fixed by 5.0.12 | ✅ Fixed — pnpm override brace-expansion@^5 → ^5.0.12, resolves to 5.0.13 | #426 | `pnpm audit`, full suites |
 | Dependency audit (pnpm audit, 2026-11-20): source-map-js 1.2.1 had one high advisory: an indexed source map can stall the event loop (denial of service), fixed in 1.2.2 | ✅ Fixed — pnpm override source-map-js → ^1.2.2, resolves to 1.2.4 | #427 | `pnpm audit`, full suites |
 | Dependency audit (pnpm audit, 2026-11-20): fast-copy 4.0.3 had one moderate advisory: copying a deeply nested value exhausts the stack, fixed in 4.1.0 | ✅ Fixed — pnpm override fast-copy → ^4.1.0, resolves to 4.3.2 | #428 | `pnpm audit`, full suites |
+| Dependency audit (pnpm audit, 2026-11-20): postcss-selector-parser 6.1.2 had one moderate advisory (quadratic complexity parsing flat selectors, fixed in 6.1.5) and one low (uncontrolled recursion, fixed in 6.1.3) | ✅ Fixed — pnpm override postcss-selector-parser@^6 → ^6.1.5, resolves to 6.1.6 | #429 | `pnpm audit`, full suites |
 
 ### UI completion round — open findings (2026-11-16)
 

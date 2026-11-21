@@ -97,6 +97,10 @@ describe('activitySentence', () => {
   test('something about a KPI that has no name of its own says which KPI', () => {
     expect(activitySentence(row('CREATE', 'KPITarget', 't', { kpiId: 'k1' }, rev), num)).toEqual({ text: 'created a KPI target on Monthly revenue', href: '/kpis/k1' });
   });
+  test('an invitation names the person invited, and leads to them', () => {
+    expect(activitySentence(row('CREATE', 'User', 'u1', { reason: 'invited', email: 'ina@example.test' }, { ...none, name: 'Ina Invited' }), num)).toEqual({ text: 'invited Ina Invited', href: '/users/u1' });
+    expect(activitySentence(row('UPDATE', 'User', 'u1', { changed: ['roleId'] }, { ...none, name: 'Ina Invited' }), num)).toEqual({ text: 'updated the user “Ina Invited”', href: '/users/u1' });
+  });
   test('a deleted thing is named but not linked; a row that knows nothing more reads as before', () => {
     expect(activitySentence(row('DELETE', 'Dashboard', 'd1', { name: 'Board' }, { ...none, name: 'Board' }), num)).toEqual({ text: 'deleted the dashboard “Board”', href: null });
     expect(activitySentence(row('CREATE', 'KPIDataPoint', 'dp', { kpiId: 'gone', value: 1 }, none), num)).toEqual({ text: 'created a KPI value', href: null });

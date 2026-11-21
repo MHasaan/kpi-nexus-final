@@ -279,6 +279,10 @@ export function activitySentence(row: ActivityRow, formatNumber: (n: number) => 
   // Only something made or changed has a page to go and read: not a deletion, not a sign-in.
   const made = row.action === 'CREATE' || row.action === 'UPDATE';
   const page = made && row.entityId ? (ENTITY_PAGES[kind]?.(row.entityId) ?? null) : null;
+  // Someone invited is "invited Ina Khan", not "created the user".
+  if (kind === 'user' && row.action === 'CREATE' && meta.reason === 'invited' && subject.name) {
+    return { text: `invited ${subject.name}`, href: page };
+  }
   const name = subject.name ?? (kind === 'kpi' ? subject.kpiName : null);
   if (name && row.entityType) {
     // A KPI's page is offered only while the KPI is still there to open.

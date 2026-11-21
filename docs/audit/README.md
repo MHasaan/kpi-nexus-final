@@ -539,6 +539,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (home): the home page’s “New KPI” opened the KPI list, where the same button had to be found and pressed again | ✅ Fixed — it opens the new-KPI form | #406 | `e2e/home-new-kpi-opens-the-form.spec.ts` |
 | Flow walk (home): a Viewer with no KPIs to show was told “Create your first KPI”, which they cannot do | ✅ Fixed — someone who cannot create KPIs is told the KPIs shared with them will appear there, and is offered no button | #407 | `e2e/empty-home-fits-the-reader.spec.ts` |
 | Flow walk (settings): API key scopes and webhook events were offered and listed by code alone (“KPI_DATA_ENTRY”, “okr_progress_changed”) | ✅ Fixed — each reads in words, with the code in small type beside it | #408 | `lib/webhook-events.spec.ts`, `e2e/settings-keys-webhooks.spec.ts` |
+| Flow walk (activity): inviting someone read “created a user” and changing their role “updated a user” — no word of who | ✅ Fixed — a row about a person names them and links to them (the name only, looked up in the organisation only) | #409 | `activity.service.spec.ts`, `lib/labels.spec.ts`, `e2e/activity-names-the-person.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 

@@ -30,7 +30,12 @@ function matchesEntityType(actual: string | null, filter: unknown): boolean {
 
 class FakePrisma {
   logs: FakeLog[] = [];
-  users = [{ id: 'alice', fullName: 'Alice' }, { id: 'bob', fullName: 'Bob' }];
+  users = [
+    { id: 'alice', organizationId: 'org_alpha', fullName: 'Alice' },
+    { id: 'bob', organizationId: 'org_alpha', fullName: 'Bob' },
+    { id: 'ina', organizationId: 'org_alpha', fullName: 'Ina Invited' },
+    { id: 'zed', organizationId: 'org_beta', fullName: 'Zed Elsewhere' },
+  ];
 
   auditLog = {
     findMany: vi.fn(async ({ where, take, cursor, skip }: { where: Record<string, unknown>; take: number; cursor?: { id: string }; skip?: number }) => {
@@ -57,7 +62,9 @@ class FakePrisma {
   };
 
   user = {
-    findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => this.users.filter((u) => where.id.in.includes(u.id))),
+    findMany: vi.fn(async ({ where }: { where: { organizationId?: string; id: { in: string[] } } }) =>
+      this.users.filter((u) => where.id.in.includes(u.id) && (where.organizationId === undefined || u.organizationId === where.organizationId)),
+    ),
   };
 }
 
@@ -156,6 +163,19 @@ describe('ActivityService.list', () => {
         { name: null, kpiId: null, kpiName: null },
       ]);
       expect(prisma.kPI.findMany.mock.calls[0]![0].where.organizationId).toBe(ORG);
+    });
+
+    // Flow walk: an invitation read "created a user" — it now names the person, from this organisation only.
+    test('a row about a person names them, from this organisation only', async () => {
+      const { service, prisma } = makeService(true);
+      prisma.logs.push(
+        { id: 'a', organizationId: ORG, userId: 'alice', action: 'CREATE', entityType: 'User', entityId: 'ina', metadata: { reason: 'invited', email: 'ina@example.test' }, createdAt: new Date(2000) },
+        { id: 'b', organizationId: ORG, userId: 'alice', action: 'UPDATE', entityType: 'User', entityId: 'zed', metadata: { changed: ['roleId'] }, createdAt: new Date(1000) },
+      );
+      const res = await withCtx({ userId: 'admin' }, () => service.list({ limit: 10 }));
+      expect(res.items.map((i) => i.subject.name)).toEqual(['Ina Invited', null]);
+      // Every name looked up is looked up inside the organisation.
+      for (const call of prisma.user.findMany.mock.calls) expect(call[0].where.organizationId).toBe(ORG);
     });
 
     test('rows that name no KPI ask for none', async () => {

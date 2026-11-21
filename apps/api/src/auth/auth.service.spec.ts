@@ -21,6 +21,7 @@ import { describe, expect, test, vi } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import type { JwtService } from '@nestjs/jwt';
 
+import type { AuditService } from '../audit/audit.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { RequestContextStore } from '../tenancy/request-context.js';
 import { AuthService } from './auth.service.js';
@@ -35,6 +36,7 @@ function makeService(prisma: unknown): AuthService {
     {} as JwtService,
     {} as ConfigService,
     {} as RefreshTokenService,
+    { record: vi.fn(async () => undefined) } as unknown as AuditService,
   );
 }
 
@@ -234,6 +236,7 @@ describe('AuthService.refresh() — runs its lookups under the RLS bypass (OT-01
       jwt as unknown as JwtService,
       {} as ConfigService,
       refreshTokens as unknown as RefreshTokenService,
+      { record: vi.fn(async () => undefined) } as unknown as AuditService,
     );
 
     await expect(service.refresh('old-refresh')).resolves.toEqual({
@@ -254,10 +257,71 @@ describe('AuthService.refresh() — runs its lookups under the RLS bypass (OT-01
     };
     const jwt = { signAsync: vi.fn(async () => 'access-token') };
     const refreshTokens = { rotate: vi.fn(async () => ({ id: 'rt_9', userId: 'u1', plaintext: 'next-refresh' })) };
-    const service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService, {} as ConfigService, refreshTokens as unknown as RefreshTokenService);
+    const service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService, {} as ConfigService, refreshTokens as unknown as RefreshTokenService, { record: vi.fn(async () => undefined) } as unknown as AuditService);
 
     await service.refresh('old-refresh');
 
     expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sub: 'u1', sid: 'rt_9' }), expect.anything());
+  });
+});
+
+// Manual QA (2026-11-19, F-058): about ten people signed in during the test and the audit log's LOGIN filter
+// showed nothing; sign-outs were not written either. An auditor's first question has no answer without them.
+describe('AuthService — sign-ins and sign-outs are audited', () => {
+  const user = {
+    id: 'u1',
+    organizationId: 'org_a',
+    email: 'ada@example.test',
+    status: 'ACTIVE',
+    roleId: null,
+    mfaEnabled: false,
+    mfaSecret: null,
+    mfaRecoveryHashes: [],
+    passwordHash: bcrypt.hashSync('correct-horse', 4),
+    passwordChangedAt: new Date(),
+  };
+  const make = () => {
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue({ organizationId: 'org_a' }), findFirst: vi.fn().mockResolvedValue(user) },
+      organization: { findUnique: vi.fn().mockResolvedValue({ passwordPolicy: null }) },
+      roleDefinition: { findUnique: vi.fn().mockResolvedValue(null) },
+      loginAttempt: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const jwt = { signAsync: vi.fn(async () => 'access-token') };
+    const refreshTokens = {
+      issue: vi.fn(async () => ({ id: 'rt_1', plaintext: 'refresh', expiresAt: new Date() })),
+      revoke: vi.fn(async () => ({ userId: 'u1' })),
+    };
+    const audit = { record: vi.fn(async () => undefined) };
+    const service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService, {} as ConfigService, refreshTokens as unknown as RefreshTokenService, audit as unknown as AuditService);
+    return { service, audit, refreshTokens };
+  };
+
+  test('a successful sign-in writes LOGIN for the person, in their organisation, naming the session', async () => {
+    const { service, audit } = make();
+    await service.login({ email: 'ada@example.test', password: 'correct-horse' }, { ip: '203.0.113.9', userAgent: 'test/1.0' });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'LOGIN', entityType: 'User', entityId: 'u1', userId: 'u1', organizationId: 'org_a', metadata: expect.objectContaining({ sessionId: 'rt_1', how: 'password' }) }),
+    );
+  });
+
+  test('a failed sign-in writes no LOGIN', async () => {
+    const { service, audit } = make();
+    await expect(service.login({ email: 'ada@example.test', password: 'wrong' })).rejects.toThrow();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  test('signing out writes LOGOUT for the person the token belonged to', async () => {
+    const { service, audit, refreshTokens } = make();
+    await service.logout('refresh');
+    expect(refreshTokens.revoke).toHaveBeenCalledWith('refresh');
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'LOGOUT', entityType: 'User', entityId: 'u1', userId: 'u1', organizationId: 'org_a' }));
+  });
+
+  test('a token that is already gone writes nothing', async () => {
+    const { service, audit, refreshTokens } = make();
+    refreshTokens.revoke.mockResolvedValueOnce(null as never);
+    await service.logout('stale');
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

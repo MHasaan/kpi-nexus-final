@@ -27,7 +27,9 @@ describe('GET /audit?action=', () => {
 
   test('an action the log never records is refused with a 400 that names the choices', async () => {
     const { controller, service } = make();
-    const err = await controller.list(undefined, undefined, undefined, 'INVITE').catch((e: unknown) => e);
+    const err = await Promise.resolve()
+      .then(() => controller.list(undefined, undefined, undefined, 'INVITE'))
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(BadRequestException);
     expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(String((err as BadRequestException).getResponse() && JSON.stringify((err as BadRequestException).getResponse()))).toContain('APPROVE');

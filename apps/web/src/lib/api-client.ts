@@ -5,6 +5,7 @@
  * envelope when present.
  */
 
+import type { AuditAction as ContractsAuditAction } from '@kpi-nexus/contracts';
 import type {
   AccessProfile,
   DataLimitsConfig,
@@ -1445,19 +1446,8 @@ export function subscribeRealtime(
 // Audit log
 // =============================================================================
 
-export type AuditAction =
-  | 'CREATE'
-  | 'UPDATE'
-  | 'DELETE'
-  | 'LOGIN'
-  | 'LOGOUT'
-  | 'IMPERSONATE'
-  | 'EXPORT'
-  | 'INVITE'
-  | 'PERMISSION_CHANGE'
-  | 'CONFIG_CHANGE'
-  | 'BILLING_EVENT'
-  | 'SYSTEM_EVENT';
+/** What the log records an action as: the one list in contracts (F-057). */
+export type AuditAction = ContractsAuditAction;
 
 export interface AuditEntry {
   id: string;

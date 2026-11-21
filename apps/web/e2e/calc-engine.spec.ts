@@ -36,9 +36,9 @@ async function makeKpi(api: Api, name: string, agg = 'LAST'): Promise<string> {
   return ((await res.json()) as { id: string }).id;
 }
 
-async function recordData(api: Api, kpiId: string, value: number): Promise<void> {
+async function recordData(api: Api, kpiId: string, value: number, month = '05'): Promise<void> {
   await api.post(`/kpis/${kpiId}/data`, {
-    data: { value, periodStart: '2026-05-01T00:00:00.000Z', periodEnd: '2026-05-31T23:59:59.000Z' },
+    data: { value, periodStart: `2026-${month}-01T00:00:00.000Z`, periodEnd: `2026-${month}-28T23:59:59.000Z` },
   });
 }
 
@@ -105,11 +105,12 @@ test('calc-engine: formula recompute + cascade rollup + lineage', async () => {
   expect(totalUp.every((n) => n.via === 'CASCADE_ROLLUP')).toBe(true);
 
   // ---- Reactive path: inserting a child point triggers a parent rollup ----
-  await recordData(api, childA, 99); // LAST/SUM child agg; new point in same period
+  // A period takes one recorded value per holder, so the new point goes in the next month.
+  await recordData(api, childA, 99, '06');
   let reactiveValue = 0;
   for (let i = 0; i < 15; i++) {
     const data = (await (await api.get(`/kpis/${total}/data`)).json()) as Array<{ value: number }>;
-    // After reactive rollup, total = sum(childA=99+10? no — SUM over period) ; just assert a fresh COMPUTED point > 30 appears
+    // After the reactive rollup, June's total is 99; assert a fresh COMPUTED point > 30 appears
     const max = Math.max(...data.map((d) => d.value));
     if (max > 30) {
       reactiveValue = max;

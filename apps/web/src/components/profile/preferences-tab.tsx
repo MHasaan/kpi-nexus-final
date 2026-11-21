@@ -3,7 +3,7 @@
 import { useTheme } from 'next-themes';
 import { type FormEvent, useEffect, useState } from 'react';
 
-import { LOCALES, LOCALE_LABELS, type Locale } from '../../i18n/dictionaries';
+import { LOCALE_LABELS, OFFERED_LOCALES, type Locale } from '../../i18n/dictionaries';
 import { useTranslations } from '../../i18n/locale-provider';
 import {
   ACCOUNT_TIMEZONE_EVENT,
@@ -278,13 +278,16 @@ function LanguageCard() {
           onChange={(e) => setLocale(e.target.value as Locale)}
           className="max-w-xs"
         >
-          {LOCALES.map((l) => (
+          {/* Only languages with translations; a language chosen before it was withdrawn stays choosable. */}
+          {(OFFERED_LOCALES.includes(locale) ? OFFERED_LOCALES : [...OFFERED_LOCALES, locale]).map((l) => (
             <option key={l} value={l}>
               {LOCALE_LABELS[l]}
             </option>
           ))}
         </Select>
-        <p className="text-xs text-content-muted">{t('profile.languageHint')}</p>
+        <p className="text-xs text-content-muted">
+          {t('profile.languageHint')} More languages are offered here once their translations are ready.
+        </p>
       </CardContent>
     </Card>
   );

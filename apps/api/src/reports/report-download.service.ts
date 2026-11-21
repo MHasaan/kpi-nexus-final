@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -36,4 +38,35 @@ export class ReportDownloadService {
     const url = await this.storage.getDownloadUrl(reportFileKey(ctx.organizationId, run.id, run.format), FRESH_LINK_SECONDS);
     return { url };
   }
+
+  /**
+   * The file of a finished run, streamed by the API itself and named for the report and the day it ran:
+   * a storage address is private in production and could not be opened by a reader (F-044).
+   */
+  async file(scheduledReportId: string, runId: string): Promise<{ stream: Readable; contentType: string; filename: string }> {
+    const ctx = RequestContextStore.require();
+    const report = await this.scheduledReports.get(scheduledReportId);
+    const run = await this.prisma.reportRun.findFirst({
+      where: { id: runId, scheduledReportId, organizationId: ctx.organizationId },
+      select: { id: true, status: true, format: true, fileUrl: true, ranAt: true },
+    });
+    if (!run || run.status !== 'SUCCEEDED' || !run.fileUrl) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'This run has no file to download' });
+    }
+    const key = reportFileKey(ctx.organizationId, run.id, run.format);
+    const object = await this.storage.getObject(key);
+    const day = (run.ranAt ?? new Date()).toISOString().slice(0, 10);
+    const safeName = report.name.replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim() || 'report';
+    return {
+      stream: object.body,
+      contentType: object.contentType ?? CONTENT_TYPES[run.format] ?? 'application/octet-stream',
+      filename: `${safeName} ${day}.${key.split('.').pop()}`,
+    };
+  }
 }
+
+const CONTENT_TYPES: Record<string, string> = {
+  CSV: 'text/csv',
+  EXCEL: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  PDF: 'application/pdf',
+};

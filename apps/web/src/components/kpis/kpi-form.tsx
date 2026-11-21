@@ -307,24 +307,40 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
   const perms = usePermissions();
   const canListPeople = perms.has('USERS_VIEW');
   const canFindPeople = perms.has('KPI_VIEW');
+  const canSeeUnits = perms.has('GROUPS_VIEW');
   const [categories, setCategories] = useState<KpiCategory[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnitSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approvalPending, setApprovalPending] = useState(false);
 
-  // Load pickers.
+  // Load pickers. The units only for someone who may see them (GROUPS_VIEW): asking on behalf of anyone
+  // else drew a refusal on every visit, and an empty list that read as "no units yet".
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled([listKpiCategories(), listOrgUnits()]).then((results) => {
-      if (cancelled) return;
-      if (results[0].status === 'fulfilled') setCategories(results[0].value);
-      if (results[1].status === 'fulfilled') setOrgUnits(results[1].value);
-    });
+    void listKpiCategories().then(
+      (rows) => {
+        if (!cancelled) setCategories(rows);
+      },
+      () => undefined,
+    );
     return () => {
       cancelled = true;
     };
   }, []);
+  useEffect(() => {
+    if (!canSeeUnits) return;
+    let cancelled = false;
+    void listOrgUnits().then(
+      (rows) => {
+        if (!cancelled) setOrgUnits(rows);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeUnits]);
 
   const set = <K extends keyof KpiFormValues>(key: K, value: KpiFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -672,7 +688,12 @@ export function KpiForm({ mode, kpiId, initial, templateHint, onDone }: KpiFormP
         {!isEdit && values.scope === 'PER_UNIT' && (
           <div data-testid="kpi-orgunit-picker">
             <p className="kn-eyebrow mb-2">Units that record it (at least one)</p>
-            {orgUnits.length === 0 ? (
+            {perms.ready && !canSeeUnits ? (
+              <p className="text-xs text-content-muted" data-testid="kpi-orgunit-hidden">
+                Choosing the units that record a KPI needs permission to see your organisation’s units. Ask an
+                administrator for it, or choose another scope.
+              </p>
+            ) : orgUnits.length === 0 ? (
               <p className="text-xs text-content-muted">
                 No org units yet.{' '}
                 <Link href="/org-units" className="text-accent-primary hover:underline">

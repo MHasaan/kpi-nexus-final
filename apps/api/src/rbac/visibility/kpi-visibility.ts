@@ -37,7 +37,7 @@ export interface KpiVisibilityContext {
    * non-admin default and reproduces the legacy behaviour.
    */
   scope: Scope;
-  /** orgUnitIds the user manages (memberRole MANAGER or LEAD). */
+  /** orgUnitIds the user manages (memberRole MANAGER, LEAD or DEPUTY), and every unit below those. */
   managedOrgUnitIds: readonly string[];
   /** userIds that report (directly or indirectly) to this user. */
   directReportIds: readonly string[];

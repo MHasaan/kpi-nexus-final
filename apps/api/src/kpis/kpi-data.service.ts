@@ -141,6 +141,19 @@ export class KpiDataService {
       });
     }
 
+    // An organisation-wide figure (ARR, MRR, churn) is the KPI's owner's or an administrator's to record
+    // by hand; KPI_DATA_ENTRY alone let every employee write it (F-055). Values that arrive through a
+    // connector, an import or an integration's key are not typed by hand and keep their own paths.
+    if (ctx.principalType === 'user' && dto.sourceType === 'MANUAL') {
+      const profile = await this.accessContext.resolveForCurrentPrincipal();
+      if (!profile.isAdmin && kpi.ownerUserId !== ctx.userId) {
+        throw new ForbiddenException({
+          code: 'NOT_KPI_OWNER',
+          message: "Only this KPI's owner or an administrator can record its values",
+        });
+      }
+    }
+
     return this.insertDataPoint({
       organizationId: ctx.organizationId,
       kpiId,
@@ -678,7 +691,7 @@ export class KpiDataService {
     const ctx = RequestContextStore.require();
     const kpi = await this.prisma.kPI.findFirst({
       where: { id: kpiId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, name: true, scope: true, allowNegative: true, categoryId: true },
+      select: { id: true, name: true, scope: true, allowNegative: true, categoryId: true, ownerUserId: true },
     });
     if (!kpi) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'KPI not found' });

@@ -442,6 +442,16 @@ describe('NlqService.ask — catalog grounding', () => {
     expect(completeCalls[0]!.systemPrompt).toContain('CURRENT STATE');
   });
 
+  // Manual QA (2026-11-19, F-043): every KPI in the catalog was listed as a source under an answer about one of
+  // them. The sources are the KPIs the answer names, and any a tool read; the whole catalog is not a citation.
+  it('cites the KPIs the answer names, not the whole catalog', async () => {
+    const kpis = [kpi({ id: 'a', name: 'Monthly Recurring Revenue' }), kpi({ id: 'b', name: 'Deployments per Week' }), kpi({ id: 'c', name: 'Employee Engagement' })];
+    const { service, aiRouter } = buildService({ kpis });
+    aiRouter.complete.mockResolvedValue({ content: 'Monthly recurring revenue rose 3% and is on track for 250k.', actualCost: 0.001, usage: { inputTokens: 100, outputTokens: 50 } });
+    const answer = await run(() => service.ask('What is our MRR trend?'));
+    expect(answer.sources.map((s) => s.kpiId)).toEqual(['a']);
+  });
+
   it('returns sources drawn from the visible catalog', async () => {
     const kpis = [
       kpi({ id: 'a', name: 'Alpha' }),

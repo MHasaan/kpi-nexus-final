@@ -1555,6 +1555,27 @@
                   "isActive": {
                     "type": "boolean"
                   },
+                  "kpiId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ruleType": {
+                    "type": "string",
+                    "enum": [
+                      "STATIC_THRESHOLD",
+                      "DYNAMIC_STDDEV",
+                      "RATE_OF_CHANGE",
+                      "NO_DATA",
+                      "COMPOSITE"
+                    ]
+                  },
+                  "config": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
                   "escalationLevels": {
                     "maxItems": 10,
                     "type": "array",

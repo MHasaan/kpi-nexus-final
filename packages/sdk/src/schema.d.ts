@@ -5264,6 +5264,12 @@ export interface operations {
                     /** @enum {string} */
                     severity?: "LOW" | "MEDIUM" | "HIGH";
                     isActive?: boolean;
+                    kpiId?: string;
+                    /** @enum {string} */
+                    ruleType?: "STATIC_THRESHOLD" | "DYNAMIC_STDDEV" | "RATE_OF_CHANGE" | "NO_DATA" | "COMPOSITE";
+                    config?: {
+                        [key: string]: unknown;
+                    };
                     escalationLevels?: {
                         delayMinutes: number;
                         /** @default [] */

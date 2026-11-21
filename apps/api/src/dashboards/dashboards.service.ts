@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   PreconditionFailedException,
@@ -124,15 +125,15 @@ export class DashboardsService {
       { ownerUserId: { in: ownerIds } },
       { isShared: true },
     ];
-    // Unit-published dashboards surface only at UNITS scope (by design — DIRECT_REPORTS
-    // widens by people, not by unit membership).
-    if (scope === 'UNITS') {
-      const myUnitIds = [
-        ...new Set([...profile.context.managedOrgUnitIds, ...profile.context.memberOrgUnitIds]),
-      ];
-      if (myUnitIds.length > 0) {
-        or.push({ unitAssignments: { some: { orgUnitId: { in: myUnitIds } } } });
-      }
+    // A dashboard published to a unit reaches the unit's members whatever their dashboards
+    // scope: publishing is the owner's choice to show it to that team. Until 2026-11-21 it reached
+    // them only at the "their units" scope, so with the default scopes "Publish to unit" did nothing
+    // (F-068).
+    const myUnitIds = [
+      ...new Set([...profile.context.managedOrgUnitIds, ...profile.context.memberOrgUnitIds]),
+    ];
+    if (myUnitIds.length > 0) {
+      or.push({ unitAssignments: { some: { orgUnitId: { in: myUnitIds } } } });
     }
     // Phase 3.5 — per-entity ResourcePermission grants surface a dashboard the principal
     // was explicitly granted (view/manage) even when their DASHBOARDS scope wouldn't show it.
@@ -201,12 +202,39 @@ export class DashboardsService {
    * (lets internal tooling bypass it); when provided and mismatched, we
    * throw 412 carrying the current ETag.
    */
+  /**
+   * A dashboard is its owner's (or an administrator's, or someone granted "manage" on it) to change,
+   * archive, restore or purge. Seeing it is not enough: a dashboard published to a unit or shared
+   * with everyone could be renamed or deleted by any of its readers who held DASHBOARD_MANAGE (F-068).
+   */
+  private async assertMayChange(dashboard: { id: string; ownerUserId: string | null }): Promise<void> {
+    const ctx = RequestContextStore.require();
+    const profile = await this.accessContext.resolveForCurrentPrincipal();
+    if (profile.isAdmin || dashboard.ownerUserId === ctx.userId) return;
+    const granted = profile.resourceGrants.some(
+      (g) => g.resourceType === 'dashboard' && g.resourceId === dashboard.id && g.action === 'manage',
+    );
+    if (granted) return;
+    throw new ForbiddenException({
+      code: 'NOT_DASHBOARD_OWNER',
+      message: "Only the dashboard's owner or an administrator can change or delete it",
+    });
+  }
+
+  /** The dashboard, for a change to it or to what hangs off it (widgets, share links): 404 if unseen, 403 if not the caller's to change. */
+  async getByIdForChange(id: string): Promise<PublicDashboard> {
+    const existing = await this.getById(id);
+    await this.assertMayChange(existing);
+    return existing;
+  }
+
   async update(
     id: string,
     dto: UpdateDashboardDto,
     expectedVersion: number | null,
   ): Promise<PublicDashboard> {
     const existing = await this.getById(id);
+    await this.assertMayChange(existing);
 
     if (expectedVersion !== null && expectedVersion !== existing.version) {
       throw new PreconditionFailedException({
@@ -253,6 +281,7 @@ export class DashboardsService {
   async remove(id: string): Promise<void> {
     const ctx = RequestContextStore.require();
     const existing = await this.getById(id);
+    await this.assertMayChange(existing);
     await this.prisma.dashboard.update({
       where: { id: existing.id },
       data: { deletedAt: new Date(), deletedById: ctx.userId },
@@ -282,11 +311,12 @@ export class DashboardsService {
     const base = await this.visibilityWhere({ not: null });
     const existing = await this.prisma.dashboard.findFirst({
       where: { ...base, id },
-      select: { id: true, name: true },
+      select: { id: true, name: true, ownerUserId: true },
     });
     if (!existing) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Archived dashboard not found' });
     }
+    await this.assertMayChange(existing);
     await this.prisma.dashboard.update({
       where: { id },
       data: { deletedAt: null },
@@ -308,11 +338,12 @@ export class DashboardsService {
     const base = await this.visibilityWhere({ not: null });
     const existing = await this.prisma.dashboard.findFirst({
       where: { ...base, id },
-      select: { id: true, name: true },
+      select: { id: true, name: true, ownerUserId: true },
     });
     if (!existing) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: 'Archived dashboard not found' });
     }
+    await this.assertMayChange(existing);
     await this.prisma.dashboard.delete({ where: { id } });
     await this.audit.record({
       action: 'DELETE',

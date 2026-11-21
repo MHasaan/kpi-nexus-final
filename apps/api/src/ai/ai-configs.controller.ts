@@ -26,6 +26,8 @@ const UpdateBudgetSchema = z
   .object({
     dailyCapUsd: z.number().nonnegative().optional(),
     monthlyCapUsd: z.number().nonnegative().optional(),
+    /** Calls per day, free ones included; 0 means no limit (F-045). */
+    dailyCallCap: z.number().int().nonnegative().optional(),
     circuitBreaker: CircuitBreakerModeSchema.optional(),
   })
   .strict();

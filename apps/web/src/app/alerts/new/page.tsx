@@ -1,8 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useState, type FormEvent } from 'react';
 
 import { AppShell } from '../../../components/app-shell';
 import { RequirePermission } from '../../../components/auth/require-permission';
@@ -11,6 +11,8 @@ import {
   ApiError,
   createAlertRule,
   getAccessToken,
+  getAlertRule,
+  updateAlertRule,
   listKpis,
   listNotificationChannels,
   listRoles,
@@ -29,6 +31,7 @@ import {
   alertRuleBody,
   alertRuleProblem,
   conditionSentence,
+  formFromRule,
   levelSummary,
   toggleId,
 } from '../../../lib/alert-rule-form';
@@ -50,12 +53,24 @@ function UnitSelect({ value, onChange, testId, label }: { value: TimeUnit; onCha
   );
 }
 
+/** `useSearchParams` (the `?edit=` mode) needs a Suspense boundary at prerender time. */
 export default function NewAlertRulePage() {
+  return (
+    <Suspense fallback={null}>
+      <NewAlertRuleInner />
+    </Suspense>
+  );
+}
+
+function NewAlertRuleInner() {
   const router = useRouter();
+  // `?edit=<id>`: the same form opens a saved rule (F-069: Edit offered only name, severity, description).
+  const editId = useSearchParams().get('edit');
   const signedIn = typeof window !== 'undefined' && Boolean(getAccessToken());
   const { ready, has } = usePermissions();
   // Each list is asked for only by someone allowed to read it (FE-014).
   const allowed = signedIn && ready && has('KPI_EDIT');
+  const existing = useAsyncData(() => getAlertRule(editId ?? ''), [editId], { enabled: allowed && Boolean(editId) });
   const kpis = useAsyncData(() => listKpis(), [], { enabled: allowed });
   const roles = useAsyncData(() => listRoles(), [], { enabled: allowed });
   const users = useAsyncData(() => listUsers(), [], { enabled: allowed && has('USERS_VIEW') });
@@ -69,11 +84,21 @@ export default function NewAlertRulePage() {
     if (!getAccessToken()) router.replace(currentLoginRedirect());
   }, [router]);
 
-  // Start on the first KPI once the list arrives.
+  // Start on the first KPI once the list arrives (a new rule only; an edited one has its own).
   const firstKpiId = kpis.data?.[0]?.id;
   useEffect(() => {
-    if (firstKpiId) setForm((f) => (f.kpiId ? f : { ...f, kpiId: firstKpiId }));
-  }, [firstKpiId]);
+    if (firstKpiId && !editId) setForm((f) => (f.kpiId ? f : { ...f, kpiId: firstKpiId }));
+  }, [firstKpiId, editId]);
+
+  // The saved rule fills the form once it arrives.
+  const [filledFrom, setFilledFrom] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editId || !existing.data || filledFrom === editId) return;
+    const filled = formFromRule(existing.data);
+    if (filled) setForm(filled);
+    else setError('This kind of rule cannot be edited here.');
+    setFilledFrom(editId);
+  }, [editId, existing.data, filledFrom]);
 
   const set = <K extends keyof AlertRuleForm>(key: K, value: AlertRuleForm[K]) => setForm((f) => ({ ...f, [key]: value }));
   const text = (key: 'name' | 'description' | 'threshold' | 'sigmas' | 'windowSize' | 'percent' | 'windowValue' | 'staleValue' | 'cooldownValue') =>
@@ -93,11 +118,16 @@ export default function NewAlertRulePage() {
     if (problem) return;
     setSubmitting(true);
     try {
-      await createAlertRule(alertRuleBody(form));
-      // Land on the rules list so the new rule is visible (FE-006).
+      if (editId) {
+        // Everything is sent, so a cleared description or an emptied step list clears on the server too.
+        await updateAlertRule(editId, { ...alertRuleBody(form), description: form.description.trim(), escalationLevels: form.levels });
+      } else {
+        await createAlertRule(alertRuleBody(form));
+      }
+      // Land on the rules list so the rule is visible (FE-006).
       router.push('/alerts/rules');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'The rule was not created. Try again.');
+      setError(err instanceof ApiError ? err.message : `The rule was not ${editId ? 'changed' : 'created'}. Try again.`);
       setSubmitting(false);
     }
   }
@@ -108,7 +138,7 @@ export default function NewAlertRulePage() {
     <AppShell>
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-bold tracking-tight text-content-strong" data-testid="new-rule-heading">
-          New alert rule
+          {editId ? 'Edit alert rule' : 'New alert rule'}
         </h1>
         <p className="mt-1 text-sm text-content-muted">Say what to watch for on a KPI, and who should hear about it.</p>
 

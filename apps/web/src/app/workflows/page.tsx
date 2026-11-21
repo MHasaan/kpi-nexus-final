@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Activity, Pause, Pencil, Play, Trash2, Zap } from 'lucide-react';
 
-import { ApiError, getAccessToken, listKpis } from '../../lib/api-client';
+import { ApiError, getAccessToken, listKpis, listUsers } from '../../lib/api-client';
 import { type Workflow, createWorkflow, deleteWorkflow, listWorkflows, triggerWorkflow, updateWorkflow } from '../../lib/collab-client';
 import { AppShell } from '../../components/app-shell';
 import { PageHeader, Card, CardHeader, CardTitle, CardContent, Input, Select, Label, Button, EmptyState, Skeleton, Badge } from '../../components/ui';
@@ -14,7 +14,7 @@ import { useAsyncData } from '../../lib/use-async-data';
 import { useConfirm } from '../../lib/use-confirm';
 import { usePermissions } from '../../lib/use-permissions';
 import { useToast } from '../../lib/use-toast';
-import { EMPTY_WORKFLOW_FORM, OPERATORS, type WorkflowForm, describeWorkflow, formFromWorkflow, workflowBody, workflowFormProblem } from '../../lib/workflow-form';
+import { EMPTY_WORKFLOW_FORM, OPERATORS, type WorkflowForm, describeWorkflow, formFromWorkflow, workflowBody, workflowFormProblem, TASK_PRIORITY_CHOICES } from '../../lib/workflow-form';
 import { useFormat } from '../../lib/format-context';
 import { optionalList } from '../../lib/optional-list';
 
@@ -34,6 +34,8 @@ export default function WorkflowsPage() {
   // KPIs name the automations and fill the picker; without them the list still shows.
   const [kpisError, setKpisError] = useState<string | null>(null);
   const kpis = useAsyncData(() => optionalList(listKpis(), 'KPIs', setKpisError), [], { enabled: allowed });
+  // The people a task can be for; someone without the people list is offered "No one yet" only.
+  const people = useAsyncData(() => listUsers().catch(() => []), [], { enabled: allowed });
   const confirm = useConfirm();
   const toast = useToast();
 
@@ -184,6 +186,35 @@ export default function WorkflowsPage() {
                   <p data-testid="wf-holds-back-note" className="mt-1 text-xs text-content-muted">
                     While a task it made is still open, it does not make another.
                   </p>
+                </div>
+                {/* The task's owner, priority and due date (F-041: every automated task was unassigned, with neither). */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="wf-assignee-select">For</Label>
+                    <Select id="wf-assignee-select" data-testid="wf-assignee" value={form.assigneeUserId} onChange={set('assigneeUserId')} disabled={saving}>
+                      <option value="">No one yet</option>
+                      {(people.data ?? []).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.fullName || p.email}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="wf-priority-select">Priority</Label>
+                    <Select id="wf-priority-select" data-testid="wf-priority" value={form.priority} onChange={set('priority')} disabled={saving}>
+                      <option value="">Usual</option>
+                      {TASK_PRIORITY_CHOICES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="wf-due-input">Due in (days)</Label>
+                    <Input id="wf-due-input" data-testid="wf-due-in-days" inputMode="numeric" value={form.dueInDays} onChange={set('dueInDays')} placeholder="No due date" disabled={saving} />
+                  </div>
                 </div>
                 {formError && (
                   <p role="alert" data-testid="wf-form-error" className="text-sm text-status-critical">

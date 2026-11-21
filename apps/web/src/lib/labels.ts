@@ -300,3 +300,22 @@ export function activitySentence(row: ActivityRow, formatNumber: (n: number) => 
   if (subject.kpiName && kind !== 'kpi') return { text: `${activityLabel(row.action, row.entityType)} on ${subject.kpiName}`, href: kpiHref };
   return { text: activityLabel(row.action, row.entityType), href: page };
 }
+
+/** How a KPI's inputs connect to it, read from the KPI being looked at (F-071: the tab showed "CASCADE_ROLLUP"). */
+export const LINEAGE_UPSTREAM_LABELS: LabelMap = {
+  CASCADE_ROLLUP: 'rolls up into this KPI',
+  FORMULA: "is used in this KPI's formula",
+  INGEST: 'feeds this KPI',
+};
+export const LINEAGE_DOWNSTREAM_LABELS: LabelMap = {
+  CASCADE_ROLLUP: 'this KPI rolls up into it',
+  FORMULA: 'its formula uses this KPI',
+  INGEST: 'this KPI feeds it',
+};
+
+/** What a benchmark is, in words. */
+export const BENCHMARK_KIND_LABELS: LabelMap = {
+  EXTERNAL_INDUSTRY: 'Industry benchmark',
+  EXTERNAL_PEER: 'Peer benchmark',
+  INTERNAL_HISTORICAL: 'Our own history',
+};

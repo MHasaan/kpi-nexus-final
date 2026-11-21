@@ -287,7 +287,8 @@ export default function AlertDetailPage() {
                   {runbook && <Field label="What to do" value={runbook} testId="alert-what-to-do" />}
                   <Field
                     label="Acknowledged"
-                    value={alert.acknowledgedAt ? fmt.dateTime(alert.acknowledgedAt) : '—'}
+                    value={alert.acknowledgedAt ? `${fmt.dateTime(alert.acknowledgedAt)}${alert.acknowledgedBy ? ` by ${alert.acknowledgedBy}` : ''}` : '—'}
+                    testId="alert-acknowledged"
                   />
                   <Field
                     label="Resolved"

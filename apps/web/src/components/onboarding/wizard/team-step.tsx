@@ -179,6 +179,25 @@ export function TeamStep({ draft, problems, adminEmail, onChange }: TeamStepProp
                     </select>
                   </div>
                   <div>
+                    <label className={labelClass} htmlFor={`team-unit-role-${index}`}>
+                      Role in unit
+                    </label>
+                    {/* A manager, lead or deputy sees the unit's KPIs and those below it (F-005). */}
+                    <select
+                      id={`team-unit-role-${index}`}
+                      data-testid={`team-unit-role-${index}`}
+                      value={person.unitRole ?? 'MEMBER'}
+                      onChange={(e) => setPerson(index, setTeamField(person, 'unitRole', e.target.value === 'MEMBER' ? '' : e.target.value))}
+                      disabled={!person.unit}
+                      className={fieldClass}
+                    >
+                      <option value="MEMBER">Member</option>
+                      <option value="LEAD">Lead</option>
+                      <option value="MANAGER">Manager</option>
+                      <option value="DEPUTY">Deputy</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className={labelClass} htmlFor={`team-manager-${index}`}>
                       Reports to
                     </label>

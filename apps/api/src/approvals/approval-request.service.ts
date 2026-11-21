@@ -167,19 +167,30 @@ export class ApprovalRequestService {
       select: requestSelect,
     });
 
+    // A decision is its own kind of row, filterable as such, and names who asked (F-058: it was an UPDATE).
     await this.audit.record({
-      action: 'UPDATE',
+      action: input.decision === 'approve' ? 'APPROVE' : 'REJECT',
       entityType: 'ApprovalRequest',
       entityId: requestId,
-      metadata: { decision: input.decision, status, ...(ownRequest ? { ownRequest: true } : {}) },
+      metadata: {
+        decision: input.decision,
+        status,
+        requesterUserId: request.requesterUserId,
+        ...(input.comment ? { comment: input.comment } : {}),
+        ...(ownRequest ? { ownRequest: true } : {}),
+      },
     });
 
     if (status === 'APPROVED') {
-      await this.apply.apply({
-        entityType: updated.entityType,
-        entityId: updated.entityId,
-        proposedPayload: updated.proposedPayload,
-      });
+      // The change is applied as the person who asked for it, so what it writes to the audit log is
+      // credited to them, not to the approver (F-058). The APPROVE row above says who approved.
+      await RequestContextStore.run({ ...ctx, userId: request.requesterUserId }, () =>
+        this.apply.apply({
+          entityType: updated.entityType,
+          entityId: updated.entityId,
+          proposedPayload: updated.proposedPayload,
+        }),
+      );
     }
 
     return updated;

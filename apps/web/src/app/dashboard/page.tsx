@@ -629,7 +629,10 @@ export default function DashboardPage() {
                           </li>
                         ))}
                       </ul>
-                    ) : summary.some((r) => r.targetValue !== null) ? (
+                    ) : summary.some((r) => r.targetValue !== null || (r.holders?.withTarget ?? 0) > 0) ? (
+                      // A KPI held by several units or people has no single target in the summary, only a count
+                      // of holders with one; those count as targets too (F-003: "No targets set" for a new
+                      // organisation whose per-unit KPIs all had targets).
                       <EmptyState
                         title="No values yet"
                         description="Your KPIs have targets, but nothing is recorded to compare with them. Record a value to see attainment here."

@@ -113,27 +113,24 @@ describe('GET /kpis/dashboard-summary', () => {
       }),
     });
 
-    // 2. Record some data points
-    for (const value of [10000, 20000, 30000]) {
+    // 2. Record some data points — one per month: a period takes one recorded value (F-017).
+    const months = [
+      { periodStart: '2026-01-01', periodEnd: '2026-01-31' },
+      { periodStart: '2026-02-01', periodEnd: '2026-02-28' },
+      { periodStart: '2026-03-01', periodEnd: '2026-03-31' },
+    ];
+    for (const [i, value] of [10000, 20000, 30000].entries()) {
       await http(`/kpis/${orgWideA.body!.id}/data`, {
         method: 'POST',
         token: admin.accessToken,
-        body: JSON.stringify({
-          value,
-          periodStart: '2026-01-01',
-          periodEnd: '2026-01-31',
-        }),
+        body: JSON.stringify({ value, ...months[i]! }),
       });
     }
-    for (const value of [2.5, 3.5, 4.5]) {
+    for (const [i, value] of [2.5, 3.5, 4.5].entries()) {
       await http(`/kpis/${orgWideB.body!.id}/data`, {
         method: 'POST',
         token: admin.accessToken,
-        body: JSON.stringify({
-          value,
-          periodStart: '2026-01-01',
-          periodEnd: '2026-01-31',
-        }),
+        body: JSON.stringify({ value, ...months[i]! }),
       });
     }
 
@@ -147,7 +144,7 @@ describe('GET /kpis/dashboard-summary', () => {
     const rev = res.body!.find((r) => r.kpiId === orgWideA.body!.id);
     expect(rev).toBeDefined();
     expect(rev!.pointCount).toBe(3);
-    expect(rev!.latestValue).toBe(30000); // most recent (last inserted)
+    expect(rev!.latestValue).toBe(30000); // the latest period's value
     expect(rev!.targetValue).toBe(100000);
     // KPI created with aggregationMethod='SUM' → 10000+20000+30000 = 60000
     expect(rev!.aggregatedValue).toBe(60000);

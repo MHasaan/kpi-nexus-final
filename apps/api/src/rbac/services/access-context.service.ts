@@ -63,6 +63,12 @@ export class AccessContextService {
   private readonly cache = new Map<string, { profile: AccessProfile; roleId: string | null; at: number }>();
   private readonly unitMembersCache = new Map<string, { ids: string[]; at: number }>();
   private readonly ttlMs = 5 * 60 * 1000;
+  /**
+   * Bumped by every invalidation. A profile whose reads began under an older generation is answered
+   * but not kept: an administrator who hid a page while someone's /auth/me was in flight used to see
+   * the stale answer land in the cache after the clear and stand for five minutes (F-050).
+   */
+  private generation = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -75,6 +81,7 @@ export class AccessContextService {
     const hit = this.cache.get(key);
     // A profile worked out under another role is not this person's profile now.
     if (hit && hit.roleId === ctx.roleId && Date.now() - hit.at < this.ttlMs) return hit.profile;
+    const startedAt = this.generation;
 
     const resolved = await this.resolver.resolveForUser(
       ctx.organizationId,
@@ -174,7 +181,7 @@ export class AccessContextService {
       resourceGrants,
       pageAccess,
     };
-    this.cache.set(key, { profile, roleId: ctx.roleId, at: Date.now() });
+    if (startedAt === this.generation) this.cache.set(key, { profile, roleId: ctx.roleId, at: Date.now() });
     return profile;
   }
 
@@ -513,12 +520,14 @@ export class AccessContextService {
   }
 
   invalidate(organizationId: string, userId: string): void {
+    this.generation += 1;
     this.cache.delete(`${organizationId}:${userId}`);
     this.unitMembersCache.delete(`${organizationId}:${userId}`);
   }
 
   /** Clear every cached profile — call when a role's config/permissions change. */
   invalidateAll(): void {
+    this.generation += 1;
     this.cache.clear();
     this.unitMembersCache.clear();
   }

@@ -110,8 +110,9 @@ test.describe('/profile page — account + MFA UI', () => {
     const secretText = (await page.getByTestId('mfa-secret').textContent()) ?? '';
     expect(secretText.length).toBeGreaterThan(15);
 
-    // otpauth URL conforms to the otpauth://totp/<issuer>:<account>?secret=...&issuer=...
-    const otpauthUrl = (await page.getByTestId('mfa-otpauth-url').textContent()) ?? '';
+    // otpauth URL conforms to the otpauth://totp/<issuer>:<account>?secret=...&issuer=... — it is the link's
+    // address, not printed on the page (F-062).
+    const otpauthUrl = (await page.getByTestId('mfa-otpauth-url').getAttribute('href')) ?? '';
     expect(otpauthUrl).toMatch(/^otpauth:\/\/totp\//);
     expect(otpauthUrl).toContain('secret=');
     expect(otpauthUrl).toContain('issuer=');

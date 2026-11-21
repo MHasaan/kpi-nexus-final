@@ -733,6 +733,28 @@ export class KpiDataService {
       });
     }
     await this.assertValueAllowed(params.kpiId, params.dto.value);
+    // A period takes one recorded value per holder (F-017): a second one, typed by hand, used to be saved beside
+    // the first with no warning, and could then be neither moved nor removed. Integrations and imports manage
+    // their own periods, and a calculated row is a different thing from a recorded one.
+    if (params.dto.sourceType === 'MANUAL') {
+      const already = await this.prisma.kPIDataPoint.findFirst({
+        where: {
+          organizationId: params.organizationId,
+          kpiId: params.kpiId,
+          orgUnitId: params.orgUnitId,
+          userId: params.userId,
+          periodStart: params.dto.periodStart,
+          sourceType: { not: 'COMPUTED' },
+        },
+        select: { id: true },
+      });
+      if (already) {
+        throw new ConflictException({
+          code: 'PERIOD_ALREADY_RECORDED',
+          message: 'A value for this period is already recorded. Correct it on the Data tab instead of recording another.',
+        });
+      }
+    }
     const isOutlier = await this.computeOutlierFlag(params);
     const point = await this.prisma.kPIDataPoint.create({
       data: {

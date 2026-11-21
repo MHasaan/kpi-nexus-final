@@ -27,10 +27,9 @@ const CANNOT_MANAGE = new Set(['ARCHIVED', 'DELETED', 'PURGED']);
  *  - the last active administrator cannot be demoted;
  *  - a reporting line never loops back on itself.
  *
- * A role change reaches the person's session within the access-token lifetime:
- * a refresh re-reads the role from the database. The permissions kept in memory
- * for them are dropped at once, so the renewed session is answered with the new
- * role's.
+ * A role change takes effect on the person's very next request: the API reads
+ * the role from the database each time it checks a token (see `JwtStrategy`),
+ * and the permissions kept in memory for them are dropped here.
  */
 @Injectable()
 export class UserUpdateService {

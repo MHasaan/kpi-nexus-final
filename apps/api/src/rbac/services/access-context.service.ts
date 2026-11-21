@@ -59,7 +59,7 @@ const MAX_REPORT_DEPTH = 10;
  */
 @Injectable()
 export class AccessContextService {
-  private readonly cache = new Map<string, { profile: AccessProfile; at: number }>();
+  private readonly cache = new Map<string, { profile: AccessProfile; roleId: string | null; at: number }>();
   private readonly unitMembersCache = new Map<string, { ids: string[]; at: number }>();
   private readonly ttlMs = 5 * 60 * 1000;
 
@@ -72,7 +72,8 @@ export class AccessContextService {
     const ctx = RequestContextStore.require();
     const key = `${ctx.organizationId}:${ctx.userId}`;
     const hit = this.cache.get(key);
-    if (hit && Date.now() - hit.at < this.ttlMs) return hit.profile;
+    // A profile worked out under another role is not this person's profile now.
+    if (hit && hit.roleId === ctx.roleId && Date.now() - hit.at < this.ttlMs) return hit.profile;
 
     const resolved = await this.resolver.resolveForUser(
       ctx.organizationId,
@@ -172,7 +173,7 @@ export class AccessContextService {
       resourceGrants,
       pageAccess,
     };
-    this.cache.set(key, { profile, at: Date.now() });
+    this.cache.set(key, { profile, roleId: ctx.roleId, at: Date.now() });
     return profile;
   }
 

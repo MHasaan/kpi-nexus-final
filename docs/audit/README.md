@@ -535,6 +535,7 @@ Fixes land one finding at a time on `fix/full-audit`, each with a failing test f
 | Flow walk (settings): at 1280 px the AI settings table cut its model names (“gemini-3.5”) and choices (“Built-in fa”) | ✅ Fixed — provider and model share a column; the source badge sits under the feature’s name | #402 | `e2e/ai-settings-table-fits.spec.ts` |
 | Flow walk (first use): the checklist step “Add widgets to a dashboard” led a new organisation to an empty list of dashboards | ✅ Fixed — “Put a KPI on a dashboard” | #403 | `e2e/setup-checklist-card.spec.ts` |
 | Flow walk (first use): the wizard’s summary of a KPI read “target 500000” | ✅ Fixed — “target 500,000” | #404 | `e2e/wizard-kpis-step.spec.ts` |
+| Owner’s decision 2026-11-19: a changed role took up to 15 minutes to take effect on the API — it travelled in the session token and was never checked in between | ✅ Fixed — the API reads the person’s current role when it checks a token, so the very next request runs under the new role; tokens are issued as before and nobody is signed out | #405 | `auth/jwt.strategy.spec.ts`, `e2e/role-change-takes-effect-at-once.spec.ts` |
 
 ### UI completion round — open findings (2026-11-16)
 
